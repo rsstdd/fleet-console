@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -26,9 +28,107 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Generated decision routing, normative ADR metadata, stale resolved-decision
+      # language, historical/planning markers, and enforcement-file ADR citations.
+      - name: Architecture documentation is internally consistent
+        run: pnpm check:architecture-docs
+
+      # Principles 2 and 15: all packages inherit the strict compiler baseline,
+      # typed ESLint analysis, and the explicit-any ban. This prevents a local
+      # config override from silently weakening the repository's type boundary.
+      - name: Type-safety configuration cannot be weakened
+        run: pnpm check:type-safety
+
+      # Principle 15: the redundant-doc ban reports zero findings today, so a silently
+      # unloaded rule and a working one look identical from `pnpm lint` alone. This
+      # proves it still fires in every package, and still spares informative comments.
+      - name: The redundant-doc ban still fires
+        run: pnpm check:doc-comments
+
+      # ADR 29: every third-party package is named, with a reason, in the allow-list
+      # inside the check. A deny-list cannot catch the single-use package nobody
+      # thought to forbid, and a probe proved the hole was real — an unvetted import
+      # passed `pnpm lint` with exit 0 before this step existed. The same run rejects
+      # a dependency nothing imports and an import nothing declares.
+      - name: Every dependency is vetted, declared, and used
+        run: pnpm check:dependencies
+
+      # ADR 29: the vulnerability half. Gated at `high` rather than `low` because the
+      # useful signal is "this tree ships a known exploitable path", not "a transitive
+      # dev tool has a moderate advisory nobody can act on".
+      #
+      # This is the one step whose result can change without a change to this
+      # repository, which `TODO.md` § Priority 4 named as the thing to avoid. It is
+      # accepted deliberately: a newly disclosed high-severity advisory in a shipped
+      # dependency *is* news, and the alternative — learning it at the next unrelated
+      # bump — is worse. `--ignore-registry-errors` keeps a registry outage from
+      # reddening a build, and an advisory judged not to apply is recorded under
+      # `pnpm.auditConfig.ignoreGhsas` with its reasoning, never worked around here.
+      - name: No known high-severity vulnerability in the dependency tree
+        run: pnpm audit --audit-level=high --ignore-registry-errors
+
       # `lint` carries the boundary and token rules (Principles 8, 9);
       # a lint failure is a principle violation, not a style nit.
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+
+      # ADR 13: vendor fixtures are recorded simulator output, not hand-authored
+      # examples. Re-recording is deterministic, so an unchanged tree must produce
+      # an unchanged file. A diff here means a vendor dialect moved and the
+      # fixtures were left behind — the drift that would otherwise make an adapter
+      # contract test pass against bytes no producer emits any more.
+      #
+      # Fix it by running `pnpm record:fixtures` locally and committing the result
+      # alongside the dialect change. Never by editing the JSON.
+      - name: Vendor fixtures match recorded simulator output
+        run: |
+          pnpm record:fixtures
+          if ! git diff --exit-code -- 'packages/adapters/src/vendors/*/__fixtures__/*.json'; then
+            echo "::error::Recorded vendor fixtures are stale. Run 'pnpm record:fixtures' and commit the result (ADR 13)."
+            exit 1
+          fi
+
+      # ADR 27: a large, plausible, agent-written change is the one a reviewer is
+      # least able to check, because the defect is hidden by the same volume that
+      # exhausts the reader. The 300-line budget is derived in the header of the
+      # script from a named reader — one reviewer, one 60-minute sitting, at a
+      # defect-seeking reading rate — so raising it means changing that claim.
+      #
+      # Some changes genuinely have no smaller form. Those pass by saying so in an
+      # `Oversized-diff: <reason>` commit trailer, which leaves the exception in the
+      # history instead of in somebody's memory. `fetch-depth: 0` above is what lets
+      # this step see the base commit at all.
+      - name: Change is inside the reviewable-diff budget
+        run: pnpm check:diff-size
+
+      # ADR 22: the bundle is the number an operator feels, so it is a gate. The
+      # budget is derived from a named device and network in the header of the
+      # script; failing here means the console no longer fits that claim, and
+      # raising the number means changing the claim.
+      - name: Console bundle is inside its first-load budget
+        run: pnpm check:bundle
+
+      # ADR 22: adapter coverage is reported, never gated. The 90% figure this
+      # repository used to propose had no derivation, and an undefended threshold
+      # gets raised the first time it fails. The number stays visible so a drop is
+      # arguable from evidence; nothing here fails on it.
+      #
+      # `continue-on-error` is the decision in the workflow rather than in prose:
+      # a reported number that can redden the build is a gate with extra steps.
+      # The suite itself is already gated by the `pnpm test` step above.
+      #
+      # The longer timeout is for the lint-enforcement tests, which run ESLint
+      # programmatically and take several seconds each under v8 instrumentation.
+      - name: Adapter coverage (reported, not gated)
+        continue-on-error: true
+        run: |
+          pnpm --filter @fleet/adapters exec vitest run --coverage --testTimeout=60000 2>&1 \
+            | tee "$RUNNER_TEMP/coverage.log"
+          {
+            echo '### Adapter coverage — reported, not gated (ADR 22)'
+            echo '```'
+            sed -n '/Coverage report/,$p' "$RUNNER_TEMP/coverage.log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -8,7 +8,10 @@
       If one is, it is amended **in this PR** under its `## Observed consequences`
       heading, with the date and the reason. Silent divergence is the thing
       CLAUDE.md forbids; a corrected ADR is a normal outcome.
-- [ ] No new dependency. If there is one, the ADR justifying it is linked here.
+- [ ] Any new dependency carries the judgment CI cannot make: the allow-list entry in
+      `scripts/checkDependencies.mjs` says why a native API or an existing repository
+      helper does not do the job (ADR 29). The gate proves it is vetted, declared and
+      used; only you can say it should exist.
 
 ## Area checks
 
