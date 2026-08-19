@@ -1,0 +1,186 @@
+{
+  "decisions": [
+    {
+      "id": "D1",
+      "question": "Adapter output before freshness",
+      "adr": 10
+    },
+    {
+      "id": "D2",
+      "question": "Public access to adapter fixtures",
+      "adr": 11
+    },
+    {
+      "id": "D3",
+      "question": "Test-only adapter dependency in web",
+      "adr": 12
+    },
+    {
+      "id": "D4",
+      "question": "Fixture ownership and provenance",
+      "adr": 13
+    },
+    {
+      "id": "D5",
+      "question": "Unknown fields on rejected payloads",
+      "adr": 15
+    },
+    {
+      "id": "D6",
+      "question": "Shared fleet-roster parity",
+      "adr": 14
+    },
+    {
+      "id": "D7",
+      "question": "Supported-vendor authority and drift guard",
+      "adr": 16
+    },
+    {
+      "id": "D8",
+      "question": "Tenant configuration and feature flags",
+      "adr": 17
+    },
+    {
+      "id": "D9",
+      "question": "Vendor identity on ingest",
+      "adr": 8
+    },
+    {
+      "id": "D10",
+      "question": "Delta granularity and flush sequence",
+      "adr": 18
+    },
+    {
+      "id": "D11",
+      "question": "Capability classification",
+      "adr": 19
+    },
+    {
+      "id": "D12",
+      "question": "Ownership of fleet, health, and diagnostic response schemas",
+      "adr": 25
+    },
+    {
+      "id": "D13",
+      "question": "Runtime endpoint configuration",
+      "adr": 21
+    },
+    {
+      "id": "D14",
+      "question": "Fleet-table scale claim and virtualization",
+      "adr": 24
+    },
+    {
+      "id": "D15",
+      "question": "Connection state delivery to features",
+      "adr": 23
+    },
+    {
+      "id": "D16",
+      "question": "Decode-failure vocabulary across packages",
+      "adr": 20
+    },
+    {
+      "id": "D17",
+      "question": "Numeric gates and report-only measurements",
+      "adr": 22
+    },
+    {
+      "id": "D18",
+      "question": "Raw vendor-payload retention and diagnostic access",
+      "adr": 26
+    },
+    {
+      "id": "D19",
+      "question": "Pull-request size limit and its exception",
+      "adr": 27
+    },
+    {
+      "id": "D20",
+      "question": "Admission of third-party packages",
+      "adr": 29
+    }
+  ],
+  "mechanicalRules": [
+    {
+      "path": "packages/contracts/src/envelope/envelopeSchema.ts",
+      "adr": 10
+    },
+    {
+      "path": "packages/adapters/src/testing/fixtures.ts",
+      "adr": 11
+    },
+    {
+      "path": "packages/web/eslint.config.js",
+      "adr": 12
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "adr": 13
+    },
+    {
+      "path": "packages/adapters/src/core/unknownFieldPaths.ts",
+      "adr": 15
+    },
+    {
+      "path": "packages/simulator/src/fleet/vendorId.test.ts",
+      "adr": 16
+    },
+    {
+      "path": "packages/web/src/config/tenant.ts",
+      "adr": 17
+    },
+    {
+      "path": "packages/contracts/src/envelope/envelopeSchema.ts",
+      "adr": 18
+    },
+    {
+      "path": "packages/contracts/src/capabilities/capabilitySchemas.ts",
+      "adr": 19
+    },
+    {
+      "path": "packages/contracts/src/errors/errorEnvelopeSchema.ts",
+      "adr": 20
+    },
+    {
+      "path": "packages/server/src/config/runtimeEndpoints.ts",
+      "adr": 21
+    },
+    {
+      "path": "scripts/checkBundleBudget.mjs",
+      "adr": 22
+    },
+    {
+      "path": "packages/web/src/shared/lib/connectionContext.ts",
+      "adr": 23
+    },
+    {
+      "path": "packages/web/src/features/fleet/fleetScale.test.tsx",
+      "adr": 24
+    },
+    {
+      "path": "scripts/checkDiffSize.mjs",
+      "adr": 27
+    },
+    {
+      "path": "scripts/checkDependencies.mjs",
+      "adr": 29
+    }
+  ],
+  "authorityMarkers": {
+    "compatibility": ["CLAUDE.md"],
+    "historical": ["docs/ARCHITECTURE_AUDIT.md", "packages/FIXME.md", "packages/web/UI_PLAN.md"],
+    "planning": [
+      "TODO.md",
+      "packages/adapters/TODO.md",
+      "packages/adapters/TODO_E2E_JOIN.md",
+      "packages/contracts/TODO.md",
+      "packages/contracts/TODO_E2E_JOIN.md",
+      "packages/server/TODO.md",
+      "packages/simulator/TODO.md",
+      "packages/web/src/entities/robot/TODO.md",
+      "packages/web/src/features/fleet/TODO.md",
+      "packages/web/src/features/robot/TODO.md"
+    ]
+  }
+}

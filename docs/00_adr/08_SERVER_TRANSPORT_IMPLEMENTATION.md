@@ -17,7 +17,7 @@ The choice also interacts with ADR 2's measurement commitment. ADR 2 names per-r
 - The HTTP surface stays small: one `POST /api/telemetry/:vendor` plus `GET /api/fleet`, `GET /api/robots/:id`, `GET /api/robots/:id/history`, and `GET /api/health`. A framework is being chosen for ergonomics and correctness at that size, not for a large routing surface.
 - Connected consoles number in the single digits (ADR 2 § Assumptions), so WebSocket library throughput is not a differentiator. Correctness of connection lifecycle — reconnect, slow client, orderly shutdown — is.
 - Hono's per-request cost is small enough not to dominate ADR 2's ingest measurement, but it is not zero, and the harness must be able to separate it from validation cost rather than assume it away.
-- The simulator already posts one JSON body per reading to `/api/telemetry/:vendor` using `globalThis.fetch` with no HTTP dependency at all. The server is free to choose differently from the client; the route shape, however, is already fixed by a working caller.
+- The simulator already posts one JSON body per reading to `/api/telemetry/:vendor` using `globalThis.fetch` with no HTTP dependency at all. The server is free to choose differently from the client. ~~The route shape, however, is already fixed by a working caller.~~ **Amended 19 August 2026: that sentence was an assumption doing a decision's work, and is now stated as one — see the route subsection of the Decision below.**
 
 ## Constraints
 
@@ -34,6 +34,16 @@ HTTP is served by Hono, mounted on Node's HTTP server through `@hono/node-server
 Three runtime dependencies are added to `packages/server`: `hono`, `@hono/node-server`, and `ws` (with `@types/ws` as a devDependency). No other transport dependency is introduced.
 
 Hono is used as a router and nothing more. Route handlers read the raw body as `unknown` and hand it to `@fleet/contracts` schemas or to the adapter registry; Hono's own validators, its typed-client generation, and its middleware ecosystem are not used. Handlers stay thin, delegating state transitions to the framework-independent functions that already exist in this package.
+
+### Vendor identity travels in the route
+
+**Amended 19 August 2026, ratifying register stub D9 (option 1) and closing server TODO M7.**
+
+The server learns which adapter to dispatch to from the `:vendor` path segment of `POST /api/telemetry/:vendor`, and from nowhere else. The segment is validated against the adapter registry's key set **before any body byte is read**; a segment naming no supported vendor is a 404 with the `unsupportedVendors` health counter incremented, never a fallback adapter and never a permissive pre-parse of the body.
+
+The alternatives were a request header and a field inside the payload. The body is rejected as circular: the body is untrusted, and the vendor is what selects the schema that would make it trustworthy, so reading identity out of it means parsing before validating — a permissive pre-parse that becomes a second decode authority (Principles 1 and 2). A header carries the same validated-before-decode property as the route and was rejected on operability: it is invisible in ordinary HTTP logs, and a proxy that drops or rewrites headers turns a routing problem into an unsupported-vendor rejection with no evidence of why. Inferring the vendor from payload _shape_ is not a fourth option; it would make adding a fourth vendor a change to the dispatch heuristics of the other three.
+
+Selection is `selectIngestVendor` in `packages/server/src/ingest`, a pure function taking the segment and nothing else, so the ordering is a property of the signature rather than a rule a handler must remember.
 
 ## Positions
 
@@ -54,6 +64,17 @@ The cost is three dependencies where one would do, and one of them (`@hono/node-
 
 ## Implications
 
+**From the route amendment (19 August 2026):**
+
+- **The route is a contract with an already-shipped client.** `ingestUrlFor` in `packages/simulator` builds it and its integration test asserts the shape. Changing the route means changing that function, the server's route, `selectIngestVendor`, and their tests in one commit (Principle 14) — which is why this was worth ratifying before the server route existed rather than after.
+- **Adapter selection precedes body reading, structurally.** `selectIngestVendor(segment)` has no access to a body. When the Hono handler lands it must call the selector first and return on rejection; a handler that reads the body before selecting produces no type error, so its own test must assert the ordering against a real request. That test is the one piece of the register's required evidence still outstanding.
+- **`isSupportedVendor` keeps its `unknown` parameter.** The register asked whether the server validating first meant the adapter guard could narrow to `string`. It stays `unknown`: the value arrives from a URL, and a boundary guard with a precondition is a guard that can be called wrongly. The reasoning now sits at the guard itself.
+- **An unsupported vendor is a 404 with its own counter, not a 400.** "Your vendor is not integrated" and "your payload is wrong" are different operator problems counted at different scopes; `HealthMetrics.recordUnsupportedVendor` exists for the first and must not absorb the second.
+- **A caller can lie about the segment, and that is accepted.** So can a header, and so can a body field. Ingest is unauthenticated in this submission; the route decides _which schema decodes the payload_, not who may send it. Authentication is a separate decision, and until it exists the honest claim is that vendor identity is a routing key rather than an assertion of provenance.
+- **Vendor ids are case-sensitive on the wire.** The registry key set is `A | B | C`, so `/api/telemetry/a` is a 404. The simulator emits the canonical form; accepting a lower-case route would mean the route and the registry disagreeing about what a vendor id is.
+
+**From the original transport decision:**
+
 - ADR 2's measurement harness must report Hono's per-request overhead as a distinguishable component, not fold it into "HTTP overhead" as an opaque total. Otherwise the harness cannot tell the framework's cost from Node's own, and ADR 2's staged mitigation — batch ingest first, then `node:cluster` — would be chosen against a number that does not separate them.
 - The WebSocket server and the HTTP server share a port and therefore a lifecycle. Orderly shutdown must close socket clients before closing the HTTP server, or in-flight frames are dropped on a listener that no longer exists.
 - `@hono/node-server` must expose the raw `http.Server` for `ws` to attach to. If a future version stops doing so, the upgrade path breaks and this ADR is reopened rather than worked around.
@@ -72,7 +93,8 @@ The cost is three dependencies where one would do, and one of them (`@hono/node-
 
 ## Observed consequences
 
--
+- **19 August 2026 — the assumption had already shipped in two packages before it was a decision.** `ingestUrlFor` posts to the route and asserts it in an integration test; `isSupportedVendor(value: unknown)` was widened specifically to take an unvalidated route parameter, a signature that only makes sense under this option. Neither package was wrong, and that is the register's point: three artifacts agreed on a rule no document had decided, which is how a rule becomes architecture by accident rather than by choice.
+- **19 August 2026 — selection landed ahead of the listener.** `selectIngestVendor` and its tests exist while Hono is still uninstalled and no route is served. The selector is framework-independent by construction, so mounting it later is a handler that calls it; the ordering guarantee does not wait on the transport.
 
 ## Related
 
@@ -88,3 +110,4 @@ The cost is three dependencies where one would do, and one of them (`@hono/node-
 ## Notes
 
 - 19 August 2026: decided against `node:http` alone by a narrow margin. If the route count ever falls to two or three, or if `@hono/node-server` becomes an obstacle to the `ws` upgrade path, position 1 is the fallback and requires no other change to this design.
+- **Amendment (19 August 2026, route):** ratified register stub **D9** as option 1 and closed server TODO **M7**. The stub's own recommendation was to promote this ADR's assumption rather than write a new ADR, which is why this is an amendment and no new ADR number was taken. The Assumptions bullet is struck through rather than deleted, so a reader arriving from a document that cites "ADR 8 § Assumptions" still finds it.

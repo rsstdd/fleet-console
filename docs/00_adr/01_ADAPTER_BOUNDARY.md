@@ -91,6 +91,26 @@ Keeping a separate declared-capability record rather than relying on TypeScript 
 - **19 August 2026 — status and health severity stay independent in the contract.** The open question asking whether `fault` should imply `critical` is closed as no. The two are different facts about a robot, and the combination the rule would have forbidden is one a vendor can legitimately report: a robot stopped by an e-stop, or halted on a navigation fault, is in `fault` status with nominal lidar and battery telemetry. A schema rule rejecting that would discard real readings and count them as malformed ingest; requiring adapters to normalise `fault` into `critical` instead would have them invent a severity no vendor sent, which this ADR's own "preserve source semantics" constraint forbids and which would make the canonical value untraceable to its source. The coherence the rule was reaching for is a _presentation_ concern and is already handled there — see the entry below, where `selectStatusPresentation` maps `critical` onto the `fault` chip variant because the fleet table has one chip and no health column. Collapsing at the point of display is reversible and scoped; collapsing in the contract is neither.
 - **19 August 2026 — health severity needed a presentation rule this ADR had not supplied.** Keeping `status` and `health.severity` as independent fields is right at the contract layer, but the fleet table renders one chip per robot and has no health column (fleet spec §2), so the chip alone had to carry both facts. `selectStatusPresentation` in `packages/web/src/entities/robot` originally mapped only `degraded`, which left `critical` passing through to the status colour: a critically unhealthy idle robot chipped as ordinary "Idle"/neutral while the _lesser_ severity was visible. `critical` now maps to the existing `fault` variant. No canonical value, variant or token was added — the danger colour already means "needs attention now" — and the label continues to name the status, so the two fields are not collapsed into one word. The rule lives in the entity selector, not in the envelope or in a component (Principle 1).
 
+- **19 August 2026 — the type an adapter actually returns is now named.** This ADR describes an adapter as translating a vendor dialect into "one canonical envelope", which the freshness field made impossible to do literally: ADR 3 reserves that field for the server. [ADR 10](./10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md) records the resolution — adapters return `AdapterEnvelope`, the canonical shape minus `freshness`, and the server completes it through `withFreshness`. Read "one canonical envelope" above as the destination of the adapter's output rather than its immediate return type. No decision in this ADR changes.
+
+- **19 August 2026 — the raw payload's bounds and access are now decided.** This ADR
+  separated the raw payload from the fleet read model and placed it on the single-robot
+  diagnostic endpoint, and left how much is retained, under what limits, and who may read
+  it to a later decision.
+  [ADR 26](./26_RAW_PAYLOAD_BOUNDED_VERBATIM_AND_UNPROTECTED_BY_DECISION.md) answers all
+  three: a 64 KiB cap applied before parsing, the latest payload per robot kept **verbatim
+  with no redaction**, deep-copied so retained evidence cannot be mutated from either side,
+  and **no access rule at all** — stated plainly on the page rather than implied away.
+
+  The no-redaction half is the part that reads as an omission and is not one. Field-name
+  redaction over a dialect nobody has catalogued cannot identify the unknown fields, and
+  those are precisely what this ADR retains the payload to reveal. No decision here
+  changes; the separation and endpoint placement stand exactly as written.
+
+- **19 August 2026 — "render exactly the capabilities the adapter declared" carried an unenforced exception, now typed.** This ADR makes `sequence` a capability because Vendor B sends none, and leaves which capabilities render to the page spec. That deferral had no mechanism behind it: page spec 03 § 6 stated the exclusion in prose, and `packages/web` re-derived it three times — a `DiagnosticCapabilityName` literal, a `DIAGNOSTIC_ONLY_CAPABILITIES` array, and a duplicate of `CAPABILITY_NAMES` — with nothing comparing any of them to this package. [ADR 19](./19_CAPABILITY_KIND_SPLITS_THE_NAME_SET_IN_CONTRACTS.md) records the resolution: `CAPABILITY_KINDS` classifies every capability `operator` or `diagnostic`, totally and at compile time, and both name subsets derive from it.
+
+  **No decision in this ADR changes, and deliberately so.** No vendor profile, no wire format, no payload shape and no adapter is affected; the Vendor B reasoning two entries above still holds, because `sequence` is still excluded from the panel grid — it is now excluded _by classification_ rather than by a rule each consumer remembers. What ADR 19 adds is that § Implications' "adding a capability is a contracts-layer change first, then a panel-mapping change" is now enforced by the type system rather than by that sentence.
+
 ## Related
 
 - **ADR 4** (feature-sliced structure, enforced dependency rule) — the entity layer's prohibition on importing React or MUI exists so the capability-to-panel mapping this ADR enables can be tested as pure domain logic, independent of rendering.
