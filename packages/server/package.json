@@ -1,0 +1,36 @@
+{
+  "name": "@fleet/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Thin runtime authority: telemetry ingest, adapter dispatch, in-memory fleet state, freshness sweep, HTTP reads, WebSocket delta fan-out, health.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "pnpm lint:js && pnpm typecheck",
+    "lint:js": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@fleet/contracts": "workspace:*",
+    "@fleet/adapters": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "eslint-plugin-jsdoc": "catalog:",
+    "globals": "^17.11.0",
+    "tsx": "^4.20.6",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "liveThresholdMs": 2000,
+  "staleThresholdMs": 10000,
+  "sweepIntervalMs": 500,
+  "lateTickToleranceMs": 100
+}

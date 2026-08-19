@@ -6,7 +6,15 @@
   "overrides": [
     {
       "files": ["*.md"],
-      "options": { "proseWrap": "preserve" }
+      "options": {
+        "proseWrap": "preserve"
+      }
+    },
+    {
+      "files": ["packages/adapters/src/vendors/*/__fixtures__/*.json"],
+      "options": {
+        "objectWrap": "collapse"
+      }
     }
   ]
 }

@@ -1,0 +1,15 @@
+{
+  "robot_id": "R-001",
+  "site": "SITE-NORTH",
+  "model": "AX-240",
+  "seq": 0,
+  "timestamp": "2025-08-19T10:40:00.000Z",
+  "telemetry": {
+    "battery": { "level": 0.9661 },
+    "pose": { "x_m": 2.512, "y_m": 5.922, "heading_deg": 177.63 },
+    "state": "busy",
+    "health": { "level": "nominal" },
+    "dock": { "docked": false, "dock_id": null },
+    "lidar": { "rpm": 600, "fault": false }
+  }
+}

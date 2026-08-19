@@ -1,0 +1,180 @@
+/* =========================================================
+   canonical-fleet — Design tokens
+   Two tenant profiles. Tenant A is dark, Tenant B is light.
+   Theme is set from configuration at boot, never from a user preference.
+   ========================================================= */
+
+:root {
+  /* ---------- Theme-independent ---------- */
+  --font-sans:
+    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, monospace;
+
+  --radius-sm: 4px;
+  --radius: 6px;
+
+  /*
+   * Layout minimums used by robot detail: the capability grid's auto-fill
+   * track (page spec 03 §4) and the technician raw-payload block's scroll
+   * height (§4, "max height constrained"). Tokens rather than literals so
+   * features stay free of raw pixel spacing (Principle 8).
+   */
+  --panel-min-width: 240px;
+  --scroll-block-max-height: 24rem;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+
+  --text-overline: 0.6875rem;
+  --text-caption: 0.75rem;
+  --text-small: 0.8125rem;
+  --text-body: 0.9375rem;
+  --text-h3: 1rem;
+  --text-h2: 1.25rem;
+  --text-h1: clamp(1.75rem, 3.5vw, 2.25rem);
+
+  --leading-tight: 1.2;
+  --leading-snug: 1.3;
+  --leading-normal: 1.5;
+
+  /*
+   * Feedback tokens are aliases, never independent values.
+   * Two palettes carrying the same colours drift the moment one is adjusted.
+   */
+  --success: var(--status-active);
+  --warning: var(--status-degraded);
+  --error: var(--status-fault);
+
+  /*
+   * The tint pairs alias the same way. ConnectionBanner needs a --warning and
+   * an --error surface (component spec 07 § 6) and must not reach for a
+   * status-* tint directly: a banner is not a robot status, and naming the
+   * status token at the call site is how the two palettes start to drift.
+   */
+  --warning-bg: var(--status-degraded-bg);
+  --warning-border: var(--status-degraded-border);
+  --error-bg: var(--status-fault-bg);
+  --error-border: var(--status-fault-border);
+
+  --focus-ring: var(--accent);
+}
+
+/* ---------- Tenant A: dark operational profile (default) ---------- */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #141816;
+  --surface: #1c211e;
+  --surface-raised: #232925;
+  --surface-sunken: #101412;
+  --line: #2e3430;
+  --line-strong: #3f4742;
+
+  --ink: #e8e6e1;
+  --ink-soft: #c5c2b8;
+  --ink-muted: #8e8b82;
+
+  /* Accent is tenant-supplied. These are the Tenant A defaults. */
+  --accent: #c2a671;
+  --accent-hover: #a8905e;
+  --accent-text: #c2a671;
+  --on-accent: #141816;
+
+  /*
+   * Six status variants, one per state the canonical model can produce.
+   * Five map to the status enum (idle, busy, charging, fault, unknown);
+   * degraded maps to health severity. No token exists for a state no
+   * adapter emits, which is why maintenance and info are absent.
+   */
+  --status-neutral: #6b6560;
+  --status-active: #3d9b6e;
+  --status-charging: #3b82a0;
+  --status-degraded: #c4a035;
+  --status-fault: #c75138;
+  --status-unknown: #8e8b82;
+
+  --status-neutral-bg: rgba(107, 101, 96, 0.15);
+  --status-neutral-border: rgba(107, 101, 96, 0.3);
+  --status-active-bg: rgba(61, 155, 110, 0.12);
+  --status-active-border: rgba(61, 155, 110, 0.28);
+  --status-charging-bg: rgba(59, 130, 160, 0.12);
+  --status-charging-border: rgba(59, 130, 160, 0.3);
+  --status-degraded-bg: rgba(196, 160, 53, 0.12);
+  --status-degraded-border: rgba(196, 160, 53, 0.3);
+  --status-fault-bg: rgba(199, 81, 56, 0.12);
+  --status-fault-border: rgba(199, 81, 56, 0.3);
+  --status-unknown-bg: rgba(142, 139, 130, 0.12);
+  --status-unknown-border: rgba(142, 139, 130, 0.28);
+
+  --header-bg: rgba(20, 24, 22, 0.92);
+  --row-hover: rgba(255, 255, 255, 0.025);
+  --overlay: rgba(0, 0, 0, 0.55);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.32);
+}
+
+/* ---------- Tenant B: light profile ---------- */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f4f2ec;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #ebe8e0;
+  --line: #d9d4c8;
+  --line-strong: #c4bdb0;
+
+  --ink: #1a1d1b;
+  --ink-soft: #3d4240;
+  --ink-muted: #6b6860;
+
+  --accent: #a67c3a;
+  --accent-hover: #8f6a30;
+  --accent-text: #8f6a30;
+  --on-accent: #ffffff;
+
+  --status-neutral: #5a554f;
+  --status-active: #2f7d56;
+  --status-charging: #2e6a86;
+  --status-degraded: #a67c1a;
+  --status-fault: #b33e2a;
+  --status-unknown: #6b6860;
+
+  --status-neutral-bg: rgba(90, 85, 79, 0.1);
+  --status-neutral-border: rgba(90, 85, 79, 0.25);
+  --status-active-bg: rgba(47, 125, 86, 0.1);
+  --status-active-border: rgba(47, 125, 86, 0.28);
+  --status-charging-bg: rgba(46, 106, 134, 0.1);
+  --status-charging-border: rgba(46, 106, 134, 0.28);
+  --status-degraded-bg: rgba(166, 124, 26, 0.1);
+  --status-degraded-border: rgba(166, 124, 26, 0.28);
+  --status-fault-bg: rgba(179, 62, 42, 0.1);
+  --status-fault-border: rgba(179, 62, 42, 0.28);
+  --status-unknown-bg: rgba(107, 104, 96, 0.1);
+  --status-unknown-border: rgba(107, 104, 96, 0.25);
+
+  --header-bg: rgba(244, 242, 236, 0.92);
+  --row-hover: rgba(0, 0, 0, 0.025);
+  --overlay: rgba(26, 29, 27, 0.4);
+  --shadow-1: 0 1px 2px rgba(26, 29, 27, 0.06);
+  --shadow-2: 0 4px 16px rgba(26, 29, 27, 0.1);
+}
+
+/*
+ * There is deliberately no prefers-color-scheme block. Dark and light are the
+ * two tenant profiles rather than a user preference, so the theme arrives with
+ * the tenant configuration and a system preference would silently override a
+ * deployment decision. ADR 5 records this.
+ */

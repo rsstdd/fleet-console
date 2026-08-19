@@ -4,22 +4,32 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "packageManager": "pnpm@11.18.0",
+  "packageManager": "pnpm@11.20.0",
   "engines": {
     "node": ">=24.15.0",
-    "pnpm": ">=11.18.0"
+    "pnpm": ">=11.20.0"
   },
   "scripts": {
-    "dev": "pnpm --recursive --parallel --stream dev",
     "build": "pnpm --recursive build",
-    "test": "pnpm --recursive test",
-    "typecheck": "pnpm --recursive typecheck",
-    "lint": "pnpm --recursive lint && pnpm format:check",
+    "check:architecture-docs": "node --test scripts/architectureDocs.test.mjs && node scripts/architectureDocs.mjs --check",
+    "check:bundle": "node scripts/checkBundleBudget.mjs",
+    "check:ci": "pnpm install --frozen-lockfile && pnpm check:architecture-docs && pnpm check:type-safety && pnpm check:doc-comments && pnpm check:dependencies && pnpm audit --audit-level=high --ignore-registry-errors && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm record:fixtures && git diff --exit-code -- 'packages/adapters/src/vendors/*/__fixtures__/*.json' && pnpm check:diff-size && pnpm check:bundle",
+    "check:dependencies": "node --test scripts/checkDependencies.test.mjs && node scripts/checkDependencies.mjs",
+    "check:diff-size": "node --test scripts/checkDiffSize.test.mjs && node scripts/checkDiffSize.mjs",
+    "check:doc-comments": "node --test scripts/informativeDocsRule.test.mjs",
+    "check:type-safety": "node --test scripts/typeSafetyConfig.test.mjs",
+    "clean": "pnpm --recursive exec rm -rf dist coverage node_modules/.tmp",
+    "dev": "pnpm --recursive --parallel --stream dev",
+    "docs:decisions": "node scripts/architectureDocs.mjs --write",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "clean": "pnpm --recursive exec rm -rf dist coverage node_modules/.tmp"
+    "lint": "pnpm --recursive lint && pnpm format:check",
+    "record:fixtures": "pnpm --filter @fleet/simulator record:fixtures && prettier --write --log-level warn \"packages/adapters/src/vendors/*/__fixtures__/*.json\"",
+    "test": "pnpm --recursive test",
+    "typecheck": "pnpm --recursive typecheck"
   },
   "devDependencies": {
+    "eslint": "catalog:",
     "prettier": "^3.9.6",
     "typescript": "~6.0.2"
   }

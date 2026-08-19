@@ -1,0 +1,507 @@
+/* =========================================================
+   canonical-fleet — Global styles
+   Works alongside MUI. Overrides stay light and intentional.
+   ========================================================= */
+
+@import "./tokens.css";
+
+/* ---------- Base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  transition:
+    background-color var(--duration-normal) var(--ease),
+    color var(--duration-normal) var(--ease);
+}
+
+/* ---------- Typography defaults ---------- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  color: var(--ink);
+  line-height: var(--leading-tight);
+}
+
+h1 {
+  font-size: var(--text-h1);
+}
+h2 {
+  font-size: var(--text-h2);
+  line-height: var(--leading-snug);
+}
+h3 {
+  font-size: var(--text-h3);
+  line-height: var(--leading-snug);
+}
+
+p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+small {
+  font-size: var(--text-small);
+  color: var(--ink-muted);
+}
+
+/* Data and mono */
+.mono,
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+code {
+  font-size: 0.9em;
+}
+
+pre {
+  margin: 0;
+  overflow: auto;
+}
+
+.overline {
+  font-family: var(--font-mono);
+  font-size: var(--text-overline);
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* ---------- Links ---------- */
+a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: color var(--duration-fast) var(--ease);
+}
+
+a:hover {
+  color: var(--accent-text);
+}
+
+/* ---------- Focus ---------- */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---------- Selection ---------- */
+::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--ink);
+}
+
+/* ---------- Native form elements ---------- */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---------- Native tables ---------- */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* ---------- Status chip ----------
+   Six variants, matching the canonical status enum plus health severity.
+   The variant is chosen by a tested selector in entities/robot; this file
+   never learns what a robot is.
+   ------------------------------------------------------------------ */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  line-height: 1.2;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.status--neutral {
+  color: var(--status-neutral);
+  background: var(--status-neutral-bg);
+  border-color: var(--status-neutral-border);
+}
+
+.status--active {
+  color: var(--status-active);
+  background: var(--status-active-bg);
+  border-color: var(--status-active-border);
+}
+
+.status--charging {
+  color: var(--status-charging);
+  background: var(--status-charging-bg);
+  border-color: var(--status-charging-border);
+}
+
+.status--degraded {
+  color: var(--status-degraded);
+  background: var(--status-degraded-bg);
+  border-color: var(--status-degraded-border);
+}
+
+.status--fault {
+  color: var(--status-fault);
+  background: var(--status-fault-bg);
+  border-color: var(--status-fault-border);
+}
+
+.status--unknown {
+  color: var(--status-unknown);
+  background: var(--status-unknown-bg);
+  border-color: var(--status-unknown-border);
+}
+
+/*
+ * current={false}: this is the last value received, not the current one.
+ * Fill drops away and the dot goes hollow, so the status column alone cannot
+ * mislead a reader who never reaches the freshness column.
+ */
+.status--last-known {
+  background: transparent;
+  color: var(--ink-muted);
+  border-color: var(--line-strong);
+}
+
+.status--last-known::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+
+/* Table density. Size is a class so StatusChip stays free of inline style. */
+.status--small {
+  gap: 0.3rem;
+  padding: 0.15rem 0.45rem;
+  font-size: var(--text-overline);
+}
+
+/*
+ * Forced colours: the tint is allowed to disappear, the border and the label
+ * are not. Without an explicit border colour the chip loses its outline and
+ * the last-known treatment stops reading as different from the current one.
+ */
+@media (forced-colors: active) {
+  .status {
+    border-color: currentColor;
+  }
+
+  /*
+   * box-shadow is dropped under forced colours, so the hollow dot cannot carry
+   * "last known" there. The dashed border does, and the label says it outright.
+   */
+  .status--last-known {
+    border-style: dashed;
+  }
+}
+
+/* ---------- Freshness ----------
+   Freshness is not a status and does not share the status palette.
+   It is carried by emphasis, and the state word does the work.
+   ------------------------------------------------------------------ */
+.freshness {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+
+.freshness .state {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.freshness .age {
+  color: var(--ink-muted);
+}
+
+.freshness--live .state {
+  color: var(--status-active);
+}
+.freshness--stale .state {
+  color: var(--status-degraded);
+}
+.freshness--stale .age {
+  text-decoration: underline dotted;
+}
+.freshness--unreachable .state {
+  color: var(--status-fault);
+}
+.freshness--unknown .state {
+  color: var(--ink-muted);
+}
+
+/* A value carried over from a robot that has stopped reporting. */
+.value--last-known {
+  color: var(--ink-muted);
+}
+
+/* ---------- Connection banner ----------
+   Token mapping for shared/ui/connectionBanner.tsx; component spec 07 § 6.
+   Only --warning and --error are used here, never a --status-* token: the
+   banner reports transport integrity, not a robot's state.
+   ------------------------------------------------------------------ */
+/* stylelint-disable selector-class-pattern -- Component spec 07 §4 fixes the
+   connection-banner__* selectors; connectionBanner.test.tsx covers them. */
+.connection-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-small);
+  line-height: var(--leading-normal);
+}
+
+/*
+ * Connected: present in the accessibility tree, absent from the layout.
+ * display:none and visibility:hidden both remove the region from that tree,
+ * which would defeat the entire point of mounting it early (spec § 4), so the
+ * container is clipped out of flow instead and reserves no strip.
+ */
+.connection-banner--connected {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.connection-banner--reconnecting {
+  color: var(--warning);
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+}
+
+.connection-banner--disconnected {
+  color: var(--error);
+  background: var(--error-bg);
+  border-color: var(--error-border);
+}
+
+/* Wraps freely; the retry control beside it never compresses to nothing (§7). */
+.connection-banner__message {
+  min-width: 0;
+}
+
+.connection-banner__retry {
+  flex-shrink: 0;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font-size: var(--text-small);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease);
+}
+
+.connection-banner__retry:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+/* stylelint-enable selector-class-pattern */
+
+/* ---------- Data plate ---------- */
+.data-plate {
+  font-family: var(--font-mono);
+  font-size: var(--text-overline);
+  color: var(--ink-muted);
+  border-top: 1px solid var(--line);
+  padding-top: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+/* ---------- Section label ---------- */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-overline);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.section-label::before {
+  content: "";
+  width: 1.25rem;
+  height: 2px;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ---------- Stat ----------
+   Token mapping for shared/ui/stat.tsx; keep its tone classes aligned with
+   component spec 05. The parent owns layout and any card surface.
+   ------------------------------------------------------------------ */
+/* stylelint-disable selector-class-pattern -- Component spec 05 requires the
+   stat__* public selectors; stat.test.tsx covers that output contract. */
+.stat__value {
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-h2);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+}
+
+.stat__label {
+  margin-top: var(--space-1);
+  color: var(--ink-muted);
+  font-size: var(--text-small);
+  line-height: var(--leading-normal);
+}
+
+.stat__hint {
+  color: var(--ink-muted);
+  font-size: var(--text-caption);
+  line-height: var(--leading-normal);
+}
+
+.stat--warning .stat__value {
+  color: var(--warning);
+}
+
+.stat--critical .stat__value {
+  color: var(--error);
+}
+/* stylelint-enable selector-class-pattern */
+
+/* ---------- Empty state ----------
+   Token mapping for shared/ui/emptyState.tsx (component spec 06 §6). The title
+   is an h2 for the document outline and h3 scale for the visual hierarchy:
+   spec §4 fixes the level, spec §6 fixes the size, and they are deliberately
+   two different decisions. No surface, border, illustration or accent here —
+   the parent owns any card, as it does for .stat, and §6 rules out decoration.
+   ------------------------------------------------------------------ */
+/* stylelint-disable selector-class-pattern -- Component spec 06 §4 requires the
+   empty-state__* public selectors; emptyState.test.tsx covers that output contract. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+}
+
+.empty-state__title {
+  color: var(--ink);
+  font-size: var(--text-h3);
+  line-height: var(--leading-snug);
+}
+
+.empty-state__description {
+  /* Readable measure rather than a fixed width, so the text wraps at 320px
+     without a media query (spec §7). */
+  max-width: 44ch;
+  color: var(--ink-soft);
+  font-size: var(--text-body);
+  line-height: var(--leading-normal);
+}
+
+.empty-state__action {
+  margin-top: var(--space-2);
+}
+/* stylelint-enable selector-class-pattern */
+
+/* ---------- Helpers ----------
+   Deliberately minimal. A general utility layer is a second styling system
+   arriving by the back door, which ADR 5 rejects. Surface and elevation
+   helpers are absent because MUI Paper already owns that job, and two ways
+   to make a panel means no rule about which to use.
+
+   These three exist only because they name text roles that MUI typography
+   variants do not cover, and they are prefixed so they cannot collide.
+   Roles, not colours: a tenant supplying a different accent leaves a class
+   named for a colour lying about what it does.
+   ------------------------------------------------------------------ */
+.u-text-soft {
+  color: var(--ink-soft);
+}
+.u-text-muted {
+  color: var(--ink-muted);
+}
+.u-text-accent {
+  color: var(--accent-text);
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

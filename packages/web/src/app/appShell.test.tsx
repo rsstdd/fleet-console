@@ -1,0 +1,118 @@
+import { render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router";
+import { describe, expect, it } from "vitest";
+
+import { TENANT } from "@/config/tenant";
+import { useConnectionState } from "@/shared/lib/connectionContext";
+
+import { AppShell } from "./appShell";
+
+/** Renders the connection state a routed child actually receives from the shell. */
+function ConnectionProbe(): React.ReactElement {
+  return <p>child sees: {useConnectionState()}</p>;
+}
+
+function renderShell(
+  state: "connected" | "reconnecting" | "disconnected" = "connected",
+  child: React.ReactElement = <h1>Route content</h1>,
+): void {
+  render(
+    <MemoryRouter>
+      <Routes>
+        <Route element={<AppShell connectionState={state} attempt={2} />}>
+          <Route index element={child} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+/** Renders the shell with no `connectionState` prop, to observe the default. */
+function renderShellWithoutState(child: React.ReactElement): void {
+  render(
+    <MemoryRouter>
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route index element={child} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("AppShell", () => {
+  it("puts the skip link first and gives it a focusable main target", () => {
+    renderShell();
+
+    const skipLink = screen.getByRole("link", { name: "Skip to main content" });
+    const main = screen.getByRole("main");
+    expect(skipLink).toHaveAttribute("href", "#main");
+    expect(skipLink.compareDocumentPosition(main)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(main).toHaveAttribute("id", "main");
+    expect(main).toHaveAttribute("tabindex", "-1");
+  });
+
+  it("reads the wordmark from tenant config and provides primary Fleet navigation", () => {
+    renderShell();
+
+    expect(screen.getByRole("link", { name: TENANT.wordmark })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("navigation", { name: "Primary" })).toContainElement(
+      screen.getByRole("link", { name: "Fleet" }),
+    );
+  });
+
+  it("always mounts the connection live region above main content", () => {
+    renderShell();
+
+    const banner = screen.getByRole("status");
+    expect(banner).toHaveAttribute("data-connected", "true");
+    expect(banner).toBeEmptyDOMElement();
+    expect(banner.compareDocumentPosition(screen.getByRole("main"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+  });
+
+  it("passes reconnecting state and attempt to the banner", () => {
+    renderShell("reconnecting");
+
+    expect(screen.getByRole("status")).toHaveTextContent("Reconnecting to stream · attempt 2");
+    expect(screen.getByText("Stream reconnecting")).toBeInTheDocument();
+  });
+
+  it("renders routed page content inside the single main landmark", () => {
+    renderShell();
+
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByRole("main")).toContainElement(
+      screen.getByRole("heading", { name: "Route content" }),
+    );
+  });
+
+  it("publishes its connection state to routed children (ADR 23)", () => {
+    // The dependency rule forbids `features` importing `app`, so the routes below
+    // `Outlet` cannot read this shell's prop. `ConnectionContext` in `shared/lib` is
+    // the only legal channel, and this asserts the shell is actually providing it —
+    // the banner rendering correctly proves nothing about what the children see.
+    renderShell("reconnecting", <ConnectionProbe />);
+
+    expect(screen.getByText("child sees: reconnecting")).toBeInTheDocument();
+  });
+
+  it("publishes disconnected, not connected, when nothing supplies a state", () => {
+    // No transport client exists yet, so this is the state the console actually runs
+    // in today. An optimistic default would make every row assert a currency nothing
+    // is delivering, which is the defect ADR 23 replaced.
+    renderShellWithoutState(<ConnectionProbe />);
+
+    expect(screen.getByText("child sees: disconnected")).toBeInTheDocument();
+  });
+
+  it("shows the banner and the header label from the same state", () => {
+    // One value, two surfaces. If these could disagree there would be two
+    // authorities for one fact (Principle 1).
+    renderShell("disconnected", <ConnectionProbe />);
+
+    expect(screen.getByText("Stream disconnected")).toBeInTheDocument();
+    expect(screen.getByText("child sees: disconnected")).toBeInTheDocument();
+  });
+});

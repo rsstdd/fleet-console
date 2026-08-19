@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "color-no-hex": true,
+    "declaration-property-value-disallowed-list": {
+      "/^(color|background|background-color|border-color|fill|stroke)$/": ["/^rgb/", "/^hsl/"]
+    },
+    "selector-class-pattern": "^[a-z][a-zA-Z0-9]*(-[a-z0-9]+)*(--[a-z][a-zA-Z0-9]*(-[a-z0-9]+)*)?$"
+  },
+  "overrides": [
+    {
+      "files": ["**/tokens.css"],
+      "rules": {
+        "color-no-hex": null,
+        "declaration-property-value-disallowed-list": null
+      }
+    }
+  ]
+}
