@@ -1,0 +1,35 @@
+{
+  "name": "@fleet/simulator",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic multi-vendor telemetry producer: emits raw Vendor A, B and C wire payloads over HTTP ingest for adapter, freshness, demonstration and load testing.",
+  "_runtime": "Runs on plain node, not tsx, and is correct only while this package imports no workspace package (ADR 9 \u00a7 Implications). The day it imports @fleet/contracts, dev and start must move to tsx in the same change, or it fails with ERR_MODULE_NOT_FOUND on a .js specifier nothing emits.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "node --watch src/index.ts",
+    "start": "node src/index.ts",
+    "build": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "pnpm lint:js && pnpm typecheck",
+    "lint:js": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "record:fixtures": "node src/recording/record.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@fleet/adapters": "workspace:*",
+    "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "eslint-plugin-jsdoc": "catalog:",
+    "globals": "^17.11.0",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
+  }
+}
