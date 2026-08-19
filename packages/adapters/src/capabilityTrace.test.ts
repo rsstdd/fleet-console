@@ -19,8 +19,9 @@
  * file is the only place the *inverse* is checkable: a canonical core field no
  * dialect feeds. `canonicalCoreSchema` calls that the failure mode it exists to
  * prevent, and `positionSchema` records `heading` as the field already removed
- * for it. There is one such field left, and `UNSOURCED_CORE_FIELDS` is where it
- * is named rather than repeated as three quiet constants in three adapters.
+ * for it. There is one such field left, and `UNSOURCED_CORE_FIELDS` is where ADR
+ * 30 requires it to be named rather than repeated as three quiet constants in
+ * three adapters.
  *
  * This file may import all three vendors; the ban in `eslint.config.js` is on one
  * vendor directory reaching into another, which is a production coupling. Reading
@@ -49,7 +50,8 @@ const RECEIVED_AT = FIXTURE_RECORDING.instantMs + 250;
  * An entry here is a claim under review, not an exemption: `canonicalCoreSchema`
  * admits a field only if every adapter can populate it from its own dialect, so a
  * field nothing populates is either a modelling defect or a field waiting on a
- * vendor that reports it. Recorded in `TODO.md` § FIXME either way.
+ * vendor that reports it. ADR 30 ratifies the current entry and requires this
+ * suite to fail at the moment a dialect starts sourcing it.
  *
  * The suite fails when a dialect starts feeding one of these, which is the point:
  * that is the moment the entry has to go, and nothing else would notice.

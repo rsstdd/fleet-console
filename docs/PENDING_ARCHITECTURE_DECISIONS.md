@@ -6,29 +6,30 @@
 
 This file is intentionally short: resolved entries are tombstones linking to their ADR; only unresolved stubs carry a next step.
 
-| ID  | Status      | Normative record                                                                  | Question                                                    |
-| --- | ----------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| D1  | Partial     | [ADR 10](./00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)                           | Adapter output before freshness                             |
-| D2  | Partial     | [ADR 11](./00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)                      | Public access to adapter fixtures                           |
-| D3  | Partial     | [ADR 12](./00_adr/12_TEST_ONLY_ADAPTER_DEPENDENCY_IN_WEB.md)                      | Test-only adapter dependency in web                         |
-| D4  | Implemented | [ADR 13](./00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md)                  | Fixture ownership and provenance                            |
-| D5  | Partial     | [ADR 15](./00_adr/15_UNKNOWN_FIELD_ACCOUNTING_ON_ACCEPTED_PAYLOADS.md)            | Unknown fields on rejected payloads                         |
-| D6  | Implemented | [ADR 14](./00_adr/14_SHARED_FLEET_ROSTER_PARITY.md)                               | Shared fleet-roster parity                                  |
-| D7  | Implemented | [ADR 16](./00_adr/16_TEST_ONLY_ADAPTERS_DEPENDENCY_FOR_VENDOR_PARITY.md)          | Supported-vendor authority and drift guard                  |
-| D8  | Implemented | [ADR 17](./00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md)                          | Tenant configuration and feature flags                      |
-| D9  | Not started | [ADR 8](./00_adr/08_SERVER_TRANSPORT_IMPLEMENTATION.md)                           | Vendor identity on ingest                                   |
-| D10 | Partial     | [ADR 18](./00_adr/18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md)       | Delta granularity and flush sequence                        |
-| D11 | Implemented | [ADR 19](./00_adr/19_CAPABILITY_KIND_SPLITS_THE_NAME_SET_IN_CONTRACTS.md)         | Capability classification                                   |
-| D12 | Partial     | [ADR 25](./00_adr/25_CONTRACTS_OWNS_EVERY_DECODED_RESPONSE_COUNTERS_BY_SCOPE.md)  | Ownership of fleet, health, and diagnostic response schemas |
-| D13 | Implemented | [ADR 21](./00_adr/21_ENDPOINTS_FROM_THE_ENVIRONMENT_WITH_A_DEV_PROXY.md)          | Runtime endpoint configuration                              |
-| D14 | Implemented | [ADR 24](./00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md)  | Fleet-table scale claim and virtualization                  |
-| D15 | Implemented | [ADR 23](./00_adr/23_CONNECTION_STATE_TRAVELS_THROUGH_SHARED_LIB.md)              | Connection state delivery to features                       |
-| D16 | Partial     | [ADR 20](./00_adr/20_ONE_ISSUE_VOCABULARY_END_TO_END.md)                          | Decode-failure vocabulary across packages                   |
-| D17 | Partial     | [ADR 22](./00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md)        | Numeric gates and report-only measurements                  |
-| D18 | Partial     | [ADR 26](./00_adr/26_RAW_PAYLOAD_BOUNDED_VERBATIM_AND_UNPROTECTED_BY_DECISION.md) | Raw vendor-payload retention and diagnostic access          |
-| D19 | Implemented | [ADR 27](./00_adr/27_CAP_THE_REVIEWABLE_DIFF_WITH_A_NAMED_OVERRIDE.md)            | Pull-request size limit and its exception                   |
-| D20 | Implemented | [ADR 29](./00_adr/29_VETTED_DEPENDENCY_ALLOW_LIST_AND_RELEASE_AGE_QUARANTINE.md)  | Admission of third-party packages                           |
+| ID  | Status      | Normative record                                                                  | Question                                                                         |
+| --- | ----------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| D1  | Partial     | [ADR 10](./00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)                           | Adapter output before freshness                                                  |
+| D2  | Partial     | [ADR 11](./00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)                      | Public access to adapter fixtures                                                |
+| D3  | Partial     | [ADR 12](./00_adr/12_TEST_ONLY_ADAPTER_DEPENDENCY_IN_WEB.md)                      | Test-only adapter dependency in web                                              |
+| D4  | Implemented | [ADR 13](./00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md)                  | Fixture ownership and provenance                                                 |
+| D5  | Partial     | [ADR 15](./00_adr/15_UNKNOWN_FIELD_ACCOUNTING_ON_ACCEPTED_PAYLOADS.md)            | Unknown fields on rejected payloads                                              |
+| D6  | Implemented | [ADR 14](./00_adr/14_SHARED_FLEET_ROSTER_PARITY.md)                               | Shared fleet-roster parity                                                       |
+| D7  | Implemented | [ADR 16](./00_adr/16_TEST_ONLY_ADAPTERS_DEPENDENCY_FOR_VENDOR_PARITY.md)          | Supported-vendor authority and drift guard                                       |
+| D8  | Implemented | [ADR 17](./00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md)                          | Tenant configuration and feature flags                                           |
+| D9  | Not started | [ADR 8](./00_adr/08_SERVER_TRANSPORT_IMPLEMENTATION.md)                           | Vendor identity on ingest                                                        |
+| D10 | Partial     | [ADR 18](./00_adr/18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md)       | Delta granularity and flush sequence                                             |
+| D11 | Implemented | [ADR 19](./00_adr/19_CAPABILITY_KIND_SPLITS_THE_NAME_SET_IN_CONTRACTS.md)         | Capability classification                                                        |
+| D12 | Partial     | [ADR 25](./00_adr/25_CONTRACTS_OWNS_EVERY_DECODED_RESPONSE_COUNTERS_BY_SCOPE.md)  | Ownership of fleet, health, and diagnostic response schemas                      |
+| D13 | Implemented | [ADR 21](./00_adr/21_ENDPOINTS_FROM_THE_ENVIRONMENT_WITH_A_DEV_PROXY.md)          | Runtime endpoint configuration                                                   |
+| D14 | Implemented | [ADR 24](./00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md)  | Fleet-table scale claim and virtualization                                       |
+| D15 | Implemented | [ADR 23](./00_adr/23_CONNECTION_STATE_TRAVELS_THROUGH_SHARED_LIB.md)              | Connection state delivery to features                                            |
+| D16 | Partial     | [ADR 20](./00_adr/20_ONE_ISSUE_VOCABULARY_END_TO_END.md)                          | Decode-failure vocabulary across packages                                        |
+| D17 | Partial     | [ADR 22](./00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md)        | Numeric gates and report-only measurements                                       |
+| D18 | Partial     | [ADR 26](./00_adr/26_RAW_PAYLOAD_BOUNDED_VERBATIM_AND_UNPROTECTED_BY_DECISION.md) | Raw vendor-payload retention and diagnostic access                               |
+| D19 | Implemented | [ADR 27](./00_adr/27_CAP_THE_REVIEWABLE_DIFF_WITH_A_NAMED_OVERRIDE.md)            | Pull-request size limit and its exception                                        |
+| D20 | Implemented | [ADR 29](./00_adr/29_VETTED_DEPENDENCY_ALLOW_LIST_AND_RELEASE_AGE_QUARANTINE.md)  | Admission of third-party packages                                                |
+| D21 | Implemented | [ADR 30](./00_adr/30_FIELDS_WITH_NO_COUNTERPART_ACROSS_THE_ADAPTER_BOUNDARY.md)   | Canonical fields with no vendor source, and vendor fields with no canonical home |
 
 ## Open stubs
 
-None. Every stub D1–D20 routes to a numbered ADR; see the table above for each one's implementation status.
+None. Every stub D1–D21 routes to a numbered ADR; see the table above for each one's implementation status.

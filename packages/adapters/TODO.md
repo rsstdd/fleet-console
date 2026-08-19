@@ -309,7 +309,9 @@ cannot drift.
       fifth value is a rejection rather than a silent downgrade — asserted under **C5**, for
       the health level as well as the status.
       **This item could not be completed without settling the four unowned fields below;**
-      each decision is implemented and needs ratification, not re-litigation from scratch.
+      [ADR 30](../../docs/00_adr/30_FIELDS_WITH_NO_COUNTERPART_ACROSS_THE_ADAPTER_BOUNDARY.md)
+      ratifies all four as implemented; overruling one is a new durable decision, not
+      re-litigation from scratch.
       24 contract tests in `src/vendors/a/adapter.test.ts`, which discharges **D2**, **D3**
       and **D6** for vendor A and part of **D4** and **D5**.
 - [x] **B2 / C3 — Vendor B. Done 20 August 2026.** `src/vendors/b/schema.ts` and
@@ -325,14 +327,24 @@ cannot drift.
       does not. Canonical `unknown` is deliberately not the answer for an unrecognized code:
       it would say the robot's state is unknown when what is unknown is the _code_, which is
       an integration defect the server counts rather than a state to show an operator.
-      **Open, and asserted rather than assumed: the ledger is written before the mapping
-      rejections.** ADR 15 § Decision counts on payloads the _schema_ accepted, and that is
-      where `noteAcceptedPayload` sits in vendor A and now here; ADR 15 § Behaviour also
-      says a rejected payload leaves the ledger untouched, and an `unmappable_value`
-      rejection is both at once. Vendor B is where this becomes visible — four post-schema
-      rejection paths against vendor A's one — so the current behaviour is pinned by a test
-      instead of left to be discovered. Ratify or overrule it in ADR 15; do not change one
-      adapter's ordering alone.
+      **Settled 20 August 2026: the ledger is written before the mapping rejections, and
+      ADR 15 now says so.** The question was which of ADR 15's two sentences governed — the
+      one counting payloads the _schema_ accepted, which is where `noteAcceptedPayload`
+      sits, or the one saying a rejected payload leaves the ledger untouched — since an
+      `unmappable_value` rejection is both at once. **Ratified as built.** The gate is
+      schema acceptance, not overall success: a payload that was well-formed for its dialect
+      and carried a value the canonical model cannot take is dialect change, which is the
+      signal this ledger exists for, and discarding it would widen ADR 15's known blind spot
+      in the direction it is already widest. What schema acceptance actually buys — the walk
+      never runs on deeply malformed data, and a retry loop full of garbage cannot inflate
+      the map — is untouched by what happens after the parse.
+      No adapter changed; ADR 15's _wording_ did. Two sentences said "a rejected payload"
+      where they meant "a payload the schema rejected", which read as a contradiction the
+      moment a second kind of rejection existed. The amendment adds the rejected position as
+      a fourth alternative, states that an `unmappable_value` can move two counters at once,
+      and makes "call it immediately after the parse" a rule a new adapter inherits.
+      Vendor B's test now pins the ordering against the ratified reading rather than against
+      an open question.
       `toMetres` stays local rather than joining `core/units.ts`, by that file's own
       admission rule: it takes a conversion when two or more dialects need it, and vendor B
       is the only one reporting centimetres.

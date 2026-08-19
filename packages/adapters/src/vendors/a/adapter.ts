@@ -73,7 +73,8 @@ import { VENDOR_A_KNOWN_PATHS, vendorAPayloadSchema } from "./schema.ts";
  * `SupportedVendor` (`"A"`), and ADR 25's health response is keyed by open
  * identifier. Whichever of the two the server puts on `GET /api/health` it must
  * choose once, in the dispatch registry that knows both — not by joining these
- * two identifier spaces at the handler. Recorded in `TODO.md` § FIXME.
+ * two identifier spaces at the handler. ADR 30 records that remaining registry
+ * decision rather than leaving it in planning prose.
  */
 const ADAPTER_ID = "vendor-a";
 

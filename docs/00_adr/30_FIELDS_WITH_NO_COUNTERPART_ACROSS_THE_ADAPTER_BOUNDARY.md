@@ -85,7 +85,7 @@ Heading is the same argument run backwards. Dropping it is correct — no surfac
 
 ## Observed consequences
 
-- 20 August 2026: implemented across all three vendor adapters and green — 12 files, 182 tests in `packages/adapters`. Each of the four answers is asserted rather than commented: connectivity in three contract tests, `position.frame` in three exact-envelope assertions, the identity pair in the same three, and heading in one ledger test per vendor.
+- 20 August 2026: implemented across all three vendor adapters and green. Each of the four answers is asserted rather than commented: connectivity in three contract tests, `position.frame` in three exact-envelope assertions, the identity pair in the same three, and heading in one ledger test per vendor — ten assertions for four decisions, which is what makes overruling any of them a visible change rather than a silent one.
 - 20 August 2026: the heading rule was already implemented for vendors A and B and had been missed for vendor C, which declared the field correctly but asserted nothing. Ratifying the decision is what surfaced it: vendor C is the only dialect whose ledger is non-empty, so its test had to name the counted path rather than assert a zero total, and that is the sharpest of the three.
 - 20 August 2026: `adapterId` was settled by counting spellings in the tree rather than by preference. Three were in use; only one was in product code.
 
