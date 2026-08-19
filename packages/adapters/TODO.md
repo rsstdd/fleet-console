@@ -80,6 +80,23 @@ less so.
   `UnknownFieldSnapshot` local, since only those two are genuinely this package's (the
   snapshot is keyed by `SupportedVendor`, the contract's `byAdapter` by open identifier).
   This gets more expensive with every consumer of the adapters spelling.
+- **FIXME: `parseAdapterEnvelope` cannot validate an `AdapterEnvelope` directly.** Found by
+  writing the vendor A round-trip test, which failed with "expected array, received object".
+  `AdapterEnvelope` is the schema's **output** type and carries capabilities as the runtime
+  record; `parseAdapterEnvelope` validates the schema's **input**, which is the wire array.
+  So **A7**'s instruction — "`parseAdapterEnvelope` validates an adapter's own output in
+  contract tests" — is only true after `encodeCapabilities`. `@fleet/contracts` exports
+  `encodeCanonicalEnvelope` but no `encodeAdapterEnvelope` beside it. The cheap fix is that
+  missing function, in contracts; until then every vendor contract test repeats the encode
+  step and the comment explaining it.
+- **FIXME: the wall-clock ban forced a hand-written ISO-8601 parser** (`src/core/isoInstant.ts`,
+  18 tests). `no-restricted-globals` bans the `Date` global outright, so `new Date(iso).getTime()`
+  — a pure parse, not a clock read — is banned with `Date.now()`. That is defensible, because
+  the rule cannot distinguish the parsing constructor from the no-argument form that ADR 3
+  exists to prevent, and admitting one admits both. It is worth knowing that the cost is real
+  and now paid in this package: ~30 lines of civil-date arithmetic that a one-line `Date` call
+  would otherwise do, carried for vendors A and C. If a third dialect ever needs date _maths_
+  rather than parsing, revisit the rule rather than growing this file.
 - **FIXME: `@ts-nocheck` appears in two enforcement fixtures**
   (`__enforcement__/workspaceImport.ts`, `vendors/a/__enforcement__/crossVendor.ts`).
   Those fixtures import modules that deliberately do not resolve, and the import bans are
@@ -98,27 +115,37 @@ less so.
   known paths from a schema, which is shipped behaviour. ADR 29's `pnpm check:dependencies`
   now fails on a declared-and-unused dependency anyway, so the question cannot go stale
   again without breaking the build.
-- **FIXME: four canonical fields have no vendor source, and nobody has decided where they
-  come from.** Found by reading `canonicalCoreSchema` and `preFreshnessShape` against the
-  three recorded fixtures; each blocks **C2**–**C4** and none is answered by an ADR:
-  - **`adapterId` / `adapterVersion`** are required envelope fields and no dialect carries
-    them, so they are adapter constants — but three spellings are already loose in the tree
-    (`"A"` in this package's ledger, `"adapter-a"` in contracts and server tests, `"vendor-a"`
-    in `packages/web`'s fixtures). ADR 25 keys the health response's `byAdapter` by open
-    identifier, so whichever spelling wins is the one an operator reads. Pick it here, in
-    the registry, and make the ledger use the same key.
-  - **`position.frame`** is a required identifier and no dialect sends a frame name. Either
-    the adapter synthesizes one from `site`, or position stays `null` — and a `null`
-    position for every robot makes the field decoration.
-  - **`connectivity`** has no source in any dialect either. The contract says a vendor that
-    reports no link state maps to `unknown`, so all three adapters will emit `unknown`
-    forever. That is correct and it makes the console's connectivity column permanently
-    inert, which is worth deciding on purpose rather than discovering. Related:
-    `packages/FIXME.md` **F4**, which is the same fact seen from the web fixtures.
+- **FIXME: four canonical fields have no vendor source. Decided 20 August 2026 while
+  building vendor A; ratify or overrule before **C3**/**C4** copy them.** Each was found by
+  reading `canonicalCoreSchema` and `preFreshnessShape` against the recorded fixtures, and
+  none is answered by an ADR:
+  - **`adapterId` / `adapterVersion` — chose `"vendor-a"` and `"1.0.0"`.** Three spellings
+    were loose in the tree (`"A"` in this package's ledger, `"adapter-a"` in contracts and
+    server tests, `"vendor-a"` in `packages/web`'s fixtures); `"vendor-a"` won because it
+    was the only _product_ spelling, the rest being test placeholders. `adapterVersion`
+    bumps when output changes for an unchanged input — a mapping correction, a new
+    capability, a unit fix; not a comment or a test.
+    **The half still open:** `UnknownFieldSnapshot.byAdapter` is keyed by `SupportedVendor`
+    (`"A"`) while ADR 25's health response is keyed by open identifier, so the server has
+    two candidate keys for one column. It must choose once, in the **C8** registry that
+    knows both — never by joining the two spaces at the handler. Named in the adapter's
+    `ADAPTER_ID` comment so the next reader hits it.
+  - **`position.frame` — chose the site id.** Vendor A's pose is metres in that site's own
+    map, so `frame: site` is a statement the payload supports; `null` for every robot would
+    have made the field decoration.
+  - **`connectivity` — emits `unknown`, and this is now shipped rather than predicted.**
+    `connectivitySchema` says a vendor reporting no link state maps to `unknown` rather than
+    an optimistic `online`, and no dialect reports one, so **the console's connectivity
+    column is permanently inert once live data arrives.** Asserted in the vendor A contract
+    test so it reads as a decision rather than an oversight. The product question — whether
+    the dialects should carry a link field at all — is still open, and it is a simulator and
+    contracts question, not an adapter one. Related: `packages/FIXME.md` **F4**.
   - **Heading is reported by all three dialects and has no canonical home** (`heading_deg`,
-    `heading_cdeg`; `positionSchema` has no heading by ADR 1). It will be declared in the
-    vendor schema and dropped, so the ledger will not count it — a known-but-unmapped field
-    is invisible to unknown-field accounting by construction. Say so in each adapter.
+    `heading_cdeg`; `positionSchema` has no heading by ADR 1). Vendor A declares it in the
+    schema and drops it, so the ledger stays silent — a known-but-unmapped field is
+    invisible to unknown-field accounting by construction. Commented on the schema field and
+    asserted by a test, so the silence is deliberate rather than a hole. Do the same in
+    **C3**/**C4**.
 - **RESOLVED 19 August 2026 — `A8` landed before the server wrote its ingest handler**, which
   is what made changing `AdapterError` free rather than a breaking cross-package change.
   Ratified as [ADR 20](../../docs/00_adr/20_ONE_ISSUE_VOCABULARY_END_TO_END.md); the
@@ -128,14 +155,16 @@ less so.
 
 ## Section 0 — What exists today
 
-Verified 20 August 2026, from `packages/adapters`:
+Verified 20 August 2026, from `packages/adapters`, after vendors A and B landed. Vendor C's
+files are present in the tree while **B3**/**C4** is still open, so the counts below include
+work another change owns:
 
 | Command          | Result                           |
 | ---------------- | -------------------------------- |
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 6 files, 51 tests       |
+| `pnpm test`      | passes — 11 files, 140 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -153,9 +182,15 @@ packages/adapters/
     │   ├── vendor.ts             SupportedVendor, SUPPORTED_VENDORS, isSupportedVendor
     │   ├── result.ts             AdapterResult / AdapterError on ContractIssue (ADR 20)
     │   ├── unknownFields.ts      per-adapter unknown-field ledger (ADR 1, ADR 15)
-    │   └── unknownFieldPaths.ts  knownFieldPaths / findUnknownFieldPaths (ADR 15)
+    │   ├── unknownFieldPaths.ts  knownFieldPaths / findUnknownFieldPaths (ADR 15)
+    │   ├── isoInstant.ts         ISO-8601 to epoch ms without `Date` (see § FIXME)
+    │   ├── units.ts              conversions two or more dialects need, and only those
+    │   └── adapter.ts            the VendorAdapter signature every vendor implements
     ├── testing/          the ./testing subpath: fixture loader + provenance (ADR 11)
-    ├── vendors/<a|b|c>/__fixtures__/representative.json   recorded, generated (ADR 13)
+    ├── vendors/a/          schema.ts + adapter.ts + contract test (B1/C2, done)
+    ├── vendors/b/          schema.ts + adapter.ts + contract test (B2/C3, done)
+    ├── vendors/<a|b|c>/__fixtures__/*.json     recorded, generated (ADR 13)
+    ├── vendors/<a|b|c>/__malformed__/*.json    hand-authored, never recorded
     ├── __enforcement__/           README + 4 deliberate violations + 1 legal control
     └── vendors/a/__enforcement__/ the cross-vendor violation, where that rule applies
 ```
@@ -257,11 +292,47 @@ cannot drift.
       value — not another extreme.
       **Recording still covers one robot per vendor** (`R-001`, `R-002`, `R-003`), so
       **D7**'s cross-vendor test still has no input — see that item.
-- [ ] **B1 / C2 — Vendor A.** Nested payload, battery as a fraction `0..1`, position in
-      metres, ISO-8601 timestamp. Declares `dock`, `lidarHealth`, `sequence`.
-- [ ] **B2 / C3 — Vendor B.** Flat payload, integer-percentage battery, position in
-      centimetres, epoch-ms timestamp, numeric status codes. Declares **`dock` and `dock`
-      only.** Both absences are load-bearing: no `sequence`, because timestamp ordering
+- [x] **B1 / C2 — Vendor A. Done 20 August 2026.** `src/vendors/a/schema.ts` (loose at every
+      level, `identifierSchema`/`displayNameSchema` reused from contracts rather than
+      restated, `VENDOR_A_KNOWN_PATHS` derived once at module load) and
+      `src/vendors/a/adapter.ts`, built as `createVendorAAdapter(ledger)` returning the
+      two-argument `VendorAdapter` the package spec § 1 documents — the ledger is closed
+      over rather than passed per call, so a caller cannot supply a different one per
+      payload and turn per-adapter accounting into per-robot accounting.
+      Declares `dock`, `lidarHealth` and `sequence`; the status and health tables are in the
+      module comment, which discharges **C5** for this vendor. Canonical `unknown` is
+      unreachable from this dialect on purpose: the schema admits only A's four states, so a
+      fifth value is a rejection rather than a silent downgrade.
+      **This item could not be completed without settling the four unowned fields below;**
+      each decision is implemented and needs ratification, not re-litigation from scratch.
+      22 contract tests in `src/vendors/a/adapter.test.ts`, which discharges **D2**, **D3**
+      and **D6** for vendor A and part of **D4** and **D5**.
+- [x] **B2 / C3 — Vendor B. Done 20 August 2026.** `src/vendors/b/schema.ts` and
+      `src/vendors/b/adapter.ts`, built as `createVendorBAdapter(ledger)` like vendor A's.
+      25 contract tests in `src/vendors/b/adapter.test.ts`, which discharges **D2**, **D3**
+      and **D6** for this vendor and the whole of **C5**'s numeric half.
+      **The dialect's own decision, and the one thing here vendor A does not face:** vendor
+      B spells status, health and dock state as _integers_, so the schema checks the shape
+      (`z.number().int()`) and the **adapter** owns the vocabulary — an unrecognized code is
+      `unmappable_value` through `issuesForKind`, exactly as **A8** anticipated. Vendors A
+      and C reach the same outcome through `z.enum`, because a dialect spelling its states
+      as words declares its vocabulary in the document and one spelling them as integers
+      does not. Canonical `unknown` is deliberately not the answer for an unrecognized code:
+      it would say the robot's state is unknown when what is unknown is the _code_, which is
+      an integration defect the server counts rather than a state to show an operator.
+      **Open, and asserted rather than assumed: the ledger is written before the mapping
+      rejections.** ADR 15 § Decision counts on payloads the _schema_ accepted, and that is
+      where `noteAcceptedPayload` sits in vendor A and now here; ADR 15 § Behaviour also
+      says a rejected payload leaves the ledger untouched, and an `unmappable_value`
+      rejection is both at once. Vendor B is where this becomes visible — four post-schema
+      rejection paths against vendor A's one — so the current behaviour is pinned by a test
+      instead of left to be discovered. Ratify or overrule it in ADR 15; do not change one
+      adapter's ordering alone.
+      `toMetres` stays local rather than joining `core/units.ts`, by that file's own
+      admission rule: it takes a conversion when two or more dialects need it, and vendor B
+      is the only one reporting centimetres.
+      The original item's reasoning, unchanged and now implemented — declares **`dock` and
+      nothing else.** Both absences are load-bearing: no `sequence`, because timestamp ordering
       cannot separate a duplicate from two events in the same millisecond, and that
       ambiguity is the point of vendor B; and no `lidarHealth`, because `sequence` is
       excluded from capability panels, so a vendor B declaring `lidarHealth` would render a
@@ -272,10 +343,31 @@ cannot drift.
       classifies `sequence` as `diagnostic` in `CAPABILITY_KINDS`, and the console keys its
       panel registry off `OPERATOR_CAPABILITY_NAMES`. Cite the classification, not the page
       spec, when writing this test.
-- [ ] **B3 / C4 — Vendor C.** Broadly A-shaped; declares `waterLevel`, declares no
-      `lidarHealth`, and notes its undocumented field to the ledger.
-- [ ] **C5 — Status vocabulary mapping per vendor.** Each dialect's status values map into
-      the canonical five. A source value with no honest mapping is a rejection or an
+- [x] **B3 / C4 — Vendor C. Done 20 August 2026.** `src/vendors/c/schema.ts` and
+      `src/vendors/c/adapter.ts`, 19 contract tests. Declares `dock`, `waterLevel` and
+      `sequence`; declares no `lidarHealth` **by key absence**, asserted with
+      `"lidarHealth" in capabilities` being false rather than a null payload, because a null
+      payload would claim the vendor reports a lidar it does not have.
+      **`telemetry.firmware_channel` is deliberately not in the schema**, which is what keeps
+      it countable — declaring it would make it a known path and silence the only evidence in
+      the repository that ADR 1's counting requirement works. Said so in the schema's module
+      comment, because it looks like an omission and is not.
+      **One shared helper moved to `core/`:** `toBatteryPercent`, now `src/core/units.ts`,
+      because A and C both convert a fraction and a unit conversion has exactly one right
+      answer — two vendors disagreeing about it would fail **D7** for a reason unrelated to
+      either dialect. The status and health tables were **not** moved despite A and C
+      agreeing today: a vocabulary mapping is a per-dialect contract, and a shared table
+      invites editing both when one vendor changes. `units.ts` states that test at the top.
+      Vendor C imports nothing from `vendors/a`, which lint enforces and the near-miss makes
+      worth enforcing.
+- [ ] **C5 — Status vocabulary mapping per vendor. Vendors A and B done 20 August 2026** —
+      each table is in its adapter's module comment and every source value is asserted.
+      Vendor B was the real work and it is finished: three tables (status, health, dock),
+      every row asserted including the codes no recorded payload carries, and a code outside
+      any table rejected as `unmappable_value` naming the field it came from.
+      **Vendor C done 20 August 2026** — its table is restated rather than imported from
+      vendor A's, deliberately, and all four states are asserted.
+      Each dialect's status values map into the canonical five. A source value with no honest mapping is a rejection or an
       explicit `unknown` — never a guess. Record each mapping as a table in the adapter's
       doc comment; that table is the reviewable artefact.
 - [ ] **C6 — Capability payloads trace to a declaration.** Every non-core output field
@@ -314,13 +406,14 @@ The wire is done: `vitest.config.ts`, node environment, six passing test files, 
       every consumer ([ADR 11](../../docs/00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)).
       `packages/server`'s ban covers its tests too, so an ingest test wanting fixtures needs
       an explicit exception first.
-- [ ] **D2 — One contract test per vendor, asserting exact canonical output.** Explicit
+- [ ] **D2 — One contract test per vendor, asserting exact canonical output.** Vendors A
+      and B done 20 August 2026; C outstanding. Explicit
       assertions, not snapshots — the mapping invariants are the documentation
       (AGENTS.md § Tests and fixtures). Assert the whole envelope, including `adapterId`,
       `adapterVersion`, `connectivity` and `position` — those are the four fields with no
       vendor source (§ FIXME), and an assertion that skips them is where a wrong constant
       hides. Round-trip each result through `parseAdapterEnvelope`.
-- [ ] **D3 — Injected receipt time.** Every test passes a literal `receivedAt`. The lint
+- [ ] **D3 — Injected receipt time. Held for vendors A and B.** Every test passes a literal `receivedAt`. The lint
       rule in § 4 enforces that no clock is read, but the _habit_ of a fixed instant per
       fixture is what makes failures readable.
 - [ ] **D4 — Rejection tests.** One per vendor per `AdapterErrorKind` that vendor can
@@ -330,27 +423,46 @@ The wire is done: `vitest.config.ts`, node environment, six passing test files, 
       independent defects in one payload, vendor C a well-typed but impossible timestamp.
       Vendor B's is the one that proves ADR 20's claim: two defects must produce two issues,
       and a rejection reporting one has flattened the other away.
-- [ ] **D5 — Unknown-field accounting at the adapter level.** The ledger, the walk and the
-      accepted-only guard all have unit tests now (ADR 15); what is untested is that vendor
-      C's adapter actually notes `telemetry.firmware_channel` from its recorded fixture, and
-      that two robots from the same vendor increment **one** per-adapter count rather than
-      two per-robot counts. Add the malformed-plus-unknown case too: a rejected payload
-      carrying a new field must leave the ledger at zero while the failure is counted
-      elsewhere.
-- [ ] **D6 — Capability presence and absence.** Assert vendor B declares neither
-      `sequence` nor `lidarHealth`, and vendor C declares no `lidarHealth` — by key
-      absence, not by a null payload.
+- [x] **D5 — Unknown-field accounting at the adapter level. Done 20 August 2026.** Vendor C
+      closed the last gap: its adapter notes `telemetry.firmware_channel` from every recorded
+      case, at the dotted path rather than a top-level key, and the tests pin the per-adapter
+      scope (two robots, one count of two), that a vendor C payload leaves A's and B's
+      tallies at zero, and that a rejected payload leaves the ledger untouched.
+      One case is worth knowing about because it looks wrong: the `unparsable-timestamp`
+      payload **is** counted, because the schema accepted the document and only the value
+      judgement failed afterwards. The ledger tracks dialect drift, which happened there
+      regardless of the timestamp. Asserted explicitly so nobody "fixes" it.
+      Previously done for vendors A and B, both of which assert the per-adapter count over two
+      robots, the malformed-plus-unknown case at zero, and that a declared-but-dropped field
+      (`heading_deg`, `heading_cdeg`) is not counted. Vendor B adds the flat-payload case —
+      its unknown fields are top-level names rather than dotted paths — and pins the ledger
+      ordering the B2/C3 entry leaves open.
+- [ ] **D6 — Capability presence and absence.** Vendor A asserts its three by key set and
+      that `waterLevel` is absent; **vendor B done 20 August 2026** — neither `sequence` nor
+      `lidarHealth`, by key absence rather than a null payload, and the `lidarHealth` case
+      reads `CAPABILITY_KINDS` and `OPERATOR_CAPABILITY_NAMES` rather than page-spec prose,
+      so what it proves is that vendor B's _panel_ set differs from vendor A's (ADR 19).
+      **Vendor C done 20 August 2026** — its absent `lidarHealth` and present `waterLevel`
+      are the pair that makes robot detail render a different panel from vendor A's, which is
+      the difference page spec 03 § 3 exists to show. All three vendors are now covered.
 - [ ] **D7 — Unit and timestamp conversion.** Centimetres and metres to the same canonical
       value; ISO and epoch-ms to the same instant. Cross-vendor: two fixtures describing
       the same physical robot state must produce identical canonical cores. That test is
       the strongest evidence the normalization is real.
-      **It has no input today, and that is a decision to make first.** The recorder pins one
-      robot per vendor (`R-001` A, `R-002` B, `R-003` C), so no two recorded payloads
-      describe the same state — A is busy at 96.61%, B is at 75%, C is idle at 38.46%.
-      Either teach `packages/simulator/src/recording/fixtureSet.ts` to record one robot in
-      all three dialects (a re-record, and the honest option — ADR 13 forbids hand-editing
-      recorded JSON), or write this one test against hand-built inputs and say in the file
-      why it sits outside the recorded set, as the malformed fixtures already do.
+      **Correction, 20 August 2026: the input exists, and this entry previously said it did
+      not.** That was true of the `representative` payloads only — A is busy at 96.61%, B at
+      75%, C idle at 38.46%. The **boundary** cases added under **C1** are built from one
+      pinned state per case and applied to all three robots, so `boundary-empty` and
+      `boundary-full` already describe the same physical state in three dialects.
+      With all three adapters now built, their canonical cores **are** identical for a given
+      boundary case — checked on 20 August 2026 by comparing serialized `core` values for
+      both cases across A, B and C, which matched exactly — battery 0 or 100 from a fraction and from an integer percent,
+      ∓40 m from metres and from centimetres, one status from a string and from a numeric
+      code, and the same `frame`, because the three recorded robots all sit in `SITE-NORTH`.
+      Only identity fields (`robotId`, `model`, `adapterId`, `vendorId`) and the capability
+      records should differ. That is the whole test, and it needs no new fixture and no
+      re-record — write it against `loadVendorFixture(v, "boundary-empty")` for each vendor
+      and compare `envelope.core`.
 - [x] **D8 — Coverage gate. CLOSED 19 August 2026: there is no gate, on purpose**
       ([ADR 22](../../docs/00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md)).
       The proposed 90% threshold had no derivation and, over a `src/vendors/**` containing no
@@ -415,12 +527,13 @@ rules a future change is most likely to break:
       rule that was not. It is now `10080` (7 days) with the derivation in the file, the
       nine `vitest` entries are pinned to exact versions so each exception expires on the
       next bump, and a second grandfathered block records the `eslint-plugin-jsdoc` closure.
-- [ ] **E6 `[repo]` — this package's enforcement suite has the flake described in
-      `packages/FIXME.md` F14.** `enforcement.test.ts` lints files on disk with a
-      programmatic `ESLint` instance while `pnpm --recursive` writes the tree in parallel.
-      The simulator's and server's equivalents have failed transiently; this one has not
-      been caught yet, which F14 explicitly says is luck rather than a difference.
-      Do not fix it by widening a timeout. It closes with the others, repo-wide.
+- [x] **E6 `[repo]` — CLOSED 20 August 2026 with `packages/FIXME.md` F14.** It closed with
+      the others, repo-wide, rather than waiting to be caught: the root `test` script now
+      runs packages one at a time (`--workspace-concurrency=1`), so nothing writes the tree
+      while these suites lint it, and `vitest.config.ts` states that at the top of the
+      `test` block. This suite also takes one lint pass in `beforeAll` and throws on a
+      fatal ESLint result instead of filtering it into an empty message list. No timeout
+      was widened.
 
 ---
 

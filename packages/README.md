@@ -120,13 +120,13 @@ tally surfaced on the future health endpoint. The ledger exists; neither the
 Vendor C adapter nor the endpoint does yet.
 
 **Landed:** the result type, accepted-payload unknown-field ledger and path discovery,
-the supported-vendor set and parity guard, representative recorded fixtures, and the
-boundary-enforcement fixtures.
+the supported-vendor set and parity guard, the complete fixture matrix, Vendor A's
+schema/adapter and exact contract tests, and the boundary-enforcement fixtures.
 
-**Not yet:** the A, B, and C schemas/adapters and the dispatch registry. Each vendor now
-has representative, empty-boundary, and full-boundary recorded fixtures plus one
-separately hand-authored malformed payload, published through `@fleet/adapters/testing`;
-the nine generated fixtures are drift-gated in CI (ADR 13).
+**Not yet:** Vendor B and C schemas/adapters and the dispatch registry. Each vendor has
+representative, empty-boundary, and full-boundary recorded fixtures plus one separately
+hand-authored malformed payload, published through `@fleet/adapters/testing`; the nine
+generated fixtures are drift-gated in CI (ADR 13).
 
 ---
 

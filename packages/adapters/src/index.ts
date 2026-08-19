@@ -30,3 +30,9 @@ export {
 export { findUnknownFieldPaths, knownFieldPaths } from "./core/unknownFieldPaths.ts";
 
 export { isSupportedVendor, SUPPORTED_VENDORS, type SupportedVendor } from "./core/vendor.ts";
+
+export type { VendorAdapter } from "./core/adapter.ts";
+
+export { createVendorAAdapter } from "./vendors/a/adapter.ts";
+export { createVendorBAdapter } from "./vendors/b/adapter.ts";
+export { createVendorCAdapter } from "./vendors/c/adapter.ts";
