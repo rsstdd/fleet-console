@@ -155,16 +155,14 @@ less so.
 
 ## Section 0 — What exists today
 
-Verified 20 August 2026, from `packages/adapters`, after vendors A and B landed. Vendor C's
-files are present in the tree while **B3**/**C4** is still open, so the counts below include
-work another change owns:
+Verified 20 August 2026, from `packages/adapters`, after all three vendor adapters landed:
 
 | Command          | Result                           |
 | ---------------- | -------------------------------- |
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 11 files, 140 tests     |
+| `pnpm test`      | passes — 11 files, 141 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -309,7 +307,7 @@ cannot drift.
       and **D6** for vendor A and part of **D4** and **D5**.
 - [x] **B2 / C3 — Vendor B. Done 20 August 2026.** `src/vendors/b/schema.ts` and
       `src/vendors/b/adapter.ts`, built as `createVendorBAdapter(ledger)` like vendor A's.
-      25 contract tests in `src/vendors/b/adapter.test.ts`, which discharges **D2**, **D3**
+      26 contract tests in `src/vendors/b/adapter.test.ts`, which discharges **D2**, **D3**
       and **D6** for this vendor and the whole of **C5**'s numeric half.
       **The dialect's own decision, and the one thing here vendor A does not face:** vendor
       B spells status, health and dock state as _integers_, so the schema checks the shape
@@ -360,7 +358,8 @@ cannot drift.
       invites editing both when one vendor changes. `units.ts` states that test at the top.
       Vendor C imports nothing from `vendors/a`, which lint enforces and the near-miss makes
       worth enforcing.
-- [ ] **C5 — Status vocabulary mapping per vendor. Vendors A and B done 20 August 2026** —
+- [x] **C5 — Status vocabulary mapping per vendor. Done 20 August 2026.** Vendors A and B
+      were completed first —
       each table is in its adapter's module comment and every source value is asserted.
       Vendor B was the real work and it is finished: three tables (status, health, dock),
       every row asserted including the codes no recorded payload carries, and a code outside
@@ -396,8 +395,9 @@ cannot drift.
 
 ## Section 3 — Tests
 
-The wire is done: `vitest.config.ts`, node environment, six passing test files, a
-`test:coverage` script. What is missing is the vendor contract-test harness.
+The wire and per-vendor contract harnesses are done: `vitest.config.ts`, node environment,
+11 passing test files, and a `test:coverage` script. What remains is dispatch and the
+cross-vendor normalization assertion under **D7**.
 
 - [x] **D1 — Shared fixture loader. Done 19 August 2026.** `src/testing/fixtures.ts` loads a
       fixture by vendor and name, typed `unknown` at the call site. The subpath question is
@@ -406,17 +406,16 @@ The wire is done: `vitest.config.ts`, node environment, six passing test files, 
       every consumer ([ADR 11](../../docs/00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)).
       `packages/server`'s ban covers its tests too, so an ingest test wanting fixtures needs
       an explicit exception first.
-- [ ] **D2 — One contract test per vendor, asserting exact canonical output.** Vendors A
-      and B done 20 August 2026; C outstanding. Explicit
+- [x] **D2 — One contract test per vendor, asserting exact canonical output. Done 20 August 2026.** Explicit
       assertions, not snapshots — the mapping invariants are the documentation
       (AGENTS.md § Tests and fixtures). Assert the whole envelope, including `adapterId`,
       `adapterVersion`, `connectivity` and `position` — those are the four fields with no
       vendor source (§ FIXME), and an assertion that skips them is where a wrong constant
       hides. Round-trip each result through `parseAdapterEnvelope`.
-- [ ] **D3 — Injected receipt time. Held for vendors A and B.** Every test passes a literal `receivedAt`. The lint
+- [x] **D3 — Injected receipt time. Held for all three vendors.** Every test passes a literal `receivedAt`. The lint
       rule in § 4 enforces that no clock is read, but the _habit_ of a fixed instant per
       fixture is what makes failures readable.
-- [ ] **D4 — Rejection tests.** One per vendor per `AdapterErrorKind` that vendor can
+- [x] **D4 — Rejection tests. Done 20 August 2026.** One per vendor per `AdapterErrorKind` that vendor can
       produce. Assert on `kind` and `path`, not on message text.
       **The inputs exist now** (**C1**): `listMalformedPayloads()` returns one per vendor,
       each broken differently — vendor A a wrong type at a nested path, vendor B two
@@ -437,7 +436,7 @@ The wire is done: `vitest.config.ts`, node environment, six passing test files, 
       (`heading_deg`, `heading_cdeg`) is not counted. Vendor B adds the flat-payload case —
       its unknown fields are top-level names rather than dotted paths — and pins the ledger
       ordering the B2/C3 entry leaves open.
-- [ ] **D6 — Capability presence and absence.** Vendor A asserts its three by key set and
+- [x] **D6 — Capability presence and absence. Done 20 August 2026.** Vendor A asserts its three by key set and
       that `waterLevel` is absent; **vendor B done 20 August 2026** — neither `sequence` nor
       `lidarHealth`, by key absence rather than a null payload, and the `lidarHealth` case
       reads `CAPABILITY_KINDS` and `OPERATOR_CAPABILITY_NAMES` rather than page-spec prose,

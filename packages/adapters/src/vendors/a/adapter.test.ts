@@ -151,19 +151,52 @@ describe("vendor A adapter", () => {
   it("maps every status the dialect can send", () => {
     // The recorded set carries `busy` and `idle`; the other two are asserted here
     // so the table in the module comment is checked rather than merely written.
-    const base = loadVendorFixture("A").payload;
-    if (typeof base !== "object" || base === null) {
-      throw new Error("Vendor A fixture is not an object.");
-    }
-    const telemetry = "telemetry" in base ? base.telemetry : undefined;
-    if (typeof telemetry !== "object" || telemetry === null) {
-      throw new Error("Vendor A fixture has no telemetry block.");
-    }
+    const telemetry = vendorATelemetryObject();
 
     for (const state of ["idle", "busy", "charging", "fault"] as const) {
-      const result = decode({ ...base, telemetry: { ...telemetry, state } });
+      const result = decode({ ...vendorAFixtureObject(), telemetry: { ...telemetry, state } });
 
       expect(result.ok && result.value.core.status).toBe(state);
+    }
+  });
+
+  it("maps every health level the dialect can send", () => {
+    // `critical` appears in no recorded payload, so without this the bottom row of
+    // the module comment's health table is written and never checked.
+    const telemetry = vendorATelemetryObject();
+
+    for (const level of ["nominal", "degraded", "critical"] as const) {
+      const result = decode({
+        ...vendorAFixtureObject(),
+        telemetry: { ...telemetry, health: { level } },
+      });
+
+      expect(result.ok && result.value.core.health.severity).toBe(level);
+    }
+  });
+
+  it("rejects a word outside either vocabulary rather than guessing at one", () => {
+    // The module comment's claim that canonical `unknown` is unreachable from this
+    // dialect, checked rather than asserted in prose. A vendor that spells its
+    // states as words has declared its vocabulary in the document, so a fifth word
+    // is a malformed document — not a robot whose state cannot be determined.
+    //
+    // The two fields fail for different reasons, which is why both are here:
+    // `status` has a canonical `unknown` that a lenient adapter could downgrade to,
+    // and `health.severity` has none at all, so rejection is the only answer the
+    // contract leaves for a level it does not know.
+    const telemetry = vendorATelemetryObject();
+
+    for (const [path, block] of [
+      ["telemetry.state", { ...telemetry, state: "hibernating" }],
+      ["telemetry.health.level", { ...telemetry, health: { level: "warning" } }],
+    ] as const) {
+      const result = decode({ ...vendorAFixtureObject(), telemetry: block });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.error.kind).toBe("malformed_payload");
+      expect(result.error.issues.map((issue) => issue.path)).toEqual([path]);
     }
   });
 
