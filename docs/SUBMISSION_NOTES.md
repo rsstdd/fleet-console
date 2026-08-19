@@ -27,9 +27,13 @@ The README's "not built" table should name both the broker/MQTT decision and the
 
 The measurement harness must publish the degradation point rather than only favourable numbers at the primary scale point.
 
-## ADR 3 — Freshness on a timer
+## ADR 3 — Freshness on a server timer
 
-No audience-specific material. The demo script's fault-injection sequence is a real artifact of the repository, not an evaluation device, and stays in the ADR.
+The demo script's fault-injection sequence is a real artifact of the repository, not an evaluation device, and stays in the ADR.
+
+One prepared answer, because it is the obvious challenge to the decision. *"If the server computes freshness and the socket dies, the console stops degrading — isn't that the exact failure you claim to prevent?"* No, and the alternative is worse. A client-side timer degrades every robot to UNREACHABLE when the console's own connection drops, which reports a fleet-wide machine failure that did not happen. Server-side derivation plus per-robot label suppression keeps the two failures distinct: three rows moving means three robots went silent; the banner means the console cannot see anything. An operator dispatches a technician on the first and calls IT on the second. The console's job is to make them tell those apart, and collapsing them into one client timer is the honest-looking answer that destroys the distinction.
+
+The decision was re-opened and re-confirmed on 19 August 2026; the audit backlog had recommended the client-side position, and the reasoning for overruling it is in the ADR's Observed consequences rather than improvised.
 
 ## ADR 4 — Feature-sliced structure with an enforced dependency rule
 

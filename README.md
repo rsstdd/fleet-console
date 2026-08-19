@@ -15,7 +15,7 @@ Sections 2-3 cover freshness; 4 covers normalization; 7 covers scale.
 Fleet operators watch robots from three manufacturers with different wire dialects. The console shows one coherent fleet, explicit about data age and machine capabilities.
 
 Two deliberate hard problems:
-- **Silence is an event:** Freshness derived on a timer, not arrival. Robots degrade LIVE → STALE → UNREACHABLE autonomously. Systems reacting only to arrivals miss silence, showing stale data as current.
+- **Silence is an event:** Freshness derived by a recurring server sweep, not on arrival. Robots degrade LIVE → STALE → UNREACHABLE autonomously. Systems reacting only to arrivals miss silence, showing stale data as current. The console displays what the sweep determined and never recomputes it (ADR 3).
 - **Vendors disagree:** Three awkward dialects normalized into a canonical envelope (core shared data) + declared capabilities. UI renders from declarations, not hard-coded lists.
 
 |             |                                                                                                                                                                                                                       |
@@ -63,9 +63,11 @@ Sequence to watch (Steps 2 & 4 are the submission):
 1. Open fleet (50 robots). All `LIVE`.
 2. Filter Vendor C: water-level panel, absent lidar-health. Filter Vendor A: reverse. Absence is the interface (no disabled placeholders). Cannot offer unsupported actions.
 3. Simulator `--drop` 3 robots. No message sent to console.
-4. Watch 3 rows degrade on timer (`STALE` → `UNREACHABLE`). Others stay `LIVE`. Status chips hollow, batteries em-dash. Caused by message absence.
-5. Kill stream. Connection banner appears, table retains last-known data, rows degrade honestly. No blank page or frozen lies (Principle 5).
-6. Restore stream. Rows return to `LIVE` (no reload).
+4. Watch 3 rows degrade on the server sweep (`STALE` → `UNREACHABLE`). Others stay `LIVE`. Status chips hollow, batteries em-dash. Caused by message absence.
+5. Kill stream. Connection banner appears, table retains last-known data, per-robot freshness labels are suppressed. With no live connection the console has no current per-robot answer and says so at the connection level rather than guessing per row (ADR 3). No blank page or frozen lies (Principle 5).
+6. Restore stream. Labels return; rows resume degrading on the sweep (no reload).
+
+Steps 4 and 5 are different failures on purpose: 4 is a robot going silent, 5 is the console going blind. Deriving freshness server-side is what lets the console tell them apart.
 > **[FILL]** Exact simulator flags (`pnpm --filter simulator dev --drop R-204,R-087,R-301`).
 
 ---
@@ -126,7 +128,7 @@ Budget: 10–11 hours / 3 days.
 [`PRINCIPLES.md`] is binding. Every rule names an enforcement mechanism (static check, type, test, runtime, review). Review-only rules are conventions, not guarantees (Principle 15).
 
 - **§3 Canonical model:** Normalizes shared meaning, preserves differences as typed capabilities. Capabilities limit UI offerings, not server authorization or current availability.
-- **§4 Provenance/Freshness:** Values carry source timestamps. Freshness derived from injected clock/policy. Rejects absolute version: badges aren't needed everywhere, only at smallest scope needed to act.
+- **§4 Provenance/Freshness:** Values carry source timestamps (`reportedAt` and `receivedAt`). Freshness is derived server-side from `receivedAt` against a configured policy, tested with an injected clock, and delivered as a field (ADR 3). The client displays; it never computes. Rejects absolute version: badges aren't needed everywhere, only at smallest scope needed to act.
 - **§6 Accessibility:** Target WCAG 2.2 AA. Semantic HTML, visible focus, contrast verification.
 - **§7 Security/Privacy:** Server is the authority. UI hides/disables, but never authorizes. Requested ≠ observed.
 - **§8 Design tokens:** Rejects raw hex/px outside `shared/ui`/`config`.
