@@ -222,13 +222,13 @@ The table stays visible with last-known data and every row degrades on the fresh
 ## 7. Optional map, only if time remains
 
 ```
-│  Fleet · Map                                                                 │
-│  ┌────────────────────────────────────────────────────┐  ┌─────────────────┐ │
-│  │     · R-118                                        │  │ R-118  Busy     │ │
-│  │           ○ R-204                                  │  │ R-055  Charging │ │
-│  │     · R-301                                        │  │ R-301  Fault    │ │
-│  │  positioned markers · site-map frame · no floor plan│ └─────────────────┘ │
-│  └────────────────────────────────────────────────────┘                      │
+│  Fleet · Map                                                                  │
+│  ┌─────────────────────────────────────────────────────┐  ┌─────────────────┐ │
+│  │     · R-118                                         │  │ R-118  Busy     │ │
+│  │           ○ R-204                                   │  │ R-055  Charging │ │
+│  │     · R-301                                         │  │ R-301  Fault    │ │
+│  │  positioned markers · site-map frame · no floor plan│  └─────────────────┘ │
+│  └─────────────────────────────────────────────────────┘                      │
 ```
 
 Markers encode status colour and use the hollow treatment when freshness is not LIVE. The table remains the source of truth. First to cut.
