@@ -89,6 +89,21 @@ less so.
   `encodeCanonicalEnvelope` but no `encodeAdapterEnvelope` beside it. The cheap fix is that
   missing function, in contracts; until then every vendor contract test repeats the encode
   step and the comment explaining it.
+- **FIXME: `connectivity` is a canonical core field no dialect reports.** Found by closing
+  **C6**: all three adapters emit the constant `"unknown"`, and no simulator dialect carries
+  link state at all. `canonicalCoreSchema`'s own doc says a field belongs in the core "only if
+  every adapter can populate it from its own dialect" and calls a core field that is empty for
+  some vendors "the failure mode ADR 1 and Principle 3 exist to prevent" — this one is empty
+  for **all** of them. `positionSchema` records `heading` as a field already removed for exactly
+  this reason, so the precedent points at removal. It is not removed here because the field is
+  rendered by `packages/web`'s robot detail page and asserted in four server and web suites, so
+  this is a contracts change with three consumers, not an adapter change. Two readings are open:
+  a modelling defect to delete, or a field held for a real vendor that reports link state and is
+  not yet modelled. Whoever decides should also say whether `unknown` is then still reachable —
+  `connectivitySchema` keeps the member either way, for a vendor that reports the link is down
+  versus one that says nothing. Until then the constant is named once in
+  `src/capabilityTrace.test.ts` § `UNSOURCED_CORE_FIELDS` rather than sitting as three quiet
+  literals, and the suite fails the day a dialect starts feeding it.
 - **FIXME: the wall-clock ban forced a hand-written ISO-8601 parser** (`src/core/isoInstant.ts`,
   18 tests). `no-restricted-globals` bans the `Date` global outright, so `new Date(iso).getTime()`
   — a pure parse, not a clock read — is banned with `Date.now()`. That is defensible, because
@@ -115,37 +130,27 @@ less so.
   known paths from a schema, which is shipped behaviour. ADR 29's `pnpm check:dependencies`
   now fails on a declared-and-unused dependency anyway, so the question cannot go stale
   again without breaking the build.
-- **FIXME: four canonical fields have no vendor source. Decided 20 August 2026 while
-  building vendor A; ratify or overrule before **C3**/**C4** copy them.** Each was found by
-  reading `canonicalCoreSchema` and `preFreshnessShape` against the recorded fixtures, and
-  none is answered by an ADR:
-  - **`adapterId` / `adapterVersion` — chose `"vendor-a"` and `"1.0.0"`.** Three spellings
-    were loose in the tree (`"A"` in this package's ledger, `"adapter-a"` in contracts and
-    server tests, `"vendor-a"` in `packages/web`'s fixtures); `"vendor-a"` won because it
-    was the only _product_ spelling, the rest being test placeholders. `adapterVersion`
-    bumps when output changes for an unchanged input — a mapping correction, a new
-    capability, a unit fix; not a comment or a test.
-    **The half still open:** `UnknownFieldSnapshot.byAdapter` is keyed by `SupportedVendor`
-    (`"A"`) while ADR 25's health response is keyed by open identifier, so the server has
-    two candidate keys for one column. It must choose once, in the **C8** registry that
-    knows both — never by joining the two spaces at the handler. Named in the adapter's
-    `ADAPTER_ID` comment so the next reader hits it.
-  - **`position.frame` — chose the site id.** Vendor A's pose is metres in that site's own
-    map, so `frame: site` is a statement the payload supports; `null` for every robot would
-    have made the field decoration.
-  - **`connectivity` — emits `unknown`, and this is now shipped rather than predicted.**
-    `connectivitySchema` says a vendor reporting no link state maps to `unknown` rather than
-    an optimistic `online`, and no dialect reports one, so **the console's connectivity
-    column is permanently inert once live data arrives.** Asserted in the vendor A contract
-    test so it reads as a decision rather than an oversight. The product question — whether
-    the dialects should carry a link field at all — is still open, and it is a simulator and
-    contracts question, not an adapter one. Related: `packages/FIXME.md` **F4**.
-  - **Heading is reported by all three dialects and has no canonical home** (`heading_deg`,
-    `heading_cdeg`; `positionSchema` has no heading by ADR 1). Vendor A declares it in the
-    schema and drops it, so the ledger stays silent — a known-but-unmapped field is
-    invisible to unknown-field accounting by construction. Commented on the schema field and
-    asserted by a test, so the silence is deliberate rather than a hole. Do the same in
-    **C3**/**C4**.
+- **RESOLVED 20 August 2026 — the four unsourced canonical fields are ratified as
+  [ADR 30](../../docs/00_adr/30_FIELDS_WITH_NO_COUNTERPART_ACROSS_THE_ADAPTER_BOUNDARY.md)**
+  (register stub **D21**). The FIXME asked for ratification of four decisions taken while
+  building vendor A — `adapterId`/`adapterVersion`, `position.frame`, `connectivity`, and
+  heading's absent canonical home — and all four are settled as built. Nothing changed in
+  any adapter.
+  **They turned out to be one decision, not four.** Three are a canonical field with no
+  vendor source and the fourth is a vendor field with no canonical home; both directions
+  have the same failure mode, a plausible default that compiles, ships, and states
+  something to an operator no vendor said. The ADR is written around that seam, so a
+  fourth vendor gets a rule rather than four precedents.
+  **Two things the ratification changed rather than recorded.** Vendor C declared
+  `telemetry.pose.heading_deg` correctly but asserted nothing about it — the "do the same
+  in **C3**/**C4**" instruction had been half-followed — so it now has the drop test A and
+  B already had, and it is the sharpest of the three: C is the only dialect whose ledger is
+  non-empty, so the test names the counted path instead of asserting a zero total. And the
+  `adapterId` loose end is now an ADR open question rather than a comment: the server has
+  two candidate keys for one health column, and **C8**'s registry chooses, never a handler.
+  **Still true and now load-bearing:** the console's connectivity column is permanently
+  inert until a dialect reports a link state. That is a simulator and contracts question —
+  `packages/FIXME.md` **F4** is its fixture-side half.
 - **RESOLVED 19 August 2026 — `A8` landed before the server wrote its ingest handler**, which
   is what made changing `AdapterError` free rather than a breaking cross-package change.
   Ratified as [ADR 20](../../docs/00_adr/20_ONE_ISSUE_VOCABULARY_END_TO_END.md); the
@@ -162,7 +167,7 @@ Verified 20 August 2026, from `packages/adapters`, after all three vendor adapte
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 11 files, 145 tests     |
+| `pnpm test`      | passes — 12 files, 182 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -383,12 +388,31 @@ cannot drift.
       vendor contracts that agree today are not one contract.
       Health `critical` was the last unasserted row in the package; it appears in no recorded
       fixture for A or C, so both suites now build the payload (see **C1**).
-- [ ] **C6 — Capability payloads trace to a declaration.** Every non-core output field
-      must come from a capability the adapter explicitly set. A canonical field left
-      unpopulated "because this vendor doesn't have it" is the defect ADR 1 § Constraints
-      names in review. For `sequence`, the adapter declares the vendor's raw counter and
-      nothing more: per-robot continuity is `sequenceHealth` on the diagnostic envelope and
-      the **server** derives it (ADR 25). Do not compute a gap here.
+- [x] **C6 — Capability payloads trace to a declaration. CLOSED 20 August 2026.** Every
+      non-core output field must come from a capability the adapter explicitly set. A canonical
+      field left unpopulated "because this vendor doesn't have it" is the defect ADR 1 §
+      Constraints names in review. For `sequence`, the adapter declares the vendor's raw counter
+      and nothing more: per-robot continuity is `sequenceHealth` on the diagnostic envelope and
+      the **server** derives it (ADR 25). Do not compute a gap here — none of the three do.
+      **The trace is established by mutation, in `src/capabilityTrace.test.ts`.** The per-vendor
+      suites already pinned each capability _set_ and each exact payload, and neither is this
+      property: a set can be right while the payload is copied from the wrong field, and an
+      exact-output test agrees with whatever the adapter currently does, so it cannot tell a
+      value that came from the dialect from one the adapter invented. Changing one documented
+      field in a recorded payload and diffing the envelope by region can. Twenty-five rows, one
+      per source field across the three dialects; each must move exactly the region it names.
+      Four falsifiers were run and all four fire: a capability wired to a constant, a capability
+      declared from an absence (`waterLevel` on vendor A), a capability source leaking into the
+      core, and removal of the `UNSOURCED_CORE_FIELDS` entry.
+      **The inverse half found something.** The table is cross-vendor because that is the only
+      place a canonical field _no_ dialect feeds is visible, and there is one: `connectivity`,
+      the constant `"unknown"` in all three adapters. Recorded in § FIXME above; it is a
+      contracts change with three consumers, not an adapter change, so it is not made here.
+      `heading` was already removed from `positionSchema` for the same reason, which is the
+      precedent.
+      **The table lives above `src/vendors/`, not beside each adapter.** The lint ban is on one
+      vendor directory importing another — a production coupling — and reading all three from
+      above is what a cross-vendor property needs.
 - [x] **C7 — Raw payload retention. CLOSED 20 August 2026: it is not this package's field**
       ([ADR 26](../../docs/00_adr/26_RAW_PAYLOAD_BOUNDED_VERBATIM_AND_UNPROTECTED_BY_DECISION.md)).
       This item asked for a raw-payload field on the adapter's output. That is now
@@ -410,7 +434,7 @@ cannot drift.
 ## Section 3 — Tests
 
 The wire and per-vendor contract harnesses are done: `vitest.config.ts`, node environment,
-11 passing test files, and a `test:coverage` script. What remains is dispatch and the
+12 passing test files, and a `test:coverage` script. What remains is dispatch and the
 cross-vendor normalization assertion under **D7**.
 
 - [x] **D1 — Shared fixture loader. Done 19 August 2026.** `src/testing/fixtures.ts` loads a

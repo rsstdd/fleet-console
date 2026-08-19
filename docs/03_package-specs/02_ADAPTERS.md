@@ -240,7 +240,8 @@ ADR 1 § Constraints is explicit that one fixture per vendor is a smoke test rat
 proof of the entire mapping, and asks for at least one boundary or malformed case per
 vendor where time allows.
 
-141 tests today, covering core behavior, fixtures, all three vendor contracts, and enforcement.
+182 tests today, covering core behavior, fixtures, all three vendor contracts, cross-vendor
+source tracing, and enforcement.
 
 ## 11. Implementation status
 

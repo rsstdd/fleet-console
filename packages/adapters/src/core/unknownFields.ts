@@ -102,6 +102,13 @@ export interface AcceptedPayloadNote {
    * An argument rather than a convention: ADR 15 counts unknown fields only on
    * accepted payloads, and three vendor adapters each remembering to check
    * first is three chances to get the ordering wrong.
+   *
+   * **The schema's verdict, not the adapter's.** A payload the schema accepted and
+   * a mapping step then rejected is still counted, because a value with no
+   * canonical mapping is dialect change and that is what this ledger is for
+   * (ADR 15 § Behaviour, amended 20 August 2026). Call this immediately after the
+   * parse; deferring it until after the mapping narrows the population without
+   * renaming the metric.
    */
   readonly accepted: boolean;
   /** The raw payload, walked as received — before parsing applied any default. */

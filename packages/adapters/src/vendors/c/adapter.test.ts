@@ -221,6 +221,27 @@ describe("vendor C unknown-field accounting", () => {
     });
   });
 
+  it("does not count a declared field the canonical model drops", () => {
+    // `telemetry.pose.heading_deg` is reported by the dialect and has no canonical
+    // home. It is declared in the schema, so the drop is deliberate and the ledger
+    // stays quiet — the alternative would report every intentional omission as
+    // dialect drift.
+    //
+    // Vendor C is the only dialect where this needs more than a zero total, and the
+    // only place the two silences can be told apart: `firmware_channel` is
+    // undeclared and counted, `heading_deg` is declared and dropped, and they sit
+    // in the same payload. Undeclaring the heading fails the exact-tally tests
+    // above too; this is the one that says which field and why, so the next reader
+    // gets a reason rather than an off-by-one.
+    const ledger = createUnknownFieldLedger();
+
+    createVendorCAdapter(ledger)(loadVendorFixture("C").payload, RECEIVED_AT);
+
+    expect(Object.keys(ledger.snapshot().byAdapter.C.fields)).toEqual([
+      "telemetry.firmware_channel",
+    ]);
+  });
+
   it("leaves other adapters' tallies at zero", () => {
     // One ledger, three adapters. A vendor C payload must not move vendor A's count.
     const ledger = createUnknownFieldLedger();

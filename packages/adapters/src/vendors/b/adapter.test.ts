@@ -338,14 +338,14 @@ describe("vendor B unknown-field accounting", () => {
   });
 
   it("counts unknown fields on a payload its schema accepted and its mapping rejected", () => {
-    // ADR 15 counts on payloads that pass the vendor *schema*, which is where
-    // `noteAcceptedPayload` sits here and in vendor A. Vendor B is where that
-    // ordering becomes visible — four post-schema rejection paths against vendor A's
-    // one — so it is asserted rather than left to be discovered by whoever reads the
-    // ledger next. It is also an open question: ADR 15 says elsewhere that a rejected
-    // payload leaves the ledger untouched, and an `unmappable_value` rejection is
-    // both accepted by the schema and rejected by the adapter. Recorded in TODO
-    // § B2/C3 for ratification; do not change one adapter's ordering alone.
+    // ADR 15 counts on payloads that pass the vendor *schema*, and says so
+    // explicitly since the 20 August 2026 amendment: the gate is schema acceptance,
+    // not overall success. An `unmappable_value` rejection is a well-formed document
+    // carrying a value the canonical model cannot take, which is dialect change —
+    // the signal the ledger exists for. Vendor B is where the ordering becomes
+    // visible, with four post-schema rejection paths against vendor A's one, so it
+    // is pinned here: moving `noteAcceptedPayload` after the mapping steps fails
+    // this test rather than quietly narrowing what the metric counts.
     const ledger = createUnknownFieldLedger();
 
     const result = createVendorBAdapter(ledger)(
