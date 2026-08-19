@@ -114,9 +114,10 @@ TODOs and the root TODO; do not “fix” them by weakening the ADR.
 `packages/adapters` now depends on `@fleet/contracts`, publishes one representative
 recorded representative and boundary fixtures per vendor, publishes one separately
 hand-authored malformed payload per vendor, and implements the accepted-only unknown-field
-ledger and path discovery. Vendor A now has a loose schema, adapter, and exact contract
-tests; Vendors B/C and the dispatch registry remain. Therefore complete cross-vendor
-contract evidence and process-wide unknown-field reporting do not yet exist. The simulator intentionally has
+ledger and path discovery. All three vendors now have loose schemas, adapters, and exact
+contract tests; the dispatch registry and cross-vendor normalization assertion remain.
+Therefore integrated dispatch evidence and process-wide unknown-field reporting do not
+yet exist. The simulator intentionally has
 no production dependency on contracts/adapters; its test-only adapters dependency guards
 the supported-vendor list (ADR 16).
 

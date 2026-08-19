@@ -114,16 +114,15 @@ dispatch its exhaustiveness check, and the unknown-field ledger.
 **Does not own:** the canonical model. Adding a fourth vendor is one module plus
 fixtures here. It is never an edit to `contracts`.
 
-When the vendor modules land, unknown fields a vendor sends are **counted, not
-silently dropped**. Vendor C's undocumented field must increment a per-adapter
-tally surfaced on the future health endpoint. The ledger exists; neither the
-Vendor C adapter nor the endpoint does yet.
+Unknown fields a vendor sends are **counted, not silently dropped**. Vendor C's
+undocumented field increments the per-adapter tally at
+`telemetry.firmware_channel`; the future health endpoint still needs to expose it.
 
 **Landed:** the result type, accepted-payload unknown-field ledger and path discovery,
-the supported-vendor set and parity guard, the complete fixture matrix, Vendor A's
-schema/adapter and exact contract tests, and the boundary-enforcement fixtures.
+the supported-vendor set and parity guard, the complete fixture matrix, all three
+schemas/adapters and their exact contract tests, and the boundary-enforcement fixtures.
 
-**Not yet:** Vendor B and C schemas/adapters and the dispatch registry. Each vendor has
+**Not yet:** the dispatch registry and integrated joining path. Each vendor has
 representative, empty-boundary, and full-boundary recorded fixtures plus one separately
 hand-authored malformed payload, published through `@fleet/adapters/testing`; the nine
 generated fixtures are drift-gated in CI (ADR 13).

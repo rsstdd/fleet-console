@@ -1,6 +1,6 @@
 # 02 — `@fleet/adapters`
 
-- **Status:** partially implemented — core primitives and complete C1 fixture infrastructure exist; no vendor adapter exists yet
+- **Status:** partially implemented — core primitives, fixtures, and all three vendor adapters are implemented; dispatch remains
 - **Package:** `packages/adapters`
 - **Governing documents:** ADR 1 (adapter boundary), ADR 7 (enforcement needs a resolver),
   ADR 9 (source exports), ADR 10 (pre-freshness return type), ADR 11 (public fixture
@@ -46,9 +46,13 @@ the contract, which is what lets a vendor's internal layout change freely.
 
 Tests may additionally import recorded payloads from the public
 `@fleet/adapters/testing` subpath (ADR 11). It exports `loadVendorFixture`,
-`listVendorFixtures`, and `FIXTURE_RECORDING`; payloads remain `unknown`, and no adapter
-or schema behaviour belongs on this surface. Production consumers must ban both
-`@fleet/adapters` and its subpaths.
+`listVendorFixtures`, `loadMalformedPayload`, `listMalformedPayloads`, and
+`FIXTURE_RECORDING`; payloads remain `unknown`, and no adapter or schema behaviour belongs
+on this surface. Production consumers must ban both `@fleet/adapters` and its subpaths.
+
+**Vendor adapters** — `createVendorAAdapter`, `createVendorBAdapter`, and
+`createVendorCAdapter`, each built over a caller-owned `UnknownFieldLedger` and returning
+the common two-argument `VendorAdapter` function.
 
 **Result** — `ok`, `failure`, `isOk`, `issuesForKind`. Types: `AdapterResult`, `AdapterOk`,
 `AdapterFailure`, `AdapterError`, `AdapterErrorKind`.
@@ -110,9 +114,11 @@ which is the coercion Principle 2 exists to prevent.
 ```
 src/
   core/result.ts          the result union, its constructors, and the issue-shaped error
+  core/adapter.ts         the common two-argument adapter signature
+  core/isoInstant.ts      shared ISO-instant conversion for Vendors A and C
   core/unknownFields.ts   the per-adapter ledger
   core/vendor.ts          SupportedVendor and its narrowing guard
-  vendors/<a|b|c>/        representative fixture exists; schema.ts and adapter.ts are planned
+  vendors/<a|b|c>/        schema.ts, adapter.ts, contract test, and fixtures
   __enforcement__/        deliberate lint violations, plus one control
   index.ts                the public surface
 ```
@@ -234,26 +240,23 @@ ADR 1 § Constraints is explicit that one fixture per vendor is a smoke test rat
 proof of the entire mapping, and asks for at least one boundary or malformed case per
 vendor where time allows.
 
-51 tests today, covering core behavior, fixture publication and enforcement.
+141 tests today, covering core behavior, fixtures, all three vendor contracts, and enforcement.
 
 ## 11. Implementation status
 
-**Core primitives and fixture infrastructure only.** Built and tested: the result union,
-the accepted-only unknown-field ledger, passthrough/key-difference detection, vendor
-identity narrowing, recorded fixtures with a drift guard, and the enforcement suite.
+**Core primitives, fixture infrastructure, and all three vendors.** Built and tested: the result
+union, accepted-only unknown-field ledger, passthrough/key-difference detection, vendor
+identity narrowing, recorded fixtures with a drift guard, each vendor's loose schema and
+adapter, and the enforcement suite.
 
-**Not built:** every vendor schema (`B1`–`B3`), every vendor adapter (`C2`–`C4`), and the
-status-mapping tables (`C5`). C1 is complete: each vendor has recorded representative,
-empty-boundary, and full-boundary payloads plus one separately hand-authored malformed
-payload.
+**Not built:** the exhaustive dispatch registry (`C8`) and cross-vendor normalization
+assertion (`D7`). C1–C5 and the per-vendor contract evidence are complete.
 
-This is one of the two gaps on the critical path. Until vendor adapters exist:
+This remains one of the two gaps on the critical path. Until the registry and remaining
+vendor adapters exist:
 
-- no generated payload can be validated against an authoritative schema, which is why
-  `@fleet/simulator` § 9 of its TODO is blocked;
 - `@fleet/server` cannot dispatch, so its ingest boundary is unbuilt too;
-- ADR 1's primary evidence — one fixture per vendor asserting exact canonical output —
-  does not yet exist.
+- ADR 1's per-vendor evidence exists, but its cross-vendor equality evidence is not yet automated.
 
 **Decision consequences.** Adapters return only validated pre-freshness envelopes
 ([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)); publish unknown recorded

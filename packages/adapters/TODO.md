@@ -162,7 +162,7 @@ Verified 20 August 2026, from `packages/adapters`, after all three vendor adapte
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 11 files, 141 tests     |
+| `pnpm test`      | passes — 11 files, 145 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -285,9 +285,10 @@ cannot drift.
       provenances differ and one union would hide that at the call site. That placement
       also keeps them inside ADR 27's diff budget instead of silently exempt under its
       generated-files glob.
-      **Still uncovered, and deliberately left to C5:** status `fault` and health `critical`
-      appear in no payload. That is a status-vocabulary matrix — one payload per source
-      value — not another extreme.
+      **Status `fault` and health `critical` still appear in no recorded payload,** and
+      deliberately so: that is a vocabulary matrix, one payload per source value, not
+      another extreme. **C5** covers them now, by building those payloads in the tests
+      rather than recording them.
       **Recording still covers one robot per vendor** (`R-001`, `R-002`, `R-003`), so
       **D7**'s cross-vendor test still has no input — see that item.
 - [x] **B1 / C2 — Vendor A. Done 20 August 2026.** `src/vendors/a/schema.ts` (loose at every
@@ -300,10 +301,11 @@ cannot drift.
       Declares `dock`, `lidarHealth` and `sequence`; the status and health tables are in the
       module comment, which discharges **C5** for this vendor. Canonical `unknown` is
       unreachable from this dialect on purpose: the schema admits only A's four states, so a
-      fifth value is a rejection rather than a silent downgrade.
+      fifth value is a rejection rather than a silent downgrade — asserted under **C5**, for
+      the health level as well as the status.
       **This item could not be completed without settling the four unowned fields below;**
       each decision is implemented and needs ratification, not re-litigation from scratch.
-      22 contract tests in `src/vendors/a/adapter.test.ts`, which discharges **D2**, **D3**
+      24 contract tests in `src/vendors/a/adapter.test.ts`, which discharges **D2**, **D3**
       and **D6** for vendor A and part of **D4** and **D5**.
 - [x] **B2 / C3 — Vendor B. Done 20 August 2026.** `src/vendors/b/schema.ts` and
       `src/vendors/b/adapter.ts`, built as `createVendorBAdapter(ledger)` like vendor A's.
@@ -342,7 +344,7 @@ cannot drift.
       panel registry off `OPERATOR_CAPABILITY_NAMES`. Cite the classification, not the page
       spec, when writing this test.
 - [x] **B3 / C4 — Vendor C. Done 20 August 2026.** `src/vendors/c/schema.ts` and
-      `src/vendors/c/adapter.ts`, 19 contract tests. Declares `dock`, `waterLevel` and
+      `src/vendors/c/adapter.ts`, 21 contract tests. Declares `dock`, `waterLevel` and
       `sequence`; declares no `lidarHealth` **by key absence**, asserted with
       `"lidarHealth" in capabilities` being false rather than a null payload, because a null
       payload would claim the vendor reports a lidar it does not have.
@@ -357,18 +359,30 @@ cannot drift.
       agreeing today: a vocabulary mapping is a per-dialect contract, and a shared table
       invites editing both when one vendor changes. `units.ts` states that test at the top.
       Vendor C imports nothing from `vendors/a`, which lint enforces and the near-miss makes
-      worth enforcing.
-- [x] **C5 — Status vocabulary mapping per vendor. Done 20 August 2026.** Vendors A and B
-      were completed first —
-      each table is in its adapter's module comment and every source value is asserted.
-      Vendor B was the real work and it is finished: three tables (status, health, dock),
-      every row asserted including the codes no recorded payload carries, and a code outside
-      any table rejected as `unmappable_value` naming the field it came from.
-      **Vendor C done 20 August 2026** — its table is restated rather than imported from
-      vendor A's, deliberately, and all four states are asserted.
-      Each dialect's status values map into the canonical five. A source value with no honest mapping is a rejection or an
-      explicit `unknown` — never a guess. Record each mapping as a table in the adapter's
-      doc comment; that table is the reviewable artefact.
+      worth enforcing. The health mapping was prose here until **C5** made it a table; the
+      status one was a table from the start, and the difference is exactly what a reviewer
+      can and cannot check.
+- [x] **C5 — Status vocabulary mapping per vendor. Done 20 August 2026, all three
+      vendors.** Each dialect's values map into the canonical five, every table is in its
+      adapter's module comment, and **every row of every table is asserted** — including the
+      values no recorded payload carries, which the tests build rather than record.
+      **Vendor B was the real work:** three tables (status, health, dock), every row
+      asserted, and a code outside any table rejected as `unmappable_value` naming the field
+      it came from.
+      **Vendors A and C reject rather than guess,** which is the other half of this item and
+      is now checked rather than claimed in prose. Both dialects spell their states as
+      words, so the vocabulary is declared in the document and a fifth word is a
+      `malformed_payload` rejection — not a downgrade to canonical `unknown`. The two fields
+      fail for different reasons and both are asserted: `status` has an `unknown` member a
+      lenient adapter could downgrade to, and `HealthSeverity` has none at all, so a level
+      outside the table has nowhere to go even if guessing were permitted.
+      **Vendor C's health mapping is a table now, not prose.** It read as three words in a
+      sentence, which is not the reviewable artefact this item asks for — a reviewer cannot
+      check a row that was never written down. Its status table stays restated rather than
+      imported from vendor A's, and its rejection test is restated for the same reason: two
+      vendor contracts that agree today are not one contract.
+      Health `critical` was the last unasserted row in the package; it appears in no recorded
+      fixture for A or C, so both suites now build the payload (see **C1**).
 - [ ] **C6 — Capability payloads trace to a declaration.** Every non-core output field
       must come from a capability the adapter explicitly set. A canonical field left
       unpopulated "because this vendor doesn't have it" is the defect ADR 1 § Constraints

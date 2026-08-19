@@ -23,8 +23,19 @@
  *
  * ## Health severity
  *
- * `nominal`, `degraded` and `critical` map to themselves. No `description` is
- * emitted; vendor C sends no prose.
+ * | `telemetry.health.level` | canonical `health.severity` |
+ * | ------------------------ | --------------------------- |
+ * | `nominal`                | `nominal`                   |
+ * | `degraded`               | `degraded`                  |
+ * | `critical`               | `critical`                  |
+ *
+ * Written out for the same reason the status table is: a declared identity mapping
+ * stops compiling when either vocabulary is renamed, while an assumed one keeps
+ * passing the wrong value through. A level outside this table is a rejection —
+ * canonical `HealthSeverity` has no `unknown` member to downgrade to, so there is
+ * nothing here to guess with even if guessing were permitted.
+ *
+ * No `description` is emitted; vendor C sends no prose.
  *
  * ## Capabilities
  *

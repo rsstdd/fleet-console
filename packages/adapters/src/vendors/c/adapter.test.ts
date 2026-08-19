@@ -135,6 +135,44 @@ describe("vendor C adapter", () => {
     }
   });
 
+  it("maps every health level the dialect can send", () => {
+    // `critical` appears in no recorded payload for this vendor either, so the
+    // bottom row of the module comment's health table needs a payload built here
+    // to be checked at all.
+    const base = fixtureObject();
+    const telemetry = asRecord(base.telemetry, "telemetry block");
+
+    for (const level of ["nominal", "degraded", "critical"] as const) {
+      const result = decode({ ...base, telemetry: { ...telemetry, health: { level } } });
+
+      expect(result.ok && result.value.core.health.severity).toBe(level);
+    }
+  });
+
+  it("rejects a word outside either vocabulary rather than guessing at one", () => {
+    // Vendor A's assertion restated against this dialect, deliberately, for the
+    // same reason its table is restated rather than imported: two vendor contracts
+    // that agree today are not one contract, and the day C adds a fifth state is
+    // the day the shared version of this test would have been quietly wrong for A.
+    //
+    // `status` has a canonical `unknown` a lenient adapter could downgrade to and
+    // `health.severity` has none, so the two fields reject for different reasons.
+    const base = fixtureObject();
+    const telemetry = asRecord(base.telemetry, "telemetry block");
+
+    for (const [path, block] of [
+      ["telemetry.state", { ...telemetry, state: "hibernating" }],
+      ["telemetry.health.level", { ...telemetry, health: { level: "warning" } }],
+    ] as const) {
+      const result = decode({ ...base, telemetry: block });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.error.kind).toBe("malformed_payload");
+      expect(result.error.issues.map((issue) => issue.path)).toEqual([path]);
+    }
+  });
+
   it("takes receipt time from the caller rather than any clock", () => {
     expect(decode(loadVendorFixture("C").payload, 1)).toMatchObject({
       value: { receivedAt: 1, reportedAt: 1_755_600_000_000 },

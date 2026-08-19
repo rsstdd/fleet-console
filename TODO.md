@@ -11,13 +11,13 @@ component specs, design system, wireframes, manifests, package TODOs, and source
 
 ## Current implementation baseline
 
-| Area      | Current state                                                                                                                                                                                                                                   |
-| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contracts | Canonical schemas, capability codecs, freshness derivation, and tests are built.                                                                                                                                                                |
-| Adapters  | Boundary/result primitives, vendor-support parsing, unknown-field accounting, one recorded fixture per vendor (drift-gated, ADR 13), and a public `testing` subpath (ADR 11) are built. Vendor payload schemas, adapters, and registry are not. |
-| Simulator | Deterministic payload generation, CLI/config, fault injection, bounded scheduling/transport, metrics, lifecycle, and tests are built. Downstream E2E and measured results remain.                                                               |
-| Server    | Validated config, manifest-seeded state, bounded history, freshness sweep, delta coalescing, health metrics, and tests are built. There is no HTTP/WebSocket process.                                                                           |
-| Web       | Shell, router, fixture-backed fleet/detail views, all eight shared UI components, gallery, contract decoding, and tests are built. There is no live store.                                                                                      |
+| Area      | Current state                                                                                                                                                                     |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contracts | Canonical schemas, capability codecs, freshness derivation, and tests are built.                                                                                                  |
+| Adapters  | Boundary/result primitives, fixtures, unknown-field accounting, and all three vendor schemas/adapters are built. Dispatch and integrated joining remain.                          |
+| Simulator | Deterministic payload generation, CLI/config, fault injection, bounded scheduling/transport, metrics, lifecycle, and tests are built. Downstream E2E and measured results remain. |
+| Server    | Validated config, manifest-seeded state, bounded history, freshness sweep, delta coalescing, health metrics, and tests are built. There is no HTTP/WebSocket process.             |
+| Web       | Shell, router, fixture-backed fleet/detail views, all eight shared UI components, gallery, contract decoding, and tests are built. There is no live store.                        |
 
 ## Priority 0 — correct statements that overclaim reality
 
@@ -104,15 +104,18 @@ Owner: `packages/adapters`.
   vendor, plus one hand-authored malformed payload per vendor.~~ Done 20 August 2026. The
   nine valid fixtures are simulator-recorded and drift-gated in CI (ADR 13); malformed
   payloads have separate provenance outside the generated path.
-- Add loose vendor schemas for Vendors A, B, and C (loose, not strict: ADR 15 counts
-  unknown fields on payloads that still normalize).
-- Normalize units, timestamps, statuses, and capabilities with injected `receivedAt`.
+- ~~Add loose schemas and adapters for Vendors A, B, and C.~~ Done 20 August 2026,
+  including exact canonical-output, malformed-input, boundary, capability, and
+  unknown-field tests (loose, not strict: ADR 15).
+- ~~Normalize units, timestamps, statuses, and capabilities with injected `receivedAt`.~~
+  Done per vendor; the cross-vendor equality assertion remains under adapter TODO **D7**.
 - Settle the four canonical fields no dialect sources — `adapterId`, `adapterVersion`,
   `position.frame`, `connectivity`. See `packages/adapters/TODO.md` § FIXME; three
   spellings of `adapterId` are already loose in the tree.
-- Count unknown fields per adapter, including Vendor C's `telemetry.firmware_channel`.
-- Add the registry and exact contract tests for malformed input, conversions,
-  capability absence, Vendor B ordering, and JSON round trips.
+- ~~Count unknown fields per adapter, including Vendor C's
+  `telemetry.firmware_channel`.~~ Done and asserted at its dotted path.
+- Add the registry and cross-vendor normalization test; per-vendor malformed input,
+  conversions, capability absence, Vendor B ordering, and contract parsing are covered.
 - Join simulator output to the contracts/web decode path in an E2E contract test.
 
 Raw-payload retention has moved off this item: ADR 26 put it wholly in `packages/server`,
