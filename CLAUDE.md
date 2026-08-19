@@ -20,6 +20,8 @@ Behavioral instructions only. Do not load product or domain knowledge here.
 - State naming and UI conventions:
   - State is separated by authority, lifetime, and transition model. Observed (telemetry) state and requested (command) state are never collapsed into one value (Principle 11).
   - Freshness is first-class: any surface that shows a value must also indicate how old it is (LIVE / STALE / UNREACHABLE / UNKNOWN) (Principle 4).
+  - Freshness is derived server-side and only server-side: a recurring sweep over `receivedAt` in `packages/server`, calling the pure state function in `packages/contracts`. It travels as a field on the envelope. `packages/web` displays it and holds no freshness timer of its own (ADR 3, Principle 1).
+  - While the stream is down the console suppresses per-robot freshness labels and lets the connection banner carry the connection-level state. It does not fall back to a client timer (ADR 3).
   - Every asynchronous surface must define its complete user-visible state (loading, empty, stale, offline, recoverable error, terminal error) (Principle 5).
   - Operator view is the default; technician diagnostics are behind an explicit toggle.
   - Target WCAG 2.2 AA. Use semantic HTML, keyboard-operable functionality, and visible, logical focus (Principle 6).
@@ -45,7 +47,8 @@ Behavioral instructions only. Do not load product or domain knowledge here.
 
 | Looking for                                                                       | Look here                         |
 | --------------------------------------------------------------------------------- | --------------------------------- |
-| Canonical envelope, capability types, freshness machine, Zod schemas              | `packages/contracts`              |
+| Canonical envelope, capability types, freshness state function, Zod schemas       | `packages/contracts`              |
+| Freshness sweep loop (the recurring interval that calls it)                       | `packages/server`                 |
 | Vendor dialects, adapters, recorded fixtures, adapter contract tests              | `packages/adapters`               |
 | Telemetry producer, fault injection flags, load mode                              | `packages/simulator`              |
 | Ingest, adapter dispatch, current-state store, WebSocket fan-out, health endpoint | `packages/server`                 |

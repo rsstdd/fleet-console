@@ -5,7 +5,8 @@
 * **Route:** `/robots/:id`
 * **Implementation:** `web/src/features/robot`
 * **Revision 4:** document number aligned to filename. Capability model now cites ADR 1 rather than a planning document. `sequence` carved out of the capability panels explicitly. Panel rendering specified as a registry rather than a conditional chain. Asynchronous state set completed (Principle 5).
-* **Governing documents:** `PRINCIPLES.md` (esp. 2, 3, 4, 5, 6, 9, 11); ADR 1 (canonical core plus declared capabilities); ADR 3 (freshness); component specs 01–08; wireframes Operator / Technician
+* **Revision 5:** freshness derivation resolved (TODO **D12**) in favour of ADR 3 as written — server-side only. § 6 no longer implies a page-local timer.
+* **Governing documents:** `PRINCIPLES.md` (esp. 2, 3, 4, 5, 6, 9, 11); ADR 1 (canonical core plus declared capabilities); ADR 3 (freshness, server-derived); component specs 01–08; wireframes Operator / Technician
 
 ## 1. Product intent
 
@@ -62,7 +63,7 @@ Input: robot id from route. Load from store/API selectors.
 | Diagnostics  | adapter id/version, sequence, sequence gaps (total since start, not a rolling window), vendor ts, received ts, clock delta, schema version, unknown-field count (labelled as per-adapter fleet-wide, unless a per-robot counter is added) |
 | Raw          | retained payload object, fetched as a separate field on the single-robot endpoint (decoded at the boundary, per Principle 2)                                                                                                              |
 
-Freshness continues to update on the timer while the page is open (Principle 4).
+Freshness continues to update while the page is open, as the server sweep's output arrives on the stream (ADR 3). The page holds no timer of its own, and neither does `entities/robot` — a header label changes because a delta changed it (Principle 4).
 
 There is no "mission" or "activity" field in the canonical envelope. If a future capability adds one, it is declared and rendered in Capabilities, not assumed into Summary.
 
@@ -112,7 +113,7 @@ Complete asynchronous state set (Principle 5):
 | Robot known, never seen | Freshness `unknown`, `asOf` is `null`, and the label renders the state word with no date (component spec 02). Panels show registration data only |
 | Capability empty set    | Summary only; no empty capability section chrome                                                               |
 | Partial data            | Present fields render; absent optional fields show an em dash, never a zero or a placeholder date              |
-| Stale data              | Header freshness degrades on the timer; status chip takes the last-known treatment                             |
+| Stale data              | Header freshness degrades as the server sweep's output arrives; status chip takes the last-known treatment      |
 | Offline / stream down   | Shell banner; values freeze at last known; per-robot freshness label suppressed in favour of the connection state (ADR 3) |
 | Recoverable error       | Keep whatever remains valid on screen and offer retry; do not blank the page                                   |
 | Terminal error          | `EmptyState` stating what failed and the route back to Fleet                                                   |

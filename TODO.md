@@ -298,22 +298,19 @@ What remains is the path. `CLAUDE.md:62` and `AGENTS.md:53` both route "Architec
 
 **Fix:** pick one and make both tables agree. `docs/00_adr/` matches the sibling `01_page-specs` / `02_component-specs` ordering convention, so changing the tables is the smaller edit.
 
-### D12. Freshness is derived in two places, and the docs disagree about which
+### D12. Freshness derivation — RESOLVED 19 August 2026: server-side only
 
-- `packages/web/CLAUDE.md`: *"Freshness arrives with the value from the read model; do not recompute it in a component."*
-- `entities/site/model.ts` (the `Freshness` type's doc comment): *"derived on a timer server-side — see ADR 3."*
-- `docs/01_page-specs/02_FLEET.md` § 6: *"`freshness` — From freshness machine (timer-derived)"*, and § 6 again: *"Updates apply as deltas keyed by `robotId` on a scheduled frame."*
-- `docs/01_page-specs/03_ROBOT_DETAIL.md` § 6: *"Freshness continues to update on the timer while the page is open."*
-- `docs/WIREFRAMES.md` § 6: *"every row degrades on the freshness timer through STALE to UNREACHABLE, because freshness is derived on a timer rather than on arrival and the console must notice silence."*
-- `PRINCIPLES.md` § 6: *"Freshness is derived from an injected clock and policy, so silence can move data from current to stale or unreachable without a new message."*
+**Decision: ADR 3 as written — option (c).** Freshness is derived by the 500ms server sweep over `receivedAt`, travels as a field on the envelope, and is never computed in `packages/web`. Neither components nor `entities/robot` hold a freshness timer. The earlier recommendation here was (a), client-side derivation in `entities/robot`; it is overruled.
 
-If freshness is computed server-side and arrives with the value, a client with a dead WebSocket receives no updates and therefore never degrades — which is the exact opposite of the demo in `WIREFRAMES.md` § 6, the sequence the document calls "the submission". The client must hold a timer.
+The objection recorded against (c) was correct as stated: a client with a dead socket receives no updates and therefore never degrades. It is answered by ADR 3's suppression rule rather than by a client timer. While the stream is down, per-robot freshness labels are suppressed and `ConnectionBanner` carries the connection-level state. A client timer would degrade every row to UNREACHABLE when the console's own socket died — attributing the console's blindness to the machines, and destroying the distinction between "this robot went silent" (three rows move, the rest do not) and "I cannot see any robot" (the banner). That distinction is the one an operator acts on, and it is why the derivation belongs where the robots are seen rather than where the page is rendered.
 
-`CLAUDE.md`'s rule is still right about *components* — a component must not compute it — but the layer that does is the client read model, not the server.
+`PRINCIPLES.md`'s injected-clock requirement is satisfied: the pure state function — `receivedAt`, a clock reading, and the three thresholds in, one of four states out — lives in `packages/contracts` and is a framework-independent unit test against a controlled clock. Only the recurring interval that calls it lives in `packages/server`. The routing-table entry "freshness machine → `packages/contracts`" and ADR 3's "the sweep runs on the server" describe those two halves; both were made explicit rather than left to inference.
 
-**Options:** (a) client-side derivation in `entities/robot`, from an injected clock, on a scheduled tick; (b) server-side, with the client re-deriving on stream loss; (c) server-side only.
+**Reconciled in the same change:** ADR 3 (`## Observed consequences`, and an Implications entry naming the two-package split); `docs/WIREFRAMES.md` § 0, § 6, § 8, § 9 step 5 (revision 3); `README.md` § 1, § 3 steps 4–6, § 6 § 4; `CLAUDE.md` routing table and freshness rules; `AGENTS.md`; `packages/web/CLAUDE.md` hard rules (two rules added); `docs/01_page-specs/02_FLEET.md` § 6 and § 11 (revision 4); `docs/01_page-specs/03_ROBOT_DETAIL.md` § 6 (revision 5); the `Freshness` doc comment in `entities/robot/model.ts`; the replacement note in `entities/robot/useFleetRobots.ts`. **T6** is rewritten accordingly.
 
-**Recommendation: (a).** It is the only option that satisfies both `PRINCIPLES.md` § 6's injected-clock requirement and § 11's *"Time-sensitive and asynchronous tests must use an injected, controllable clock"* — a testable freshness machine has to live where the tests are. Write ADR 3 to say so (**D11**), fix the `Freshness` doc comment, and restate `packages/web/CLAUDE.md`'s rule as "components never derive freshness; `entities/robot` does, from an injected clock."
+`docs/02_component-specs/02_FRESHNESS_LABEL.md` needed no change: § 8 already carried the suppression rule and § 12 already pointed thresholds at ADR 3 and config.
+
+**One consequence to carry forward.** The demo's kill-the-stream step no longer shows rows degrading. Step 4 (`--drop` against three robots, stream healthy) is unaffected and remains the step the documents call the submission; step 5 now demonstrates suppression instead. Anyone rehearsing the demo against the old narration will find it does not match.
 
 ### D13. Where the persona toggle's MUI override belongs
 
@@ -507,11 +504,18 @@ Keep the fixture honest about the demonstration `WIREFRAMES.md` § 3–4 depends
 
 Also required by `PRINCIPLES.md` § 7: the complete user-visible state matrix for this surface — initial loading, background refresh, empty, partial, stale, offline, recoverable error, terminal error. `02_FLEET.md` § 10 covers four of those; the rest are undefined. And § 4 requires the error shape (code, explanation, what remains valid, next steps, correlation id) — no error type exists anywhere in the package.
 
-### T6. Freshness machine
+### T6. Freshness machine `[repo]`
 
-Per **D12**: an injected-clock timer in `entities/robot` that moves robots through LIVE → STALE → UNREACHABLE on silence, with thresholds from `config` (`02_FRESHNESS_LABEL.md` § 12 says "2s / 10s", attributed to ADR 3, which does not exist).
+Per **D12**, resolved server-side, so this is not web-package work at all. Two halves in two packages:
 
-This is what makes `WIREFRAMES.md` § 9 steps 4–6 — the demo the document calls "the submission" — actually work.
+- `packages/contracts` — the pure state function. `receivedAt`, a clock reading, and `liveThresholdMs` / `staleThresholdMs` in; LIVE | STALE | UNREACHABLE | UNKNOWN out. Framework-independent, unit-tested against an injected clock at the threshold boundaries (**T8**). Thresholds come from `config/freshness.json`, never hardcoded (ADR 3, Principle 13).
+- `packages/server` — the 500ms interval that calls it over the current-state map, plus the late-tick detection ADR 3's Implications require on the health endpoint. A freshness-only change must be treated as a real change by ADR 2's fan-out coalescing, or the transition never reaches the client.
+
+UNKNOWN needs the fleet manifest (`config/fleet-manifest.json`) to have a population on cold start; without it a never-seen robot does not exist rather than reading UNKNOWN.
+
+`packages/web` gets no timer. What it needs instead is the suppression path: when the transport reports the stream down, per-robot `FreshnessLabel` rendering stops and `ConnectionBanner` carries the state (**T3**, **T5**).
+
+This is what makes `WIREFRAMES.md` § 9 step 4 — the demo the document calls "the submission" — actually work.
 
 ### T7. Contracts, adapters, server, simulator `[repo]`
 
@@ -525,7 +529,8 @@ Currently: one test, failing. `packages/web/CLAUDE.md` § Testing names three re
 
 Missing:
 - Selector tests for `selectStatusPresentation` (including the degraded-overrides-status branch), `selectBatteryDisplay`, `selectFreshnessSummary` (must total N for a fixture of N).
-- Freshness interpretation with an injected clock, asserting boundary times (**T6**, `PRINCIPLES.md` § 6: *"Centralize them and test boundary times"*).
+- Freshness state function with an injected clock, asserting boundary times. Lives with the function in `packages/contracts`, not here (**T6**, **D12**).
+- Suppression: with the transport reporting disconnected, no per-robot `FreshnessLabel` renders and the banner does (**D12**, ADR 3).
 - One end-to-end path in which a row visibly transitions to stale (`packages/web/CLAUDE.md` § Testing names this specifically; `WIREFRAMES.md` § 9 step 4 is the scenario).
 - The boundary fixture, both halves (**B10**).
 - Fleet filter tests: vendor filter with ≥2 vendors, site filter with ≥2 sites (`02_FLEET.md` § 11).
@@ -579,7 +584,7 @@ Recorded so they are not mistaken for oversights. Each is already documented as 
 6. **D9**, then **B8** + **D10** — unblock BEM in stylelint, kill the duplicate palette, move the gallery to a dev route.
 7. **A13**, **A8**, **A15** — CI, one-command start, and get the tree actually committed, so nothing regresses past this point.
 8. **D1**, **D11**, **D15**, **A9**, **A10**, **A11** — documentation-only reconciliations. Cheap, and they stop the next agent inheriting the same contradictions. **A9** and **D11** are the two an agent reads first.
-9. **D12**, **D5** — decide freshness derivation and tenant config, then amend ADRs 3 and 5 to match.
+9. ~~**D12**~~ resolved — server-side derivation, ADR 3 unchanged and the dependent documents reconciled. **D5** — decide tenant config, then amend ADR 5 to match.
 10. **T2** → **T3** → **T5** → **T6** — the vertical path: shell, connection integrity, transport, freshness.
 11. **D2**, **D3**, **D4**, **D6**, **D7**, **D13**, **D14**, **A2**–**A5** — the fleet surface, correct and styled.
 12. **T4** — robot detail, with the capability contrast `WIREFRAMES.md` § 9 calls the point of the submission.

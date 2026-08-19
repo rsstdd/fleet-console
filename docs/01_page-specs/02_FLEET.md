@@ -5,7 +5,8 @@
 * **Route:** `/`
 * **Implementation:** `web/src/features/fleet`
 * **Revision 3:** document number aligned to filename. Principle citations corrected against the canonical fifteen. Row activation resolved to link-only, since the previous "Enter on focused row" was not implementable without a focusable row. Asynchronous state set completed (Principle 5). Summary scope stated explicitly.
-* **Governing documents:** `PRINCIPLES.md` (esp. 4, 5, 9, 11, 12); ADR 2 (delta transport, measurement commitment); ADR 3 (freshness timer); ADR 4 (structure); component specs 01–07; wireframes Fleet view
+* **Revision 4:** freshness derivation resolved (TODO **D12**) in favour of ADR 3 as written — server-side only. § 6 now states that neither this feature nor `entities/robot` derives freshness, and § 11 adds a check for it.
+* **Governing documents:** `PRINCIPLES.md` (esp. 4, 5, 9, 11, 12); ADR 2 (delta transport, measurement commitment); ADR 3 (freshness, server-derived); ADR 4 (structure); component specs 01–07; wireframes Fleet view
 
 ## 1. Product intent
 
@@ -62,11 +63,13 @@ Required fields per row (canonical read model):
 | `vendor`              | e.g. "A", "B", "C" — displayed, and filterable                         |
 | `siteId` / site label | Grouping and filter                                                    |
 | `status`              | Mapped to `StatusChip` variant + label, via `entities/robot` selector  |
-| `freshness`           | From freshness machine (timer-derived)                                 |
+| `freshness`           | Server-derived, arrives as a field on the envelope (ADR 3). Never computed in this feature |
 | `batteryPercent`      | Normalized 0–100 display; omitted (em dash) when freshness is not LIVE |
-| `lastSeenAt`          | For display + freshness machine input                                  |
+| `lastSeenAt`          | Display only (`reportedAt`). The sweep reads `receivedAt` server-side; this value is not an input to any client derivation |
 
-Summary counts are selector-derived from freshness state, not hardcoded and not derived from status.
+Summary counts are selector-derived from freshness state, not hardcoded and not derived from status. The selector counts the freshness field it is given; it does not evaluate ages.
+
+**Freshness is never derived here.** It is computed by the server sweep and delivered on the stream (ADR 3). This feature has no timer, and neither does `entities/robot`. A row's freshness changes when a delta says it changed.
 
 Updates apply as deltas keyed by `robotId` on a scheduled frame, never synchronously per message (ADR 2, Principle 12).
 
@@ -124,6 +127,7 @@ Complete asynchronous state set (Principle 5):
 | Concern                        | Check                                                        |
 | ------------------------------ | ------------------------------------------------------------ |
 | Freshness visible per row      | UI test / checklist                                          |
+| No client derivation           | Grep the feature and `entities/robot` for interval timers and `Date.now()` in freshness paths; must find none (ADR 3) |
 | Summary counts total the fleet | Fixture at N robots → four freshness counts sum to N         |
 | Vendor filter                  | Fixture with ≥2 vendors                                      |
 | Site filter                    | Fixture with ≥2 sites                                        |

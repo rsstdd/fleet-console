@@ -16,6 +16,7 @@ This is a TypeScript monorepo for a multi-vendor robot fleet telemetry console: 
 - `shared/ui` is pure presentational; domain logic lives only in `entities` and has one authoritative implementation (Principle 1).
 - State is separated by authority, lifetime, and transition model. Observed state and requested state are never collapsed (Principle 11).
 - Freshness is first-class on every value surface (Principle 4).
+- Freshness is derived server-side only — a sweep over `receivedAt` in `packages/server` calling the pure state function in `packages/contracts` — and travels as a field on the envelope. `packages/web` never derives it and holds no freshness timer. While the stream is down, per-robot labels are suppressed in favour of the connection banner (ADR 3).
 - Every asynchronous surface defines its complete user-visible state (loading, empty, stale, offline, recoverable error, terminal error) (Principle 5).
 - Operator view is default; technician diagnostics are behind an explicit toggle.
 - Target WCAG 2.2 AA. Use semantic HTML, keyboard-operable functionality, and visible, logical focus (Principle 6).

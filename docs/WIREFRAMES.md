@@ -1,5 +1,7 @@
 # Wireframes — `canonical-fleet` console
 
+**Revision 3.** § 6 and § 9 step 5 corrected against ADR 3: freshness is derived by the server sweep, so a killed stream suppresses per-robot labels rather than degrading every row on a client timer. The `--drop` sequence in step 4 is unchanged.
+
 **Revision 2.** Reconciled with the canonical envelope. Every value shown below has a source in `@fleet/contracts`; anything without one was cut or moved. Summary strip counts freshness only. Capability panels render non-core capabilities only. Status is qualified whenever freshness is not LIVE.
 
 Dense, operational, no decorative chrome. Two personas on one layout.
@@ -15,7 +17,7 @@ Values on these screens come from exactly these places.
 | Core, every robot, every vendor | robot id, site id, vendor, model, connectivity, battery, position (map frame), status, health                      |
 | Canonical status                | `idle`, `busy`, `charging`, `fault`, `unknown`                                                                     |
 | Health severity                 | `nominal`, `degraded`, `critical`                                                                                  |
-| Freshness, derived on a timer   | `LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN`                                                                          |
+| Freshness, derived by the server sweep | `LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN` — arrives as a field on the envelope; the console never computes it (ADR 3) |
 | Envelope metadata               | adapter version, sequence, vendor timestamp, received timestamp, schema version                                    |
 | Declared capabilities, non-core | `dock`, `lidarHealth`, `waterLevel`, and others by vendor                                                          |
 | Raw payload                     | Served only on `GET /api/robots/:id` as a separate field. Never in `GET /api/fleet` and never in the delta stream. |
@@ -215,7 +217,9 @@ Vendor C declares `waterLevel`, which A and B do not, and omits `lidarHealth`, w
 │ ✕ Stream disconnected · showing last known state             [Retry]         │
 ```
 
-The table stays visible with last-known data and every row degrades on the freshness timer through STALE to UNREACHABLE, because freshness is derived on a timer rather than on arrival and the console must notice silence. The banner states the condition; the rows state the consequence. This sequence is the demo.
+The table stays visible with last-known data, and per-robot freshness labels are **suppressed** — the banner carries the connection-level truth instead. Freshness is derived by a server sweep and delivered over the stream (ADR 3), so a dead socket means the console has no current per-robot answer and must not display one. A row still reading LIVE from a socket that died two minutes ago is the exact failure this project argues against, and a row reading UNREACHABLE is no better: it blames the machine for the console's own blindness.
+
+Status chips take the last-known treatment, battery values go to em dash, and the banner states what the operator can and cannot trust. The banner is not adjacent chrome here; it is the only surface still making a true statement about currency.
 
 ---
 
@@ -244,7 +248,7 @@ Markers encode status colour and use the hollow treatment when freshness is not 
 | Filtered empty state                            | Yes      | `EmptyState`                         |
 | Robot detail, operator, two vendors             | Yes      | The capability contrast is the point |
 | Robot detail, technician                        | Yes      | Toggle, same layout                  |
-| Disconnected and reconnecting, with stale drift | Yes      | Banner plus timer                    |
+| Disconnected and reconnecting                   | Yes      | Banner carries currency; per-robot labels suppressed |
 | Map                                             | No       | Only if time remains                 |
 
 ---
@@ -254,8 +258,8 @@ Markers encode status colour and use the hollow treatment when freshness is not 
 1. Open the fleet at fifty robots. Everything LIVE.
 2. Filter to Vendor C, open a robot, note the water-level panel and the absent lidar panel. Filter to Vendor A, open a robot, note the reverse.
 3. Run the simulator with `--drop` against three robots.
-4. Watch those rows pass through STALE to UNREACHABLE on the timer, status chips going hollow and battery values going to em dash, while nothing else changes.
-5. Kill the stream. The banner appears, the table stays, and every row degrades honestly.
-6. Restore. Rows return to LIVE without a page reload.
+4. Watch those rows pass through STALE to UNREACHABLE on the server sweep, status chips going hollow and battery values going to em dash, while nothing else changes. The stream is healthy throughout — this is the console reporting silence, not the console losing its connection.
+5. Kill the stream. The banner appears, the table stays with last-known data, and per-robot freshness labels are suppressed: with no live connection the console has no current answer per robot and says so at the connection level instead of guessing at the row level (ADR 3).
+6. Restore. Labels return and rows resume degrading on the sweep, without a page reload.
 
-Steps two and four are the submission. Everything else is context.
+Steps two and four are the submission. Everything else is context. Steps four and five are deliberately different failures: four is a robot going silent, five is the console going blind, and the console distinguishes them because freshness is derived where the robots are seen rather than where the page is rendered.
