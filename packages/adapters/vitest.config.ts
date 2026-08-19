@@ -8,6 +8,14 @@ export default defineConfig({
     },
   },
   test: {
+    // `src/__enforcement__/enforcement.test.ts` lints files on disk, so its
+    // input is the working tree rather than a fixture value — the one suite here
+    // that can fail for reasons unrelated to what it asserts. The root `test`
+    // script runs packages one at a time so nothing else is writing the tree
+    // while it runs (`packages/FIXME.md` F14, closed 20 August 2026). Restoring
+    // parallelism there, or giving this package a test that writes files, puts
+    // that failure mode back.
+
     // Adapters are pure functions over decoded payloads; no DOM, no wall clock.
     environment: "node",
     include: ["src/**/*.test.ts"],

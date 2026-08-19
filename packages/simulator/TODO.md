@@ -165,14 +165,20 @@ measurement table is still empty rather than estimated.
   the confusion ADR 13 exists to prevent. Nothing in this package changes; it is recorded
   here because the recorder and the guard it depends on live on this side.
 
-## Known defect
+## Resolved defect
 
-- [ ] **`src/__enforcement__/enforcement.test.ts` fails transiently under parallel load.**
-      It lints files on disk while `pnpm --recursive` writes other packages, so its input
-      is the live tree. Recorded as `packages/FIXME.md` **F14**, which owns the fix; the
-      same shape exists in `packages/server` and `packages/adapters`, so fixing this file
-      alone would be fixing a symptom. Do not widen a timeout, and do not skip the suite —
-      ADR 7 records what a silently inert boundary guard costs.
+- [x] **`src/__enforcement__/enforcement.test.ts` no longer lints a tree something else is
+      writing — CLOSED 20 August 2026 with `packages/FIXME.md` F14.** It still lints
+      files on disk, which is what makes it worth having; what changed is that nothing else
+      in the workspace runs while it does. The root `test` script is now
+      `pnpm --recursive --workspace-concurrency=1 test`, and `vitest.config.ts` says why at
+      the top of the `test` block, where the next person to re-parallelise it will read it.
+      All four suites repo-wide were fixed together — `packages/adapters`' and
+      `packages/web`'s had not been caught, which F14 called luck rather than a difference.
+      Two changes inside this file beyond the schedule: its four cases now judge a single
+      lint pass taken in `beforeAll`, and a fatal ESLint result throws instead of being
+      filtered into an empty message list that reads as a broken boundary. No timeout was
+      widened; the one that remains is a hook budget for that single pass.
 
 ## Verification sequence for the remaining work
 

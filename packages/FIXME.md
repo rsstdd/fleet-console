@@ -11,7 +11,7 @@ decisions that are simply incomplete. Package TODOs remain the detailed implemen
 plans; this file is the cross-package reconciliation list.
 
 **Re-audit outcome.** F1–F12 were each re-verified against source. F1–F11 remain open; **F12 was closed on 19 August 2026** by ADR 16. **F13, F14 and F15 were added on 19 August 2026** — by ADR 21, ADR 25 and ADR 26 respectively — and are the newer kind of finding this file should expect more of: not contradictions, but decisions that landed correctly ahead of the code that will consume them.
-No additional finding was closed in the 20 August re-audit. The re-audit corrected statements in
+**F14 was closed on 20 August 2026**, by the work its own entry prescribed. No other finding was closed in the 20 August re-audit. The re-audit corrected statements in
 [`README.md`](./README.md) that the code contradicts: a test that does not exist, an
 undercount of the dependency arrows drawn ahead of the code, a health endpoint the
 server does not serve, a dependency rule attributed to the build rather than to lint,
@@ -114,9 +114,9 @@ TODOs and the root TODO; do not “fix” them by weakening the ADR.
 `packages/adapters` now depends on `@fleet/contracts`, publishes one representative
 recorded representative and boundary fixtures per vendor, publishes one separately
 hand-authored malformed payload per vendor, and implements the accepted-only unknown-field
-ledger and path discovery. It still has no vendor schemas/adapters or dispatch registry.
-Therefore exact vendor-to-canonical contract evidence and process-wide unknown-field
-reporting do not yet exist. The simulator intentionally has
+ledger and path discovery. Vendor A now has a loose schema, adapter, and exact contract
+tests; Vendors B/C and the dispatch registry remain. Therefore complete cross-vendor
+contract evidence and process-wide unknown-field reporting do not yet exist. The simulator intentionally has
 no production dependency on contracts/adapters; its test-only adapters dependency guards
 the supported-vendor list (ADR 16).
 
@@ -263,9 +263,9 @@ from a literal.
 
 ---
 
-### F14. Every boundary-enforcement suite fails transiently under parallel load
+### F14. Every boundary-enforcement suite fails transiently under parallel load — **CLOSED**
 
-**Assessment: real defect in a load-bearing test; open.**
+**Assessment: real defect in a load-bearing test; resolved 20 August 2026.**
 
 Observed three times on 19 August 2026 during full-workspace `pnpm test` runs, across
 **two packages**:
@@ -297,9 +297,36 @@ a slow assertion, and a longer timeout hides it rather than removing it. The can
 fixes are to point the ESLint instance at a stable copy of the fixtures rather than the
 working tree, or to run this suite serially and say why in the config.
 
-**Closes when:** no enforcement suite's input depends on concurrent writes to the tree, and
-the reason is written where the next person changing the vitest config will read it. Fixing
-only the two observed suites and leaving `packages/adapters`' would be fixing the symptom.
+What closed it, on 20 August 2026:
+
+- **The root `test` script runs packages one at a time** —
+  `pnpm --recursive --workspace-concurrency=1 test`. Nothing else in the workspace is in
+  flight while a suite lints the tree, which is the concurrency this finding is about. The
+  whole price was measured before taking it: 18.1s serial against 13.0s parallel for all
+  five packages, and the parallel run was never the faster one by enough to buy a flake.
+- **The reason is stated in all four vitest configs** —
+  `packages/adapters/vitest.config.ts`, `packages/server/vitest.config.ts`,
+  `packages/simulator/vitest.config.ts` and `packages/web/vite.config.ts` — at the top of
+  the `test` block, where someone restoring parallelism is standing when they do it. Root
+  `package.json` carries the same note as `_test`, beside the script itself.
+- **All four suites changed, not the two that were caught.** `packages/web`'s counts here:
+  it has the same shape and the same seven cases linting the tree, and this finding says in
+  as many words that not being caught is luck.
+- **Each suite now takes one lint pass in `beforeAll` and asserts against that snapshot.**
+  Its cases can no longer disagree about the tree, and the file has exactly one moment of
+  contact with it. This is not a speed change — typescript-eslint builds its program once
+  per process either way.
+- **A fatal ESLint result now throws.** A parse or configuration failure produces a message
+  with no rule id, and all four suites filtered on rule ids — so "ESLint could not run"
+  arrived as "the rule did not fire", an accusation against an innocent boundary. That is
+  the shape all five recorded occurrences had. Verified against a deliberate syntax error:
+  `ruleId: null, fatal: true, "Parsing error: Variable declaration expected."`
+- **No timeout was widened, and the per-case allowances are gone.** What remains is one
+  hook budget per suite, documented as covering the single lint pass and not as a knob to
+  turn when something fails.
+
+The suites still lint files on disk, which is what makes them worth having. What they no
+longer do is lint a tree something else is writing.
 
 ---
 

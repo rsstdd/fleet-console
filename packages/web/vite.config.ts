@@ -33,6 +33,14 @@ export default defineConfig({
     },
   },
   test: {
+    // `src/features/fleet/__boundary-violation__/violation.test.ts` lints files on disk, so its
+    // input is the working tree rather than a fixture value — the one suite here
+    // that can fail for reasons unrelated to what it asserts. The root `test`
+    // script runs packages one at a time so nothing else is writing the tree
+    // while it runs (`packages/FIXME.md` F14, closed 20 August 2026). Restoring
+    // parallelism there, or giving this package a test that writes files, puts
+    // that failure mode back.
+
     // Lint fixtures under __boundary-violation__ are named *.fixture.test.ts so
     // ESLint's `**/*.test.*` override classifies them the way the real file they
     // stand in for is classified. They are inputs to a test, not tests, so
