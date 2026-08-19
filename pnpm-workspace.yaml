@@ -10,6 +10,18 @@ allowBuilds:
   # and tsx is an esbuild wrapper; without this, `pnpm dev` and `pnpm start` fail.
   esbuild: true
 
+  # unrs-resolver reaches this workspace through eslint-import-resolver-typescript,
+  # which the boundary rules (Principle 8) depend on. Its postinstall is
+  # `napi-postinstall`, a fallback that fetches a platform binary when the package's
+  # optional dependencies did not deliver one. They do: the lockfile pins
+  # `@unrs/resolver-binding-linux-x64-gnu` and the matching musl build, and the
+  # `.node` file is present without the script ever having run. Denied rather than
+  # approved because a fallback that this workspace never reaches is arbitrary
+  # install-time code bought for nothing, which is the trade this file exists to
+  # refuse. If a platform ever lands here with no published binding, lint will fail
+  # loudly at resolution and this line is the first thing to revisit.
+  unrs-resolver: false
+
 # Workspace deps resolve to the local package first; `workspace:*` in a
 # package.json is still required to make the link mandatory rather than
 # opportunistic.
