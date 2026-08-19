@@ -1,4 +1,3 @@
-
 # 06 — EmptyState
 
 Status: implementation-ready
@@ -36,9 +35,7 @@ There is no prop for heading level. See § 4.
 ```tsx
 <div className={["empty-state", className].filter(Boolean).join(" ")}>
   <h2 className="empty-state__title">{title}</h2>
-  {description ? (
-    <p className="empty-state__description">{description}</p>
-  ) : null}
+  {description ? <p className="empty-state__description">{description}</p> : null}
   {action ? <div className="empty-state__action">{action}</div> : null}
 </div>
 ```
@@ -81,13 +78,13 @@ Missing title → invalid. Empty action node → omit action container.
 
 ## 11. Verification
 
-| Concern                 | Check                                                            |
-| ----------------------- | ---------------------------------------------------------------- |
-| Used for filtered fleet | Renders with title, description and a working clear action       |
+| Concern                 | Check                                                              |
+| ----------------------- | ------------------------------------------------------------------ |
+| Used for filtered fleet | Renders with title, description and a working clear action         |
 | Error states            | Recoverable renders an action; terminal renders none (Principle 5) |
-| a11y                    | Title is a real `h2`; no focus stolen on render (Principle 6)     |
-| No MUI in body          | Component markup is plain HTML; MUI only inside `action`         |
-| Tokens                  | Text colours from variables (Principle 8)                        |
+| a11y                    | Title is a real `h2`; no focus stolen on render (Principle 6)      |
+| No MUI in body          | Component markup is plain HTML; MUI only inside `action`           |
+| Tokens                  | Text colours from variables (Principle 8)                          |
 
 ## 12. Change rules
 

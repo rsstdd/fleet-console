@@ -1,12 +1,12 @@
 # 02 — Fleet
 
-* **Status:** implementation-ready
-* **Revision 2:** summary strip now counts freshness states only (not a mixed status/freshness list); vendor column added to the table, since multi-vendor normalization is the second sentence of the thesis and the primary surface previously never mentioned a vendor.
-* **Route:** `/`
-* **Implementation:** `web/src/features/fleet`
-* **Revision 3:** document number aligned to filename. Principle citations corrected against the canonical fifteen. Row activation resolved to link-only, since the previous "Enter on focused row" was not implementable without a focusable row. Asynchronous state set completed (Principle 5). Summary scope stated explicitly.
-* **Revision 4:** freshness derivation resolved (TODO **D12**) in favour of ADR 3 as written — server-side only. § 6 now states that neither this feature nor `entities/robot` derives freshness, and § 11 adds a check for it.
-* **Governing documents:** `PRINCIPLES.md` (esp. 4, 5, 9, 11, 12); ADR 2 (delta transport, measurement commitment); ADR 3 (freshness, server-derived); ADR 4 (structure); component specs 01–07; wireframes Fleet view
+- **Status:** implementation-ready
+- **Revision 2:** summary strip now counts freshness states only (not a mixed status/freshness list); vendor column added to the table, since multi-vendor normalization is the second sentence of the thesis and the primary surface previously never mentioned a vendor.
+- **Route:** `/`
+- **Implementation:** `web/src/features/fleet`
+- **Revision 3:** document number aligned to filename. Principle citations corrected against the canonical fifteen. Row activation resolved to link-only, since the previous "Enter on focused row" was not implementable without a focusable row. Asynchronous state set completed (Principle 5). Summary scope stated explicitly.
+- **Revision 4:** freshness derivation resolved (TODO **D12**) in favour of ADR 3 as written — server-side only. § 6 now states that neither this feature nor `entities/robot` derives freshness, and § 11 adds a check for it.
+- **Governing documents:** `PRINCIPLES.md` (esp. 4, 5, 9, 11, 12); ADR 2 (delta transport, measurement commitment); ADR 3 (freshness, server-derived); ADR 4 (structure); component specs 01–07; wireframes Fleet view
 
 ## 1. Product intent
 
@@ -14,17 +14,17 @@ The fleet page is the operator's primary surface: scan health, filter by site, o
 
 ## 2. Locked decisions
 
-| Concern        | Decision                                                                                                                                                                                                              |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Page title     | "Fleet overview" (or equivalent); single `h1`                                                                                                                                                                         |
+| Concern        | Decision                                                                                                                                                                                                                                                                                                                                                                                 |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Page title     | "Fleet overview" (or equivalent); single `h1`                                                                                                                                                                                                                                                                                                                                            |
 | Summary        | Four `Stat` metrics counting freshness only: LIVE, STALE, UNREACHABLE, UNKNOWN. Mutually exclusive, totalling the fleet exactly. **Counts are fleet-wide and do not respond to filters** — an operator narrowing the table to find one robot should not watch the fleet totals move underneath them. Status distribution is not duplicated here; it belongs to the table and its filters |
-| Filters        | Site select (All + sites); vendor select (All + vendors); optional text search on robot id; optional freshness filter                                                                                                 |
-| Table columns  | Robot id (mono), Vendor, Status (`StatusChip`), Freshness (`FreshnessLabel`), Site, Battery %, Last seen (mono)                                                                                                       |
-| Row activation | The robot id cell contains the only link, and it fills its cell. The row itself carries no click handler and is not focusable — a row-level `onClick` plus a nested link means one pointer activation fires twice and no keyboard path exists at all (Principle 6) |
-| Empty          | `EmptyState` when filter matches nothing                                                                                                                                                                              |
-| Footer         | `DataPlate` with snapshot time / source                                                                                                                                                                               |
-| Map            | Not on this route for MVP                                                                                                                                                                                             |
-| Polling        | Prefer WebSocket deltas; no full-table flash on each delta                                                                                                                                                            |
+| Filters        | Site select (All + sites); vendor select (All + vendors); optional text search on robot id; optional freshness filter                                                                                                                                                                                                                                                                    |
+| Table columns  | Robot id (mono), Vendor, Status (`StatusChip`), Freshness (`FreshnessLabel`), Site, Battery %, Last seen (mono)                                                                                                                                                                                                                                                                          |
+| Row activation | The robot id cell contains the only link, and it fills its cell. The row itself carries no click handler and is not focusable — a row-level `onClick` plus a nested link means one pointer activation fires twice and no keyboard path exists at all (Principle 6)                                                                                                                       |
+| Empty          | `EmptyState` when filter matches nothing                                                                                                                                                                                                                                                                                                                                                 |
+| Footer         | `DataPlate` with snapshot time / source                                                                                                                                                                                                                                                                                                                                                  |
+| Map            | Not on this route for MVP                                                                                                                                                                                                                                                                                                                                                                |
+| Polling        | Prefer WebSocket deltas; no full-table flash on each delta                                                                                                                                                                                                                                                                                                                               |
 
 ## 3. Hierarchy
 
@@ -57,14 +57,14 @@ Page reads from entity selectors / hooks only (no adapter imports).
 
 Required fields per row (canonical read model):
 
-| Field                 | Notes                                                                  |
-| --------------------- | ---------------------------------------------------------------------- |
-| `robotId`             | Stable key                                                             |
-| `vendor`              | e.g. "A", "B", "C" — displayed, and filterable                         |
-| `siteId` / site label | Grouping and filter                                                    |
-| `status`              | Mapped to `StatusChip` variant + label, via `entities/robot` selector  |
-| `freshness`           | Server-derived, arrives as a field on the envelope (ADR 3). Never computed in this feature |
-| `batteryPercent`      | Normalized 0–100 display; omitted (em dash) when freshness is not LIVE |
+| Field                 | Notes                                                                                                                      |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `robotId`             | Stable key                                                                                                                 |
+| `vendor`              | e.g. "A", "B", "C" — displayed, and filterable                                                                             |
+| `siteId` / site label | Grouping and filter                                                                                                        |
+| `status`              | Mapped to `StatusChip` variant + label, via `entities/robot` selector                                                      |
+| `freshness`           | Server-derived, arrives as a field on the envelope (ADR 3). Never computed in this feature                                 |
+| `batteryPercent`      | Normalized 0–100 display; omitted (em dash) when freshness is not LIVE                                                     |
 | `lastSeenAt`          | Display only (`reportedAt`). The sweep reads `receivedAt` server-side; this value is not an input to any client derivation |
 
 Summary counts are selector-derived from freshness state, not hardcoded and not derived from status. The selector counts the freshness field it is given; it does not evaluate ages.
@@ -109,34 +109,34 @@ No feature-to-feature imports.
 
 Complete asynchronous state set (Principle 5):
 
-| Condition                | Behaviour                                                                                     |
-| ------------------------ | --------------------------------------------------------------------------------------------- |
-| Initial load             | Table skeleton or a brief empty frame; never an indefinite spinner over the whole page         |
-| Background refresh       | Existing rows stay visible and in place; no full-table flash                                    |
-| No robots registered     | `EmptyState`: "No robots registered". Not an error                                              |
-| Filters exclude all      | `EmptyState`: "No robots match these filters" plus a clear action                               |
-| Partial data             | Rows render with the fields present; a missing optional field shows an em dash, never a zero    |
-| Stale data               | Row-level freshness treatment; battery becomes an em dash when freshness is not LIVE            |
-| Offline / stream down    | Shell banner; table retains last-known data; per-robot freshness labels suppressed (ADR 3)      |
-| Recoverable error        | `EmptyState` with a retry action, or a banner if rows are still valid; say what remains valid   |
-| Terminal error           | `EmptyState` without retry, stating what failed and what the operator can do next               |
-| Malformed row            | Skip the row and count the rejection; never coerce and never crash the list (Principle 2)       |
+| Condition             | Behaviour                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| Initial load          | Table skeleton or a brief empty frame; never an indefinite spinner over the whole page        |
+| Background refresh    | Existing rows stay visible and in place; no full-table flash                                  |
+| No robots registered  | `EmptyState`: "No robots registered". Not an error                                            |
+| Filters exclude all   | `EmptyState`: "No robots match these filters" plus a clear action                             |
+| Partial data          | Rows render with the fields present; a missing optional field shows an em dash, never a zero  |
+| Stale data            | Row-level freshness treatment; battery becomes an em dash when freshness is not LIVE          |
+| Offline / stream down | Shell banner; table retains last-known data; per-robot freshness labels suppressed (ADR 3)    |
+| Recoverable error     | `EmptyState` with a retry action, or a banner if rows are still valid; say what remains valid |
+| Terminal error        | `EmptyState` without retry, stating what failed and what the operator can do next             |
+| Malformed row         | Skip the row and count the rejection; never coerce and never crash the list (Principle 2)     |
 
 ## 11. Verification
 
-| Concern                        | Check                                                        |
-| ------------------------------ | ------------------------------------------------------------ |
-| Freshness visible per row      | UI test / checklist                                          |
+| Concern                        | Check                                                                                                                 |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Freshness visible per row      | UI test / checklist                                                                                                   |
 | No client derivation           | Grep the feature and `entities/robot` for interval timers and `Date.now()` in freshness paths; must find none (ADR 3) |
-| Summary counts total the fleet | Fixture at N robots → four freshness counts sum to N         |
-| Vendor filter                  | Fixture with ≥2 vendors                                      |
-| Site filter                    | Fixture with ≥2 sites                                        |
-| Boundary lint                  | Fleet does not import robot feature modules                  |
-| Token lint                     | No raw hex in feature files                                  |
-| Row keys                       | Rows keyed by `robotId`; a delta reorder patches rather than remounts        |
-| Keyboard path                  | Every robot reachable and openable by keyboard alone (Principle 6)          |
-| Summary scope                  | Applying a filter does not change the four counts                           |
-| Performance                    | Measurement harness at 50 and 500 robots (ADR 2, Principle 12)              |
+| Summary counts total the fleet | Fixture at N robots → four freshness counts sum to N                                                                  |
+| Vendor filter                  | Fixture with ≥2 vendors                                                                                               |
+| Site filter                    | Fixture with ≥2 sites                                                                                                 |
+| Boundary lint                  | Fleet does not import robot feature modules                                                                           |
+| Token lint                     | No raw hex in feature files                                                                                           |
+| Row keys                       | Rows keyed by `robotId`; a delta reorder patches rather than remounts                                                 |
+| Keyboard path                  | Every robot reachable and openable by keyboard alone (Principle 6)                                                    |
+| Summary scope                  | Applying a filter does not change the four counts                                                                     |
+| Performance                    | Measurement harness at 50 and 500 robots (ADR 2, Principle 12)                                                        |
 
 ## 12. Change rules
 

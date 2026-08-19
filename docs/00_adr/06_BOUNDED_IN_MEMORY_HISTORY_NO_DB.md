@@ -54,13 +54,15 @@ The point at which persistence becomes necessary is named in Implications rather
 
 ## Open questions
 
-- Is the ring buffer a fixed-size array with a write cursor, or a fixed-length deque?
-  - *Current lean:* Array with cursor, to avoid allocation churn on every write. At 500 robots writing at up to 5 Hz that is 2,500 writes per second server-wide.
-  - *Resolves on:* Implementation of the server package, before ADR 2's 500-robot measurement.
+- ~~Is the ring buffer a fixed-size array with a write cursor, or a fixed-length deque?~~
+  - **Closed 19 August 2026: array with a write cursor, capacity 60.** The lean held. See Observed consequences.
 
 ## Observed consequences
 
--
+- 19 August 2026: implemented as a fixed-size array with a write cursor. The server
+  retains 60 canonical observations per robot, enough for a one-minute sparkline at
+  the nominal 1 Hz reporting rate while remaining in the "tens of points" budget.
+  Raw vendor payloads are retained separately and never enter this buffer.
 
 ## Related
 

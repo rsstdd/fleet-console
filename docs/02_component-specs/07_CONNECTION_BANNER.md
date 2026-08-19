@@ -1,7 +1,7 @@
 # 07 — ConnectionBanner
 
-* **Status:** implementation-ready
-* **Revision 2:** the live region is now always mounted; rendering `null` when connected meant the `role="status"` container appeared at the same moment as its message, which screen readers do not reliably announce. Adds `attempt`, which the wireframes and the shell both require and the prop list omitted. Retry label fixed to "Retry now". Token names corrected: `--critical` and an `info` surface do not exist. Adds the ADR 3 coupling that makes this component part of the freshness mechanism rather than adjacent chrome.
+- **Status:** implementation-ready
+- **Revision 2:** the live region is now always mounted; rendering `null` when connected meant the `role="status"` container appeared at the same moment as its message, which screen readers do not reliably announce. Adds `attempt`, which the wireframes and the shell both require and the prop list omitted. Retry label fixed to "Retry now". Token names corrected: `--critical` and an `info` surface do not exist. Adds the ADR 3 coupling that makes this component part of the freshness mechanism rather than adjacent chrome.
 
 Implementation: `shared/ui/ConnectionBanner.tsx`
 
@@ -47,11 +47,7 @@ The outer element is **always rendered**, in every state. Only its contents are 
 
 ```tsx
 <div
-  className={[
-    "connection-banner",
-    `connection-banner--${state}`,
-    className,
-  ]
+  className={["connection-banner", `connection-banner--${state}`, className]
     .filter(Boolean)
     .join(" ")}
   role="status"
@@ -73,7 +69,7 @@ The outer element is **always rendered**, in every state. Only its contents are 
 
 When `state === "connected"` the container is present, empty, and visually hidden by CSS — not removed from the DOM.
 
-**Why.** A live region must exist in the accessibility tree *before* its content changes for the change to be announced. Mounting the region and its message together is the most common way to build a live region that never fires. The visual outcome is identical; the announced outcome is not (Principle 6).
+**Why.** A live region must exist in the accessibility tree _before_ its content changes for the change to be announced. Mounting the region and its message together is the most common way to build a live region that never fires. The visual outcome is identical; the announced outcome is not (Principle 6).
 
 Consequently the banner occupies no layout space when connected: the hidden state collapses to zero height rather than reserving a strip.
 
@@ -88,11 +84,11 @@ Do not claim data is live while disconnected. Do not invent vendor-specific or r
 
 ## 6. Design-system mapping
 
-| State        | Treatment                                       |
-| ------------ | ----------------------------------------------- |
-| reconnecting | `--warning` tint background, `--warning` text   |
-| disconnected | `--error` tint background, `--error` text       |
-| connected    | rendered, empty, visually hidden, zero height   |
+| State        | Treatment                                     |
+| ------------ | --------------------------------------------- |
+| reconnecting | `--warning` tint background, `--warning` text |
+| disconnected | `--error` tint background, `--error` text     |
+| connected    | rendered, empty, visually hidden, zero height |
 
 `--warning` and `--error` are aliases of `--status-degraded` and `--status-fault`, so the feedback and status palettes cannot drift (Principle 8). There is no `--critical` token and no `info` surface; both were removed from the design profile.
 
@@ -125,14 +121,14 @@ Retry button: secondary or danger outline per the design system. Focus visible u
 
 ## 11. Verification
 
-| Concern               | Check                                                                  |
-| --------------------- | ---------------------------------------------------------------------- |
+| Concern               | Check                                                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Live region announces | Region present in the DOM while connected; transition to `reconnecting` is announced without a remount (Principle 6) |
-| Hidden when connected | No visible content and no reserved layout space                        |
-| Attempt surfaced      | `onRetry` increments the visible attempt count                         |
-| Stale honesty         | Disconnected copy states that shown data is last known                 |
-| No focus theft        | Focus position unchanged across a connected → disconnected transition  |
-| Tokens                | No raw hex; `--warning` / `--error` only (Principle 8)                 |
+| Hidden when connected | No visible content and no reserved layout space                                                                      |
+| Attempt surfaced      | `onRetry` increments the visible attempt count                                                                       |
+| Stale honesty         | Disconnected copy states that shown data is last known                                                               |
+| No focus theft        | Focus position unchanged across a connected → disconnected transition                                                |
+| Tokens                | No raw hex; `--warning` / `--error` only (Principle 8)                                                               |
 
 ## 12. Change rules
 

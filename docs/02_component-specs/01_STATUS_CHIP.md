@@ -1,7 +1,7 @@
 # 01 — StatusChip
 
-* **Status:** implementation-ready
-* **Revision 2:** the variant union is replaced. The seven-value set (`online`, `offline`, `degraded`, `critical`, `charging`, `maintenance`, `info`) predates the canonical status enum and named states no adapter can produce; `maintenance` and `info` are removed, and the remainder is re-derived from `RobotStatus` plus health severity per ADR 1. Adds the required `current` prop, which carries the freshness qualification the design profile and wireframes both depend on. Token mapping updated to the `--status-*` role names; the `--online` / `--offline` family no longer exists.
+- **Status:** implementation-ready
+- **Revision 2:** the variant union is replaced. The seven-value set (`online`, `offline`, `degraded`, `critical`, `charging`, `maintenance`, `info`) predates the canonical status enum and named states no adapter can produce; `maintenance` and `info` are removed, and the remainder is re-derived from `RobotStatus` plus health severity per ADR 1. Adds the required `current` prop, which carries the freshness qualification the design profile and wireframes both depend on. Token mapping updated to the `--status-*` role names; the `--online` / `--offline` family no longer exists.
 
 Implementation: `shared/ui/StatusChip.tsx`
 
@@ -23,10 +23,10 @@ Per ADR 4 this component may not import `@fleet/contracts`. Its prop union is a 
 
 ```ts
 type StatusVariant =
-  | "neutral"   // idle
-  | "active"    // busy
+  | "neutral" // idle
+  | "active" // busy
   | "charging"
-  | "degraded"  // health severity, not a vendor status
+  | "degraded" // health severity, not a vendor status
   | "fault"
   | "unknown";
 
@@ -46,6 +46,8 @@ interface StatusChipProps {
 ```
 
 Six variants, one per state the canonical model can produce: five map to the canonical status enum (`idle`, `busy`, `charging`, `fault`, `unknown`), and `degraded` maps to health severity. No variant exists for a state no adapter emits (ADR 1).
+
+Health severity outranks status where it is the more serious of the two, and `critical` severity therefore renders as `fault` rather than getting a seventh variant of its own — the chip is the only health signal on the fleet table (fleet spec §2), and the danger colour already carries the meaning. The label still names the status, so a critically unhealthy idle robot reads "Idle" on a fault chip. The ranking is `selectStatusPresentation`'s, and is tested there (ADR 1, Observed consequences, 19 August 2026).
 
 `label` is mandatory. Callers supply human-readable copy. The component does not map variants to strings and does not i18n.
 
@@ -79,13 +81,13 @@ No `role`. The dot is supplied by `.status::before` in CSS and is therefore neve
 
 ## 6. Design-system mapping
 
-| Part       | Token                                                   |
-| ---------- | ------------------------------------------------------- |
-| Text + dot | `--status-neutral` … `--status-unknown` per variant     |
-| Background | `--status-*-bg`                                         |
-| Border     | `--status-*-border`                                     |
-| Type       | `--font-mono`, `--text-caption`                         |
-| Radius     | `--radius-sm`                                           |
+| Part       | Token                                                       |
+| ---------- | ----------------------------------------------------------- |
+| Text + dot | `--status-neutral` … `--status-unknown` per variant         |
+| Background | `--status-*-bg`                                             |
+| Border     | `--status-*-border`                                         |
+| Type       | `--font-mono`, `--text-caption`                             |
+| Radius     | `--radius-sm`                                               |
 | Dot        | 6×6px, `border-radius: 50%`, `currentColor`, via `::before` |
 
 Padding `0.25rem 0.6rem`; gap between dot and label `0.4rem`.
@@ -117,15 +119,15 @@ Non-interactive. No hover or focus styles of its own. If placed inside a row lin
 
 ## 11. Verification
 
-| Concern     | Check                                                                       |
-| ----------- | --------------------------------------------------------------------------- |
-| API         | `label` and `current` required; variant union exhaustive against `RobotStatus` plus `degraded` |
-| Mapping     | `selectStatusPresentation` unit test in `entities/robot` (Principle 10)     |
-| Currency    | `current: false` renders the last-known treatment and the caller's qualified label |
-| Tokens      | No raw hex in the component file (Principle 8)                              |
-| A11y        | Colour is not the sole indicator; dot absent from the accessibility tree (Principle 6) |
-| Themes      | Visual check in both tenant profiles for all six variants                   |
-| Lint        | jsx-a11y clean                                                              |
+| Concern  | Check                                                                                          |
+| -------- | ---------------------------------------------------------------------------------------------- |
+| API      | `label` and `current` required; variant union exhaustive against `RobotStatus` plus `degraded` |
+| Mapping  | `selectStatusPresentation` unit test in `entities/robot` (Principle 10)                        |
+| Currency | `current: false` renders the last-known treatment and the caller's qualified label             |
+| Tokens   | No raw hex in the component file (Principle 8)                                                 |
+| A11y     | Colour is not the sole indicator; dot absent from the accessibility tree (Principle 6)         |
+| Themes   | Visual check in both tenant profiles for all six variants                                      |
+| Lint     | jsx-a11y clean                                                                                 |
 
 ## 12. Change rules
 

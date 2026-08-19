@@ -1,7 +1,7 @@
 # ADR 4 — Feature-Sliced Structure With an Enforced Dependency Rule
 
 **Decision:** The `web` package is organized feature-sliced with a directed dependency rule enforced in lint.
-**Status:** Decided · 2026-08-19 · Partial
+**Status:** Decided · 2026-08-19 · Implemented
 **Group:** Presentation / structural.
 
 ## Issue
@@ -65,9 +65,8 @@ None of this reflects a defect in the tool. It reflects documentation and commun
 
 ## Open questions
 
-- Why does `eslint-plugin-boundaries` v7 classify no file as an element under the current `settings["boundaries/elements"]`?
-  - *Current lean:* The element `pattern` values are not matching the paths the plugin actually tests them against. Probe 3 rules out the policy list, the `@/` alias, and the `ignores` entry as causes.
-  - *Resolves on:* A probe configuration with `{ default: "disallow", policies: [] }` flagging every import in a source file. That is the gate; no policy work is meaningful before it passes.
+- ~~Why does `eslint-plugin-boundaries` v7 classify no file as an element under the current `settings["boundaries/elements"]`?~~
+  - **Closed 19 August 2026 by ADR 7: the premise was false.** Files were always classified correctly; it was _dependencies_ that were not, because no `import/resolver` was configured. Probe 3's zero-message result could not distinguish the two explanations, and the conclusion drawn from it sent the remediation at the wrong setting. `boundaries/elements` needed no change.
 
 ## Observed consequences
 
@@ -82,8 +81,14 @@ None of this reflects a defect in the tool. It reflects documentation and commun
   3. The rule reduced to `{ default: "disallow", policies: [] }`, which must reject every import in any file the plugin classifies — zero messages.
 
   Probe 3 is conclusive. No file is being classified as an element, so no policy of any shape can fire, and the fault is in `settings["boundaries/elements"]` rather than in the policy list. `pnpm test` fails accordingly: the fixture test asserts that a violation is reported, and none is. Status is moved from Implemented to Partial. The directory structure exists and the policy list is written; the enforcement is not running, and until it is, principle 9 is asserted here rather than enforced. Classification reference: `https://www.jsboundaries.dev/docs/classification/`.
+
 - 19 August 2026: The Decision section previously read "Two permanent fixtures prove the rule runs," which described a tree state that did not exist. Reworded to state the requirement. The decision itself is unchanged: two fixtures, neither repaired nor deleted.
 - 19 August 2026: The component-set specification's code sample for the status-mapping selector (`import type { StatusVariant } from "@/shared/ui"`) contradicted both its own prose and this ADR's boundary rule, under which an entity may import `shared-lib` but never `shared-ui`. Resolved by declaring a structurally identical string-literal union locally in `entities/robot/selectors.ts`, never imported from `shared/ui`, relying on TypeScript structural typing for assignment compatibility at the feature layer where both types meet. The component-set code sample carried the wrong import until `packages/web/UI_PLAN.md` revision 5 (19 August 2026), which replaced it with the locally declared union and stated the reason inline, so the sample no longer teaches the violation.
+
+- 19 August 2026, **resolved — and the diagnosis above corrected**: the rule now enforces. The fault was never element classification. `boundaries/no-unknown-files` passes on a probe file, which proves files _are_ classified as elements; `boundaries/no-unknown-dependencies` errors on the same file, which proves the _dependency_ is not. Probe 3's zero-message result was equally consistent with both explanations and could not distinguish them, so the conclusion drawn from it — "no file is being classified as an element" — was unsupported. The actual cause was that no `import/resolver` was configured, so neither the `@/` alias nor a `.ts` extension could be resolved to a file; `checkUnknownLocals` defaults to `false`, so every unresolvable dependency was skipped in silence. Fixed by adding `eslint-import-resolver-typescript` and its settings block, recorded in ADR 7. Verified with a fifteen-case probe: seven internal policies, three external policies, and five legal imports that must stay clean, all green. Status moves from Partial to Implemented.
+- 19 August 2026: the second fixture this ADR requires now exists at `src/entities/robot/__boundary-violation__/violation.ts` and is asserted on by `src/features/fleet/__boundary-violation__/violation.test.ts`. The retraction recorded above is itself now closed: the file was written on the same day the enforcement started working, rather than ahead of it. The three external-dependency policies are exercised for the first time.
+- 19 August 2026: the external-module selector shape recorded above (`{ to: { module: { origin: "external", source } } }`) is correct, but two further conditions were needed before it fired. `boundaries/dependencies` inspects local origins only unless `checkAllOrigins: true` is set, and enabling it makes this config's `default: "disallow"` apply to every external package, so each layer now carries an explicit external allowance that the specific bans narrow. Separately, `{ anyOf: [...] }` as a `source` throws `template.replaceAll is not a function` inside `@boundaries/elements@3.1.1` when the origin is external and matches nothing; a plain array is equivalent and works.
+- 19 August 2026: the rule's custom message had rendered as "may not import (PRINCIPLES.md 9)" — both element types blank — for its whole life, because v7 renders messages with Handlebars and names the two sides `from` and `to`. The v6 names (`file`, `dependency`) parse and render empty. Now `{{from.type}} may not import {{to.type}}`.
 
 ## Related
 

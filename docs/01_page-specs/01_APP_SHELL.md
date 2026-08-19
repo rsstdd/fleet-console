@@ -1,11 +1,11 @@
 # 01 — App shell
 
-* **Status:** implementation-ready
-* **Revision 2:** wordmark, accent, and feature flags now sourced from tenant config rather than hardcoded, matching the design profile's tenant-switch mechanism.
-* **Scope:** All authenticated console routes
-* **Implementation:** `web/src/app` (providers, router, shell layout)
-* **Revision 3:** document number aligned to filename. Connection UI reconciled with the always-mounted live region in component spec 07. Adds the ADR 3 rule that per-robot freshness is suppressed while the stream is down, and the context-stability requirement for tenant config.
-* **Governing documents:** `PRINCIPLES.md` (esp. 5, 6, 9, 13); ADR 2 (transport, connection state); ADR 3 (freshness, banner coupling); ADR 4 (feature-sliced structure); ADR 5 (MUI + tokens); component spec 07 ConnectionBanner
+- **Status:** implementation-ready
+- **Revision 2:** wordmark, accent, and feature flags now sourced from tenant config rather than hardcoded, matching the design profile's tenant-switch mechanism.
+- **Scope:** All authenticated console routes
+- **Implementation:** `web/src/app` (providers, router, shell layout)
+- **Revision 3:** document number aligned to filename. Connection UI reconciled with the always-mounted live region in component spec 07. Adds the ADR 3 rule that per-robot freshness is suppressed while the stream is down, and the context-stability requirement for tenant config.
+- **Governing documents:** `PRINCIPLES.md` (esp. 5, 6, 9, 13); ADR 2 (transport, connection state); ADR 3 (freshness, banner coupling); ADR 4 (feature-sliced structure); ADR 5 (MUI + tokens); component spec 07 ConnectionBanner
 
 ## 1. Product intent
 
@@ -13,14 +13,14 @@ The shell is the operational frame: identity, navigation, theme, connection inte
 
 ## 2. Locked decisions
 
-| Concern       | Decision                                                                                                                                                              |
-| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Brand         | Wordmark read from `config.tenant.wordmark`. No hardcoded product name anywhere in the shell. Links to `/`                                                            |
-| Navigation    | Primary: Fleet. Robot detail is reached from the table, not a global nav item                                                                                         |
+| Concern       | Decision                                                                                                                                                                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Brand         | Wordmark read from `config.tenant.wordmark`. No hardcoded product name anywhere in the shell. Links to `/`                                                                                                                                                                           |
+| Navigation    | Primary: Fleet. Robot detail is reached from the table, not a global nav item                                                                                                                                                                                                        |
 | Connection UI | `ConnectionBanner` mounted above main content at all times. Its live region must exist before its message does, so the shell renders it in every state and the component hides its own contents when `connected` (component spec 07 § 4). The shell does not conditionally render it |
-| Theme         | `data-theme` on `documentElement`, set from `config.tenant.theme` at boot. Tenant A is dark, Tenant B is light — not a user preference; no `localStorage` persistence |
-| Tenant        | Theme, wordmark, and feature flags all come from `/config` together, so a tenant switch changes all three at once                                                     |
-| Skip link     | First focusable control: skip to `#main`                                                                                                                              |
+| Theme         | `data-theme` on `documentElement`, set from `config.tenant.theme` at boot. Tenant A is dark, Tenant B is light — not a user preference; no `localStorage` persistence                                                                                                                |
+| Tenant        | Theme, wordmark, and feature flags all come from `/config` together, so a tenant switch changes all three at once                                                                                                                                                                    |
+| Skip link     | First focusable control: skip to `#main`                                                                                                                                                                                                                                             |
 
 ## 3. Hierarchy
 
@@ -71,14 +71,14 @@ Shell does not subscribe to per-robot telemetry (Principle 9).
 
 Asynchronous state set for the shell (Principle 5):
 
-| Condition                        | Behaviour                                                                                                        |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Initial load, config not yet read | Render the frame with Tenant A defaults rather than a blank page; never block first paint on config               |
-| Connected                        | Banner mounted and empty; routes render normally                                                                  |
-| Reconnecting                     | Banner shows attempt and last event time; page data remains; per-robot freshness suppressed (ADR 3)              |
-| Disconnected                     | Banner states that shown data is last known; page data remains; freshness drifts by timer until the stream returns |
-| Tenant config missing or invalid | Fall back to Tenant A defaults — dark theme, generic wordmark — rather than blocking render (Principle 13)         |
-| Unknown route                    | Simple not-found inside `main`: title plus a link to Fleet. Not a marketing 404                                    |
+| Condition                         | Behaviour                                                                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Initial load, config not yet read | Render the frame with Tenant A defaults rather than a blank page; never block first paint on config                |
+| Connected                         | Banner mounted and empty; routes render normally                                                                   |
+| Reconnecting                      | Banner shows attempt and last event time; page data remains; per-robot freshness suppressed (ADR 3)                |
+| Disconnected                      | Banner states that shown data is last known; page data remains; freshness drifts by timer until the stream returns |
+| Tenant config missing or invalid  | Fall back to Tenant A defaults — dark theme, generic wordmark — rather than blocking render (Principle 13)         |
+| Unknown route                     | Simple not-found inside `main`: title plus a link to Fleet. Not a marketing 404                                    |
 
 **Freshness while disconnected.** ADR 3 derives freshness from a server sweep delivered over the stream. While the stream is down the client cannot support a per-robot currency claim, so features suppress per-robot freshness labels in favour of the connection-level state. The shell owns the connection state that makes that suppression possible; the rule itself is enforced in the features that render the labels.
 
@@ -86,16 +86,16 @@ Asynchronous state set for the shell (Principle 5):
 
 ## 9. Verification
 
-| Concern                      | Check                                                                                               |
-| ---------------------------- | --------------------------------------------------------------------------------------------------- |
-| Banner mounted always        | Container present in the DOM while connected; no visible content and no reserved height             |
-| Banner announces             | Connected → reconnecting transition is announced without the region remounting (Principle 6)        |
-| Skip link first              | Keyboard path; first focusable element in DOM order                                                 |
-| No domain imports in shell   | Lint / dependency rule (Principle 9)                                                                |
-| Wordmark not hardcoded       | Grep for literal brand strings in `src/app`; must find none                                         |
-| Tenant switch                | Wordmark, theme, and at least one flag all change together, without remounting the tree incorrectly |
-| No theme flash               | `data-theme` present on first paint, not applied in a post-mount effect                             |
-| Context stability            | Tenant config value is referentially stable; a connection-state change does not re-render routes that read only tenant config |
+| Concern                    | Check                                                                                                                         |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Banner mounted always      | Container present in the DOM while connected; no visible content and no reserved height                                       |
+| Banner announces           | Connected → reconnecting transition is announced without the region remounting (Principle 6)                                  |
+| Skip link first            | Keyboard path; first focusable element in DOM order                                                                           |
+| No domain imports in shell | Lint / dependency rule (Principle 9)                                                                                          |
+| Wordmark not hardcoded     | Grep for literal brand strings in `src/app`; must find none                                                                   |
+| Tenant switch              | Wordmark, theme, and at least one flag all change together, without remounting the tree incorrectly                           |
+| No theme flash             | `data-theme` present on first paint, not applied in a post-mount effect                                                       |
+| Context stability          | Tenant config value is referentially stable; a connection-state change does not re-render routes that read only tenant config |
 
 ## 10. Change rules
 

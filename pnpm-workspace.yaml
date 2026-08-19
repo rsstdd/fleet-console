@@ -1,0 +1,43 @@
+packages:
+  - "packages/*"
+
+# Lifecycle scripts are opt-in. simple-git-hooks is declined deliberately:
+# hooks are installed from the repo root, not from a transitive install.
+allowBuilds:
+  # esbuild ships a platform-specific native binary and needs its postinstall to
+  # link it. Approved because `tsx` is the workspace's TypeScript runtime (ADR 9)
+  # and tsx is an esbuild wrapper; without this, `pnpm dev` and `pnpm start` fail.
+  esbuild: true
+  simple-git-hooks: false
+
+# Workspace deps resolve to the local package first; `workspace:*` in a
+# package.json is still required to make the link mandatory rather than
+# opportunistic.
+linkWorkspacePackages: deep
+preferWorkspacePackages: true
+
+# `pnpm install` fails rather than warns when the local toolchain does not
+# match `engines` in the root package.json.
+engineStrict: true
+
+# One version of the shared toolchain across every package. Packages opt in
+# with "typescript": "catalog:" instead of restating a range.
+catalog:
+  "@types/node": ^24.13.3
+  "@vitest/coverage-v8": ^4.1.11
+  eslint: ^10.8.1
+  typescript: ~6.0.2
+  typescript-eslint: ^8.67.0
+  vitest: ^4.1.11
+  zod: ^4.4.3
+
+minimumReleaseAgeExclude:
+  - "@vitest/coverage-v8@4.1.11"
+  - "@vitest/expect@4.1.11"
+  - "@vitest/mocker@4.1.11"
+  - "@vitest/pretty-format@4.1.11"
+  - "@vitest/runner@4.1.11"
+  - "@vitest/snapshot@4.1.11"
+  - "@vitest/spy@4.1.11"
+  - "@vitest/utils@4.1.11"
+  - vitest@4.1.11

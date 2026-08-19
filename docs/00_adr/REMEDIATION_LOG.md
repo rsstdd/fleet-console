@@ -1,7 +1,7 @@
-
 Phase 3 — Structural changes
 
 3.1 — Target field order
+
 # ADR N — Title
 
 **Decision:** One sentence. What was decided, not why.
@@ -9,14 +9,23 @@ Phase 3 — Structural changes
 **Group:** ...
 
 ## Issue
+
 ## Decision
+
 ## Positions
+
 ## Argument
+
 ## Implications
+
 ## Open questions
+
 ## Observed consequences
+
 ## Related
+
 ## Notes
+
 3.2 — Add the one-line Decision summary
 
 A reader currently traverses a full Issue paragraph before learning what was decided. Add a single declarative sentence at the top of each file, before Issue. This is also the chunk a retrieval system will surface first, which matters given the stated intent that these be readable by both humans and models.
