@@ -206,6 +206,13 @@ Rejected: whitespace-padded identifiers (trimming silently merges `"R-204 "` int
 
 **Complete.** All four modules are implemented and tested; lint, typecheck and build pass.
 
+One cross-package decision is pending against this package: **D1** in
+`docs/PENDING_ARCHITECTURE_DECISIONS.md` asks what validated type an adapter returns
+before the server sweep has supplied freshness. The proposed answer adds an
+`adapterEnvelopeSchema` carrying every field except `freshness`; it is not implemented, and
+today `canonicalEnvelopeSchema` requires `freshness` while `withFreshness` accepts only an
+already-canonical envelope. An adapter therefore has no validated type to return.
+
 ADR 1's two open questions are answered in its `Observed consequences`: the capability
 record earns its complexity, and `fault ⇒ critical` is **not** added as a contract-layer
 invariant — the two fields stay independent and the presentation rule lives in the web

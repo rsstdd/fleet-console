@@ -60,15 +60,15 @@ than conventional — see § 7.
 Feature-sliced (ADR 4). The dependency rule, stated exactly as
 `eslint-plugin-boundaries` enforces it rather than as the informal summary:
 
-| From         | May import                                                       |
-| ------------ | ---------------------------------------------------------------- |
-| `app`        | everything, plus external                                        |
-| `feature`    | **its own feature only**, entity, shared-ui, shared-lib, config  |
-| `entity`     | **its own entity only**, **shared-lib only**, external           |
-| `shared-ui`  | shared-ui, external                                              |
-| `shared-lib` | shared-lib, external                                             |
-| `config`     | config, external                                                 |
-| `test`       | everything, plus external                                        |
+| From         | May import                                                      |
+| ------------ | --------------------------------------------------------------- |
+| `app`        | everything, plus external                                       |
+| `feature`    | **its own feature only**, entity, shared-ui, shared-lib, config |
+| `entity`     | **its own entity only**, **shared-lib only**, external          |
+| `shared-ui`  | shared-ui, external                                             |
+| `shared-lib` | shared-lib, external                                            |
+| `config`     | config, external                                                |
+| `test`       | everything, plus external                                       |
 
 Three consequences the informal "entities → shared" summary hides, each load-bearing:
 
@@ -212,10 +212,19 @@ exhaustively checkable.
 
 **Theme and tenant.** `data-theme="dark" | "light"` is set on `<html>` from tenant
 configuration at boot. Dark and light are not a user preference — they are the two tenant
-profiles, and switching tenant switches theme, wordmark, accent and feature availability
-together through `config`. There is no `localStorage` persistence and no
+profiles (`docs/DESIGN_SYSTEM.md` § 1). There is no `localStorage` persistence and no
 `prefers-color-scheme`, because a user preference store is a third kind of state that buys
 nothing for the argument.
+
+**Two gaps between that description and the code, both unratified.** `TenantConfig` today
+carries `id`, `wordmark` and `theme` and **no feature-flag field**, so the design system's
+claim that a tenant switch also changes feature availability — "Tenant B: one panel
+disabled" — is not implemented, and the panel is never named. `TENANT` is also a typed
+module literal rather than the parsed, validated configuration Principle 13 calls for, as
+its own doc comment concedes. Both are decision **D8** in
+`docs/PENDING_ARCHITECTURE_DECISIONS.md`, whose fourth alternative is to drop the flag
+promise from the design system rather than build it. Until D8 resolves, the correct
+statement is that tenant switching changes **theme and wordmark**.
 
 `app/theme.ts` sets the attribute and builds the MUI theme from the same palette the token
 layer uses. It deliberately does **not** write custom properties inline: an earlier version
@@ -288,6 +297,10 @@ not built.
 Virtualization of the fleet table is specified (Principle 12) and should be confirmed
 against a real 500-robot payload once the server exists; a measurement is the requirement,
 not the assumption.
+
+Also not built: tenant feature flags and validated tenant configuration loading (D8), and
+the joining test that would make the test-only `@fleet/adapters` dependency earn its
+keep (D3).
 
 ## 12. Change rules
 

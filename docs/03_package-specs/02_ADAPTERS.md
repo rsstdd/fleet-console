@@ -27,8 +27,15 @@ May import `@fleet/contracts` and nothing else from the workspace. Sits below tr
 storage and UI: `@fleet/server`, `@fleet/web` and `@fleet/simulator` are all banned
 imports.
 
-Consumed by `@fleet/server` (production dispatch) and by `@fleet/simulator` (tests only,
-to verify generated payloads normalize as expected).
+Consumed by `@fleet/server` (production dispatch, declared) and by `packages/web` as a
+**devDependency** for tests that join a raw vendor fixture to the browser read model —
+banned in web production code, lifted only for test files (decision **D3**, unratified).
+
+`@fleet/simulator` does **not** depend on this package. Its `AGENTS.md` permits adapter
+imports in tests to verify generated payloads, but no such dependency is declared and no
+such test exists; the permission is policy, not current fact. Making it real is entangled
+with **D2** (how fixtures are published without deep imports) and **D7** (the drift guard
+between the two vendor sets).
 
 ## 3. Public API
 
@@ -221,9 +228,17 @@ This is one of the two gaps on the critical path. Until vendor adapters exist:
 - ADR 1's primary evidence — one fixture per vendor asserting exact canonical output —
   does not yet exist.
 
-`B4` (how unknown fields are detected) is the one design decision still open; the TODO
-recommends passthrough plus a key-diff walk producing dotted paths, placed in `src/core/`
-because all three vendors need it.
+`B4` (how unknown fields are detected) is the one design decision still open **inside**
+this package; the TODO recommends passthrough plus a key-diff walk producing dotted paths,
+placed in `src/core/` because all three vendors need it.
+
+Five cross-package decisions in `docs/PENDING_ARCHITECTURE_DECISIONS.md` must be settled
+alongside the adapter work, none of them by this package alone: **D1** (the validated type
+an adapter returns before freshness exists), **D2** (how recorded fixtures are published
+without deep imports), **D4** (whether fixtures are hand-authored or recorded simulator
+output), **D5** (unknown-field accounting when a payload is both malformed and carries
+unknown fields), and **D7** (the drift guard between this package's `SUPPORTED_VENDORS`
+and the simulator's independent `VENDOR_IDS`).
 
 ## 12. Change rules
 

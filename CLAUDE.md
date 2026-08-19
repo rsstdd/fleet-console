@@ -64,6 +64,7 @@ Behavioral instructions only. Do not load product or domain knowledge here.
 | Per-package responsibility, public API, and build status                          | `docs/03_package-specs/`                                                      |
 | Engineering principles (graded deliverable)                                       | `PRINCIPLES.md`                                                               |
 | Architecture Decision Records                                                     | `docs/00_adr/`                                                                |
+| Known flaws, scale ceilings, and what to build next                               | `docs/ARCHITECTURE_AUDIT.md`                                                  |
 | How to run, demo script, AI-usage note, measurements                              | `README.md`                                                                   |
 | Boundary / dependency enforcement config                                          | `packages/web/eslint.config.js` (rule + resolver), `.github/workflows/ci.yml` |
 | Agent routing and hard rules (this file)                                          | `CLAUDE.md`                                                                   |

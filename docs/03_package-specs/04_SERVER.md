@@ -215,7 +215,7 @@ per robot, malformed ingest and unsupported vendors process-wide.
 | Config validation      | An invalid file stops startup naming the field                      |
 | Enforcement            | Every lint rule fires on its fixture                                |
 
-35 tests. The store, sweep, ring buffer, delta set, health metrics, clock and all three
+38 tests. The store, sweep, ring buffer, delta set, health metrics, clock and all three
 configuration loaders are covered.
 
 ## 11. Implementation status
@@ -235,6 +235,14 @@ dispatch until `@fleet/adapters` has vendor adapters to dispatch to. Consequence
 - the freshness end-to-end demonstration — the load-bearing proof of ADR 3 — cannot run;
 - the README's measurement table cannot be filled, because server throughput must be
   measured through the complete harness rather than inferred (Principle 12).
+
+Cross-package decisions in `docs/PENDING_ARCHITECTURE_DECISIONS.md` that this package
+must not settle alone: **D1** (what validated type an adapter returns before the sweep has
+supplied freshness — today `canonicalEnvelopeSchema` still requires it and `withFreshness`
+still takes an already-canonical envelope), **D5** (unknown-field accounting for rejected
+payloads, and what the health endpoint labels), and **D6** (whether the simulator consumes
+the shipped `config/fleet-manifest.json` or only produces a compatible roster — today it
+produces, and nothing tests that the two agree).
 
 Two design questions remain open in the package TODO: **M4** (ring-buffer capacity, to be
 picked from the sparkline's real decimated point count rather than a round number) and

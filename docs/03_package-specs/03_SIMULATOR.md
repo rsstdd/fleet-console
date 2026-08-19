@@ -23,9 +23,14 @@ exists to reach on its own, and would make the freshness demonstration circular.
 
 ## 2. Position in the dependency graph
 
-Imports **no workspace package** in production code. Its boundary with the server is the
-HTTP ingest endpoint; `@fleet/server` and `web` are lint-banned imports. `@fleet/adapters`
-and `@fleet/contracts` are permitted in tests only, to verify generated payloads.
+Imports **no workspace package at all** — not in production code, and not in tests.
+`@fleet/server` and `web` are lint-banned imports. `AGENTS.md` permits `@fleet/adapters`
+and `@fleet/contracts` in tests, to verify generated payloads, but neither is declared as
+a dependency and no such test exists: that permission is policy, not current fact.
+
+This is what keeps the package on plain `node` rather than `tsx` (ADR 9 § Implications),
+and it is also why the vendor-set drift guard described in § 7 does not yet exist —
+decision **D7** in `docs/PENDING_ARCHITECTURE_DECISIONS.md`.
 
 The three vendor identifiers are restated locally in
 `src/fleet/simulatedRobot.ts` rather than imported from `@fleet/contracts`, with a doc
@@ -149,6 +154,16 @@ selection never depends on unvalidated payload contents. If M7 is settled differ
 | Vendor dispatch is exhaustive                             | Types     | `switch-exhaustiveness-check`                                           |
 | Determinism actually holds                                | Test      | same seed → byte-identical run                                          |
 | The executable stays alive                                | Test      | subprocess integration test                                             |
+| Vendor set agrees with the adapter set                    | —         | **Not enforced.** See below                                             |
+
+**The vendor-set guard does not exist.** `VENDOR_IDS` here and `SUPPORTED_VENDORS` in
+`@fleet/adapters` are identical literals maintained independently, deliberately, so this
+package carries no production dependency on adapters. Nothing checks that they agree, so a
+fourth vendor added to one and not the other would be caught by no test — the simulator
+would emit a dialect no adapter can decode, and the failure would surface as ingest
+rejections at demo time. Closing it means choosing between a test-only adapters dependency
+and an integration fixture test, which is decision **D7** in
+`docs/PENDING_ARCHITECTURE_DECISIONS.md`.
 
 The determinism ban is lifted in exactly one directory. `src/runtime/` adapts the ambient
 platform — real clock, real randomness — into the injectable interfaces every other module
