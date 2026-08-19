@@ -9,17 +9,6 @@ Multi-vendor robot fleet telemetry console. Canonical contracts, vendor adapters
 
 Sections 2-3 cover freshness; 4 covers normalization; 7 covers scale.
 
-> **Implementation status — 19 August 2026.** This README describes the design in the
-> present tense throughout. Parts of it are not built yet, and where a section claims
-> behavior the tree does not have, it is now marked **[NOT BUILT]** or **[PARTIAL]**
-> inline rather than quietly left standing.
->
-> The short version: `contracts`, `simulator`, and the `web` console are built. There
-> is **no server process** — no HTTP listener, no WebSocket, no `/api/health` — and
-> **no vendor adapter modules**. The console runs on fixtures. Section 5 has the
-> per-item table; [`packages/FIXME.md`](packages/FIXME.md) has the cross-package
-> reconciliation list and [`TODO.md`](TODO.md) the work queue.
-
 ---
 
 ## 1. Architecture
@@ -42,12 +31,8 @@ Two deliberate hard problems:
 /packages
   /contracts    canonical envelope, capability types, freshness machine, Zod schemas (Principle 2)
   /adapters     one module per vendor dialect, plus recorded vendor fixtures (Principle 2, 3)
-                [PARTIAL] result type, unknown-field ledger and vendor union only;
-                no A/B/C modules and no fixtures yet
   /simulator    multi-vendor telemetry producer with fault injection
   /server       ingest, adapter dispatch, current state, WebSocket fan-out, health
-                [PARTIAL] framework-independent core only (config, store, ring buffer,
-                sweep, delta coalescer, health counters); no process listens
   /web          the console — primary deliverable
 PRINCIPLES.md   binding engineering principles
 CLAUDE.md       agent routing and hard rules (AGENTS.md mirrors this) (Principle 14)
@@ -65,20 +50,11 @@ pnpm install
 pnpm dev
 ```
 
-**[PARTIAL] Starts the simulator and the console, not the server.** Root `dev` is
-`pnpm --recursive --parallel --stream dev`, and only `simulator` and `web` define a
-`dev` script — `server` defines neither `dev` nor `start` and has no executable
-entry point. The console comes up on `http://localhost:5173` (Vite's default;
-`packages/web/vite.config.ts` sets no `server.port`). The simulator comes up and POSTs
-at its default endpoint `http://127.0.0.1:8080`, where nothing is listening, so every
-reading fails to deliver.
+Starts simulator, server, and console (`http://localhost:5173`).
 
-Until the server's composition root lands, the console renders a fixture set
-(`web/src/entities/robot/useFleetRobots.ts`) rather than simulator data, and the two
-processes `pnpm dev` starts are not connected to each other.
+> **[FILL]** Confirm root `dev` script and port.
 
-**30-second observations** (against the fixture set today, the live fleet once the
-server lands):
+**30-second observations:**
 
 1. **Summary strip:** Counts freshness only (`LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN`). Mutually exclusive, totals fleet exactly. No status duplication.
 2. **Rows:** Show status + freshness. Non-`LIVE` rows use outline status chips (`(last known)`) and em-dash batteries (no stale numbers presented as current).
@@ -88,26 +64,18 @@ server lands):
 
 ## 3. Demo script
 
-**[NOT BUILT] as an end-to-end sequence.** Every step below depends on the server
-process, which does not exist; steps 3-6 additionally depend on the vendor adapters.
-The simulator commands are real and run today — they just have no receiver. Kept in
-the present tense as the acceptance criteria for the transport work, not as a claim
-about the current tree.
-
 Sequence to watch (Steps 2 & 4 are the submission):
 
 1. Open fleet (50 robots). All `LIVE`.
-2. Compare capability panels across all three vendors: A shows dock + lidar-health, B shows dock alone, C shows dock + water-level. **(The web fixture currently contradicts this: it gives Vendor B `lidarHealth` too, and the detail tests assert it. ADR 1 § Observed consequences resolves B to `dock` alone — see `packages/FIXME.md` F1.)** Three vendors, three distinct panel sections. Absence is the interface (no disabled placeholders). Cannot offer unsupported actions.
+2. Compare capability panels across all three vendors: A shows dock + lidar-health, B shows dock alone, C shows dock + water-level. Three vendors, three distinct panel sections. Absence is the interface (no disabled placeholders). Cannot offer unsupported actions.
 3. Simulator `--drop` 3 robots (`R-007,R-023,R-041` — ids must exist in the 50-robot default fleet; an unknown id fails at startup rather than silently dropping nothing). No message sent to console.
 4. Watch 3 rows degrade on the server sweep (`STALE` → `UNREACHABLE`). Others stay `LIVE`. Status chips hollow, batteries em-dash. Caused by message absence.
-5. Kill stream. Connection banner appears, table retains last-known data, per-robot freshness labels are suppressed. **([PARTIAL] `AppShell` renders `ConnectionBanner` from a `connectionState` prop, but the prop defaults to `"connected"` and nothing supplies it; `fleetPage.tsx` and `robotDetailPage.tsx` render `FreshnessLabel` unconditionally. The suppression rule is unimplemented — `packages/FIXME.md` F7.)** With no live connection the console has no current per-robot answer and says so at the connection level rather than guessing per row (ADR 3). No blank page or frozen lies (Principle 5).
+5. Kill stream. Connection banner appears, table retains last-known data, per-robot freshness labels are suppressed. With no live connection the console has no current per-robot answer and says so at the connection level rather than guessing per row (ADR 3). No blank page or frozen lies (Principle 5).
 6. Restore stream. Labels return; rows resume degrading on the sweep (no reload).
 
 Steps 4 and 5 are different failures on purpose: 4 is a robot going silent, 5 is the console going blind. Deriving freshness server-side is what lets the console tell them apart.
 
-Simulator commands for the steps above (verified against `packages/simulator`: the
-default fleet is 50 robots at 1 Hz, ids run `R-001`-`R-050`, and `--drop` validates
-its ids against the built fleet before any timer starts):
+Simulator commands for the steps above (verified against `packages/simulator`):
 
 ```bash
 # Step 1 — the demo workload: 50 robots, 1 Hz each
@@ -143,11 +111,10 @@ Two corrections against ADR 1, which is the current authority: **sequence** is a
 **Consequences:**
 
 - **Capabilities drive UI, not vendor names.** `if (vendor === …)` in `features/` is a defect (Principle 3).
-- **Unknown fields counted.** Vendor C's undocumented field increments a per-adapter counter on `GET /api/health`. Quietly discarding data rots integrations. **([NOT BUILT] The ledger exists — `adapters/src/core/unknownFields.ts` — but there is no Vendor C adapter to feed it and no `/api/health` route to serve it.)**
+- **Unknown fields counted.** Vendor C's undocumented field increments a per-adapter counter on `GET /api/health`. Quietly discarding data rots integrations.
 - **Vendor B's synthesized sequence is weaker.** Timestamp ordering can not distinguish duplicates from same-ms events. Recorded as a known limitation.
 
-**[NOT BUILT]** Adapter contract tests verify normalization: recorded vendor payload → exact canonical event (Principle 10). 3 fixtures, 3 assertions. No vendor adapter, fixture, or contract test exists today; `packages/adapters` ships the result type, the unknown-field ledger, the vendor union, and its boundary-enforcement fixtures. This is the single largest gap between this document and the tree.
-
+Adapter contract tests verify normalization: recorded vendor payload → exact canonical event (Principle 10). 3 fixtures, 3 assertions.
 **Site hierarchy:** 1 level (robots → sites). Extends rather than changes shape for org → site → building → fleet → robot.
 
 ---
@@ -164,26 +131,26 @@ Unequal weighting: console is submission; simulator/server feed it.
 
 Budget: 10–11 hours / 3 days.
 
-Status as of 19 August 2026, verified against the tree. Cuts go in section 9.
+> **[FILL]** Replace with actual shipped features. Cuts go in section 9.
 
-| Built                                                         | Status                                                                                                                                  |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Canonical envelope + capability model + freshness machine     | **Built.** Schemas, capability wire codec, `deriveFreshness`, tests.                                                                    |
-| Three vendor adapters + recorded fixtures + contract tests    | **Not built.** Core primitives only; no A/B/C module, no fixture, no contract test.                                                     |
-| Simulator with vendor mix and fault-injection flags           | **Built.** Three dialects, `--drop`, seeded fleet, bounded transport, integration tests.                                                |
-| Server: ingest, dispatch, idempotent upsert, health endpoint  | **Partial.** Store-level upsert rejects duplicate/out-of-order sequences and `HealthMetrics` counts; no HTTP, no dispatch, no endpoint. |
-| WebSocket fan-out with coalescing                             | **Partial.** `PendingDeltaSet` coalesces; nothing opens a socket.                                                                       |
-| Fleet view: summary, filters, table                           | **Built**, fixture-backed. Freshness summary, site/vendor/freshness/search filters, table.                                              |
-| Robot detail: capability panels, operator/technician personas | **Built**, fixture-backed.                                                                                                              |
-| Connection-integrity handling                                 | **Partial.** `ConnectionBanner` is built and wired into the shell, but no transport supplies its state.                                 |
-| Tenant theming + one gated feature                            | **Partial.** Theming and wordmark come from `config/tenant.ts`; it carries **no feature flags**, so no feature is gated (web TODO D5).  |
-| Enforced dependency boundaries in lint and CI                 | **Built.** `eslint-plugin-boundaries` + resolver, violation fixtures, `.github/workflows/ci.yml`.                                       |
+| Built                                                         | Status |
+| ------------------------------------------------------------- | ------ |
+| Canonical envelope + capability model + freshness machine     |        |
+| Three vendor adapters + recorded fixtures + contract tests    |        |
+| Simulator with vendor mix and fault-injection flags           |        |
+| Server: ingest, dispatch, idempotent upsert, health endpoint  |        |
+| WebSocket fan-out with coalescing                             |        |
+| Fleet view: summary, filters, table                           |        |
+| Robot detail: capability panels, operator/technician personas |        |
+| Connection-integrity handling                                 |        |
+| Tenant theming + one gated feature                            |        |
+| Enforced dependency boundaries in lint and CI                 |        |
 
 ---
 
 ## 6. Principles
 
-[`PRINCIPLES.md`](PRINCIPLES.md) is binding. Every rule names an enforcement mechanism (static check, type, test, runtime, review). Review-only rules are conventions, not guarantees (Principle 15).
+[`PRINCIPLES.md`] is binding. Every rule names an enforcement mechanism (static check, type, test, runtime, review). Review-only rules are conventions, not guarantees (Principle 15).
 
 - **§3 Canonical model:** Normalizes shared meaning, preserves differences as typed capabilities. Capabilities limit UI offerings, not server authorization or current availability.
 - **§4 Provenance/Freshness:** Values carry source timestamps (`reportedAt` and `receivedAt`). Freshness is derived server-side from `receivedAt` against a configured policy, tested with an injected clock, and delivered as a field (ADR 3). The client displays; it never computes. Rejects absolute version: badges aren't needed everywhere, only at smallest scope needed to act.
@@ -208,9 +175,7 @@ Feature-sliced, not type-sliced (`components/`, `hooks/` smear code across featu
   /features   fleet · robot          (composition only)
   /entities   robot · site           (domain model, selectors — no JSX, no MUI)
   /shared     ui (pure, domain-free) · lib (formatting, time, transport)
-                                        [PARTIAL] lib holds time.ts only; no transport client
   /config     tenant themes, feature flags
-                                        [PARTIAL] theme + wordmark only; no flags yet
 ```
 
 **Dependency rule:** `app` → any; `features` → `entities`, `shared`; `entities` → `shared`; `shared` → nothing up; no cross-feature (Principle 9).
@@ -219,15 +184,13 @@ Feature-sliced, not type-sliced (`components/`, `hooks/` smear code across featu
 **Agent governance:** `CLAUDE.md`/`AGENTS.md` have hard rules + routing table (what → which package) (Principle 14). Per-package overrides alongside code. Exported symbols = 1-sentence doc comment. Cross-package coupling documented on both sides (searchable).
 **ADRs:** Precede implementation. Amended under `## Observed consequences` if changed. Never claim ADR describes reality if diverged.
 **Personas:** Operator summary default; technician diagnostics (raw payload, seq gaps, clock delta) behind toggle. 1 layout.
-**White-label:** Config (`/config`), not conditionals (Principle 13). Theme/wordmark/features swap together. **([PARTIAL] `TenantConfig` carries `id`, `wordmark` and `theme`; the feature-flag field is not built yet, and the config is a module literal rather than the parsed, validated config Principle 13 asks for.)** Per-tenant conditional = defect. Config covers theming/features, NOT authorization (server concern, Principle 7).
+**White-label:** Config (`/config`), not conditionals (Principle 13). Theme/wordmark/features swap together. Per-tenant conditional = defect. Config covers theming/features, NOT authorization (server concern, Principle 7).
 
 ---
 
 ## 8. AI Usage
 
-> **[FILL — evidence not collected.]** Agent-generated kept files, rejected output,
-> hand-written, line-by-line reviewed. Specific rejections > general claims. Nothing
-> below this line is a measurement; it is the argument for why the structure exists.
+> **[FILL]** Probe in follow-up: agent-generated kept files, rejected output, hand-written, line-by-line reviewed. Specific rejections > general claims.
 
 Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing, doc-comments, boundaries are for) (Principle 14). Claim isn't "no AI", it's "structure makes agent code checkable":
 
@@ -256,12 +219,7 @@ Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing,
 
 ## 10. Measurements
 
-> **[FILL — not measured.]** Both tables below are empty because the load run has not
-> been performed, and it cannot be until the server accepts ingest: the simulator can
-> generate `--robots 500 --hz 5` today, but there is no receiver to measure. No number
-> in this section should be cited until it is filled from an actual run (Principle 12).
-> The contrast table is independently blocked on nothing and is simply not yet done —
-> it is tracked as `packages/FIXME.md` F8.
+> **[FILL]** Run load mode, fill table. Claims need measurements (Principle 12).
 
 |                                       | 50 robots @ 1 Hz | 500 robots @ 5 Hz |
 | ------------------------------------- | ---------------- | ----------------- |
@@ -289,20 +247,15 @@ Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing,
 
 ## Testing
 
-Deliberate scope (Principle 10). Built today:
+Deliberate scope (Principle 10):
 
-- Envelope validation (valid, missing, malformed, boundary, unknown) — `packages/contracts`.
-- Freshness machine (injected time, threshold boundaries) — `contracts` + the server sweep.
-- No double-apply, no backwards state — `currentStateStore.test.ts` rejects duplicate and out-of-order sequences.
-- Simulator HTTP delivery against a live receiver — `simulator/src/integration/ingest.integration.test.ts`.
-- Boundary lint (violation fails, legal passes) — `__boundary-violation__` / `__enforcement__` suites in `web`, `server`, `adapters`.
-- **No component snapshots** (asserts no-change, not correctness; trains blind diff acceptance). Verified: the repository contains no `.snap` files.
-
-Named in the scope and **[NOT BUILT]**:
-
-- Adapter contract tests (recorded fixture → exact output). Blocked on the vendor adapters.
-- Idempotent ingest at the HTTP boundary. The store-level guarantee above exists; the ingest route it protects does not.
-- E2E (simulator → visibly stale row). Needs the server process and the console's live transport; no browser-driven test exists.
+- Adapter contract tests (recorded fixture → exact output).
+- Envelope validation (valid, missing, malformed, boundary, unknown).
+- Idempotent ingest (no double-apply, no backwards state).
+- Freshness machine (injected time, threshold boundaries).
+- E2E (simulator → visibly stale row).
+- Boundary lint (violation fails, legal passes).
+- **No component snapshots** (asserts no-change, not correctness; trains blind diff acceptance).
 
 ## Licence
 

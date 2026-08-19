@@ -61,7 +61,6 @@ Behavioral instructions only. Do not load product or domain knowledge here.
 | Pure UI primitives (no domain)                                                    | `packages/web/src/shared/ui`                                                  |
 | Formatting, time helpers, transport client                                        | `packages/web/src/shared/lib`                                                 |
 | Tenant themes and feature flags                                                   | `packages/web/src/config`                                                     |
-| Per-package responsibility, public API, and build status                          | `docs/03_package-specs/`                                                      |
 | Engineering principles (graded deliverable)                                       | `PRINCIPLES.md`                                                               |
 | Architecture Decision Records                                                     | `docs/00_adr/`                                                                |
 | How to run, demo script, AI-usage note, measurements                              | `README.md`                                                                   |
