@@ -1,0 +1,28 @@
+packages:
+  - "packages/*"
+
+# Lifecycle scripts are opt-in. simple-git-hooks is declined deliberately:
+# hooks are installed from the repo root, not from a transitive install.
+allowBuilds:
+  simple-git-hooks: false
+
+# Workspace deps resolve to the local package first; `workspace:*` in a
+# package.json is still required to make the link mandatory rather than
+# opportunistic.
+linkWorkspacePackages: deep
+preferWorkspacePackages: true
+
+# `pnpm install` fails rather than warns when the local toolchain does not
+# match `engines` in the root package.json.
+engineStrict: true
+
+# One version of the shared toolchain across every package. Packages opt in
+# with "typescript": "catalog:" instead of restating a range.
+catalog:
+  "@types/node": ^24.13.3
+  "@vitest/coverage-v8": ^4.1.11
+  eslint: ^10.8.1
+  typescript: ~6.0.2
+  typescript-eslint: ^8.67.0
+  vitest: ^4.1.11
+  zod: ^4.4.3
