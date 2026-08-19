@@ -4,8 +4,11 @@ import { SUPPORTED_VENDORS } from "../core/vendor.ts";
 import * as testingSurface from "./index.ts";
 import {
   FIXTURE_RECORDING,
+  listMalformedPayloads,
   listVendorFixtures,
+  loadMalformedPayload,
   loadVendorFixture,
+  type MalformedPayload,
   type VendorFixture,
 } from "./fixtures.ts";
 
@@ -20,6 +23,10 @@ export type FixtureTypeAssertions = [
   // through the same untrusted door production does. A typed fixture would let
   // a test pass while the schema it exercises is wrong (adapters TODO D1).
   Assert<Equals<VendorFixture["payload"], unknown>>,
+  // The same rule for a malformed payload, and it matters more here: a typed
+  // malformed fixture would not compile at all, and the temptation would be to
+  // "fix" it into something the schema accepts.
+  Assert<Equals<MalformedPayload["payload"], unknown>>,
 ];
 
 /**
@@ -29,7 +36,13 @@ export type FixtureTypeAssertions = [
  * should be a deliberate edit to a test, not a side effect of adding an export
  * (ADR 11).
  */
-const PUBLIC_SURFACE = ["FIXTURE_RECORDING", "listVendorFixtures", "loadVendorFixture"] as const;
+const PUBLIC_SURFACE = [
+  "FIXTURE_RECORDING",
+  "listMalformedPayloads",
+  "listVendorFixtures",
+  "loadMalformedPayload",
+  "loadVendorFixture",
+] as const;
 
 describe("@fleet/adapters/testing public surface", () => {
   it("exports exactly the documented runtime surface", () => {
@@ -91,13 +104,109 @@ describe("loadVendorFixture", () => {
 
   it("throws for a fixture that was never recorded", () => {
     // @ts-expect-error deliberately outside VendorFixtureName
-    expect(() => loadVendorFixture("A", "malformed")).toThrow(/No recorded malformed fixture/);
+    expect(() => loadVendorFixture("A", "nonexistent")).toThrow(/No recorded nonexistent fixture/);
+  });
+
+  it("loads both boundary cases for every vendor", () => {
+    for (const vendor of SUPPORTED_VENDORS) {
+      for (const name of ["boundary-empty", "boundary-full"] as const) {
+        expect(loadVendorFixture(vendor, name).name).toBe(name);
+      }
+    }
+  });
+
+  it("puts battery at both ends of each dialect's own scale", () => {
+    // The representative set cannot show this: `initialState` in the simulator
+    // draws battery from [0.35, 1), so no seed reaches either end.
+    expect(loadVendorFixture("A", "boundary-empty").payload).toHaveProperty(
+      "telemetry.battery.level",
+      0,
+    );
+    expect(loadVendorFixture("A", "boundary-full").payload).toHaveProperty(
+      "telemetry.battery.level",
+      1,
+    );
+    expect(loadVendorFixture("B", "boundary-empty").payload).toHaveProperty("batt_pct", 0);
+    expect(loadVendorFixture("B", "boundary-full").payload).toHaveProperty("batt_pct", 100);
+  });
+
+  it("carries a docked robot, so `dock_id` is not null everywhere", () => {
+    // A schema typing dock_id as `null` would accept every representative payload.
+    expect(loadVendorFixture("C", "boundary-empty").payload).toHaveProperty(
+      "telemetry.dock.dock_id",
+      "SITE-NORTH-DOCK-03",
+    );
+    expect(loadVendorFixture("C", "boundary-full").payload).toHaveProperty(
+      "telemetry.dock.dock_id",
+      null,
+    );
+  });
+
+  it("keeps vendor C's undocumented field in every recorded case", () => {
+    for (const name of ["representative", "boundary-empty", "boundary-full"] as const) {
+      expect(loadVendorFixture("C", name).payload).toHaveProperty(
+        "telemetry.firmware_channel",
+        "stable",
+      );
+    }
+  });
+
+  it("keeps vendor C's unsupported lidar block absent in every recorded case", () => {
+    // The dialect has no optional lidar block to toggle: key absence is the
+    // source fact from which the adapter must omit the `lidarHealth` capability.
+    for (const name of ["representative", "boundary-empty", "boundary-full"] as const) {
+      expect(loadVendorFixture("C", name).payload).not.toHaveProperty("telemetry.lidar");
+    }
+  });
+});
+
+describe("loadMalformedPayload", () => {
+  it("gives every vendor a payload its schema must reject", () => {
+    // One per vendor, each broken differently, so the D4 rejection tests are not
+    // three assertions about one defect.
+    expect(listMalformedPayloads().map((payload) => `${payload.vendor}/${payload.name}`)).toEqual([
+      "A/wrong-type",
+      "B/multiple-defects",
+      "C/unparsable-timestamp",
+    ]);
+  });
+
+  it("states why each payload is malformed", () => {
+    for (const payload of listMalformedPayloads()) {
+      expect(payload.reason.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("breaks a nested field, so the issue path cannot be a top-level key", () => {
+    expect(loadMalformedPayload("A", "wrong-type").payload).toHaveProperty(
+      "telemetry.battery.level",
+      "0.9661",
+    );
+  });
+
+  it("carries two independent defects in one vendor B payload", () => {
+    // ADR 20: a payload wrong in two fields must still be wrong in two fields by
+    // the time a technician reads the error.
+    const payload = loadMalformedPayload("B", "multiple-defects").payload;
+
+    expect(payload).not.toHaveProperty("ts");
+    expect(payload).toHaveProperty("batt_pct", 150);
+  });
+
+  it("throws for a defect that vendor does not have", () => {
+    expect(() => loadMalformedPayload("A", "multiple-defects")).toThrow(
+      /No malformed multiple-defects payload for vendor A/,
+    );
   });
 });
 
 describe("listVendorFixtures", () => {
-  it("returns one fixture per supported vendor, in vendor order", () => {
-    expect(listVendorFixtures().map((fixture) => fixture.vendor)).toEqual([...SUPPORTED_VENDORS]);
+  it("returns every recorded case, grouped by vendor in vendor order", () => {
+    expect(listVendorFixtures().map((fixture) => `${fixture.vendor}/${fixture.name}`)).toEqual(
+      SUPPORTED_VENDORS.flatMap((vendor) =>
+        ["representative", "boundary-empty", "boundary-full"].map((name) => `${vendor}/${name}`),
+      ),
+    );
   });
 
   it("returns the same objects loadVendorFixture returns", () => {

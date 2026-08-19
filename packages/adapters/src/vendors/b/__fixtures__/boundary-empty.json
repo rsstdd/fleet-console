@@ -1,0 +1,13 @@
+{
+  "id": "R-002",
+  "site": "SITE-NORTH",
+  "model": "BR-15",
+  "ts": 1755600000000,
+  "batt_pct": 0,
+  "x_cm": -4000,
+  "y_cm": -4000,
+  "heading_cdeg": 0,
+  "status_code": 2,
+  "health_code": 1,
+  "dock_state": 1
+}

@@ -49,9 +49,10 @@ identifiers locally, in `src/fleet/simulatedRobot.ts`, and
 `SUPPORTED_VENDORS` agree — in both directions, so neither a vendor without an
 adapter nor an adapter without a producer gets through (ADR 16).
 
-That test is the only file in `simulator` allowed to import `@fleet/adapters`,
-which is a dev dependency there: lint bans the specifier in production code, and
-`src/__enforcement__/` probes both directions of the ban so it cannot go inert.
+That test is the intended use of `@fleet/adapters` in `simulator`, where it is a dev
+dependency: lint bans the specifier in production code and lifts the ban for
+`**/*.test.ts`, and `src/__enforcement__/` probes both directions — including a
+test-file fixture that must report nothing — so the rule cannot go inert.
 
 Two arrows above are drawn ahead of the code:
 
@@ -118,12 +119,14 @@ silently dropped**. Vendor C's undocumented field must increment a per-adapter
 tally surfaced on the future health endpoint. The ledger exists; neither the
 Vendor C adapter nor the endpoint does yet.
 
-**Landed:** the result type, the unknown-field ledger, the vendor union, and the
+**Landed:** the result type, accepted-payload unknown-field ledger and path discovery,
+the supported-vendor set and parity guard, representative recorded fixtures, and the
 boundary-enforcement fixtures.
 
-**Not yet:** the A, B, and C schemas/adapters, malformed and boundary fixtures, and the
-dispatch registry. One representative recorded fixture per vendor is already published
-through `@fleet/adapters/testing` and drift-gated in CI (ADR 13).
+**Not yet:** the A, B, and C schemas/adapters and the dispatch registry. Each vendor now
+has representative, empty-boundary, and full-boundary recorded fixtures plus one
+separately hand-authored malformed payload, published through `@fleet/adapters/testing`;
+the nine generated fixtures are drift-gated in CI (ADR 13).
 
 ---
 

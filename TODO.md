@@ -100,8 +100,10 @@ calling the baseline maintainable.
 Owner: `packages/adapters`.
 
 - ~~Declare and consume `@fleet/contracts` with `workspace:*`.~~ Done 19 August 2026.
-- ~~Record one representative fixture per vendor.~~ Done 19 August 2026, drift-gated in CI
-  (ADR 13). The malformed and boundary fixtures are still missing.
+- ~~Record deterministic representative, boundary-empty, and boundary-full fixtures per
+  vendor, plus one hand-authored malformed payload per vendor.~~ Done 20 August 2026. The
+  nine valid fixtures are simulator-recorded and drift-gated in CI (ADR 13); malformed
+  payloads have separate provenance outside the generated path.
 - Add loose vendor schemas for Vendors A, B, and C (loose, not strict: ADR 15 counts
   unknown fields on payloads that still normalize).
 - Normalize units, timestamps, statuses, and capabilities with injected `receivedAt`.

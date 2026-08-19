@@ -12,8 +12,12 @@
  */
 export {
   FIXTURE_RECORDING,
+  listMalformedPayloads,
   listVendorFixtures,
+  loadMalformedPayload,
   loadVendorFixture,
+  type MalformedPayload,
+  type MalformedPayloadName,
   type VendorFixture,
   type VendorFixtureName,
 } from "./fixtures.ts";

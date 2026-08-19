@@ -1,6 +1,6 @@
 # 02 — `@fleet/adapters`
 
-- **Status:** partially implemented — core primitives and representative fixture infrastructure exist; no vendor adapter exists yet
+- **Status:** partially implemented — core primitives and complete C1 fixture infrastructure exist; no vendor adapter exists yet
 - **Package:** `packages/adapters`
 - **Governing documents:** ADR 1 (adapter boundary), ADR 7 (enforcement needs a resolver),
   ADR 9 (source exports), ADR 10 (pre-freshness return type), ADR 11 (public fixture
@@ -234,7 +234,7 @@ ADR 1 § Constraints is explicit that one fixture per vendor is a smoke test rat
 proof of the entire mapping, and asks for at least one boundary or malformed case per
 vendor where time allows.
 
-41 tests today, covering core behavior, fixture publication and enforcement.
+51 tests today, covering core behavior, fixture publication and enforcement.
 
 ## 11. Implementation status
 
@@ -242,8 +242,10 @@ vendor where time allows.
 the accepted-only unknown-field ledger, passthrough/key-difference detection, vendor
 identity narrowing, recorded fixtures with a drift guard, and the enforcement suite.
 
-**Not built:** every vendor schema (`B1`–`B3`), every vendor adapter (`C2`–`C4`), the
-additional malformed/boundary fixtures under `C1`, and the status-mapping tables (`C5`).
+**Not built:** every vendor schema (`B1`–`B3`), every vendor adapter (`C2`–`C4`), and the
+status-mapping tables (`C5`). C1 is complete: each vendor has recorded representative,
+empty-boundary, and full-boundary payloads plus one separately hand-authored malformed
+payload.
 
 This is one of the two gaps on the critical path. Until vendor adapters exist:
 

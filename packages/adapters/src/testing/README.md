@@ -5,10 +5,16 @@ by vendor and name. Decided in
 [ADR 11](../../../../docs/00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md).
 
 ```ts
-import { loadVendorFixture } from "@fleet/adapters/testing";
+import { loadMalformedPayload, loadVendorFixture } from "@fleet/adapters/testing";
 
 const { payload, recordedAt } = loadVendorFixture("C");
 // payload is `unknown` — decode it with the vendor schema you are exercising
+
+loadVendorFixture("C", "boundary-empty"); // flat battery, docked, tank empty
+loadVendorFixture("C", "boundary-full"); // full battery, undocked, tank full
+
+const { payload: bad, reason } = loadMalformedPayload("C", "unparsable-timestamp");
+// `bad` must be rejected; `reason` says why, for the assertion message
 ```
 
 ## Why a subpath exists at all
@@ -67,9 +73,10 @@ Pinned inputs, also exported as `FIXTURE_RECORDING`:
 | instant   | `1755600000000` (epoch ms)                   |
 | robots    | `R-001` (vendor A), `R-002` (B), `R-003` (C) |
 
-The robots are serialized in their initial state, straight from `createFleet`
-with no evolution ticks, which is why every recorded `seq` is `0`. That keeps the
-recording a function of the seed alone.
+The `representative` robots are serialized in their initial state, straight from
+`createFleet` with no evolution ticks. The boundary cases keep those identities and
+replace the state with a pinned constant, so every recorded `seq` is `0` either
+way. That keeps the recording a function of the seed alone.
 
 **This procedure is enforced** ([ADR 13](../../../../docs/00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md)).
 CI re-records and fails on any diff, so a dialect that moves without its fixtures
@@ -83,8 +90,42 @@ so would invert the boundary this package exists to defend, and a defect present
 in both producer and consumer would cancel out and go unnoticed. What crosses the
 boundary is bytes on disk, written by a script — not a module import.
 
+## Two provenances, deliberately not one union
+
+| Surface                                          | Origin                             | Lives in                         |
+| ------------------------------------------------ | ---------------------------------- | -------------------------------- |
+| `loadVendorFixture` / `listVendorFixtures`       | recorded by `pnpm record:fixtures` | `src/vendors/<v>/__fixtures__/`  |
+| `loadMalformedPayload` / `listMalformedPayloads` | hand-authored                      | `src/vendors/<v>/__malformed__/` |
+
+They are separate accessors rather than one loader with a wider name union
+because the two have different provenance, and a single union would hide that at
+the call site. A recorded fixture carries `robotId` and `recordedAt` and is
+reproducible from `FIXTURE_RECORDING`; a malformed payload carries neither and a
+`reason` instead, because nothing generated it.
+
+**The simulator cannot produce a malformed payload** — it only emits well-formed
+output — so these are written by hand, and ADR 13 § Implications is where that
+boundary is recorded. Keeping them in `__malformed__/` rather than `__fixtures__/`
+is what lets the recorder's "generated, never edited" rule stay true of everything
+in `__fixtures__/`, and what keeps hand-written bytes inside ADR 27's
+reviewable-diff budget instead of silently exempt from it.
+
+### The recorded cases
+
+| Name             | What it pins                                                                      |
+| ---------------- | --------------------------------------------------------------------------------- |
+| `representative` | The fleet robot as `createFleet` built it                                         |
+| `boundary-empty` | Battery 0, docked (so `dock_id` is a string), lidar faulted, tank empty, min pose |
+| `boundary-full`  | Battery 1, undocked, lidar nominal, tank full, max pose and heading               |
+
+The boundary states are constructed rather than drawn from the fleet, because the
+fleet cannot reach them: `initialState` draws battery from `[0.35, 1)`, so no seed
+produces a flat or a full robot. They are still states `evolveRobot` can reach, so
+"this is what the producer emits" stays true. See `boundaryState` in
+`packages/simulator/src/recording/fixtureSet.ts`.
+
 ## What is not here yet
 
-One representative payload per vendor. The malformed and boundary cases adapters
-`TODO.md` **C1** calls for are not recorded, which is why `VendorFixtureName`
-has one member and the registry's inner record is `Partial`.
+Status `fault` and health `critical` appear in no payload, in any case, for any
+vendor. Those are the status-vocabulary mapping in adapters `TODO.md` **C5**,
+which needs one payload per source value rather than one per extreme.

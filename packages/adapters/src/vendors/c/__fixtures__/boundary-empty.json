@@ -1,0 +1,16 @@
+{
+  "robot_id": "R-003",
+  "site": "SITE-NORTH",
+  "model": "CV-7",
+  "seq": 0,
+  "timestamp": "2025-08-19T10:40:00.000Z",
+  "telemetry": {
+    "battery": { "level": 0 },
+    "pose": { "x_m": -40, "y_m": -40, "heading_deg": 0 },
+    "state": "charging",
+    "health": { "level": "degraded" },
+    "dock": { "docked": true, "dock_id": "SITE-NORTH-DOCK-03" },
+    "water": { "level_pct": 0 },
+    "firmware_channel": "stable"
+  }
+}

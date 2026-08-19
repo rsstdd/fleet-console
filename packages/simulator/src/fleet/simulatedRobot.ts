@@ -101,7 +101,7 @@ const BATTERY_RESUME_WORK = 0.95;
 /** Metres per second a busy robot travels. */
 const SPEED_M_PER_SECOND = 0.45;
 /** Half-width of the square site the robot moves within, in metres. */
-const SITE_HALF_EXTENT_M = 40;
+export const SITE_HALF_EXTENT_M = 40;
 /** Nominal lidar spin rate in revolutions per minute. */
 const LIDAR_NOMINAL_RPM = 600;
 
@@ -225,7 +225,13 @@ function healthFor(status: SimStatus, battery: number, lidarFaulted: boolean): S
   return "nominal";
 }
 
-/** The dock a robot returns to; stable per robot so `dock` payloads do not churn. */
-function dockIdFor(identity: RobotIdentity): string {
+/**
+ * The dock a robot returns to; stable per robot so `dock` payloads do not churn.
+ *
+ * Exported for `src/recording/fixtureSet.ts`, which pins a docked robot as a
+ * boundary fixture and must spell the id the same way a real tick would. A second
+ * copy of this format in the recorder would drift the moment either moved.
+ */
+export function dockIdFor(identity: RobotIdentity): string {
   return `${identity.siteId}-DOCK-${identity.robotId.slice(-2)}`;
 }

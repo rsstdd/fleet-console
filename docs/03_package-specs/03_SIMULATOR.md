@@ -160,16 +160,14 @@ change together.
 | Determinism actually holds                                | Test      | same seed → byte-identical run                                          |
 | The executable stays alive                                | Test      | subprocess integration test                                             |
 | Generated roster equals the server's committed input      | Test      | `src/fleet/manifestParity.test.ts` (ADR 14)                             |
-| Vendor set agrees with the adapter set                    | —         | **Not enforced.** See below                                             |
+| Vendor set agrees with the adapter set                    | Test      | `src/fleet/vendorId.test.ts` (ADR 16)                                   |
 
-**The vendor-set guard does not exist.** `VENDOR_IDS` here and `SUPPORTED_VENDORS` in
-`@fleet/adapters` are identical literals maintained independently, deliberately, so this
-package carries no production dependency on adapters. Nothing checks that they agree, so a
-fourth vendor added to one and not the other would be caught by no test — the simulator
-would emit a dialect no adapter can decode, and the failure would surface as ingest
-rejections at demo time. Closing it means choosing between a test-only adapters dependency
-and an integration fixture test, which is decision **D7** in
-`docs/PENDING_ARCHITECTURE_DECISIONS.md`.
+`VENDOR_IDS` here and `SUPPORTED_VENDORS` in `@fleet/adapters` are identical literals
+maintained independently so this package carries no production dependency on adapters.
+ADR 16 resolved D7 with a test-only adapters dependency: `src/fleet/vendorId.test.ts`
+checks both directions and fleet allocation, while `no-restricted-imports` bans the
+dependency from production code. `src/__enforcement__/enforcement.test.ts` proves both
+the production ban and test exception remain active.
 
 The determinism ban is lifted in exactly one directory. `src/runtime/` adapts the ambient
 platform — real clock, real randomness — into the injectable interfaces every other module

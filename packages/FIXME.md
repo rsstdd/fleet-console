@@ -10,8 +10,8 @@ with [`packages/README.md`](./README.md). It separates actual conflicts from acc
 decisions that are simply incomplete. Package TODOs remain the detailed implementation
 plans; this file is the cross-package reconciliation list.
 
-**Re-audit outcome.** F1–F12 were each re-verified against source. F1–F11 remain open; **F12 was closed on 19 August 2026** by ADR 16. **F13, F14 and F15 were added on 19 August 2026** — by ADR 21, ADR 25 and ADR 26 respectively — and is the newer kind of finding this file should expect more of: not a contradiction, but a decision that landed correctly ahead of the code that will consume it.
-No finding was closed. The re-audit corrected statements in
+**Re-audit outcome.** F1–F12 were each re-verified against source. F1–F11 remain open; **F12 was closed on 19 August 2026** by ADR 16. **F13, F14 and F15 were added on 19 August 2026** — by ADR 21, ADR 25 and ADR 26 respectively — and are the newer kind of finding this file should expect more of: not contradictions, but decisions that landed correctly ahead of the code that will consume them.
+No additional finding was closed in the 20 August re-audit. The re-audit corrected statements in
 [`README.md`](./README.md) that the code contradicts: a test that does not exist, an
 undercount of the dependency arrows drawn ahead of the code, a health endpoint the
 server does not serve, a dependency rule attributed to the build rather than to lint,
@@ -112,10 +112,11 @@ TODOs and the root TODO; do not “fix” them by weakening the ADR.
 **Assessment: accurate plan, incomplete implementation; open.**
 
 `packages/adapters` now depends on `@fleet/contracts`, publishes one representative
-recorded fixture per vendor, and implements the accepted-only unknown-field ledger and
-path discovery. It still has no vendor schemas/adapters, malformed or boundary fixtures,
-or dispatch registry. Therefore exact vendor-to-canonical contract evidence and
-process-wide unknown-field reporting do not yet exist. The simulator intentionally has
+recorded representative and boundary fixtures per vendor, publishes one separately
+hand-authored malformed payload per vendor, and implements the accepted-only unknown-field
+ledger and path discovery. It still has no vendor schemas/adapters or dispatch registry.
+Therefore exact vendor-to-canonical contract evidence and process-wide unknown-field
+reporting do not yet exist. The simulator intentionally has
 no production dependency on contracts/adapters; its test-only adapters dependency guards
 the supported-vendor list (ADR 16).
 

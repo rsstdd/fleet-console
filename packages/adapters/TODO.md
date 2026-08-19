@@ -135,7 +135,7 @@ Verified 20 August 2026, from `packages/adapters`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 6 files, 41 tests       |
+| `pnpm test`      | passes — 6 files, 51 tests       |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -230,20 +230,33 @@ cannot drift.
       **What B1–B3 must do:** declare the schema with `z.looseObject`, compute
       `knownFieldPaths(schema)` **once at module load**, and call `noteAcceptedPayload` with
       the parse outcome.
-- [ ] **C1 — Record fixtures.** `src/vendors/<v>/__fixtures__/*.json`, deterministic,
-      committed. Per vendor at minimum: one representative payload, one malformed, one
-      boundary case (battery at both ends, missing optional block), and for C one carrying
-      the undocumented field.
-      **Partially done 19 August 2026, unchanged at the 20 August audit:** the representative
-      payload for each of A, B and C is recorded from the simulator at seed 1, fleet size 9,
-      instant 1755600000000, and committed. Vendor C's carries `telemetry.firmware_channel`
-      — nested, so the walk must produce a dotted path. Still missing: the malformed and
-      boundary cases, which is why `VendorFixtureName` has one member. Provenance and the
-      re-record procedure are in `src/testing/README.md`; ADR 13 resolved register **D4** by
-      making CI re-record and fail on any fixture diff, and ADR 27 § 3 excludes these files
-      from the reviewable-diff cap because they are generated.
-      **Recording covers one robot per vendor** (`R-001`, `R-002`, `R-003`), which is why
-      **D7**'s cross-vendor test has no input yet — see that item.
+- [x] **C1 — Record fixtures. Done 20 August 2026.** Twelve payloads: nine recorded under
+      `src/vendors/<v>/__fixtures__/`, three hand-authored under
+      `src/vendors/<v>/__malformed__/`. Per vendor: `representative`, `boundary-empty`,
+      `boundary-full`, and one malformed. Vendor C's recorded payloads carry
+      `telemetry.firmware_channel` — nested, so the walk must produce a dotted path.
+      **Two things the original item asked for turned out not to exist.** "Missing optional
+      block" describes nothing in these dialects: every field of `VendorAPayload`,
+      `VendorBPayload` and `VendorCPayload` is required, and vendor C's absent lidar block
+      is a property of the dialect rather than of a payload. The nearest real per-payload
+      variation is `dock.dock_id`, `null` in every representative payload and a string in
+      every `boundary-empty` one — a schema typing it `null` would have passed the whole
+      previous set. And **battery extremes are unreachable from any seed**: `initialState`
+      draws from `[0.35, 1)`, so the boundary states are constructed, not hunted for. They
+      are still states `evolveRobot` can produce, so the fixtures remain the producer's
+      own output (`boundaryState` in the simulator's `fixtureSet.ts` argues this).
+      **The malformed payloads are not recorded and never will be** — the simulator emits
+      only well-formed output (ADR 13 § Implications) — so they are hand-written, live
+      outside `__fixtures__/`, and reach consumers through `loadMalformedPayload` rather
+      than `loadVendorFixture`. Two accessors, not one wider name union, because the
+      provenances differ and one union would hide that at the call site. That placement
+      also keeps them inside ADR 27's diff budget instead of silently exempt under its
+      generated-files glob.
+      **Still uncovered, and deliberately left to C5:** status `fault` and health `critical`
+      appear in no payload. That is a status-vocabulary matrix — one payload per source
+      value — not another extreme.
+      **Recording still covers one robot per vendor** (`R-001`, `R-002`, `R-003`), so
+      **D7**'s cross-vendor test still has no input — see that item.
 - [ ] **B1 / C2 — Vendor A.** Nested payload, battery as a fraction `0..1`, position in
       metres, ISO-8601 timestamp. Declares `dock`, `lidarHealth`, `sequence`.
 - [ ] **B2 / C3 — Vendor B.** Flat payload, integer-percentage battery, position in
@@ -291,8 +304,8 @@ cannot drift.
 
 ## Section 3 — Tests
 
-The wire is done: `vitest.config.ts`, node environment, four passing test files, a
-`test:coverage` script. What is missing is the contract-test harness.
+The wire is done: `vitest.config.ts`, node environment, six passing test files, a
+`test:coverage` script. What is missing is the vendor contract-test harness.
 
 - [x] **D1 — Shared fixture loader. Done 19 August 2026.** `src/testing/fixtures.ts` loads a
       fixture by vendor and name, typed `unknown` at the call site. The subpath question is
@@ -312,6 +325,11 @@ The wire is done: `vitest.config.ts`, node environment, four passing test files,
       fixture is what makes failures readable.
 - [ ] **D4 — Rejection tests.** One per vendor per `AdapterErrorKind` that vendor can
       produce. Assert on `kind` and `path`, not on message text.
+      **The inputs exist now** (**C1**): `listMalformedPayloads()` returns one per vendor,
+      each broken differently — vendor A a wrong type at a nested path, vendor B two
+      independent defects in one payload, vendor C a well-typed but impossible timestamp.
+      Vendor B's is the one that proves ADR 20's claim: two defects must produce two issues,
+      and a rejection reporting one has flattened the other away.
 - [ ] **D5 — Unknown-field accounting at the adapter level.** The ledger, the walk and the
       accepted-only guard all have unit tests now (ADR 15); what is untested is that vendor
       C's adapter actually notes `telemetry.firmware_channel` from its recorded fixture, and
