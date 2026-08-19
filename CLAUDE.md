@@ -15,7 +15,7 @@ Behavioral instructions only. Do not load product or domain knowledge here.
   - `entities` may import `shared`
   - `shared` imports nothing above it
   - No feature may import another feature
-  Enforcement lives in lint/CI. Never introduce a violation even if it appears convenient.
+    Enforcement lives in lint/CI. Never introduce a violation even if it appears convenient.
 - Domain logic lives in `entities` and has one authoritative implementation. Presentational components under `shared/ui` import no domain code. Features compose; they do not own domain rules (Principle 1).
 - State naming and UI conventions:
   - State is separated by authority, lifetime, and transition model. Observed (telemetry) state and requested (command) state are never collapsed into one value (Principle 11).
@@ -45,25 +45,25 @@ Behavioral instructions only. Do not load product or domain knowledge here.
 
 ## Routing table
 
-| Looking for                                                                       | Look here                         |
-| --------------------------------------------------------------------------------- | --------------------------------- |
-| Canonical envelope, capability types, freshness state function, Zod schemas       | `packages/contracts`              |
-| Freshness sweep loop (the recurring interval that calls it)                       | `packages/server`                 |
-| Vendor dialects, adapters, recorded fixtures, adapter contract tests              | `packages/adapters`               |
-| Telemetry producer, fault injection flags, load mode                              | `packages/simulator`              |
-| Ingest, adapter dispatch, current-state store, WebSocket fan-out, health endpoint | `packages/server`                 |
-| React console (primary deliverable)                                               | `packages/web`                    |
-| App shell, providers, router                                                      | `packages/web/src/app`            |
-| Fleet list / site grouping / summary                                              | `packages/web/src/features/fleet` |
-| Robot detail, capability-driven panels, operator/technician toggle                | `packages/web/src/features/robot` |
-| Robot domain model, selectors, hooks                                              | `packages/web/src/entities/robot` |
-| Site / grouping model                                                             | `packages/web/src/entities/site`  |
-| Pure UI primitives (no domain)                                                    | `packages/web/src/shared/ui`      |
-| Formatting, time helpers, transport client                                        | `packages/web/src/shared/lib`     |
-| Tenant themes and feature flags                                                   | `packages/web/src/config`         |
-| Engineering principles (graded deliverable)                                       | `PRINCIPLES.md`                   |
-| Architecture Decision Records                                                     | `docs/00_adr/`                    |
-| How to run, demo script, AI-usage note, measurements                              | `README.md`                       |
-| Boundary / dependency enforcement config                                          | lint config at repo root + CI     |
-| Agent routing and hard rules (this file)                                          | `CLAUDE.md`                       |
-| Binding engineering principles (must be followed)                                 | `PRINCIPLES.md`                   |
+| Looking for                                                                       | Look here                                                                     |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Canonical envelope, capability types, freshness state function, Zod schemas       | `packages/contracts`                                                          |
+| Freshness sweep loop (the recurring interval that calls it)                       | `packages/server`                                                             |
+| Vendor dialects, adapters, recorded fixtures, adapter contract tests              | `packages/adapters`                                                           |
+| Telemetry producer, fault injection flags, load mode                              | `packages/simulator`                                                          |
+| Ingest, adapter dispatch, current-state store, WebSocket fan-out, health endpoint | `packages/server`                                                             |
+| React console (primary deliverable)                                               | `packages/web`                                                                |
+| App shell, providers, router                                                      | `packages/web/src/app`                                                        |
+| Fleet list / site grouping / summary                                              | `packages/web/src/features/fleet`                                             |
+| Robot detail, capability-driven panels, operator/technician toggle                | `packages/web/src/features/robot`                                             |
+| Robot domain model, selectors, hooks                                              | `packages/web/src/entities/robot`                                             |
+| Site / grouping model                                                             | `packages/web/src/entities/site`                                              |
+| Pure UI primitives (no domain)                                                    | `packages/web/src/shared/ui`                                                  |
+| Formatting, time helpers, transport client                                        | `packages/web/src/shared/lib`                                                 |
+| Tenant themes and feature flags                                                   | `packages/web/src/config`                                                     |
+| Engineering principles (graded deliverable)                                       | `PRINCIPLES.md`                                                               |
+| Architecture Decision Records                                                     | `docs/00_adr/`                                                                |
+| How to run, demo script, AI-usage note, measurements                              | `README.md`                                                                   |
+| Boundary / dependency enforcement config                                          | `packages/web/eslint.config.js` (rule + resolver), `.github/workflows/ci.yml` |
+| Agent routing and hard rules (this file)                                          | `CLAUDE.md`                                                                   |
+| Binding engineering principles (must be followed)                                 | `PRINCIPLES.md`                                                               |

@@ -4,6 +4,10 @@ packages:
 # Lifecycle scripts are opt-in. simple-git-hooks is declined deliberately:
 # hooks are installed from the repo root, not from a transitive install.
 allowBuilds:
+  # esbuild ships a platform-specific native binary and needs its postinstall to
+  # link it. Approved because `tsx` is the workspace's TypeScript runtime (ADR 9)
+  # and tsx is an esbuild wrapper; without this, `pnpm dev` and `pnpm start` fail.
+  esbuild: true
   simple-git-hooks: false
 
 # Workspace deps resolve to the local package first; `workspace:*` in a
@@ -26,3 +30,14 @@ catalog:
   typescript-eslint: ^8.67.0
   vitest: ^4.1.11
   zod: ^4.4.3
+
+minimumReleaseAgeExclude:
+  - "@vitest/coverage-v8@4.1.11"
+  - "@vitest/expect@4.1.11"
+  - "@vitest/mocker@4.1.11"
+  - "@vitest/pretty-format@4.1.11"
+  - "@vitest/runner@4.1.11"
+  - "@vitest/snapshot@4.1.11"
+  - "@vitest/spy@4.1.11"
+  - "@vitest/utils@4.1.11"
+  - vitest@4.1.11
