@@ -1,0 +1,24 @@
+/* ---------- MUI-friendly helpers ---------- */
+/* Use these when you need raw CSS hooks next to MUI components */
+
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.surface-raised {
+  background: var(--surface-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.text-muted {
+  color: var(--ink-muted);
+}
+.text-soft {
+  color: var(--ink-soft);
+}
+.text-gold {
+  color: var(--gold-text);
+}
