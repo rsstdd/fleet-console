@@ -1,4 +1,3 @@
-
 # 04 — DataPlate
 
 Status: implementation-ready
@@ -32,9 +31,7 @@ Default `as="div"`.
 ## 4. Required output
 
 ```tsx
-<Component className={["data-plate", className].filter(Boolean).join(" ")}>
-  {children}
-</Component>
+<Component className={["data-plate", className].filter(Boolean).join(" ")}>{children}</Component>
 ```
 
 ## 5. Content rules
@@ -72,12 +69,12 @@ Empty children → caller omits component.
 
 ## 11. Verification
 
-| Concern   | Check                                                     |
-| --------- | --------------------------------------------------------- |
-| Tokens    | Border, colour and type from variables (Principle 8)      |
-| Semantics | `as` restricted by the union; no prop spreading onto DOM  |
-| No domain | File imports only React and styles (Principle 9)          |
-| Themes    | Readable in both tenant profiles                          |
+| Concern   | Check                                                    |
+| --------- | -------------------------------------------------------- |
+| Tokens    | Border, colour and type from variables (Principle 8)     |
+| Semantics | `as` restricted by the union; no prop spreading onto DOM |
+| No domain | File imports only React and styles (Principle 9)         |
+| Themes    | Readable in both tenant profiles                         |
 
 ## 12. Change rules
 

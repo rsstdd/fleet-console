@@ -1,4 +1,3 @@
-
 # 08 — PersonaToggle
 
 Status: implementation-ready
@@ -79,7 +78,7 @@ Stays in header row; may shrink padding on narrow screens but keeps both options
 
 - Group has an accessible name (`aria-label="View persona"`).
 - Selection is exposed via `aria-pressed` on each button, which is MUI's default for an exclusive group. Radio semantics would also be defensible for a mutually exclusive choice; changing to them is a specification change, not an implementation detail, because it alters what assistive technology announces.
-- Changing persona reveals and hides whole sections. Focus must not be dropped: the technician sections are additive and appear *after* the toggle, so leaving focus on the toggle is correct and no focus management is required. If a future change removes a section containing focus, the feature moves focus to the section heading before removal (Principle 6).
+- Changing persona reveals and hides whole sections. Focus must not be dropped: the technician sections are additive and appear _after_ the toggle, so leaving focus on the toggle is correct and no focus management is required. If a future change removes a section containing focus, the feature moves focus to the section heading before removal (Principle 6).
 - Toggling must not be announced as a navigation. There is no route change (§ 8 of the robot detail spec).
 
 ## 10. Failure behavior
@@ -89,15 +88,18 @@ Stays in header row; may shrink padding on narrow screens but keeps both options
 
 ## 11. Verification
 
-| Concern        | Check                                                                |
-| -------------- | -------------------------------------------------------------------- |
-| Exclusive      | Always exactly one selected; deselect attempt is ignored             |
-| Disabled       | `disabled` reaches the rendered group                                |
+| Concern        | Check                                                                            |
+| -------------- | -------------------------------------------------------------------------------- |
+| Exclusive      | Always exactly one selected; deselect attempt is ignored                         |
+| Disabled       | `disabled` reaches the rendered group                                            |
 | Keyboard       | Operable without a pointer; focus retained across a persona change (Principle 6) |
-| Feature wiring | Technician reveals diagnostics and raw payload; operator shows neither |
-| Tokens         | Selected style uses variables, and is not filled accent (Principle 8) |
+| Feature wiring | Technician reveals diagnostics and raw payload; operator shows neither           |
+| Tokens         | Selected style uses variables, and is not filled accent (Principle 8)            |
 
 ## 12. Change rules
 
 Additional personas or icons require this specification and the README persona section to update together. Switching from `aria-pressed` to radio semantics requires the same, plus the robot detail accessibility section.
+
+```
+
 ```

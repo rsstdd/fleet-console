@@ -56,16 +56,14 @@ The enforcement half — two lint tools covering two file types neither covers a
 
 ## Open questions
 
-- Are `@emotion/react` and `@emotion/styled` still required peers under the installed MUI version?
-  - *Current lean:* Likely unused in recent release lines, and should be removed if present.
-  - *Resolves on:* Confirming against the installed `package.json` before writing the `createTheme` bridge.
-- Should `theme.spacing(1)` be set to `4px` to match `--space-1`, or left at MUI's default `8px`?
-  - *Current lean:* Set `spacing: 4` explicitly, so `sx={{ p: 2 }}` does not render at double the intended value relative to the token scale.
-  - *Resolves on:* Writing the `applyTenant` function and the `createTheme` bridge.
+- ~~Are `@emotion/react` and `@emotion/styled` still required peers under the installed MUI version?~~
+  - **Closed 19 August 2026: yes, both are required and both are present.** MUI v9 still uses Emotion as its style engine; the lean that they were "likely unused in recent release lines" was wrong. They stay in `packages/web`'s dependencies.
+- ~~Should `theme.spacing(1)` be set to `4px` to match `--space-1`, or left at MUI's default `8px`?~~
+  - **Closed 19 August 2026: left at MUI's default 8px.** See Observed consequences. The lean recorded here was reversed by evidence that did not exist when it was written.
 
 ## Observed consequences
 
--
+- **19 August 2026 — `theme.spacing` stays at MUI's default 8px, reversing this ADR's recorded lean.** The lean ("set `spacing: 4` explicitly, so `sx={{ p: 2 }}` does not render at double the intended value") was written before any UI existed. It now does: `theme.ts` sets no `spacing`, and 108 spacing-unit usages across `packages/web` were authored against the 8px default, concentrated on 1, 2 and 3. Two facts decided it. First, the default already lands on the token scale — `p:1`→8px, `p:2`→16px, `p:3`→24px, `p:4`→32px are all members of the working set (4, 8, 12, 16, 24, 32, 48) — so the feared "double the intended value" does not produce off-scale spacing, only a coarser subset of the scale. Second, switching to `spacing: 4` would halve all 108 values at once and require a visual pass over the whole application to restore its current density, which is a real cost against a mapping nicety. The 4px and 12px steps remain reachable through `var(--space-1)` and `var(--space-3)` for a component that needs them, which is the same escape hatch every other intrinsic value uses.
 
 ## Related
 

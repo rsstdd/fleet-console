@@ -1,5 +1,7 @@
 # Wireframes — `canonical-fleet` console
 
+**Revision 4.** § 1 and § 6 banner sketches reconciled with component spec 07 revision 2, which these wireframes had outdated in three ways. The disconnected line now carries the fixed § 5 copy including `(may be stale)`; both retry controls read `Retry now`; and the `⚠` / `✕` glyphs are gone, because the § 4 required output has no icon element and the condition is carried by the words and the tint. Copy on these screens is the exact string the component renders, so a change to either updates both (component spec 07 § 12).
+
 **Revision 3.** § 6 and § 9 step 5 corrected against ADR 3: freshness is derived by the server sweep, so a killed stream suppresses per-robot labels rather than degrading every row on a client timer. The `--drop` sequence in step 4 is unchanged.
 
 **Revision 2.** Reconciled with the canonical envelope. Every value shown below has a source in `@fleet/contracts`; anything without one was cut or moved. Summary strip counts freshness only. Capability panels render non-core capabilities only. Status is qualified whenever freshness is not LIVE.
@@ -12,15 +14,15 @@ Dense, operational, no decorative chrome. Two personas on one layout.
 
 Values on these screens come from exactly these places.
 
-| Group                           | Fields                                                                                                             |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Core, every robot, every vendor | robot id, site id, vendor, model, connectivity, battery, position (map frame), status, health                      |
-| Canonical status                | `idle`, `busy`, `charging`, `fault`, `unknown`                                                                     |
-| Health severity                 | `nominal`, `degraded`, `critical`                                                                                  |
+| Group                                  | Fields                                                                                                                |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Core, every robot, every vendor        | robot id, site id, vendor, model, connectivity, battery, position (map frame), status, health                         |
+| Canonical status                       | `idle`, `busy`, `charging`, `fault`, `unknown`                                                                        |
+| Health severity                        | `nominal`, `degraded`, `critical`                                                                                     |
 | Freshness, derived by the server sweep | `LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN` — arrives as a field on the envelope; the console never computes it (ADR 3) |
-| Envelope metadata               | adapter version, sequence, vendor timestamp, received timestamp, schema version                                    |
-| Declared capabilities, non-core | `dock`, `lidarHealth`, `waterLevel`, and others by vendor                                                          |
-| Raw payload                     | Served only on `GET /api/robots/:id` as a separate field. Never in `GET /api/fleet` and never in the delta stream. |
+| Envelope metadata                      | adapter version, sequence, vendor timestamp, received timestamp, schema version                                       |
+| Declared capabilities, non-core        | `dock`, `lidarHealth`, `waterLevel`, and others by vendor                                                             |
+| Raw payload                            | Served only on `GET /api/robots/:id` as a separate field. Never in `GET /api/fleet` and never in the delta stream.    |
 
 Vendor A and Vendor B declare `dock` and `lidarHealth`. Vendor C declares `dock` and `waterLevel` and omits `lidarHealth`. That difference is the demonstration.
 
@@ -32,7 +34,7 @@ Vendor A and Vendor B declare `dock` and `lidarHealth`. Vendor C declares `dock`
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ [wordmark from config]      Fleet    [tenant]              [● Connected]     │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ ⚠ Reconnecting to stream · attempt 2 · last event 09:41:02Z   [Retry now]    │
+│ Reconnecting to stream · attempt 2 · last event 09:41:02Z     [Retry now]    │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │                         [ page content ]                                     │
@@ -41,7 +43,7 @@ Vendor A and Vendor B declare `dock` and `lidarHealth`. Vendor C declares `dock`
 ```
 
 - Wordmark, accent and feature flags all come from `config`. Switching tenant changes the name, the theme and the available panels together.
-- Banner appears only on integrity loss.
+- The banner's message appears only on integrity loss. The banner element itself is mounted in every state, empty and zero-height when connected, because a live region has to exist in the accessibility tree before its content changes for the change to be announced (component spec 07 § 4).
 - `Retry now` forces an immediate attempt and increments the visible attempt counter. A control that does nothing is the same lie this project argues against.
 
 ---
@@ -208,13 +210,13 @@ Vendor C declares `waterLevel`, which A and B do not, and omits `lidarHealth`, w
 **Reconnecting**
 
 ```
-│ ⚠ Reconnecting to stream · attempt 2 · last event 09:41:02Z   [Retry now]    │
+│ Reconnecting to stream · attempt 2 · last event 09:41:02Z     [Retry now]    │
 ```
 
 **Disconnected**
 
 ```
-│ ✕ Stream disconnected · showing last known state             [Retry]         │
+│ Stream disconnected · showing last known state (may be stale) [Retry now]    │
 ```
 
 The table stays visible with last-known data, and per-robot freshness labels are **suppressed** — the banner carries the connection-level truth instead. Freshness is derived by a server sweep and delivered over the stream (ADR 3), so a dead socket means the console has no current per-robot answer and must not display one. A row still reading LIVE from a socket that died two minutes ago is the exact failure this project argues against, and a row reading UNREACHABLE is no better: it blames the machine for the console's own blindness.
@@ -241,15 +243,15 @@ Markers encode status colour and use the hollow treatment when freshness is not 
 
 ## 8. View inventory
 
-| View                                            | Required | Notes                                |
-| ----------------------------------------------- | -------- | ------------------------------------ |
-| Shell, wordmark from config, connection banner  | Yes      | Thursday                             |
-| Fleet summary, filters including vendor, table  | Yes      | Core deliverable                     |
-| Filtered empty state                            | Yes      | `EmptyState`                         |
-| Robot detail, operator, two vendors             | Yes      | The capability contrast is the point |
-| Robot detail, technician                        | Yes      | Toggle, same layout                  |
-| Disconnected and reconnecting                   | Yes      | Banner carries currency; per-robot labels suppressed |
-| Map                                             | No       | Only if time remains                 |
+| View                                           | Required | Notes                                                |
+| ---------------------------------------------- | -------- | ---------------------------------------------------- |
+| Shell, wordmark from config, connection banner | Yes      | Thursday                                             |
+| Fleet summary, filters including vendor, table | Yes      | Core deliverable                                     |
+| Filtered empty state                           | Yes      | `EmptyState`                                         |
+| Robot detail, operator, two vendors            | Yes      | The capability contrast is the point                 |
+| Robot detail, technician                       | Yes      | Toggle, same layout                                  |
+| Disconnected and reconnecting                  | Yes      | Banner carries currency; per-robot labels suppressed |
+| Map                                            | No       | Only if time remains                                 |
 
 ---
 

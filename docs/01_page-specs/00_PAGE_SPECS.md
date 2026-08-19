@@ -10,11 +10,11 @@ Each route has one owning specification. Page specs define product intent, locke
 
 ## 2. Ownership
 
-| Route                        | Owning specification    | Feature ownership        |
-| ---------------------------- | ----------------------- | ------------------------ |
-| App shell (all routes)       | `01_APP_SHELL.md`       | `web/src/app`            |
-| `/` (Fleet)                  | `02_FLEET.md`           | `web/src/features/fleet` |
-| `/robots/:id` (Robot detail) | `03_ROBOT_DETAIL.md`    | `web/src/features/robot` |
+| Route                        | Owning specification | Feature ownership        |
+| ---------------------------- | -------------------- | ------------------------ |
+| App shell (all routes)       | `01_APP_SHELL.md`    | `web/src/app`            |
+| `/` (Fleet)                  | `02_FLEET.md`        | `web/src/features/fleet` |
+| `/robots/:id` (Robot detail) | `03_ROBOT_DETAIL.md` | `web/src/features/robot` |
 
 Document numbers match filenames. Earlier revisions titled each spec one lower than its filename, so "§ 01" meant two different documents depending on which you opened.
 
@@ -45,24 +45,24 @@ Conflict rule: contradictory text is corrected in the same change. Do not implem
 
 # Cross-page verification matrix
 
-| Invariant                       | Principle | Fleet     | Robot detail | Shell     |
-| ------------------------------- | --------- | --------- | ------------ | --------- |
-| Freshness visible with state    | 4         | ✓ rows    | ✓ header     | —         |
-| Status labelled chips           | 6         | ✓         | ✓            | —         |
-| Connection honesty              | 5         | via shell | via shell    | ✓ banner  |
-| Async state set defined         | 5         | ✓ § 10    | ✓ § 10       | ✓ § 8     |
-| Local view state kept separate  | 11        | ✓ filters | ✓ persona    | —         |
-| Token-only colours              | 8         | ✓         | ✓            | ✓         |
-| Feature isolation               | 9         | ✓         | ✓            | no domain |
-| Capability-driven UI            | 3         | —         | ✓            | —         |
-| Two personas, one layout        | —         | —         | ✓            | —         |
+| Invariant                      | Principle | Fleet     | Robot detail | Shell     |
+| ------------------------------ | --------- | --------- | ------------ | --------- |
+| Freshness visible with state   | 4         | ✓ rows    | ✓ header     | —         |
+| Status labelled chips          | 6         | ✓         | ✓            | —         |
+| Connection honesty             | 5         | via shell | via shell    | ✓ banner  |
+| Async state set defined        | 5         | ✓ § 10    | ✓ § 10       | ✓ § 8     |
+| Local view state kept separate | 11        | ✓ filters | ✓ persona    | —         |
+| Token-only colours             | 8         | ✓         | ✓            | ✓         |
+| Feature isolation              | 9         | ✓         | ✓            | no domain |
+| Capability-driven UI           | 3         | —         | ✓            | —         |
+| Two personas, one layout       | —         | —         | ✓            | —         |
 
 ---
 
 # Out of scope for page specs (explicit)
 
-| Item                       | Reason                                  |
-| -------------------------- | --------------------------------------- |
+| Item                       | Reason                                      |
+| -------------------------- | ------------------------------------------- |
 | Map page                   | Optional; no contract until scheduled       |
 | Auth / login routes        | Not built; see README "not built"           |
 | Settings / tenant admin UI | Config only (Principle 13)                  |

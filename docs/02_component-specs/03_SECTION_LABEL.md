@@ -1,4 +1,3 @@
-
 # 03 — SectionLabel
 
 Status: implementation-ready
@@ -28,9 +27,7 @@ interface SectionLabelProps {
 ## 4. Required output
 
 ```tsx
-<div className={["section-label", className].filter(Boolean).join(" ")}>
-  {children}
-</div>
+<div className={["section-label", className].filter(Boolean).join(" ")}>{children}</div>
 ```
 
 Tick via CSS `::before` (decorative).
@@ -68,12 +65,12 @@ Empty children → omit render at caller.
 
 ## 11. Verification
 
-| Concern        | Check                                                                  |
-| -------------- | ---------------------------------------------------------------------- |
-| Motif          | Accent tick present; colour from token (Principle 8)                   |
-| No domain      | File imports only React and styles (Principle 9)                       |
-| Heading pairing| Each use in robot detail is followed by a real `h2`/`h3` (Principle 6) |
-| Forced colours | Section still understandable via text                                  |
+| Concern         | Check                                                                  |
+| --------------- | ---------------------------------------------------------------------- |
+| Motif           | Accent tick present; colour from token (Principle 8)                   |
+| No domain       | File imports only React and styles (Principle 9)                       |
+| Heading pairing | Each use in robot detail is followed by a real `h2`/`h3` (Principle 6) |
+| Forced colours  | Section still understandable via text                                  |
 
 ## 12. Change rules
 

@@ -25,6 +25,10 @@ Telemetry has to get from three simulated vendor sources into the server, and cu
 
 Ingest is HTTP POST, one request per telemetry reading, validated and normalized at the boundary per ADR 1's contract, with malformed payloads rejected and counted rather than coerced. Fan-out is WebSocket, one connection per connected console, carrying coalesced deltas — changed robots only, not full snapshots — flushed at up to 10 Hz server-side. Neither MQTT nor a message broker is introduced at this scale.
 
+Coalescing is per client, not global. Each connection owns a pending set keyed by robot id, and a flush writes that set and empties it. A client whose socket is not draining therefore accumulates a set bounded by the size of the fleet rather than a queue bounded by how far behind it has fallen: the same robot changing twenty times while the socket is busy occupies one entry, not twenty. Such a client receives current state less often, never stale state, and nothing is dropped on its behalf. A frame assembled from several flushes carries the highest flush sequence it contains. A connection that stops draining entirely is closed on a timeout, because a bounded set is still a set held for a client that will never read it.
+
+A joining console gets its initial state from `GET /api/fleet`, not from the socket. The socket carries exactly one message shape — a coalesced delta — for its whole lifetime, and the same code path serves cold start and reconnect. Because an HTTP read and a socket open are two separate events, the client opens the socket first and buffers what arrives, then fetches the snapshot, then discards the buffered deltas the snapshot already contains and applies the rest. That discrimination requires a monotonically increasing flush sequence carried on both the snapshot and every delta: the snapshot states the flush it was taken at, and a buffered delta at or below that number is redundant. The sequence is server-wide and per flush, not per robot — a single number answers "does this delta predate my snapshot" for the whole fleet, where per-robot versions would answer the same question with five hundred numbers.
+
 The identified ceiling is a bottleneck in the ingest path, from either per-request HTTP overhead or CPU-bound schema validation, under high robot counts. It is named explicitly rather than discovered silently, with a staged mitigation path recorded rather than implemented: batch ingest first; process-level forking or worker-pooled validation second, to discriminate and mitigate the specific bottleneck; and Rust with Axum and Tokio as the specific next runtime if the ingest path genuinely cannot be parallelized enough inside Node.
 
 ## Positions
@@ -50,14 +54,18 @@ Worker-thread validation requires transferring the payload across a structured-c
 - The measurement harness must isolate whether degradation at 500 robots comes from ingest validation cost, per-request HTTP overhead, or something else entirely — client rendering, fan-out coalescing, network. Attributing degradation to the wrong layer misinforms which mitigation applies.
 - If `node:cluster` process forking is implemented as a mitigation, ADR 6's in-memory current-state map does not survive it, because each worker holds its own. This does not invalidate the mitigation. It prices it. ADR 6's multi-instance implication reaches the same conclusion from the persistence side.
 - ADR 3's freshness sweep output must be included in what the fan-out coalescing logic treats as a changed robot, even when no telemetry field changed. This is a direct dependency from ADR 3 onto this ADR's coalescing implementation, noted there and repeated here.
+- Per-client coalescing means fan-out memory is `clients × fleet size` in the worst case rather than `clients × backlog`. At ADR 2's assumed single-digit console count and 500 robots that is negligible, and it is bounded by construction rather than by a tuning value nobody can derive.
+- Per-client coalescing is what makes "one client must not block ingest or other clients" true without dropping anyone. The residual case is a connection that never drains, which a timeout closes; that timeout is the only place fan-out discards a client, and it belongs on the health endpoint.
+- The initial-state contract requires a flush sequence on the wire, which is a `packages/contracts` change before it is a server or client change: the delta envelope and the fleet snapshot response both carry it. Without it the client cannot tell a redundant buffered delta from a new one, and the choice of an HTTP snapshot over a socket-borne one stops being safe.
+- The client's cold-start order is load-bearing and easy to get backwards. Fetching the snapshot before opening the socket loses every delta emitted in between, silently, and the symptom is a row that stops updating rather than an error.
 - If batch ingest is implemented, the simulator needs a corresponding batch-emission mode. This ADR implies that change without specifying it.
 - The README's "not built" table should name the broker/MQTT decision and the staged mitigation path, with this ADR referenced.
 
 ## Open questions
 
 - Should the batch-ingest mitigation be built preemptively, ahead of measurement showing it is needed, or left as a named-but-unbuilt stage in the "not built" table?
-  - *Current lean:* The latter, consistent with building only what measurement shows is necessary.
-  - *Resolves on:* The 500-robot measurement number is in hand.
+  - _Current lean:_ The latter, consistent with building only what measurement shows is necessary.
+  - _Resolves on:_ The 500-robot measurement number is in hand.
 
 ## Observed consequences
 
@@ -65,6 +73,7 @@ Worker-thread validation requires transferring the payload across a structured-c
 
 ## Related
 
+- ADR 8 — names what implements the two transports this ADR chose: Hono on `@hono/node-server` for HTTP, `ws` for the socket. Its per-request overhead is inside the measurement this ADR commits to.
 - ADR 1 — the envelope schema this ADR's validation cost is calculated against; the two describe the same boundary from different sides.
 - ADR 3 — direct dependency; depends on this ADR's fan-out coalescing propagating freshness-only state changes.
 - ADR 6 — bounded in-memory history; keeps persistence out of this ADR's measurement scope so ingest-path degradation stays attributable.
@@ -78,4 +87,6 @@ Worker-thread validation requires transferring the payload across a structured-c
 
 ## Notes
 
+- 19 August 2026: per-client coalescing was added to the Decision in the same review. The alternatives were dropping a client past a `bufferedAmount` threshold, and a bounded queue of pending flushes. The queue was rejected because its frames are stale by the time they send, which is the specific behaviour this console exists to argue against; dropping was rejected as unnecessary once it was noticed that a per-robot keyed set is already bounded by the fleet, so slowness costs a client update _frequency_ rather than update _content_.
+- 19 August 2026: the initial-state contract was added to the Decision after review found the ADR silent on how a joining client gets its first full picture. Amending the Decision rather than appending a consequence is safe here because the status is Not started — nothing had been built against the earlier text. The alternative considered was sending a snapshot as the socket's first frame, which needs no sequence at all because WebSocket ordering supplies the guarantee; it was rejected in favour of keeping one message shape on the socket, at the cost of the flush sequence now required above.
 - 19 August 2026: decision recorded ahead of server implementation. No code exists yet. The first expected observed-consequence entry is the measured throughput ceiling at 500 robots and 5 Hz, compared against the back-of-envelope estimate of roughly 2,500 requests per second.

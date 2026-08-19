@@ -1,4 +1,3 @@
-
 # 05 — Stat
 
 Status: implementation-ready
@@ -77,12 +76,12 @@ Missing label or value → type error / do not render incomplete stat.
 
 ## 11. Verification
 
-| Concern      | Check                                                              |
-| ------------ | ------------------------------------------------------------------ |
-| Tabular nums | Counts and totals align in the strip as values change              |
-| Tone         | `warning` and `critical` resolve to `--warning` / `--error` tokens |
+| Concern      | Check                                                               |
+| ------------ | ------------------------------------------------------------------- |
+| Tabular nums | Counts and totals align in the strip as values change               |
+| Tone         | `warning` and `critical` resolve to `--warning` / `--error` tokens  |
 | A11y         | No `aria-label` on the root; visible text is the accessible content |
-| No domain    | No robot, site, vendor or freshness types (Principle 9)            |
+| No domain    | No robot, site, vendor or freshness types (Principle 9)             |
 
 ## 12. Change rules
 
