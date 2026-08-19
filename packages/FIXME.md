@@ -3,7 +3,7 @@
 **Authority:** Historical. This audit backlog is retained for provenance; verify every claim against current ADRs and package specifications before acting.
 
 **Audited:** 19 August 2026
-**Re-audited:** 19 August 2026 — every finding below re-checked against the tree.
+**Re-audited:** 20 August 2026 — adapter-related findings re-checked against the tree.
 
 This file records discrepancies found while comparing every package with ADRs 1–9 and
 with [`packages/README.md`](./README.md). It separates actual conflicts from accepted
@@ -111,10 +111,13 @@ TODOs and the root TODO; do not “fix” them by weakening the ADR.
 
 **Assessment: accurate plan, incomplete implementation; open.**
 
-`packages/adapters` has no dependency on `@fleet/contracts`, recorded raw fixtures,
-vendor schemas/adapters, or dispatch registry. Therefore exact vendor-to-canonical
-contract evidence and process-wide unknown-field reporting do not yet exist. The
-simulator intentionally has no production dependency on contracts/adapters.
+`packages/adapters` now depends on `@fleet/contracts`, publishes one representative
+recorded fixture per vendor, and implements the accepted-only unknown-field ledger and
+path discovery. It still has no vendor schemas/adapters, malformed or boundary fixtures,
+or dispatch registry. Therefore exact vendor-to-canonical contract evidence and
+process-wide unknown-field reporting do not yet exist. The simulator intentionally has
+no production dependency on contracts/adapters; its test-only adapters dependency guards
+the supported-vendor list (ADR 16).
 
 ### F6. ADR 2 and ADR 8 transport are not implemented server-side
 

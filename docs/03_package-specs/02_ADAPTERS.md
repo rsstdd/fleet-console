@@ -1,6 +1,6 @@
 # 02 — `@fleet/adapters`
 
-- **Status:** partially implemented — core primitives only; no vendor adapter exists yet
+- **Status:** partially implemented — core primitives and representative fixture infrastructure exist; no vendor adapter exists yet
 - **Package:** `packages/adapters`
 - **Governing documents:** ADR 1 (adapter boundary), ADR 7 (enforcement needs a resolver),
   ADR 9 (source exports), ADR 10 (pre-freshness return type), ADR 11 (public fixture
@@ -112,7 +112,7 @@ src/
   core/result.ts          the result union, its constructors, and the issue-shaped error
   core/unknownFields.ts   the per-adapter ledger
   core/vendor.ts          SupportedVendor and its narrowing guard
-  vendors/<a|b|c>/        planned: schema.ts, adapter.ts, __fixtures__/
+  vendors/<a|b|c>/        representative fixture exists; schema.ts and adapter.ts are planned
   __enforcement__/        deliberate lint violations, plus one control
   index.ts                the public surface
 ```
@@ -234,7 +234,7 @@ ADR 1 § Constraints is explicit that one fixture per vendor is a smoke test rat
 proof of the entire mapping, and asks for at least one boundary or malformed case per
 vendor where time allows.
 
-40 tests today, covering core behavior, fixture publication and enforcement.
+41 tests today, covering core behavior, fixture publication and enforcement.
 
 ## 11. Implementation status
 

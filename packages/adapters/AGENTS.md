@@ -10,7 +10,7 @@ The repository-level [`AGENTS.md`](../../AGENTS.md), [`PRINCIPLES.md`](../../PRI
 - Normalize genuinely shared meaning into the canonical core: identity, connectivity, battery, position, status, health, `reportedAt`, and `receivedAt`.
 - Preserve genuine vendor differences through the canonical declared-capability record. Never add vendor-only fields to the canonical core or push vendor conditionals downstream (Principle 3, ADR 1).
 - Count unrecognized input fields per adapter so `packages/server` can expose those counts on its health endpoint. Do not silently discard them.
-- Retain the raw payload for technician diagnosis, but do not place it in the fleet read model or WebSocket delta stream.
+- Leave raw-payload retention to `packages/server`, which retains the accepted request body for technician diagnosis without placing it in the fleet read model or WebSocket delta stream (ADR 26).
 
 This package does not own transport, storage, freshness derivation, UI behavior, or the canonical contract. Those belong to `packages/server`, `packages/contracts`, and `packages/web` respectively.
 

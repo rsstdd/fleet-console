@@ -53,18 +53,16 @@ That test is the only file in `simulator` allowed to import `@fleet/adapters`,
 which is a dev dependency there: lint bans the specifier in production code, and
 `src/__enforcement__/` probes both directions of the ban so it cannot go inert.
 
-Three arrows above are drawn ahead of the code:
+Two arrows above are drawn ahead of the code:
 
-- `adapters ──▶ contracts` does not exist yet, because no vendor module has
-  landed.
 - `server ──WebSocket──▶ web` does not exist at either end. No server process
   opens a socket, and `web/src/shared/lib` holds no client.
 - `simulator ──HTTP──▶ server` exists only on the producing side. The simulator
   has an ingest client and POSTs; nothing is listening.
 
-The three edges that do exist are `web ──▶ contracts`, `server ──▶ contracts`,
-and `server ──▶ adapters` — the last being only the supported-vendor list the
-fleet manifest is validated against.
+The four edges that do exist are `web ──▶ contracts`, `adapters ──▶ contracts`,
+`server ──▶ contracts`, and `server ──▶ adapters` — the last being only the
+supported-vendor list the fleet manifest is validated against.
 
 If you go looking for edges, you will also find `@fleet/server` imported inside
 `adapters`, and a `__boundary-violation__` directory in `server`. Those are
@@ -123,7 +121,9 @@ Vendor C adapter nor the endpoint does yet.
 **Landed:** the result type, the unknown-field ledger, the vendor union, and the
 boundary-enforcement fixtures.
 
-**Not yet:** the A, B, and C adapter modules and their recorded fixtures.
+**Not yet:** the A, B, and C schemas/adapters, malformed and boundary fixtures, and the
+dispatch registry. One representative recorded fixture per vendor is already published
+through `@fleet/adapters/testing` and drift-gated in CI (ADR 13).
 
 ---
 
