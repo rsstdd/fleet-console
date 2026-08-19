@@ -23,20 +23,22 @@ exists to reach on its own, and would make the freshness demonstration circular.
 
 ## 2. Position in the dependency graph
 
-Imports **no workspace package at all** — not in production code, and not in tests.
-`@fleet/server` and `web` are lint-banned imports. `AGENTS.md` permits `@fleet/adapters`
-and `@fleet/contracts` in tests, to verify generated payloads, but neither is declared as
-a dependency and no such test exists: that permission is policy, not current fact.
+Imports **no workspace package in production**. `@fleet/server` and `web` remain
+lint-banned imports. `@fleet/adapters` is a dev dependency permitted only in tests so
+`src/fleet/vendorId.test.ts` can compare the independent vendor literals; lint bans it
+from production code and `src/__enforcement__/` proves that boundary still fires (ADR
+16, resolving **D7** as Option 1).
 
-This is what keeps the package on plain `node` rather than `tsx` (ADR 9 § Implications),
-and it is also why the vendor-set drift guard described in § 7 does not yet exist —
-decision **D7** in `docs/PENDING_ARCHITECTURE_DECISIONS.md`.
+The absence of production workspace imports is what keeps the executable on plain
+`node` rather than `tsx` (ADR 9 § Implications). The test runner resolves the source
+export of the dev dependency separately.
 
 The three vendor identifiers are restated locally in
-`src/fleet/simulatedRobot.ts` rather than imported from `@fleet/contracts`, with a doc
-comment naming the other side. A production import would invert the dependency this
-package exists to exercise: the simulator must be able to emit a payload the adapters
-reject, which it could not do if it shared their types.
+`src/fleet/simulatedRobot.ts` rather than imported from adapters or contracts. A
+production import would invert the dependency this package exists to exercise: the
+simulator must be able to emit a payload the adapters reject, which it could not do if it
+shared their literal. The named parity test keeps this deliberate duplication honest in
+both directions.
 
 Nothing imports this package.
 
@@ -121,11 +123,11 @@ capability grid differs across three vendors rather than two (ADR 1 § Observed
 consequences, 19 August 2026).
 
 **Transport.** One JSON `POST` per reading to `{endpoint}/api/telemetry/{vendor}` with
-`content-type: application/json` (ADR 2). Vendor identity travels in the route, following
-the recommendation recorded as open question **M7** in `packages/server/TODO.md`: the path
-segment is validated against the adapter registry before any body decoding, so adapter
-selection never depends on unvalidated payload contents. If M7 is settled differently,
-`ingestUrlFor` and the server's route change together.
+`content-type: application/json` (ADR 2). ADR 8's D9 amendment ratifies **Option 1 — the
+path segment**: the segment is validated against the adapter registry before any body
+decoding, so adapter selection never depends on unvalidated payload contents. The route
+is a two-package contract; `ingestUrlFor`, the server route, the selector, and their tests
+change together.
 
 ## 6. Governing decisions
 
@@ -138,6 +140,9 @@ selection never depends on unvalidated payload contents. If M7 is settled differ
   `tsx` in the same change, or it breaks with `ERR_MODULE_NOT_FOUND` on a `.js` specifier
   that nothing emits. ADR 9 § Open questions leans toward moving it now on consistency
   grounds.
+- **ADR 14** — the simulator keeps explicit fleet inputs and produces the committed
+  roster in the server's canonical spelling; CI asserts byte equality without adding a
+  runtime dependency between packages.
 - **Principle 12** — measurement output must distinguish simulator underproduction from
   server degradation.
 - **Principle 13** — endpoint and workload are validated configuration, not literals in
@@ -154,6 +159,7 @@ selection never depends on unvalidated payload contents. If M7 is settled differ
 | Vendor dispatch is exhaustive                             | Types     | `switch-exhaustiveness-check`                                           |
 | Determinism actually holds                                | Test      | same seed → byte-identical run                                          |
 | The executable stays alive                                | Test      | subprocess integration test                                             |
+| Generated roster equals the server's committed input      | Test      | `src/fleet/manifestParity.test.ts` (ADR 14)                             |
 | Vendor set agrees with the adapter set                    | —         | **Not enforced.** See below                                             |
 
 **The vendor-set guard does not exist.** `VENDOR_IDS` here and `SUPPORTED_VENDORS` in

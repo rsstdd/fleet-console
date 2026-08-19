@@ -4,7 +4,8 @@
 - **Package:** `packages/server`
 - **Governing documents:** ADR 2 (HTTP ingest, WS fan-out), ADR 3 (freshness is derived
   here), ADR 6 (bounded in-memory history, no database), ADR 8 (Hono + `ws`), ADR 9
-  (runtime); Principles 1, 2, 4, 5, 7, 11, 12
+  (runtime), ADR 20 (the error body), ADR 21 (validated runtime endpoints), ADR 22
+  (validation-cost gate); Principles 1, 2, 4, 5, 7, 11, 12, 13
 
 ## 1. Responsibility
 
@@ -35,8 +36,9 @@ framework-independent pieces it will be assembled from, kept separately testable
 
 **Configuration** — `parseFreshnessPolicy`, `freshnessPolicySchema`,
 `ADR3_BASELINE_FRESHNESS_POLICY`, `parseFleetManifest`, `fleetManifestSchema`,
-`loadServerConfiguration`, `ConfigValidationError`. Types: `FreshnessPolicy`,
-`FleetManifest`, `ServerConfiguration`.
+`loadServerConfiguration`, `ConfigValidationError`, `ENDPOINT_ENV_KEYS`,
+`ENDPOINT_DEFAULTS`, `parseRuntimeEndpoints`, `loadRuntimeEndpoints`. Types:
+`FreshnessPolicy`, `FleetManifest`, `ServerConfiguration`, `RuntimeEndpoints`.
 
 **State** — `CurrentStateStore`, `RingBuffer`, `HISTORY_CAPACITY`. Types:
 `CurrentRobotState`, `UnobservedRobotState`, `ManifestRobot`, `UpsertResult`.
@@ -83,11 +85,11 @@ adapter result union, vendor narrowing and unknown-field ledger from `@fleet/ada
 | WebSocket                     | Coalesced deltas — changed robots only — flushed at up to 10 Hz                                     |
 
 Vendor identity travels in the **route**, validated against the adapter registry's key set
-before any body decoding. This is recorded as open question **M7** with that
-recommendation; `@fleet/simulator` already ships against it, and settling M7 differently
-changes both sides in one commit. The reasoning: the body is untrusted and the vendor
-determines which schema decodes it, which is circular — a validated path segment breaks
-the circle.
+before any body decoding. ADR 8's D9 amendment ratifies this as **Option 1 — the path
+segment** and closes **M7**; `@fleet/simulator` already ships against it. Changing the
+route requires a coordinated server-and-simulator change in one commit. The body is
+untrusted and the vendor determines which schema decodes it, which is circular — a
+validated path segment breaks the circle.
 
 **The raw payload is retained for technician diagnosis only.** It is excluded from the
 fleet read model, from history and from every delta; it is served only as a separate field
@@ -113,6 +115,9 @@ shape.
   same Node HTTP server.
 - **ADR 9** — runs through `tsx`, which is what makes ADR 8's listener runnable. Plain
   `node` fails on this package's `@fleet/contracts` import with `ERR_MODULE_NOT_FOUND`.
+- **ADR 21** — resolves D13 as Option 2: host, port and allowed origins come from
+  environment variables validated once at startup, while Vite proxies the console's
+  same-origin `/api` and `/ws` paths to the same host and port in development.
 
 ## 7. Enforcement
 
@@ -122,6 +127,7 @@ shape.
 | Wall clock only via `runtime/clock.ts`   | Static    | `no-restricted-globals`; fixture `wallClock.ts`                       |
 | No import of web or simulator            | Static    | `no-restricted-imports`                                               |
 | Payload is `unknown` until decoded       | Static    | no-unsafe-assertion rules                                             |
+| `process.env` only in configuration      | Static    | `no-restricted-properties`; `src/config/**` override                  |
 | **The rules above still fire**           | Test      | `__boundary-violation__/enforcement.test.ts`                          |
 | Raw payload absent from fleet and deltas | Test      | asserted, not assumed                                                 |
 
@@ -171,9 +177,19 @@ robot's freshness.
 **Delta coalescing.** `PendingDeltaSet` is keyed by robot id, so N updates to one robot
 between flushes send one message. Flushed at up to 10 Hz.
 
-**Configuration** is `config/freshness.json` and `config/fleet-manifest.json`, strictly
-validated at startup. An invalid file stops the process with a message naming the field —
-it never starts with a partial or defaulted configuration (Principle 13).
+**Configuration has two sources with different lifetimes.** `config/freshness.json` and
+`config/fleet-manifest.json` are reviewed deployment policy, strictly validated at
+startup. `FLEET_SERVER_HOST`, `FLEET_SERVER_PORT` and `FLEET_ALLOWED_ORIGINS` are
+per-machine runtime values decoded by `loadRuntimeEndpoints()`, the package's only
+`process.env` read. Invalid present values stop startup with every offending key named;
+absent values use the fail-closed defaults `127.0.0.1`, `8080` and no allowed origins.
+
+The D13 implication is that the future composition root must load these values before
+starting background work and must not catch `ConfigValidationError` and continue.
+`FLEET_ALLOWED_ORIGINS` is currently validated but unenforced until ADR 8's CORS
+middleware exists. The decision's falsifier is a production deployment that serves the
+console from a different origin than the API: that deployment turns CORS from a non-issue
+into a required, tested path rather than an assumption inherited from the dev proxy.
 
 **Receipt time** is stamped from the injected clock at the ingest boundary, before
 dispatch, and passed explicitly into the adapter. It is never substituted with the
@@ -182,8 +198,12 @@ vendor's `reportedAt`: the sweep reads `receivedAt`, the operator-facing "last s
 
 ## 9. Failure behaviour
 
-- **Malformed payload** → rejected and counted, never coerced. The error shape carries no
-  vendor payload contents.
+- **Malformed payload** → rejected and counted, never coerced. The body is the contract's
+  `errorEnvelopeSchema` — a `kind`, a fixed summary and the adapter's own `ContractIssue[]`
+  copied rather than re-derived — built only by `src/ingest/errorResponse.ts` (ADR 20). It
+  carries no vendor payload contents, because an issue holds no rejected value. Status is
+  the coarse distinction (400 for any bad payload, 404 for an unintegrated vendor) and
+  `kind` is the fine one.
 - **Unknown vendor** → a defined rejection with its own metric. Never a guess, never a
   fallback adapter. Distinct from a malformed identifier, because the two mean different
   things: an integration gap versus a data-quality problem.
@@ -213,6 +233,7 @@ per robot, malformed ingest and unsupported vendors process-wide.
 | Coalescing             | N updates to one robot between flushes send one message             |
 | Raw payload exclusion  | Absent from `/api/fleet`, from history and from every delta         |
 | Config validation      | An invalid file stops startup naming the field                      |
+| Runtime endpoints      | Invalid env values fail together; absent values use safe defaults   |
 | Enforcement            | Every lint rule fires on its fixture                                |
 
 38 tests. The store, sweep, ring buffer, delta set, health metrics, clock and all three
@@ -236,13 +257,12 @@ dispatch until `@fleet/adapters` has vendor adapters to dispatch to. Consequence
 - the README's measurement table cannot be filled, because server throughput must be
   measured through the complete harness rather than inferred (Principle 12).
 
-Cross-package decisions in `docs/PENDING_ARCHITECTURE_DECISIONS.md` that this package
-must not settle alone: **D1** (what validated type an adapter returns before the sweep has
-supplied freshness — today `canonicalEnvelopeSchema` still requires it and `withFreshness`
-still takes an already-canonical envelope), **D5** (unknown-field accounting for rejected
-payloads, and what the health endpoint labels), and **D6** (whether the simulator consumes
-the shipped `config/fleet-manifest.json` or only produces a compatible roster — today it
-produces, and nothing tests that the two agree).
+**Decision consequences.** Ingest completes `AdapterEnvelope` only through
+`withFreshness` ([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)); health keeps
+`unknownFields.accepted` separate from malformed ingest ([ADR 15](../00_adr/15_UNKNOWN_FIELD_ACCOUNTING_ON_ACCEPTED_PAYLOADS.md));
+the committed roster is the package-neutral parity join ([ADR 14](../00_adr/14_SHARED_FLEET_ROSTER_PARITY.md));
+and validation is gated only at ADR 2's 400 µs falsifier while the missing transport
+harness remains reportable work ([ADR 22](../00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md)).
 
 Two design questions remain open in the package TODO: **M4** (ring-buffer capacity, to be
 picked from the sparkline's real decimated point count rather than a round number) and

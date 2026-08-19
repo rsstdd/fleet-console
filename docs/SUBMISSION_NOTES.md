@@ -1,5 +1,15 @@
 # Submission notes
 
+**Authority:** None. Nothing here decides anything; the ADRs do.
+
+**Coverage: ADRs 1–6 only, of twenty-nine.** ADRs 7 and 9 are toolchain mechanics and carry
+no evaluation angle. **ADR 8 does** — it is the server transport, still `Not started`, and the
+one uncovered decision where the gap between what is recorded and what runs is the thing an
+evaluator would ask about. ADRs 10–29 were written after this file and have not been given
+entries; each already states its own falsifier and observed consequences, which is most of
+what these notes were doing by hand. Read the absence of a section here as "not yet written",
+never as "nothing to say about that decision".
+
 The ADRs under `docs/00_adr/` are engineering records. They are written for whoever maintains this code, and they should read that way whether or not an evaluation is attached to them.
 
 This file holds the material that is genuinely about the evaluation: what a given decision is meant to demonstrate, which answers are prepared for the follow-up call, and where the project schedule shaped a technical choice. Keeping it here rather than inside the ADRs stops the records from arguing for themselves.

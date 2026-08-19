@@ -48,10 +48,10 @@ than a workspace library: it has no `exports` map and nothing imports it (ADR 9
 - These specs own the description of the package as it exists. They are updated with the
   code, not ahead of it.
 - `docs/PENDING_ARCHITECTURE_DECISIONS.md` holds cross-package choices that packages have
-  already made in code or in a TODO but that no ADR ratifies. Where a package spec
-  describes such a choice it cites the decision id (**D1**–**D8**) and states that it is
-  unratified. A spec must never launder a pending decision into settled architecture by
-  describing it without that marker.
+  not yet ratified and tombstone links for those that are. It is generated from
+  `docs/decisions.json` and ADR headers; never edit it by hand. A package spec summarizes
+  an ADR's consequence in one paragraph and links the normative ADR instead of repeating
+  its rationale or status.
 
 The last rule matters most. A package spec that describes intended behaviour as though it
 shipped is the fabricated confidence Principle 14 exists to prevent. Every section 11
@@ -82,13 +82,15 @@ Binding consequences:
   must stay at the bottom, because everything else decodes against it.
 - **`@fleet/adapters` may import `@fleet/contracts` and nothing else.** It sits below
   transport, storage and UI.
-- **`@fleet/simulator` imports no workspace package at all**, in production or in tests.
-  Its boundary with the server is the HTTP ingest endpoint. Adapter imports are permitted
-  in tests by its `AGENTS.md`, but none is declared and none exists (decision **D7**).
+- **`@fleet/simulator` imports no workspace package in production.** Its boundary with
+  the server is the HTTP ingest endpoint. `@fleet/adapters` is a dev dependency permitted
+  only in tests so `src/fleet/vendorId.test.ts` can compare the independent vendor
+  literals; lint bans it everywhere else and enforcement fixtures prove the exception is
+  narrow (decision **D7**, ratified as Option 1 by ADR 16).
 - **`web` may import `@fleet/contracts`.** It may not import `@fleet/server`: the
   canonical envelope arrives over the wire, already decoded. `@fleet/adapters` is a
   **test-only** edge — a devDependency banned in production code and lifted only for test
-  files (decision **D3**, unratified).
+  files (decision **D3**, ratified as Option 1 by ADR 12).
 - **Nothing imports `web`, and nothing imports `@fleet/simulator`.**
 
 Each package's `eslint.config.js` enforces its own outbound bans with
@@ -190,7 +192,9 @@ A package matches its specification when:
 are the critical path; every other package is waiting on one or both to be verified
 end to end.
 
-Eight cross-package decisions are open and recorded in
-`docs/PENDING_ARCHITECTURE_DECISIONS.md`. Five of them (**D1**, **D2**, **D4**, **D5**,
-**D7**) block or shape the adapter work specifically, which is why that gap is the one to
-close first.
+Four cross-package decisions remain open in
+`docs/PENDING_ARCHITECTURE_DECISIONS.md`. **D17 is resolved by ADR 22 as Option 3:** gate
+the first-load bundle and ADR 2's defensible validation falsifier, while reporting adapter
+coverage without a threshold. The 90% proposal is retired because it was underived and
+would have measured an empty vendor-source set. The decision register remains the
+authoritative status summary for all fourteen retired stubs.

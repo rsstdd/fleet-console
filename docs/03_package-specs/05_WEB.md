@@ -4,8 +4,9 @@
 - **Package:** `packages/web`
 - **Governing documents:** ADR 1 (capability-driven rendering), ADR 3 (freshness is
   displayed, never derived), ADR 4 (feature-sliced structure), ADR 5 (MUI with tokens
-  only), ADR 7 (the resolver is part of the dependency rule); Principles 1, 4, 5, 6, 8,
-  9, 11, 12, 13
+  only), ADR 7 (the resolver is part of the dependency rule), ADR 17 (build-time tenant
+  configuration), ADR 21 (typed endpoints and Vite dev proxy), ADR 22 (first-load bundle
+  gate); Principles 1, 4, 5, 6, 8, 9, 11, 12, 13
 - **Related specs:** `docs/01_page-specs/`, `docs/02_component-specs/`,
   `docs/DESIGN_SYSTEM.md`
 
@@ -42,10 +43,11 @@ test files that join a raw vendor fixture to the browser read model. Both the le
 import and the illegal production import have enforcement fixtures under
 `entities/robot/__boundary-violation__/`.
 
-This arrangement is **not yet ratified**: it is decision **D3** in
-`docs/PENDING_ARCHITECTURE_DECISIONS.md`, which records it as partially implemented — the
-dependency, the ban, the test override and the fixtures exist; the joining test and the
-adapters testing export do not. Do not treat it as settled architecture.
+ADR 12 ratifies this test-only dependency, and ADR 11 supplies its public
+`@fleet/adapters/testing` fixture surface. The subpath loads under jsdom and is covered by
+both a production-import rejection fixture and a legal test-import fixture. The joining
+test itself still waits on a vendor adapter and dispatch registry, so both ADRs remain
+Partial despite their packaging and enforcement being implemented.
 
 ## 3. Public API
 
@@ -158,6 +160,10 @@ and raises no error; a registered panel with no declaration is never reached.
 - **ADR 7** — `eslint-import-resolver-typescript` is a _required_ dependency, not an
   optimization: `boundaries/dependencies` cannot classify a dependency it cannot resolve,
   and an unclassified dependency is skipped **in silence** rather than reported.
+- **ADR 21** — resolves D13 as Option 2. Tenant profiles carry typed endpoint paths and
+  Vite proxies `/api` and `/ws` to the server address selected by `FLEET_SERVER_HOST` and
+  `FLEET_SERVER_PORT`, keeping development same-origin without exposing the target in the
+  browser bundle.
 - **Principle 13** — tenant branding, endpoints and flags live in typed configuration;
   per-tenant conditionals in components are defects.
 
@@ -216,15 +222,11 @@ profiles (`docs/DESIGN_SYSTEM.md` § 1). There is no `localStorage` persistence 
 `prefers-color-scheme`, because a user preference store is a third kind of state that buys
 nothing for the argument.
 
-**Two gaps between that description and the code, both unratified.** `TenantConfig` today
-carries `id`, `wordmark` and `theme` and **no feature-flag field**, so the design system's
-claim that a tenant switch also changes feature availability — "Tenant B: one panel
-disabled" — is not implemented, and the panel is never named. `TENANT` is also a typed
-module literal rather than the parsed, validated configuration Principle 13 calls for, as
-its own doc comment concedes. Both are decision **D8** in
-`docs/PENDING_ARCHITECTURE_DECISIONS.md`, whose fourth alternative is to drop the flag
-promise from the design system rather than build it. Until D8 resolves, the correct
-statement is that tenant switching changes **theme and wordmark**.
+**Decision consequences.** One validated tenant profile is baked into each build and
+`flags.lidarHealthPanel` gates the named panel without tenant branches; if the flag loses
+an owner, remove the gate and claim ([ADR 17](../00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md)).
+Tenant endpoints remain typed same-origin paths behind the Vite proxy; a split-origin
+deployment requires an explicit allow-list and integration tests ([ADR 21](../00_adr/21_ENDPOINTS_FROM_THE_ENVIRONMENT_WITH_A_DEV_PROXY.md)).
 
 `app/theme.ts` sets the attribute and builds the MUI theme from the same palette the token
 layer uses. It deliberately does **not** write custom properties inline: an earlier version
@@ -269,10 +271,16 @@ The rules that matter most:
 | Accessibility              | Names, roles, state; keyboard flows; heading outline never skips a level |
 | Boundaries                 | Every fixture violation is reported; the control stays silent            |
 | Tokens                     | No raw hex or px outside `shared/ui` and `config`                        |
+| Development endpoints      | Tenant paths match proxy keys; HTTP and WebSocket proxy end to end       |
+| First-load bundle          | JS + CSS stay within 720 kB raw and 300 kB gzip (`pnpm check:bundle`)    |
 | Large lists                | Fleet table usable at several hundred robots                             |
 
-135 tests across 15 files. No snapshot tests — a snapshot asserts output did not change,
+163 tests across 19 files. No snapshot tests — a snapshot asserts output did not change,
 which is not the same as asserting it is correct.
+
+ADR 22 deliberately does not turn adapter coverage into a gate. CI reports it so a human
+can notice a change, but the discarded 90% threshold had no derivation and therefore no
+authority to block this package or any other.
 
 The one end-to-end path that must exist: a row visibly transitions to stale, driven by
 server deltas with no client timer involved.
@@ -294,13 +302,18 @@ Consequently the load-bearing freshness demonstration — a row transitioning
 be run end to end yet. The selectors that render it are tested; the wire that drives it is
 not built.
 
-Virtualization of the fleet table is specified (Principle 12) and should be confirmed
-against a real 500-robot payload once the server exists; a measurement is the requirement,
-not the assumption.
+Virtualization of the fleet table is **deferred by decision**
+([ADR 24](../00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md), register D14).
+The table renders one row per robot and is asserted correct at 500 rows in
+`features/fleet/fleetScale.test.tsx` — 500 rows, 500 activation links, fleet-wide counts, and a
+filter that still narrows to one. What is not claimed is a ceiling: the workload that decides
+whether windowing helps is delta churn at 500 robots, not a static render, and it cannot be
+measured until the server fans out. Nothing here should be read as an assumption that the table
+is windowed; a test fails if it becomes so without revisiting that ADR.
 
-Also not built: tenant feature flags and validated tenant configuration loading (D8), and
-the joining test that would make the test-only `@fleet/adapters` dependency earn its
-keep (D3).
+The joining test that would make the test-only `@fleet/adapters` dependency earn its keep
+is still not built (D3). Tenant feature flags and validated build-time selection are
+implemented (ADR 17).
 
 ## 12. Change rules
 

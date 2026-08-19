@@ -3,7 +3,9 @@
 - **Status:** implemented
 - **Package:** `packages/contracts`
 - **Governing documents:** ADR 1 (canonical core plus declared capabilities), ADR 3
-  (freshness ownership), ADR 9 (source exports); Principles 1, 2, 3, 4, 11
+  (freshness ownership), ADR 9 (source exports), ADR 19 (operator/diagnostic
+  capability classification), ADR 20 (one issue vocabulary and the HTTP error body);
+  Principles 1, 2, 3, 4, 11
 
 ## 1. Responsibility
 
@@ -42,11 +44,20 @@ point, which is what keeps the internal file layout free to change.
 Types: `Identifier`, `EpochMilliseconds`, `Position`, `RobotStatus`, `Health`,
 `HealthSeverity`, `Connectivity`, `FreshnessState`, `ContractIssue`, `ParseResult`.
 
-**Capabilities** — `CAPABILITY_NAMES`, `dockCapabilitySchema`,
+**Capabilities** — `CAPABILITY_NAMES`, `CAPABILITY_KINDS`,
+`OPERATOR_CAPABILITY_NAMES`, `DIAGNOSTIC_CAPABILITY_NAMES`,
+`isOperatorCapability`, `isDiagnosticCapability`, `dockCapabilitySchema`,
 `lidarHealthCapabilitySchema`, `waterLevelCapabilitySchema`, `sequenceCapabilitySchema`,
 `capabilityWireEntrySchema`, `capabilitiesWireSchema`, `parseCapabilities`,
-`encodeCapabilities`. Types: `Capabilities`, `CapabilityName`, `CapabilityPayloadByName`,
+`encodeCapabilities`. Types: `Capabilities`, `CapabilityKind`, `CapabilityName`,
+`OperatorCapabilityName`, `DiagnosticCapabilityName`, `CapabilityPayloadByName`,
 `CapabilityWireEntry`, and one payload type per capability.
+
+**Errors** — `ADAPTER_ERROR_KINDS`, `ERROR_KINDS`, `adapterErrorKindSchema`,
+`errorKindSchema`, `contractIssueSchema`, `errorEnvelopeSchema`, `parseErrorEnvelope`.
+Types: `AdapterErrorKind`, `ErrorKind`, `ErrorEnvelope`. This is the HTTP error body,
+defined in terms of `ContractIssue` rather than as a second failure shape, and the closed
+kind vocabulary the adapter and the wire share (ADR 20).
 
 **Envelope** — `canonicalCoreSchema`, `canonicalEnvelopeSchema`,
 `registeredRobotStateSchema`, `robotDiagnosticEnvelopeSchema`, `telemetryBatchSchema`,
@@ -116,6 +127,19 @@ Duplicate capability names are rejected rather than resolved last-write-wins; un
 names are rejected for a supported schema version; wire output is emitted in fixed
 canonical name order so fixtures and diffs do not churn.
 
+ADR 19 resolves D11 as **Option 3 — two derived name sets in contracts**. The total
+`CAPABILITY_KINDS` record classifies every `CapabilityName` as `operator` or `diagnostic`;
+the two name types and their canonically ordered runtime arrays derive from that record.
+`sequence` remains a declared capability but is classified `diagnostic`; the other three
+capabilities are `operator`.
+
+The implication is that adding a capability now requires an explicit classification in
+contracts or typechecking fails. An operator capability also requires a web panel because
+the panel registry is exhaustive over `OperatorCapabilityName`; diagnostic rendering is
+still a manual follow-up and is the one remaining unenforced side. This classification is
+in-process metadata only: it changes neither the wire format nor vendor declarations, and
+tenant feature flags remain a separate deployment concern.
+
 ### Freshness
 
 `deriveFreshness` maps age to `live | stale | unreachable`, and a robot that has never
@@ -143,6 +167,13 @@ value holds by construction rather than by discipline.
   use `.js` specifiers, a residue of a brief `dist` build; both styles resolve under
   `tsx`, `tsc`, Vitest and Vite, and ADR 9 § Open questions leaves convergence as
   tidiness rather than a fix.
+- **ADR 19** — resolves D11 as Option 3. Contracts owns one total operator/diagnostic
+  classification and derives both name sets; the web package consumes the operator set
+  rather than maintaining an exclusion list.
+- **ADR 20** — resolves D16 as Option 1. `ContractIssue` is the repository's one failure
+  vocabulary, and the HTTP error body is defined in terms of it rather than as a third
+  shape. Contracts owns the error kinds; the status and the operator sentence do not
+  live here.
 - **Principle 2** — external contracts decoded once, at a boundary, into an internal type.
 - **Principle 4** — `reportedAt` and `receivedAt` are separate fields with different
   owners and different jobs.
@@ -155,8 +186,11 @@ value holds by construction rather than by discipline.
 | Public surface is what `index.ts` exports       | Test         | `src/index.test.ts`                     |
 | Canonical schemas reject unrecognized keys      | Runtime      | `z.strictObject` throughout             |
 | A capability name cannot take another's payload | Types + Test | discriminated union; cross-product test |
+| Every capability belongs to exactly one kind    | Types + Test | total kind map; partition assertions    |
 | No wall-clock read                              | Static       | `no-restricted-properties`              |
 | Decode failures carry a stable issue shape      | Types        | `ContractIssue`, `toContractIssues`     |
+| The wire's issue matches the in-process one     | Types + Test | `contractIssueSchema`, type assertion   |
+| An adapter kind is always a legal wire kind     | Types        | `AdapterErrorKind` ⊂ `ErrorKind`        |
 
 Canonical drift must be loud: the schemas are strict, so an added field is a decode
 failure rather than a silently ignored key. Vendor unknown-field accounting is a separate
@@ -174,6 +208,15 @@ Failures are translated out of Zod into a `{ path, code, message }` issue shape 
 consumers assert on categories rather than on Zod's prose, and no HTTP concern enters the
 package.
 
+That issue shape is the repository's only failure vocabulary (ADR 20): adapters carry it,
+the HTTP error body embeds it unchanged, and the console renders `path` and `code` from
+it. Two consequences live here. One Zod `unrecognized_keys` issue becomes one issue per
+key, with the key in the path, so per-field detail survives the translation. And an issue
+never holds a rejected value — only a path, a category and a schema-derived message —
+which is what lets the server put these on the wire without leaking vendor payload
+contents. `errorEnvelopeSchema` adds the status-free envelope around them; the status and
+any operator wording stay in the server and the console respectively.
+
 Notable accepted inputs, each a deliberate decision rather than an oversight:
 
 - `reportedAt` later than `receivedAt` — vendor clock skew is real, and that inversion is
@@ -190,28 +233,27 @@ Rejected: whitespace-padded identifiers (trimming silently merges `"R-204 "` int
 
 ## 10. Verification matrix
 
-| Concern              | Check                                                              |
-| -------------------- | ------------------------------------------------------------------ |
-| Envelope round trip  | `parse` → `encode` is identity, capabilities in canonical order    |
-| Capability binding   | Cross-product: every name against every other name's payload fails |
-| Strictness           | An added key is a decode failure, not a silent pass                |
-| Freshness boundaries | Exact threshold values, with an injected clock, at both edges      |
-| Freshness invariant  | `withFreshness` alters one field and nothing else                  |
-| Excluded fields      | An envelope carrying `sequence` or `rawPayload` is rejected        |
-| Public surface       | `index.test.ts` asserts the export list                            |
+| Concern              | Check                                                                              |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| Envelope round trip  | `parse` → `encode` is identity, capabilities in canonical order                    |
+| Capability binding   | Cross-product: every name against every other name's payload fails                 |
+| Capability kinds     | Derived sets partition all names, preserve order, and pin `sequence` as diagnostic |
+| Strictness           | An added key is a decode failure, not a silent pass                                |
+| Freshness boundaries | Exact threshold values, with an injected clock, at both edges                      |
+| Freshness invariant  | `withFreshness` alters one field and nothing else                                  |
+| Excluded fields      | An envelope carrying `sequence` or `rawPayload` is rejected                        |
+| Public surface       | `index.test.ts` asserts the export list                                            |
 
-96 tests.
+103 tests.
 
 ## 11. Implementation status
 
 **Complete.** All four modules are implemented and tested; lint, typecheck and build pass.
 
-One cross-package decision is pending against this package: **D1** in
-`docs/PENDING_ARCHITECTURE_DECISIONS.md` asks what validated type an adapter returns
-before the server sweep has supplied freshness. The proposed answer adds an
-`adapterEnvelopeSchema` carrying every field except `freshness`; it is not implemented, and
-today `canonicalEnvelopeSchema` requires `freshness` while `withFreshness` accepts only an
-already-canonical envelope. An adapter therefore has no validated type to return.
+**Decision consequence.** Contracts exposes a strict pre-freshness `AdapterEnvelope`,
+derives it and `CanonicalEnvelope` from one field list, and permits only `withFreshness`
+to complete it; the type is in-process and never reaches web. Consumer-side evidence
+remains pending until adapters and ingest exist ([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)).
 
 ADR 1's two open questions are answered in its `Observed consequences`: the capability
 record earns its complexity, and `fault ⇒ critical` is **not** added as a contract-layer

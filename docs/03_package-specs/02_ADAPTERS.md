@@ -3,7 +3,9 @@
 - **Status:** partially implemented — core primitives only; no vendor adapter exists yet
 - **Package:** `packages/adapters`
 - **Governing documents:** ADR 1 (adapter boundary), ADR 7 (enforcement needs a resolver),
-  ADR 9 (source exports); Principles 1, 2, 3, 10, 15
+  ADR 9 (source exports), ADR 10 (pre-freshness return type), ADR 11 (public fixture
+  subpath), ADR 13 (fixture provenance), ADR 15 (unknown-field accounting), ADR 20 (the
+  failure shape); Principles 1, 2, 3, 10, 15
 
 ## 1. Responsibility
 
@@ -14,7 +16,7 @@ supports, and counts the fields it did not recognize.
 
 It does **not**: read a clock, hold state across calls, perform I/O, know about HTTP,
 decide freshness, or store anything. An adapter is a pure function of
-`(raw: unknown, receivedAt: number) => AdapterResult<CanonicalEnvelope>`.
+`(raw: unknown, receivedAt: number) => AdapterResult<AdapterEnvelope>`.
 
 The clock ban is the load-bearing one. `receivedAt` is stamped by the server at the
 ingest boundary and passed **in**; `reportedAt` comes from the vendor payload. An adapter
@@ -29,23 +31,31 @@ imports.
 
 Consumed by `@fleet/server` (production dispatch, declared) and by `packages/web` as a
 **devDependency** for tests that join a raw vendor fixture to the browser read model —
-banned in web production code, lifted only for test files (decision **D3**, unratified).
+banned in web production code, lifted only for test files (ADR 12).
 
-`@fleet/simulator` does **not** depend on this package. Its `AGENTS.md` permits adapter
-imports in tests to verify generated payloads, but no such dependency is declared and no
-such test exists; the permission is policy, not current fact. Making it real is entangled
-with **D2** (how fixtures are published without deep imports) and **D7** (the drift guard
-between the two vendor sets).
+`@fleet/simulator` does **not** depend on this package in production. It declares
+`@fleet/adapters` as a dev dependency solely for `src/fleet/vendorId.test.ts`, which
+compares its independent `VENDOR_IDS` literal with this package's `SUPPORTED_VENDORS` in
+both directions. Lint bans the import outside tests, and enforcement fixtures prove the
+exception remains narrow (ADR 16, resolving **D7** as Option 1).
 
 ## 3. Public API
 
 Consumers import from the package root. Deep imports into vendor modules are not part of
 the contract, which is what lets a vendor's internal layout change freely.
 
-**Result** — `ok`, `failure`, `isOk`. Types: `AdapterResult`, `AdapterOk`,
+Tests may additionally import recorded payloads from the public
+`@fleet/adapters/testing` subpath (ADR 11). It exports `loadVendorFixture`,
+`listVendorFixtures`, and `FIXTURE_RECORDING`; payloads remain `unknown`, and no adapter
+or schema behaviour belongs on this surface. Production consumers must ban both
+`@fleet/adapters` and its subpaths.
+
+**Result** — `ok`, `failure`, `isOk`, `issuesForKind`. Types: `AdapterResult`, `AdapterOk`,
 `AdapterFailure`, `AdapterError`, `AdapterErrorKind`.
 
-`AdapterErrorKind` is a closed union of three causes:
+`AdapterErrorKind` is a closed union of three causes, re-exported from `@fleet/contracts`
+rather than declared here, because the server puts the same value straight onto the wire
+(ADR 20):
 
 | Kind                  | Meaning                                                           |
 | --------------------- | ----------------------------------------------------------------- |
@@ -53,16 +63,31 @@ the contract, which is what lets a vendor's internal layout change freely.
 | `unmappable_value`    | Well-formed, but carried a value with no honest canonical mapping |
 | `unsupported_dialect` | Named a dialect version this adapter does not support             |
 
-`AdapterError` carries an operator-readable summary that never contains raw vendor
-payload contents, so an error can be logged without leaking telemetry (Principle 7).
+`AdapterError` is `{ kind, vendor, issues }`, where `issues` is the contract's
+`readonly ContractIssue[]` — the same vocabulary the HTTP error body and the console use,
+so a payload wrong in three fields is still wrong in three fields by the time a technician
+reads it (ADR 20). A vendor schema rejection passes `toContractIssues` through unchanged; a
+rejection with no Zod error behind it uses `issuesForKind`, which makes the issue's `code`
+the rejection kind rather than a string each vendor invents.
+
+An issue carries a path, a category and a schema-derived message and never a rejected
+value, so an error can be logged or serialized without leaking telemetry (Principle 7).
+The one way to break that is interpolating a payload value into a custom schema message,
+which is why the rule is written on `issuesForKind` as well as here.
 
 **Unknown-field ledger** — `createUnknownFieldLedger`. Types: `UnknownFieldLedger`,
 `UnknownFieldSnapshot`, `UnknownFieldTally`.
 
-`note(vendor, paths)` records dotted paths; `snapshot()` returns a per-vendor tally. The
-ledger is **per adapter, process-wide — never per robot.** ADR 1 § Implications requires
-the robot-detail diagnostics panel to label it accordingly rather than implying a
-precision it does not have.
+**Unknown-field detection** — `knownFieldPaths`, `findUnknownFieldPaths`, and
+`noteAcceptedPayload`. Vendor schemas use passthrough semantics, derive their declared
+dotted paths once, and compare accepted raw payloads against that set. The snapshot
+carries `scope: "accepted"`; rejected payloads belong only to the server's separate
+malformed-ingest counter (ADR 15).
+
+`noteAccepted(vendor, paths)` records dotted paths; `snapshot()` returns a per-vendor
+tally and its `accepted` scope. The ledger is **per adapter, process-wide — never per
+robot.** ADR 1 § Implications requires the robot-detail diagnostics panel to label the
+number accordingly rather than implying a precision it does not have.
 
 **Vendor identity** — `SUPPORTED_VENDORS`, `isSupportedVendor`. Type: `SupportedVendor`.
 
@@ -84,7 +109,7 @@ which is the coercion Principle 2 exists to prevent.
 
 ```
 src/
-  core/result.ts          the result union and its constructors
+  core/result.ts          the result union, its constructors, and the issue-shaped error
   core/unknownFields.ts   the per-adapter ledger
   core/vendor.ts          SupportedVendor and its narrowing guard
   vendors/<a|b|c>/        planned: schema.ts, adapter.ts, __fixtures__/
@@ -202,23 +227,23 @@ the schema's known dotted paths.
 | Status mapping          | Each dialect's vocabulary into the canonical five                                                               |
 | Capability presence     | B declares no `sequence`; B and C declare no `lidarHealth` — asserted by **key absence**, not by a null payload |
 | Unknown fields          | Vendor C's undocumented field increments the ledger at its dotted path                                          |
-| Malformed input         | Rejected with the right `AdapterErrorKind`, payload absent from the error                                       |
+| Malformed input         | Rejected with the right `AdapterErrorKind` and one issue per bad field, payload values absent from the error    |
 | Enforcement             | Every lint rule fires on its fixture; the control stays silent                                                  |
 
 ADR 1 § Constraints is explicit that one fixture per vendor is a smoke test rather than
 proof of the entire mapping, and asks for at least one boundary or malformed case per
 vendor where time allows.
 
-14 tests today, all in `core/` and `__enforcement__/`.
+40 tests today, covering core behavior, fixture publication and enforcement.
 
 ## 11. Implementation status
 
-**Core primitives only.** Built and tested: the result union, the unknown-field ledger,
-vendor identity narrowing, and the enforcement fixture suite.
+**Core primitives and fixture infrastructure only.** Built and tested: the result union,
+the accepted-only unknown-field ledger, passthrough/key-difference detection, vendor
+identity narrowing, recorded fixtures with a drift guard, and the enforcement suite.
 
 **Not built:** every vendor schema (`B1`–`B3`), every vendor adapter (`C2`–`C4`), the
-recorded fixtures (`C1`), the status-mapping tables (`C5`), and the unknown-field
-detection walk (`B4`).
+additional malformed/boundary fixtures under `C1`, and the status-mapping tables (`C5`).
 
 This is one of the two gaps on the critical path. Until vendor adapters exist:
 
@@ -228,17 +253,12 @@ This is one of the two gaps on the critical path. Until vendor adapters exist:
 - ADR 1's primary evidence — one fixture per vendor asserting exact canonical output —
   does not yet exist.
 
-`B4` (how unknown fields are detected) is the one design decision still open **inside**
-this package; the TODO recommends passthrough plus a key-diff walk producing dotted paths,
-placed in `src/core/` because all three vendors need it.
-
-Five cross-package decisions in `docs/PENDING_ARCHITECTURE_DECISIONS.md` must be settled
-alongside the adapter work, none of them by this package alone: **D1** (the validated type
-an adapter returns before freshness exists), **D2** (how recorded fixtures are published
-without deep imports), **D4** (whether fixtures are hand-authored or recorded simulator
-output), **D5** (unknown-field accounting when a payload is both malformed and carries
-unknown fields), and **D7** (the drift guard between this package's `SUPPORTED_VENDORS`
-and the simulator's independent `VENDOR_IDS`).
+**Decision consequences.** Adapters return only validated pre-freshness envelopes
+([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)); publish unknown recorded
+fixtures through the Node-free test subpath ([ADR 11](../00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md));
+re-record those fixtures in CI ([ADR 13](../00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md));
+count accepted-payload unknowns under their explicit scope ([ADR 15](../00_adr/15_UNKNOWN_FIELD_ACCOUNTING_ON_ACCEPTED_PAYLOADS.md));
+and own the supported-vendor set while a test guards the simulator copy ([ADR 16](../00_adr/16_TEST_ONLY_ADAPTERS_DEPENDENCY_FOR_VENDOR_PARITY.md)).
 
 ## 12. Change rules
 

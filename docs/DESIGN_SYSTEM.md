@@ -1,6 +1,8 @@
 # `canonical-fleet` — Fleet Console Design Profile
 
 **Written:** 18 August 2026
+**Revision 3.** § 5's status-chip sentence corrected against component specs 01 and 02, which it had contradicted: the chip's accessible name carries the state and the currency qualification, not the age. The age belongs to the adjacent freshness cell.
+
 **Revision 2.** Scoped to the surfaces actually built. Status vocabulary now derives from the canonical model rather than from the palette. Light mode folded into the tenant axis. Commercial typefaces removed.
 
 This profile covers the seven views in the submission and nothing else. A design system specifying more than the product uses is a document nobody verified.
@@ -27,11 +29,13 @@ Dark and light are not a user preference. They are the two tenant profiles, and 
 | Profile       | Dark, operational control room | Light, warm paper field       |
 | Wordmark      | From `config.tenant.wordmark`  | From `config.tenant.wordmark` |
 | Accent        | `--accent`                     | `--accent`                    |
-| Feature flags | All panels enabled             | One panel disabled            |
+| Feature flags | All panels enabled             | Lidar panel off               |
 
 Attribute `data-theme="dark" | "light"` on `<html>`, set from tenant configuration at boot. No `localStorage` persistence and no `prefers-color-scheme`, because a user preference store is a third kind of state and buys nothing for the argument.
 
 Nothing in `features` or `entities` reads a colour, a wordmark or a flag directly. All three come from `config`.
+
+The flag is `flags.lidarHealthPanel`, `false` for Tenant B ([ADR 17](./00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md)). A capability panel renders when the robot **declared** the capability and the tenant **enables** it, so a Tenant B build shows no lidar panel even for a robot that reports lidar health. Flags are named for what they control, never for the tenant that sets them — `tenantB…` in a flag name is the same defect as a tenant conditional in a component.
 
 ---
 
@@ -150,7 +154,7 @@ Focus rings use `--accent` and are verified for contrast against `--surface` in 
 
 Structure is identical in both themes and only token values change.
 
-**Status chip.** Tinted background, border, 6px dot, mono label. Outline only when freshness is not LIVE. The accessible name carries the state and the age together, so a screen reader receives the same qualification a sighted reader receives.
+**Status chip.** Tinted background, border, 6px dot, mono label. Outline only when freshness is not LIVE. The qualification lives in the visible label — `Busy (last known)` — so the accessible name carries currency without an `aria-label`, and a screen reader receives the same qualification a sighted reader receives. The **age** is not part of that name: it arrives from the adjacent `FreshnessLabel` cell in reading order, which is why that component does not repeat the qualification (component specs 01 § 9 and 02 § 9).
 
 **Freshness label.** Chip plus relative age, with the absolute timestamp in mono on the technician surface.
 
