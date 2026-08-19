@@ -1,0 +1,320 @@
+# `packages/`
+
+This directory holds the five workspace packages that make up the fleet
+operations console: one UI, and the four packages that feed it.
+
+The split exists so one claim is easy to check: **multi-vendor normalization
+belongs at a boundary, not in the UI.** Vendor disagreement is absorbed by
+`adapters`. Canonical meaning is defined once in `contracts`. `web` may display
+and filter vendor identity, but rendering behavior comes from declared
+capabilities and never branches on a vendor name.
+
+| Package                    | Owns                                                               | Status                                   |
+| -------------------------- | ------------------------------------------------------------------ | ---------------------------------------- |
+| [`contracts`](./contracts) | Canonical envelope, capabilities, wire schemas, freshness function | Landed                                   |
+| [`adapters`](./adapters)   | Vendor dialect decoding, unknown-field accounting                  | Partial — core landed, no vendor modules |
+| [`simulator`](./simulator) | Deterministic vendor telemetry, fault injection                    | Landed                                   |
+| [`server`](./server)       | Ingest, state, freshness sweep, fan-out, health                    | Partial — pieces landed, no process yet  |
+| [`web`](./web)             | The operations console                                             | Partial — UI built, data is fixtures     |
+
+A **canonical envelope** is the shared robot record every vendor is translated
+into. A **capability** is an optional payload a vendor may or may not send;
+presence of the key is the declaration. **Freshness** is whether we have recent
+enough telemetry to trust a robot's last known state.
+
+---
+
+## Dependency direction
+
+```
+        simulator  ──HTTP──▶  server  ──WebSocket──▶  web
+                                 │                     │
+                                 ▼                     │
+                             adapters                  │
+                                 │                     │
+                                 ▼                     ▼
+                             ┌───────────────────────────┐
+                             │        contracts          │
+                             └───────────────────────────┘
+```
+
+Every arrow into `contracts` is one-way. `contracts` imports nothing from this
+directory. That is what lets it be the place a disagreement gets settled.
+
+`simulator` has **no production** edge to `contracts` on purpose. It emits raw vendor
+payloads and must not be able to construct a canonical envelope — otherwise it
+would be testing the adapters against themselves. It restates the three vendor
+identifiers locally, in `src/fleet/simulatedRobot.ts`, and
+`src/fleet/vendorId.test.ts` asserts that its list and the adapters'
+`SUPPORTED_VENDORS` agree — in both directions, so neither a vendor without an
+adapter nor an adapter without a producer gets through (ADR 16).
+
+That test is the only file in `simulator` allowed to import `@fleet/adapters`,
+which is a dev dependency there: lint bans the specifier in production code, and
+`src/__enforcement__/` probes both directions of the ban so it cannot go inert.
+
+Three arrows above are drawn ahead of the code:
+
+- `adapters ──▶ contracts` does not exist yet, because no vendor module has
+  landed.
+- `server ──WebSocket──▶ web` does not exist at either end. No server process
+  opens a socket, and `web/src/shared/lib` holds no client.
+- `simulator ──HTTP──▶ server` exists only on the producing side. The simulator
+  has an ingest client and POSTs; nothing is listening.
+
+The three edges that do exist are `web ──▶ contracts`, `server ──▶ contracts`,
+and `server ──▶ adapters` — the last being only the supported-vendor list the
+fleet manifest is validated against.
+
+If you go looking for edges, you will also find `@fleet/server` imported inside
+`adapters`, and a `__boundary-violation__` directory in `server`. Those are
+fixtures that prove lint catches an illegal import. Leave them broken — being
+broken is their job.
+
+---
+
+## `contracts` — the shared definition of a robot
+
+The model every vendor's telemetry is translated into. It contains:
+
+- the declared capability record
+- the runtime Zod schemas that decode untrusted input
+- the pure freshness function
+
+It is framework-independent and side-effect free. It reads no clock, opens no
+socket, and imports no workspace package. Lint enforces the clock ban and the
+import ban directly; the absence of a socket follows from having no transport
+dependency to open one with.
+
+**Owns:** identity, connectivity, battery, position, status, health, the two
+timestamps, capability payloads and their wire representation, `SCHEMA_VERSION`,
+and `deriveFreshness`.
+
+**Does not own:** vendor decoding, transport, storage, scheduling, rendering.
+
+The rule that shapes everything downstream: the normalized core carries only
+meaning **every** vendor can populate. Anything one vendor has and another does
+not is a declared capability. A core field that is simply empty for some vendors
+is the failure mode [ADR 1](../docs/00_adr/01_ADAPTER_BOUNDARY.md) exists to
+prevent.
+
+---
+
+## `adapters` — what a vendor said
+
+One module per vendor dialect. Each translates an untrusted payload into a
+canonical envelope.
+
+Vendors A, B, and C disagree on nesting, battery units, distance units,
+timestamp format, status vocabulary, and which fields exist at all. Those
+disagreements are load-bearing fixtures, not incidental flavour.
+
+**Owns:** per-vendor decoding, the vendor-support union that gives ingest
+dispatch its exhaustiveness check, and the unknown-field ledger.
+
+**Does not own:** the canonical model. Adding a fourth vendor is one module plus
+fixtures here. It is never an edit to `contracts`.
+
+When the vendor modules land, unknown fields a vendor sends are **counted, not
+silently dropped**. Vendor C's undocumented field must increment a per-adapter
+tally surfaced on the future health endpoint. The ledger exists; neither the
+Vendor C adapter nor the endpoint does yet.
+
+**Landed:** the result type, the unknown-field ledger, the vendor union, and the
+boundary-enforcement fixtures.
+
+**Not yet:** the A, B, and C adapter modules and their recorded fixtures.
+
+---
+
+## `simulator` — something to normalize
+
+A deterministic producer that emits raw Vendor A, B, and C wire payloads over
+HTTP ingest. Seeded, so a run reproduces. Fault-injectable, so the console's
+honesty claims can be exercised rather than asserted.
+
+**Owns:** fleet generation, per-vendor payload construction, emission
+scheduling, fault policy, and the ingest client.
+
+**Does not own:** canonical envelopes. It produces the mess; it does not clean
+it up.
+
+The `--drop` flag is why this package exists in a submission that could have
+shipped fixtures instead. It silences specific robots while the stream stays
+healthy. That is the only way to show that freshness detects **absence**, rather
+than reacting only to arrivals.
+
+---
+
+## `server` — the runtime authority
+
+Thin. Its completed framework-independent core keeps one in-memory entry per
+robot, sweeps freshness every 500 ms, and coalesces pending deltas. The planned
+composition root will accept telemetry over HTTP, dispatch to the right
+adapter, and fan those deltas out over WebSocket.
+
+**Owns:** receipt time (`receivedAt`), the current-state store, bounded
+per-robot history, the freshness sweep, delta coalescing, and health accounting.
+The health _endpoint_ is planned, not present: `HealthMetrics` is a counter
+object today and nothing serves it.
+
+**Does not own:** freshness _derivation_. That is `contracts`' pure function,
+called by the sweep here. The split is deliberate: the rule is unit-testable
+against an injected clock; the schedule is the server's problem.
+
+No database. Current state rebuilds from the next telemetry snapshot. History is
+a small ring buffer sized to what a decimated sparkline consumes.
+
+**Landed:** configuration and the fleet manifest, the current-state store, the
+ring buffer, the pending-delta set, clocks, health metrics, and the sweep itself.
+Configuration now has two sources with different lifetimes: the committed
+`config/*.json` files carry deployment policy, and `FLEET_SERVER_HOST`,
+`FLEET_SERVER_PORT` and `FLEET_ALLOWED_ORIGINS` carry per-machine values, decoded
+once by `loadRuntimeEndpoints()` — the only `process.env` read in the package (ADR
+21). Both raise the same `ConfigValidationError`.
+
+**Not yet:** the composition root. Nothing listens on a port or opens a socket,
+so there is no ingest and no fan-out. The address it would bind is now decided
+rather than guessed, but `FLEET_ALLOWED_ORIGINS` is validated and **not enforced**
+— the CORS middleware belongs with the listener, so setting that variable today
+has no effect (`FIXME.md` **F13**). The ingest size cap is in the same state:
+`src/ingest/requestSizeLimit.ts` is built and tested, and nothing calls it yet
+(ADR 26, server TODO **D0**).
+
+**Retention is decided.** One raw payload per robot, replaced not accumulated,
+kept verbatim with no redaction, bounded at 64 KiB per request — 31.25 MiB across
+500 robots — and deep-copied in both directions so retained evidence cannot be
+mutated by whoever wrote it or whoever reads it. The diagnostic endpoint that
+serves it has **no access rule**, which is a decision rather than an oversight and
+a release blocker rather than a permanent state (`FIXME.md` **F15**).
+
+---
+
+## `web` — the deliverable
+
+The React operations console. Feature-sliced into `app`, `features`, `entities`,
+`shared`, and `config`, with the dependency rule enforced in lint —
+`eslint-plugin-boundaries` plus the resolver ADR 7 makes mandatory — not in the
+build.
+
+**Owns:** the fleet table, robot detail with capability-driven panels, the
+operator/technician toggle, tenant theming, and the connection banner.
+
+**Does not own:** freshness. It holds no timer. Freshness arrives as a field on
+the envelope and the console displays it.
+
+While the stream is down, ADR 3 requires the console to suppress per-robot
+freshness labels and let the connection banner carry the connection-level
+truth. **Both halves now exist** (ADR 23). `ConnectionContext` in `shared/lib` —
+the only layer both `app` and `features` may import — carries the state from
+`AppShell` to the two pages, which render `<FreshnessLabel>` only while the stream
+is connected. `reconnecting` counts as not connected. Nothing is substituted for a
+suppressed label.
+
+What is still missing is a transport reporting a real state. The context default
+and `AppShell`'s prop default are both `disconnected` rather than the old
+optimistic `"connected"`, so today the console suppresses every freshness label and
+the banner reads "Stream disconnected". That is the honest description of a console
+with no socket, and it is deliberate — restoring an optimistic default to make the
+labels reappear would reinstate the defect.
+
+A row reading LIVE from a socket that died two minutes ago is the failure this
+rule prevents. A row reading UNREACHABLE is no better: it blames the machine for
+the console's own blindness.
+
+Where that stream will connect is settled. Both tenant profiles carry
+`endpoints: { apiBaseUrl: "/api", streamUrl: "/ws" }` — same-origin paths that
+Vite's dev proxy forwards to the server, so the console never learns a host and
+nothing it sends is cross-origin (ADR 21). Nothing reads those values yet; the
+transport client that will is `features/fleet/TODO.md` **A3**.
+
+Robot detail renders exactly the panels a robot's adapter declared. Absence is
+the interface — no disabled placeholders. `if (vendor === …)` in a component is
+a defect, not a shortcut.
+
+**Landed:** the shell, the shared primitives, the fleet page, robot detail, and
+the entity layer that maps a canonical envelope into the read model.
+
+**Not yet:** the transport. `useFleetRobots` returns a fixture set and
+`shared/lib` holds no client, so the console is real but the data is not. It is
+waiting on the server's composition root.
+
+---
+
+## Working in here
+
+All five packages implement the four verification script names the root recursive
+commands call:
+
+```bash
+pnpm test        # pnpm --recursive test
+pnpm typecheck
+pnpm lint        # per-package lint, then repo-wide prettier
+pnpm build
+```
+
+Development is a separate root fan-out:
+
+```bash
+pnpm dev         # in parallel, for packages that define a dev script
+```
+
+Only `simulator` and `web` currently define `dev`. `contracts` and `adapters` are
+libraries with nothing to start; `server` is intended to be executable but has no
+composition root or runtime script yet. Consequently `pnpm dev` is a two-process start
+today and gains the server only when its composition root lands.
+The four Node packages add `test:coverage`; `simulator` adds `start`; `web` adds
+`lint:css` and `preview`. All five define `test:watch`.
+
+One caveat on those scripts. ADR 9 says executable packages run through `tsx`,
+but `simulator`'s `dev` and `start` invoke plain `node`, and `server` declares a
+`tsx` devDependency while defining neither script. `pnpm-workspace.yaml` approves
+the `esbuild` native build on the grounds that without it "`pnpm dev` and `pnpm
+start` fail" — yet no current script invokes `tsx` at all. See
+[`FIXME.md`](./FIXME.md) F2.
+
+Scoped to one package — note that `web`'s package name is bare `web`, while the
+other four are scoped:
+
+```bash
+pnpm --filter @fleet/contracts test
+pnpm --filter @fleet/contracts test:watch
+pnpm --filter web dev
+```
+
+The four Node packages are consumed as **source** (`exports` maps `.` to
+`./src/index.ts`). `build` is a typecheck rather than an emit, so no `dist`
+needs keeping in sync. Consumers import from the package root. Deep imports into
+another package's internals are not part of any contract here.
+
+## Where the rules live
+
+Every package carries a `CLAUDE.md`, and the four Node packages carry an
+`AGENTS.md` holding the scoped rules their `CLAUDE.md` points at. `web` keeps
+its rules in `CLAUDE.md` directly. Those files are authoritative for their
+directory; this one is a map, not a rulebook.
+
+| Concern                                          | Source                                 |
+| ------------------------------------------------ | -------------------------------------- |
+| Binding engineering principles                   | [`PRINCIPLES.md`](../PRINCIPLES.md)    |
+| Architecture decisions and their consequences    | [`docs/00_adr/`](../docs/00_adr)       |
+| Adapter boundary, canonical core, capabilities   | ADR 1                                  |
+| Transport, ingest, fan-out                       | ADR 2                                  |
+| Freshness derivation and its two halves          | ADR 3                                  |
+| Feature-sliced structure and the dependency rule | ADR 4                                  |
+| Material UI and the CSS-token styling boundary   | ADR 5                                  |
+| In-memory state and bounded history              | ADR 6                                  |
+| Module-resolution boundary enforcement           | ADR 7                                  |
+| Server HTTP/WebSocket implementation libraries   | ADR 8                                  |
+| Source exports and TypeScript runtime            | ADR 9                                  |
+| Pre-freshness adapter envelope                   | ADR 10                                 |
+| Public testing subpath for fixtures              | ADR 11                                 |
+| Test-only web dependency on adapters             | ADR 12                                 |
+| Recorded fixtures and CI drift guard             | ADR 13                                 |
+| Shared fleet roster parity                       | ADR 14                                 |
+| Accepted-only unknown-field accounting           | ADR 15                                 |
+| Independent vendor lists with test-only parity   | ADR 16                                 |
+| Per-package scoped rules                         | `<name>/AGENTS.md`, or `web/CLAUDE.md` |
+| Remaining work — the four Node packages          | `<name>/TODO.md`                       |
+| Remaining work — `web`                           | `UI_PLAN.md`, per-slice `TODO.md`      |
+| Cross-package audit findings                     | [`FIXME.md`](./FIXME.md)               |
