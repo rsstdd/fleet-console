@@ -69,7 +69,33 @@ Worker-thread validation requires transferring the payload across a structured-c
 
 ## Observed consequences
 
--
+- 19 August 2026: the flush sequence this ADR's initial-state contract requires landed in
+  `packages/contracts`, decided as [ADR 18](./18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md)
+  (register D10). `telemetryBatchSchema` gained a required `flushSequence`; the fleet
+  snapshot response this ADR committed to but never defined now exists as
+  `fleetSnapshotSchema`; and the reconciliation rule itself ships as
+  `isDeltaCoveredBySnapshot`, in contracts because both sides of the wire must agree on
+  it. The Implications entry predicting "a `packages/contracts` change before it is a
+  server or client change" held exactly.
+- 19 August 2026: delta granularity was examined in the same pass and deliberately left
+  as decided here — whole envelope per changed robot. `docs/ARCHITECTURE_AUDIT.md`
+  estimates a freshness-only transition at 5-10x the bytes it needs and recommends a
+  second, freshness-only message shape before the fan-out is written. ADR 18 declines to
+  act on an estimate, because a second shape is what this ADR's initial-state decision
+  paid the flush sequence to avoid. It reopens on a measured mass-transition flush at 500
+  robots — the harness this ADR commits to and which does not yet exist.
+- 19 August 2026: **the validation half of this ADR's estimate was measured, and it holds.**
+  One telemetry message — `JSON.parse` of the body plus a strict canonical decode — costs
+  **5.8-6.4 µs**, against the falsification threshold of roughly 400 µs stated in
+  Assumptions. At the design point of 2,500 msg/s that is about **1.5% of one core**, so
+  the "tens of microseconds" estimate was right and slightly conservative, and the
+  competing candidate named in the same assumption — per-request HTTP overhead — is where
+  the remaining measurement has to go. The threshold is now a CI assertion rather than a
+  sentence: `packages/server/src/ingest/validationCost.test.ts`, decided as
+  [ADR 22](./22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md) (register D17).
+  Two of this ADR's three per-message costs are covered by it; the third, HTTP overhead,
+  and the vendor schema decode both need packages that do not exist, so the throughput and
+  latency tables in `README.md` § 10 stay empty and § 5 of the audit stays estimates.
 
 ## Related
 
@@ -82,6 +108,7 @@ Worker-thread validation requires transferring the payload across a structured-c
 - Principle 4 (provenance and freshness) — indirect, via the freshness-sweep-must-propagate-as-a-change implication shared with ADR 3.
 - Artifact `packages/server` — ingest, dispatch, and fan-out live here (not yet implemented).
 - Artifact `packages/simulator` — the load-mode flag (`--robots 500 --hz 5`) that exercises this design.
+- ADR 22 — gates this ADR's falsification threshold in CI and reports the numbers that are not gated; the validation half of the harness, and the record of which rows remain unmeasured.
 - Artifact README measurements section — reports the outcome of the harness specified in Implications.
 - Artifact `packages/web/src/entities/robot` — the normalized, delta-consuming client store this fan-out format feeds.
 

@@ -32,6 +32,12 @@
 ## Notes
 ```
 
+The three header lines are structured metadata consumed by
+`scripts/architectureDocs.mjs`; keep their spelling and separators exact. CI checks this
+documentation on every change. Edit the normative ADR and its entry in
+`docs/decisions.json`, run `pnpm docs:decisions` to regenerate the decision index, then run
+`pnpm check:architecture-docs` before committing. Never edit the generated index directly.
+
 - **Decision (Top Summary):** A single declarative sentence placed at the very top of the file. State exactly what was decided, not why. This serves as the primary chunk a retrieval system or human reader surfaces first.
 - **Status:** Replace prose status with three structured fields: state (`Decided` or `Superseded`), date (`YYYY-MM-DD`), and implementation state (`Implemented`, `Partial`, or `Not started`).
 - **Group:** Use a simple grouping—such as integration, presentation, data, and so on—to help organize the set of decisions. You could also use a more sophisticated architecture ontology (e.g., event, calendar, location).

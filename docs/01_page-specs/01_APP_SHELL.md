@@ -71,14 +71,14 @@ Shell does not subscribe to per-robot telemetry (Principle 9).
 
 Asynchronous state set for the shell (Principle 5):
 
-| Condition                         | Behaviour                                                                                                          |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Initial load, config not yet read | Render the frame with Tenant A defaults rather than a blank page; never block first paint on config                |
-| Connected                         | Banner mounted and empty; routes render normally                                                                   |
-| Reconnecting                      | Banner shows attempt and last event time; page data remains; per-robot freshness suppressed (ADR 3)                |
-| Disconnected                      | Banner states that shown data is last known; page data remains; freshness drifts by timer until the stream returns |
-| Tenant config missing or invalid  | Fall back to Tenant A defaults — dark theme, generic wordmark — rather than blocking render (Principle 13)         |
-| Unknown route                     | Simple not-found inside `main`: title plus a link to Fleet. Not a marketing 404                                    |
+| Condition                        | Behaviour                                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Initial load                     | Render immediately from the tenant profile baked into this build; there is no runtime configuration fetch          |
+| Connected                        | Banner mounted and empty; routes render normally                                                                   |
+| Reconnecting                     | Banner shows attempt and last event time; page data remains; per-robot freshness suppressed (ADR 3)                |
+| Disconnected                     | Banner states that shown data is last known; page data remains; freshness drifts by timer until the stream returns |
+| Tenant selection/profile invalid | Fail the build; never ship a plausible fallback carrying the wrong tenant's branding or feature policy (ADR 17)    |
+| Unknown route                    | Simple not-found inside `main`: title plus a link to Fleet. Not a marketing 404                                    |
 
 **Freshness while disconnected.** ADR 3 derives freshness from a server sweep delivered over the stream. While the stream is down the client cannot support a per-robot currency claim, so features suppress per-robot freshness labels in favour of the connection-level state. The shell owns the connection state that makes that suppression possible; the rule itself is enforced in the features that render the labels.
 

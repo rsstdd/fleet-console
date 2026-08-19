@@ -1,3 +1,32 @@
+# Archived — ADR remediation plan, phase 3
+
+**Authority:** None. This is a spent work plan, kept for provenance only.
+
+**Archived:** 19 August 2026, from `docs/00_adr/`, where it was the only file that was not
+an ADR.
+
+**Why it is spent.** Every item below was executed, and the ADR set is now the record of it.
+Checked against all thirty files in `docs/00_adr/` on the archive date: 30/30 carry the 3.1
+field order, the 3.2 one-line `**Decision:**` summary, the 3.3 three-part `**Status:**`, and
+first-class `## Open questions` (3.4) and `## Observed consequences` (3.5) sections. The four
+`Related` variants 3.6 set out to merge no longer appear anywhere — there is exactly one
+`## Related` per file — and 3.7's split survives as separate `## Assumptions` and
+`## Constraints` sections, present in all thirty.
+
+**What replaced it.** Part of this shape is now enforced rather than remembered.
+`scripts/architectureDocs.mjs` requires the 3.1 title line, the 3.2 `**Decision:**` summary
+and the 3.3 three-part `**Status:**` to parse at all, and generates
+[`../PENDING_ARCHITECTURE_DECISIONS.md`](../PENDING_ARCHITECTURE_DECISIONS.md) from them, so
+an ADR that drops one of those three fails `pnpm check:architecture-docs`. The rest — `Group`
+and the section set from 3.4 through 3.7 — holds by convention and by `00_TEMPLATE.md` only;
+it was at 30/30 on the archive date, but nothing would fail if the thirty-first ADR omitted
+`## Observed consequences`. Phases 1 and 2 were never written to a file and are not
+recoverable from this repository; only phase 3 was.
+
+**Do not edit.** Amending a spent plan to match today would misrepresent what was planned.
+
+---
+
 Phase 3 — Structural changes
 
 3.1 — Target field order

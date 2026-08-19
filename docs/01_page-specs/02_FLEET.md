@@ -10,7 +10,7 @@
 
 ## 1. Product intent
 
-The fleet page is the operator's primary surface: scan health, filter by site, open a robot. It must show freshness honestly and remain usable at fifty robots without custom virtualization if measurement allows. Virtualization is deferred behind ADR 2's measurement commitment at 50 and 500 robots; the deferral itself is not yet recorded as an ADR (Principle 12).
+The fleet page is the operator's primary surface: scan health, filter by site, open a robot. It must show freshness honestly and remain usable at several hundred robots. **It is not virtualized, and that is now a recorded decision** ([ADR 24](../00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md), register D14): the table renders one row per robot, is asserted correct at 500 rows in `fleetScale.test.tsx`, and no ceiling is claimed because none has been measured. Windowing waits on delta-apply cost at 500 robots under a live stream — ADR 2's measurement commitment — because the page re-renders wholesale on every delta and windowing addresses only the row half of that (Principle 12).
 
 ## 2. Locked decisions
 
@@ -32,7 +32,7 @@ The fleet page is the operator's primary surface: scan health, filter by site, o
 2. `h1` Fleet overview
 3. Summary `Stat` row (freshness counts)
 4. Filter controls (site, vendor, freshness, search)
-5. Table (virtualized when needed)
+5. Table (one row per robot; not virtualized — ADR 24)
 6. `DataPlate`
 7. `EmptyState` replaces table body when no rows
 

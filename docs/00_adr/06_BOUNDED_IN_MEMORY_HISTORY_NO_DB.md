@@ -62,6 +62,20 @@ The point at which persistence becomes necessary is named in Implications rather
 - 19 August 2026: implemented as a fixed-size array with a write cursor. The server
   retains 60 canonical observations per robot, enough for a one-minute sparkline at
   the nominal 1 Hz reporting rate while remaining in the "tens of points" budget.
+
+- **19 August 2026 — the separate retention question this ADR named is now answered.**
+  § Constraints said the raw payload "is a separate retention question from the history
+  ring buffer" and deliberately left it open.
+  [ADR 26](./26_RAW_PAYLOAD_BOUNDED_VERBATIM_AND_UNPROTECTED_BY_DECISION.md) answers it:
+  one payload per robot, replaced rather than accumulated, bounded by a 64 KiB ingest cap
+  and kept verbatim with no redaction. **The number this ADR's memory budget can now be
+  checked against is 500 robots x 64 KiB = 31.25 MiB** of retained payload, on top of the
+  ring buffers. Nothing in this ADR changes; what changes is that "bounded in memory" is
+  now arithmetic for both halves rather than one.
+
+  Worth noticing while it is still true: retained payloads vanish on restart with all
+  other in-memory state, which is a privacy property nobody chose deliberately. If
+  persistence is ever added for another reason, that property leaves with it.
   Raw vendor payloads are retained separately and never enter this buffer.
 
 ## Related

@@ -1,5 +1,7 @@
 # Wireframes — `canonical-fleet` console
 
+**Revision 5.** § 0 and the § 3 annotation reconciled with ADR 19, which they had lagged: capabilities now split `operator` / `diagnostic` in `@fleet/contracts`, so the rule for § 3's panels is the operator set rather than "non-core", and `sequence` is listed as the declared capability it is instead of appearing only as envelope metadata. Page spec 03 revision 6 had already made this change; these screens had not.
+
 **Revision 4.** § 1 and § 6 banner sketches reconciled with component spec 07 revision 2, which these wireframes had outdated in three ways. The disconnected line now carries the fixed § 5 copy including `(may be stale)`; both retry controls read `Retry now`; and the `⚠` / `✕` glyphs are gone, because the § 4 required output has no icon element and the condition is carried by the words and the tint. Copy on these screens is the exact string the component renders, so a change to either updates both (component spec 07 § 12).
 
 **Revision 3.** § 6 and § 9 step 5 corrected against ADR 3: freshness is derived by the server sweep, so a killed stream suppresses per-robot labels rather than degrading every row on a client timer. The `--drop` sequence in step 4 is unchanged.
@@ -21,7 +23,8 @@ Values on these screens come from exactly these places.
 | Health severity                        | `nominal`, `degraded`, `critical`                                                                                     |
 | Freshness, derived by the server sweep | `LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN` — arrives as a field on the envelope; the console never computes it (ADR 3) |
 | Envelope metadata                      | adapter version, sequence, vendor timestamp, received timestamp, schema version                                       |
-| Declared capabilities, non-core        | `dock`, `lidarHealth`, `waterLevel`, and others by vendor                                                             |
+| Declared capabilities, operator        | `dock`, `lidarHealth`, `waterLevel`, and others by vendor — the set that earns a panel in § 3                         |
+| Declared capabilities, diagnostic      | `sequence` — declared like a capability, rendered under Diagnostics on the technician surface only (ADR 19)           |
 | Raw payload                            | Served only on `GET /api/robots/:id` as a separate field. Never in `GET /api/fleet` and never in the delta stream.    |
 
 Vendor A and Vendor B declare `dock` and `lidarHealth`. Vendor C declares `dock` and `waterLevel` and omits `lidarHealth`. That difference is the demonstration.
@@ -130,7 +133,7 @@ Vendor A and Vendor B declare `dock` and `lidarHealth`. Vendor C declares `dock`
 **Annotations**
 
 - Section 01 carries core fields only, and renders identically for every robot from every vendor.
-- Section 02 renders declared non-core capabilities only. This is the section that differs by vendor, which is the whole demonstration.
+- Section 02 renders the robot's declared **operator** capabilities only — the set `@fleet/contracts` classifies that way in `CAPABILITY_KINDS` (ADR 19), not every non-core key. `sequence` is declared but diagnostic, so it appears in § 5's Diagnostics and never here. This is the section that differs by vendor, which is the whole demonstration.
 - Health is its own field rather than a qualifier appended to status, because health severity and vendor status are separate facts in the envelope.
 - Position is map-frame with the frame named, matching the raw payload the technician view shows. Indoor service robots do not report geodetic coordinates.
 - No command controls. A button reporting success it cannot verify is the exact failure this project argues against.
