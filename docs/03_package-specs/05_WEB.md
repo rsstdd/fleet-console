@@ -32,9 +32,20 @@ Two non-responsibilities are absolute:
 Named `web`, not `@fleet/web`: it is a Vite application, not a workspace library. It has
 no `exports` map and nothing imports it (ADR 9 § Constraints).
 
-May import `@fleet/contracts`. May **not** import `@fleet/server` or `@fleet/adapters` —
-the canonical envelope arrives over the wire already decoded, and reaching for an adapter
-would mean the console had started interpreting vendor data.
+May import `@fleet/contracts`. May **not** import `@fleet/server` — the canonical
+envelope arrives over the wire already decoded, and reaching for the server would mean the
+console had started interpreting vendor data.
+
+`@fleet/adapters` is a narrower case than a flat ban. It is a **devDependency**, banned
+package-wide in production code by `no-restricted-imports`, with the ban lifted only for
+test files that join a raw vendor fixture to the browser read model. Both the legal test
+import and the illegal production import have enforcement fixtures under
+`entities/robot/__boundary-violation__/`.
+
+This arrangement is **not yet ratified**: it is decision **D3** in
+`docs/PENDING_ARCHITECTURE_DECISIONS.md`, which records it as partially implemented — the
+dependency, the ban, the test override and the fixtures exist; the joining test and the
+adapters testing export do not. Do not treat it as settled architecture.
 
 ## 3. Public API
 
@@ -46,17 +57,33 @@ than conventional — see § 7.
 
 ## 4. Internal structure
 
-Feature-sliced (ADR 4). The dependency rule:
+Feature-sliced (ADR 4). The dependency rule, stated exactly as
+`eslint-plugin-boundaries` enforces it rather than as the informal summary:
 
-```
-app       → may import anything
-features  → may import entities, shared, config
-entities  → may import shared, config
-shared    → imports nothing above it
-config    → imports nothing above it
-```
+| From         | May import                                                       |
+| ------------ | ---------------------------------------------------------------- |
+| `app`        | everything, plus external                                        |
+| `feature`    | **its own feature only**, entity, shared-ui, shared-lib, config  |
+| `entity`     | **its own entity only**, **shared-lib only**, external           |
+| `shared-ui`  | shared-ui, external                                              |
+| `shared-lib` | shared-lib, external                                             |
+| `config`     | config, external                                                 |
+| `test`       | everything, plus external                                        |
 
-**No feature may import another feature.**
+Three consequences the informal "entities → shared" summary hides, each load-bearing:
+
+- **`entity` may import `shared-lib` but not `shared-ui`.** That is what keeps JSX and MUI
+  out of the entity layer, which is in turn what lets the capability-to-panel mapping be
+  tested as pure domain logic (ADR 4).
+- **`entity` may not import `config`.** A selector that read tenant configuration would
+  make a domain rule vary by deployment.
+- **Same-slice only.** `features/fleet` may not import `features/robot`, and
+  `entities/robot` may not import `entities/site`. The `captured` matcher in the policy is
+  what makes the second half of that true; a rule allowing `entity → entity` generally
+  would let the two entities grow a cycle.
+
+The default is `disallow`, so a new layer is denied until someone writes its policy — the
+opposite of a default-allow list where an omission silently permits.
 
 | Directory            | Contents                                            | Forbidden                                  |
 | -------------------- | --------------------------------------------------- | ------------------------------------------ |
