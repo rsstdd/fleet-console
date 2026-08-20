@@ -50,9 +50,9 @@ Tests may additionally import recorded payloads from the public
 `FIXTURE_RECORDING`; payloads remain `unknown`, and no adapter or schema behaviour belongs
 on this surface. Production consumers must ban both `@fleet/adapters` and its subpaths.
 
-**Vendor adapters** — `createVendorAAdapter`, `createVendorBAdapter`, and
-`createVendorCAdapter`, each built over a caller-owned `UnknownFieldLedger` and returning
-the common two-argument `VendorAdapter` function.
+**Dispatch** — `createAdapterRegistry`. Individual vendor factories and schemas are
+private; tests colocated with a vendor may import its factory internally, while production
+consumers receive only the exhaustive registry and cannot bypass its shared ledger.
 
 **Result** — `ok`, `failure`, `isOk`, `issuesForKind`. Types: `AdapterResult`, `AdapterOk`,
 `AdapterFailure`, `AdapterError`, `AdapterErrorKind`.
@@ -240,8 +240,8 @@ ADR 1 § Constraints is explicit that one fixture per vendor is a smoke test rat
 proof of the entire mapping, and asks for at least one boundary or malformed case per
 vendor where time allows.
 
-199 tests today, covering core behavior, fixtures, all three vendor contracts, cross-vendor
-source tracing, registry dispatch, and enforcement.
+201 tests today, covering core behavior, fixtures, all three vendor contracts, cross-vendor
+source tracing, registry dispatch, public-surface enforcement, and boundary enforcement.
 
 ## 11. Implementation status
 

@@ -167,7 +167,7 @@ Verified 20 August 2026, from `packages/adapters`, after all three vendor adapte
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 13 files, 199 tests     |
+| `pnpm test`      | passes — 14 files, 201 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -466,8 +466,38 @@ cannot drift.
       from outside the vendor modules, because the registry is what the health endpoint
       reads and a reordering inside one adapter would change the population that number
       covers without touching anything server-side.
-- [ ] **C9 — Export surface.** Re-export from `src/index.ts` only. Adding a vendor means
-      one directory plus one registry line; it never means touching the canonical model.
+- [x] **C9 — Export surface. CLOSED 20 August 2026.** Production consumers import from
+      `src/index.ts` only, and `package.json` exposes no vendor subpath. The root exports
+      `createAdapterRegistry`, not the three vendor factories or schemas, so adding a
+      vendor changes its directory, the supported-vendor authority and the registry branch
+      without adding another public export — and never touches the canonical model.
+      `src/index.test.ts` pins the complete runtime name set and independently rejects
+      factory/schema-shaped exports, so an accidental public vendor API fails before a
+      downstream consumer can depend on it. Per-vendor contract tests remain free to import
+      their colocated factory internally; that is not a package contract and cannot bypass
+      the registry from another workspace package.
+      **The adapter-authoring helpers came out too.** `createUnknownFieldLedger`,
+      `noteAcceptedPayload`, `knownFieldPaths`, `findUnknownFieldPaths`, and the
+      `UnknownFieldLedger`, `AcceptedPayloadNote` and `VendorAdapter` types were public and
+      are not any more. Since C8 the registry owns the only ledger a process may have, so a
+      consumer holding the constructor has nothing public to give it to — an export that
+      cannot be used correctly. The tally types stay: `UnknownFieldSnapshot` is what ADR 25's
+      health response serves. No consumer used any of the removed names, and all five
+      packages typecheck unchanged.
+      **The vendor-addition cost was measured, not asserted.** Adding `"D"` to
+      `SupportedVendor` and typechecking every package: **three files fail to compile, all
+      three in this package** — `src/registry.ts` (the switch), `src/core/unknownFields.ts`
+      (the snapshot literal) and `src/testing/fixtures.ts` (the two fixture registries). So
+      "one directory plus one registry line" undercounts by two, and both are deliberate:
+      each literal is written out per vendor precisely so a gap is a compile error rather
+      than a missing key, which `unknownFields.ts` already says in a comment.
+      **"Never touches the canonical model" holds, and is stronger than written.** Not one
+      file in `packages/contracts` fails, at compile time or test time, and neither does any
+      source file in server, simulator or web. Their _tests_ fail, which is the point: 10 in
+      adapters, 3 in the simulator (no producer for D), 2 in the server (`fleetManifest`,
+      `selectIngestVendor`) and 1 in web (no recorded fixture). An unbacked vendor cannot
+      reach production quietly — refused at compile time here, named at test time in four
+      packages.
 
 ---
 
