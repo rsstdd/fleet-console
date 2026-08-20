@@ -2,7 +2,20 @@ import { WebSocket } from "ws";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createHttpApp } from "./createApp.ts";
+import { createAdapterRegistry } from "@fleet/adapters";
+
+import { HealthMetrics } from "../health/healthMetrics.ts";
 import { encodeFleetSnapshot } from "./fleetResponse.ts";
+import { encodeHealthResponse } from "./healthResponse.ts";
+
+/** Zeroed health: these cases are about routing and policy, not about counters. */
+const readHealth = (): ReturnType<typeof encodeHealthResponse> =>
+  encodeHealthResponse({
+    metrics: new HealthMetrics().snapshot(),
+    unknownFields: createAdapterRegistry().unknownFields(),
+    sequenceByVendor: {},
+    capturedAt: 0,
+  });
 
 /** No robot: these cases are about routing and policy, not about state. */
 const readRobot = (): null => null;
@@ -38,7 +51,7 @@ describe("startListener", () => {
 
   async function start(allowedOrigins: readonly string[] = []): Promise<RunningListener> {
     listener = await startListener({
-      app: createHttpApp({ allowedOrigins, readFleet, readRobot, ingest }),
+      app: createHttpApp({ allowedOrigins, readFleet, readRobot, readHealth, ingest }),
       host: "127.0.0.1",
       port: 0,
     });
@@ -123,7 +136,7 @@ describe("startListener", () => {
     // socket is still held is exactly the shutdown bug that leaves `pnpm dev` unable to
     // restart.
     const rebound = await startListener({
-      app: createHttpApp({ allowedOrigins: [], readFleet, readRobot, ingest }),
+      app: createHttpApp({ allowedOrigins: [], readFleet, readRobot, readHealth, ingest }),
       host: "127.0.0.1",
       port,
     });

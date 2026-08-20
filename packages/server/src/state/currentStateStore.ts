@@ -191,13 +191,21 @@ export class CurrentStateStore {
    * robot* missed readings (ADR 25). An adapter is `{ evaluated: false }` if any of its
    * robots is, because one unordered robot means the dialect's ordering cannot be relied
    * on for the rollup's question.
+   *
+   * Keyed by `vendorId` (`A`), not `adapterId` (`vendor-a`), settling ADR 30's open
+   * question about the health response's identifier space. Two reasons: the registry's
+   * unknown-field ledger is already `Record<SupportedVendor, …>`, so any other key here
+   * would force the health handler to re-key one of its two sources; and the question this
+   * rollup answers is about a *dialect*, which is what a vendor id names — an adapter id
+   * names the software that decodes it, and two adapter versions for one dialect must not
+   * split the answer.
    */
-  sequenceByAdapter(): Record<string, SequenceHealth> {
+  sequenceByVendor(): Record<string, SequenceHealth> {
     const rollup: Record<string, SequenceHealth> = {};
     for (const slot of this.#robots.values()) {
       if (!isObserved(slot.state) || slot.sequenceHealth === null) continue;
-      rollup[slot.state.adapterId] = mergeSequenceHealth(
-        rollup[slot.state.adapterId],
+      rollup[slot.state.vendorId] = mergeSequenceHealth(
+        rollup[slot.state.vendorId],
         slot.sequenceHealth,
       );
     }

@@ -8,6 +8,7 @@ import { createAdapterRegistry } from "@fleet/adapters";
 
 import { createHttpApp } from "./http/createApp.ts";
 import { encodeFleetSnapshot } from "./http/fleetResponse.ts";
+import { encodeHealthResponse } from "./http/healthResponse.ts";
 import { encodeRobotDetail } from "./http/robotResponse.ts";
 import { startListener } from "./http/listener.ts";
 import type { Logger } from "./observability/logger.ts";
@@ -58,8 +59,9 @@ export interface RunningServer {
  * deployed is the failure Principle 13 names — and a line proving *which* policy is live is
  * how that claim survives contact with a deployment.
  *
- * `routes` counts what is mounted: `POST /api/telemetry/:vendor`, `GET /api/fleet` and
- * `GET /api/robots/:id`. The health read is still 404 (`TODO.md` **G3**). A server
+ * `routes` counts what is mounted: `POST /api/telemetry/:vendor`, `GET /api/fleet`,
+ * `GET /api/robots/:id` and `GET /api/health`. Only the history read for the sparkline is
+ * outstanding (`TODO.md` **G4**), and its shape is undecided. A server
  * answering 404 for a reason is different from one answering 404 because it is broken,
  * and only the log can tell an operator which they have.
  *
@@ -141,6 +143,13 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
           sequenceHealth: store.sequenceHealth(robotId),
         });
       },
+      readHealth: () =>
+        encodeHealthResponse({
+          metrics: health.snapshot(),
+          unknownFields: registry.unknownFields(),
+          sequenceByVendor: store.sequenceByVendor(),
+          capturedAt: clock.now(),
+        }),
       ingest: {
         apply: (vendor, raw) => ingestTelemetry(ingestDependencies, vendor, raw),
         noteUnsupportedVendor: () => {
@@ -163,7 +172,7 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
     allowedOrigins: endpoints.allowedOrigins.length,
     robots: configuration.manifest.robots.length,
     freshness: configuration.freshness,
-    routes: 3,
+    routes: 4,
   });
 
   // Started after the listener, so a sweep never runs against a server that failed to

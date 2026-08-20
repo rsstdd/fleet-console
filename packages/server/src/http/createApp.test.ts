@@ -3,11 +3,24 @@ import { describe, expect, it } from "vitest";
 import { SCHEMA_VERSION } from "@fleet/contracts";
 
 import { createHttpApp } from "./createApp.ts";
+import { createAdapterRegistry } from "@fleet/adapters";
+
+import { HealthMetrics } from "../health/healthMetrics.ts";
 import { encodeFleetSnapshot } from "./fleetResponse.ts";
+import { encodeHealthResponse } from "./healthResponse.ts";
 
 /** An empty fleet: these cases are about the policy and the routes, not about state. */
 const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
   encodeFleetSnapshot({ robots: [], capturedAt: 0, flushSequence: 0 });
+
+/** Zeroed health: these cases are about routing and policy, not about counters. */
+const readHealth = (): ReturnType<typeof encodeHealthResponse> =>
+  encodeHealthResponse({
+    metrics: new HealthMetrics().snapshot(),
+    unknownFields: createAdapterRegistry().unknownFields(),
+    sequenceByVendor: {},
+    capturedAt: 0,
+  });
 
 /** No robot: these cases are about routing and policy, not about state. */
 const readRobot = (): null => null;
@@ -29,7 +42,13 @@ const ingest = {
  */
 describe("createHttpApp", () => {
   const ALLOWED = "https://console.example.com";
-  const app = createHttpApp({ allowedOrigins: [ALLOWED], readFleet, readRobot, ingest });
+  const app = createHttpApp({
+    allowedOrigins: [ALLOWED],
+    readFleet,
+    readRobot,
+    readHealth,
+    ingest,
+  });
 
   it("echoes an allowed origin on a response no route produced", async () => {
     // The 404 path specifically: a browser has to be able to read the failure, so the
@@ -58,7 +77,7 @@ describe("createHttpApp", () => {
   });
 
   it("grants nothing at all when the allow-list is empty", async () => {
-    const closed = createHttpApp({ allowedOrigins: [], readFleet, readRobot, ingest });
+    const closed = createHttpApp({ allowedOrigins: [], readFleet, readRobot, readHealth, ingest });
 
     const response = await closed.request("/api/nothing", { headers: { origin: ALLOWED } });
 
@@ -98,7 +117,13 @@ describe("createHttpApp", () => {
   });
 
   it("reveals nothing about a thrown error", async () => {
-    const throwing = createHttpApp({ allowedOrigins: [], readFleet, readRobot, ingest });
+    const throwing = createHttpApp({
+      allowedOrigins: [],
+      readFleet,
+      readRobot,
+      readHealth,
+      ingest,
+    });
     throwing.get("/boom", () => {
       throw new Error('robot-7 payload: {"secret":"vendor-internal"}');
     });

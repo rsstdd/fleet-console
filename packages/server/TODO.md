@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 23 files, 153 tests     |
+| `pnpm test`      | passes — 24 files, 158 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -52,6 +52,7 @@ packages/server/
     ├── observability/logger.ts     one JSON object per line on stdout (I1, part)
     ├── http/fleetResponse.ts       server state translated into the wire snapshot (G1)
     ├── http/robotResponse.ts       one robot plus the raw payload only this route serves (G2)
+    ├── http/healthResponse.ts      three scopes joined without being blurred (G3)
     ├── ingest/ingestTelemetry.ts   one reading, untrusted bytes to fleet state (D0-D9)
     ├── runServer.ts                decoded configuration in, a running server out
     ├── main.ts                     the process: real env, real paths, real signals
@@ -66,9 +67,10 @@ repository-root configuration, binds loopback, announces the policy and roster i
 actually running, serves `GET /api/fleet` with all fifty manifest robots as UNKNOWN, and
 shuts down on a signal, runs the ADR 3 freshness sweep on its own interval, and **accepts
 telemetry** at `POST /api/telemetry/:vendor`, **serves one robot with its raw payload** at
-`GET /api/robots/:id`, and **fans coalesced deltas out over `/ws`** — verified by running
-it: a live console received `R-001:live` then `R-001:stale`, the second from the sweep
-alone. `GET /api/health` is the last route, and it is blocked on ADR 30.
+`GET /api/robots/:id`, **reports operational health** at `GET /api/health`, and **fans
+coalesced deltas out over `/ws`** — verified by running it: a live console received
+`R-001:live` then `R-001:stale`, the second from the sweep alone. Only the history read for
+the sparkline (**G4**) is unmounted, and its shape is undecided.
 
 On the four earliest pieces, whose reasoning is worth keeping:
 
@@ -129,10 +131,10 @@ consequences records the repository already making that mistake once.
       half is proven the moment the first server ingest test imports the subpath (**L4**):
       if the exception were wrong, that test would fail to lint. Until then it is an
       unwatched rule, which ADR 7 says is indistinguishable from no rule.
-- [x] **A5 — [adapters] The registry-owned unknown-field ledger exists.** The registry
-      owns one process tally. Health serialization remains deferred under **G3** because
-      ADR 30 has not selected `SupportedVendor` versus software `adapterId` as the response
-      key.
+- [x] **A5 — [adapters] The registry-owned unknown-field ledger exists, and is now
+      served.** The registry owns one process tally. ADR 30's identifier-space question is
+      closed as of 20 August 2026 — `byAdapter` is keyed by vendor id — and the health
+      route serves the ledger with its scope carried as data (**G3**).
 
 ---
 
@@ -467,10 +469,24 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
 - [x] **G7 — Read models are canonical types. Done with G2** — both branches of the
       response are `@fleet/contracts` shapes, and no adapter type is reachable from a
       handler (lint enforces the second half).
-- [ ] **G3 — `GET /api/health`** — malformed-ingest count, unsupported-vendor count,
-      adapter failures, per-adapter unknown fields, WebSocket connection and flush
-      health, late freshness ticks. Label the unknown-field count per-adapter; presenting
-      a per-adapter counter as a per-robot fact is called out in both ADR 1 and AGENTS.md.
+- [x] **G3 — `GET /api/health`. Done 20 August 2026, and ADR 30's key space is settled.**
+      `encodeHealthResponse` in `src/http/healthResponse.ts` joins three counters kept at
+      three scopes by three components: process-scope `malformedIngest` and
+      `unsupportedVendors` from `HealthMetrics`, the per-adapter unknown-field ledger from
+      the registry, and per-dialect continuity folded by the store (**D6a**). `byAdapter` is
+      keyed by **vendor id** (`A`), ratifying ADR 30's stated lean on the event that ADR
+      named as its resolver; `CurrentStateStore.sequenceByAdapter` was renamed
+      `sequenceByVendor` and rekeyed in the same change, so the join has one identifier
+      space throughout rather than a re-key in the middle of it. Every supported vendor
+      appears even before it has reported, because an absent key reads as "no such adapter"
+      rather than "nothing yet". A vendor with no readings is `{ evaluated: false }`, never
+      `{ evaluated: true, gaps: 0 }`, which would assert a measurement nobody made. The
+      unknown-field scope travels as data, so the console renders its caveat from the value
+      (**A5**, ADR 25). **Verified by running it:** after one accepted vendor C payload,
+      one rejected vendor A payload and one unsupported-vendor request, the response showed
+      `malformedIngest: 1`, `unsupportedVendors: 1`, vendor A with `failures: 1` and a flat
+      ledger, and vendor C with `telemetry.firmware_channel: 1` and no failures — the exact
+      pairing ADR 15 says a total would erase, now observable rather than argued.
 - [ ] **G4 — History endpoint for the sparkline.** Decide whether history rides on
       `GET /api/robots/:id` or a separate `GET /api/robots/:id/history`.
       _Recommendation:_ separate — the detail view's freshness and summary update on the
@@ -795,7 +811,7 @@ is missing is everything that needs a socket.
 3. Ingest stamps `receivedAt` from the injected clock, dispatches through the adapter registry, and rejects malformed input with a counted, defined error. **Done 20 August 2026** (**D0**-**D5**, **D8**, **D9**), verified against a running process for the valid, unsupported-vendor, non-JSON and oversized cases.
 4. Current state is seeded from the manifest, so a robot that has never reported reads UNKNOWN rather than being absent. **Done 20 August 2026** — `startServer` builds the store from `configuration.manifest.robots`, and `GET /api/fleet` serves all fifty committed robots as UNKNOWN.
 5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta. **Done 20 August 2026, verified against a live socket:** a console connected to `/ws` received frame 1 with `R-001:live` after ingest and frame 2 with `R-001:stale` from the sweep alone, and `GET /api/fleet` then reported flush sequence 2 from the same counter.
-6. Late ticks, malformed ingest, unsupported vendors and per-adapter unknown fields are all visible on `GET /api/health`, each at its true scope.
+6. Late ticks, malformed ingest, unsupported vendors and per-adapter unknown fields are all visible on `GET /api/health`, each at its true scope. **Done 20 August 2026** (**G3**), verified against a running process.
 7. No raw vendor payload appears in a fleet response, a delta, or history — asserted by a test, not by inspection. **Done 20 August 2026** — the types carry the exclusion, `GET /api/robots/:id` is the only route that reads it, and a running server was checked for `rawPayload` in the fleet response.
 8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps. **Done 20 August 2026** (**D6**, **D6a**) — the store refuses both, counts readings missing and duplicates per robot, folds the per-adapter rollup from those, and reports a counterless dialect as not-evaluated. One reporting gap remains and is deferred under **D6a**: a regressive arrival has no term in `SequenceHealth`.
 9. The demo script's steps 4 and 5 are both reproducible: three `--drop` robots degrade while the rest stay LIVE, and killing the stream produces a connection-level state rather than per-robot degradation.

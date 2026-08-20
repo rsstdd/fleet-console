@@ -6,6 +6,8 @@ import { selectIngestVendor } from "../ingest/selectVendor.ts";
 import type { SupportedVendor } from "@fleet/adapters";
 
 import type { IngestOutcome } from "../ingest/ingestTelemetry.ts";
+import type { HealthResponse } from "@fleet/contracts";
+
 import type { FleetSnapshotWire } from "./fleetResponse.ts";
 import type { RobotDetailWire } from "./robotResponse.ts";
 import { evaluateOriginPolicy } from "./originPolicy.ts";
@@ -47,6 +49,8 @@ export interface HttpAppOptions {
   readonly readFleet: () => FleetSnapshotWire;
   /** Produces one robot's detail body, or null when the manifest never registered it. */
   readonly readRobot: (robotId: string) => RobotDetailWire | null;
+  /** Produces the operational health body, joined from the components that count. */
+  readonly readHealth: () => HealthResponse;
   /** The ingest side of the surface: one transition plus the two refusals it never sees. */
   readonly ingest: IngestPort;
 }
@@ -181,6 +185,11 @@ export function createHttpApp(options: HttpAppOptions): Hono {
     }
     return c.json(robot);
   });
+
+  // Unauthenticated by decision, like the rest of this surface (**K4**). It exposes
+  // counters and no telemetry, so nothing here widens what `GET /api/robots/:id` already
+  // serves without an access rule.
+  app.get("/api/health", (c) => c.json(options.readHealth()));
 
   app.notFound((c) => {
     const { status, body } = errorResponse("not_found");

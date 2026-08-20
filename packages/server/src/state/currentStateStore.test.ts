@@ -220,7 +220,7 @@ describe("CurrentStateStore sequence continuity", () => {
     expect(new CurrentStateStore(MANIFEST).sequenceHealth("rbt-1")).toBeNull();
   });
 
-  it("folds the per-robot values into one entry per adapter", () => {
+  it("folds the per-robot values into one entry per vendor dialect", () => {
     // ADR 25: the rollup answers "is this dialect ordered at all", a different question
     // from "did this robot miss readings", and neither substitutes for the other.
     const store = new CurrentStateStore(MANIFEST);
@@ -228,9 +228,9 @@ describe("CurrentStateStore sequence continuity", () => {
     store.upsert(reading("rbt-1", "A", "vendor-a"), null, 3);
     store.upsert(reading("rbt-2", "B", "vendor-b"), null, null);
 
-    expect(store.sequenceByAdapter()).toStrictEqual({
-      "vendor-a": { evaluated: true, gaps: 1, duplicates: 0 },
-      "vendor-b": { evaluated: false },
+    expect(store.sequenceByVendor()).toStrictEqual({
+      A: { evaluated: true, gaps: 1, duplicates: 0 },
+      B: { evaluated: false },
     });
   });
 });

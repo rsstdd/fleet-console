@@ -70,6 +70,7 @@ src/
   http/fleetResponse        server state translated into the wire snapshot (not serialized)
   ingest/ingestTelemetry    one reading, untrusted bytes to fleet state
   http/robotResponse        one robot plus the raw payload only this route serves
+  http/healthResponse       three counting scopes joined without being blurred
   runServer.ts              decoded configuration in, a running server out
   main.ts                   the process: real environment, real paths, real signals
   __boundary-violation__/   deliberate lint violations that prove the rules fire
@@ -81,7 +82,7 @@ a route segment, a header or a byte count, decided before anything reads a body,
 ordering guarantees are properties of the signatures rather than rules a handler has to
 remember (ADR 8 § Observed consequences).
 
-Planned and not yet present: the health read.
+Planned and not yet present: the history read for the sparkline.
 
 ## 5. Contracts owned and consumed
 
@@ -259,7 +260,8 @@ configuration loaders are covered.
 validation, the current-state store with manifest seeding, the bounded ring buffer, the
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
-**Not built:** the health read, and backpressure on a console that stops reading. The server **runs, sweeps, ingests, serves
+**Not built:** the history read for the sparkline, whose shape is undecided, and
+backpressure on a console that stops reading. The server **runs, sweeps, ingests, serves
 the fleet read and fans deltas out over `/ws`**:
 `http/createApp` routes with the cross-origin policy mounted, `http/listener` binds it and
 `/ws` to one port with an ordered shutdown, `main.ts` composes them from repository-root
@@ -286,9 +288,10 @@ second time — and ADR 11 resolved fixture access through a test-file exception
 `@fleet/adapters/testing` alone, enforced in `packages/server/eslint.config.js` and probed
 by `src/__boundary-violation__/adapterTestingSubpath.ts`.
 
-Health composition is intentionally deferred: ADR 30 has not selected whether
-`healthResponseSchema.byAdapter` is keyed by `SupportedVendor` (`A`) or software
-`adapterId` (`vendor-a`). A handler must not decide that open question locally.
+Health composition landed 20 August 2026. ADR 30's identifier-space question is closed:
+`healthResponseSchema.byAdapter` is keyed by vendor id (`A`), because the registry's ledger
+already is and because the column answers questions about a dialect rather than about the
+software that decodes it.
 
 This is the remaining gap on the critical path. Consequences today:
 
