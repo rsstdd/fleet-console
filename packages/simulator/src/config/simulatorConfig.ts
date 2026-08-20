@@ -43,7 +43,14 @@ export const DEFAULTS = {
   shutdownDeadlineMs: 2000,
 } as const;
 
-/** Highest per-robot rate accepted; beyond this the simulator, not the server, is what is measured. */
+/**
+ * Highest per-robot rate accepted; beyond this the simulator, not the server, is
+ * what is measured.
+ *
+ * The server sizes its battery-history retention to this ceiling
+ * (`MAX_SOURCE_RATE_HZ` in packages/server, ADR 33); raising it without raising
+ * that constant silently shortens the history window the contract promises.
+ */
 export const MAX_HZ = 50;
 
 /** Fully validated configuration for one simulator run. */

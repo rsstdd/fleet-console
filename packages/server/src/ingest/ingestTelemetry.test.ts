@@ -7,6 +7,7 @@ import type { CanonicalEnvelope } from "@fleet/contracts";
 import { ADR3_BASELINE_FRESHNESS_POLICY } from "../config/freshnessPolicy.ts";
 import { PendingDeltaSet } from "../fanout/pendingDeltas.ts";
 import { HealthMetrics } from "../health/healthMetrics.ts";
+import { createJsonLogger } from "../observability/logger.ts";
 import { manualClock } from "../runtime/clock.ts";
 import { CurrentStateStore, type ManifestRobot } from "../state/currentStateStore.ts";
 import { ingestTelemetry, type IngestDependencies } from "./ingestTelemetry.ts";
@@ -44,15 +45,26 @@ describe("ingestTelemetry", () => {
   /** The concrete set behind `dependencies.deltas`, which the interface deliberately hides. */
   let deltas: PendingDeltaSet<CanonicalEnvelope>;
   let clock: ReturnType<typeof manualClock>;
+  let logLines: string[];
+
+  function vendorAWithSequence(sequence: number): unknown {
+    const payload = structuredClone(loadVendorFixture("A").payload);
+    if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
+      throw new Error("Recorded vendor A fixture is no longer an object.");
+    }
+    return { ...payload, seq: sequence };
+  }
 
   beforeEach(() => {
     clock = manualClock(RECEIVED_AT);
     deltas = new PendingDeltaSet<CanonicalEnvelope>();
+    logLines = [];
     dependencies = {
       registry: createAdapterRegistry(),
       store: new CurrentStateStore(manifestFromFixtures()),
       deltas,
       health: new HealthMetrics(),
+      logger: createJsonLogger((line) => logLines.push(line)),
       clock,
       policy: ADR3_BASELINE_FRESHNESS_POLICY,
     };
@@ -89,6 +101,47 @@ describe("ingestTelemetry", () => {
 
     expect(repeat).toMatchObject({ ok: true, disposition: "duplicate" });
     expect(deltas.isEmpty).toBe(true);
+    expect(logLines).toEqual([]);
+  });
+
+  it("logs one safe event for a regression without changing accepted data or counters", () => {
+    const accepted = vendorAWithSequence(5);
+    const rejected = vendorAWithSequence(4);
+
+    expect(ingestTelemetry(dependencies, "A", accepted)).toMatchObject({
+      ok: true,
+      disposition: "accepted",
+    });
+    deltas.drain();
+    const stateBefore = dependencies.store.get("R-001");
+    const diagnosticBefore = dependencies.store.diagnostic("R-001");
+    const historyBefore = dependencies.store.batteryHistory("R-001");
+    const healthBefore = dependencies.health.snapshot();
+    const sequenceHealthBefore = dependencies.store.sequenceHealth("R-001");
+
+    clock.advance(250);
+    expect(ingestTelemetry(dependencies, "A", rejected)).toMatchObject({
+      ok: true,
+      disposition: "out-of-order",
+    });
+
+    expect(logLines).toHaveLength(1);
+    expect(JSON.parse(logLines[0] ?? "{}")).toStrictEqual({
+      level: "warn",
+      event: "telemetry.sequence_regression",
+      robotId: "R-001",
+      vendorId: "A",
+      adapterId: "vendor-a",
+      acceptedSequence: 5,
+      receivedSequence: 4,
+      receivedAt: RECEIVED_AT + 250,
+    });
+    expect(dependencies.store.get("R-001")).toBe(stateBefore);
+    expect(dependencies.store.diagnostic("R-001")).toStrictEqual(diagnosticBefore);
+    expect(dependencies.store.batteryHistory("R-001")).toStrictEqual(historyBefore);
+    expect(dependencies.store.sequenceHealth("R-001")).toStrictEqual(sequenceHealthBefore);
+    expect(dependencies.health.snapshot()).toStrictEqual(healthBefore);
+    expect(deltas.isEmpty).toBe(true);
   });
 
   it("records vendor B as sequence-not-evaluated rather than as zero gaps", () => {
@@ -98,6 +151,7 @@ describe("ingestTelemetry", () => {
     const robotId = ingest("B").ok ? dependencies.store.observed()[0]?.robotId : undefined;
 
     expect(dependencies.store.sequenceHealth(robotId ?? "")).toStrictEqual({ evaluated: false });
+    expect(logLines).toEqual([]);
   });
 
   it("rejects a malformed payload with the adapter's own issues, and counts it", () => {
@@ -112,6 +166,7 @@ describe("ingestTelemetry", () => {
     expect(outcome.response.body.error.issues.length).toBeGreaterThan(0);
     expect(dependencies.health.snapshot().malformedIngest).toBe(1);
     expect(dependencies.store.observed()).toHaveLength(0);
+    expect(logLines).toEqual([]);
   });
 
   it("counts unknown fields on the registry's ledger, not per robot", () => {

@@ -315,4 +315,72 @@ describe("RobotDetailPage", () => {
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByRole("link", { name: "Back to fleet" })).toHaveAttribute("href", "/");
   });
+
+  it("shows battery history to the operator, directly after Summary", async () => {
+    await renderRobot("R-118");
+
+    const section = await screen.findByRole("region", { name: "Battery history" });
+    expect(
+      await within(section).findByRole("img", { name: /battery history for R-118/i }),
+    ).toBeInTheDocument();
+    // After Summary, before Capabilities: the spec's section order (ADR 33).
+    const names = screen
+      .getAllByRole("region")
+      .map((region) => region.getAttribute("aria-labelledby"));
+    expect(names.indexOf("section-battery-history")).toBeGreaterThan(
+      names.indexOf("section-summary"),
+    );
+    expect(names.indexOf("section-battery-history")).toBeLessThan(
+      names.indexOf("section-capabilities"),
+    );
+  });
+
+  it("keeps the page standing when the history request fails, with an inline retry", async () => {
+    vi.stubGlobal("fetch", createFixtureFetch({ historyFails: true }));
+    await renderRobot("R-118");
+
+    // The page's own data is untouched by the section's failure.
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Robot R-118");
+    expect(screen.getByRole("region", { name: "Summary" })).toBeInTheDocument();
+    const section = screen.getByRole("region", { name: "Battery history" });
+    expect(
+      await within(section).findByText(/battery history could not be loaded/i),
+    ).toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Retry" })).toBeInTheDocument();
+
+    // Retry, against a now-working stub, recovers the section in place.
+    vi.stubGlobal("fetch", createFixtureFetch());
+    await userEvent.click(within(section).getByRole("button", { name: "Retry" }));
+    expect(
+      await within(section).findByRole("img", { name: /battery history for R-118/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders a history contract failure terminally, with no retry", async () => {
+    vi.stubGlobal("fetch", createFixtureFetch({ history: { schemaVersion: "999" } }));
+    await renderRobot("R-118");
+
+    const section = screen.getByRole("region", { name: "Battery history" });
+    expect(await within(section).findByText(/battery history is unavailable/i)).toBeInTheDocument();
+    expect(within(section).queryByRole("button", { name: "Retry" })).toBeNull();
+  });
+
+  it("says so when nothing was retained, rather than charting an empty window", async () => {
+    // R-233 has never reported; its history is the contract's empty response.
+    await renderRobot("R-233");
+
+    const section = screen.getByRole("region", { name: "Battery history" });
+    expect(
+      await within(section).findByText(/no telemetry retained in the last 60 seconds/i),
+    ).toBeInTheDocument();
+  });
+
+  it("leaves the technician toggle and its sections untouched by history", async () => {
+    vi.stubGlobal("fetch", createFixtureFetch({ historyFails: true }));
+    await renderRobot("R-118");
+    await showTechnicianView();
+
+    expect(screen.getByRole("region", { name: "Diagnostics" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Raw payload" })).toBeInTheDocument();
+  });
 });

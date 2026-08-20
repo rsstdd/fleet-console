@@ -1,0 +1,195 @@
+import type { ReactNode } from "react";
+import { Alert, Button, Paper, Skeleton, Stack, Typography } from "@mui/material";
+
+import type { RobotBatteryHistory } from "@fleet/contracts";
+
+import type { RobotHistoryState } from "@/entities/robot/useRobotHistory";
+import { DataPlate } from "@/shared/ui/dataPlate";
+
+/**
+ * The battery-history section's body: a fixed-axis inline SVG sparkline over
+ * the contract's 60-second window, with every async and empty state named
+ * (ADR 33, robot detail spec § "Battery history").
+ *
+ * No chart dependency, by decision: sixty points on two fixed axes is a
+ * polyline, and a charting library would bring an animation and interaction
+ * surface this section is required not to have. The x-axis runs from
+ * `capturedAt − windowMs` to `capturedAt` and the y-axis from 0% to 100%,
+ * always — a window with one cluster of points renders that cluster where it
+ * happened, not stretched to fill, so two charts side by side are comparable.
+ *
+ * Every value here is explicitly historical. The section renders identically
+ * while the stream is down, because "the last minute as the server received
+ * it" is a claim about the past that a dead socket does not invalidate — which
+ * is precisely why none of these timestamps feed any freshness display
+ * (Principle 4, ADR 3).
+ */
+
+/** The drawn coordinate space; the SVG scales to its container. */
+const CHART_WIDTH = 600;
+const CHART_HEIGHT = 120;
+
+/** Maps one point onto the fixed axes: window position on x, charge on y. */
+function toCoordinates(
+  point: RobotBatteryHistory["points"][number],
+  history: RobotBatteryHistory,
+): { x: number; y: number } {
+  const windowStart = history.capturedAt - history.windowMs;
+  return {
+    x: ((point.receivedAt - windowStart) / history.windowMs) * CHART_WIDTH,
+    y: (1 - point.batteryPercent / 100) * CHART_HEIGHT,
+  };
+}
+
+/** Formats a percentage for the textual summary; fractions keep one decimal. */
+function percent(value: number): string {
+  return `${Number.isInteger(value) ? String(value) : value.toFixed(1)}%`;
+}
+
+/** The chart with its accessible name, textual summary, and receipt-time caption. */
+function Sparkline({ history }: { readonly history: RobotBatteryHistory }): ReactNode {
+  const values = history.points.map((point) => point.batteryPercent);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const latest = values.at(-1) ?? 0;
+  const coordinates = history.points
+    .map((point) => {
+      const { x, y } = toCoordinates(point, history);
+      return `${String(round(x))},${String(round(y))}`;
+    })
+    .join(" ");
+
+  return (
+    <Stack component="figure" spacing={1.5} sx={{ m: 0 }}>
+      {/*
+        The summary is visible prose, not an sr-only twin of the chart: the
+        extremes and the latest value are what an operator reads a sparkline
+        for, and text serves everyone the polyline serves.
+      */}
+      <Typography variant="body2">
+        Battery over the last {String(history.windowMs / 1_000)} seconds: minimum {percent(minimum)}
+        , maximum {percent(maximum)}, latest {percent(latest)} · {String(history.sourceSampleCount)}{" "}
+        samples retained.
+      </Typography>
+      <svg
+        role="img"
+        aria-label={`Battery history for ${history.robotId}: ${percent(minimum)} to ${percent(maximum)} over the last ${String(history.windowMs / 1_000)} seconds`}
+        viewBox={`0 0 ${String(CHART_WIDTH)} ${String(CHART_HEIGHT)}`}
+        preserveAspectRatio="none"
+        style={{ width: "100%", height: "var(--sparkline-height)", display: "block" }}
+      >
+        {/* The full axis frame, so a cluster of points reads against the whole window. */}
+        <rect
+          x="0"
+          y="0"
+          width={CHART_WIDTH}
+          height={CHART_HEIGHT}
+          fill="none"
+          stroke="var(--line)"
+          vectorEffect="non-scaling-stroke"
+        />
+        <polyline
+          points={coordinates}
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2"
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+      <DataPlate as="figcaption">
+        Server receipt times · 0–100% · window captured at request time
+      </DataPlate>
+    </Stack>
+  );
+}
+
+/** Rounds a coordinate to keep the points attribute readable and stable. */
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** The ready sub-states: empty window, no battery values, one reading, or a chart. */
+function ReadyContent({ history }: { readonly history: RobotBatteryHistory }): ReactNode {
+  const windowSeconds = String(history.windowMs / 1_000);
+
+  if (history.sourceSampleCount === 0) {
+    return (
+      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+        No telemetry retained in the last {windowSeconds} seconds.
+      </Typography>
+    );
+  }
+
+  if (history.points.length === 0) {
+    // Samples arrived and none carried a battery value: a different absence
+    // from silence, and the contract's counts are what let this section say so.
+    return (
+      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+        Battery was not reported in the last {windowSeconds} seconds.
+      </Typography>
+    );
+  }
+
+  const single = history.points.length === 1 ? history.points[0] : undefined;
+  if (single !== undefined) {
+    return (
+      <Typography variant="body2">
+        One reading in the last {windowSeconds} seconds: {percent(single.batteryPercent)}. A trend
+        needs another reading.
+      </Typography>
+    );
+  }
+
+  return <Sparkline history={history} />;
+}
+
+/**
+ * Renders one `RobotHistoryState` exhaustively, inside whatever section frame
+ * the page provides.
+ *
+ * Coupling: `robotDetailPage.tsx` mounts this under its "Battery history"
+ * `Section` and owns the fetch through `useRobotHistory`; this component is
+ * deliberately fetch-free so the full state matrix is testable by construction.
+ */
+export function BatteryHistoryContent({ state }: { readonly state: RobotHistoryState }): ReactNode {
+  switch (state.status) {
+    case "loading":
+      return (
+        <Paper sx={{ p: 3 }} aria-busy="true">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Loading battery history…
+          </Typography>
+          <Skeleton variant="rectangular" height={96} />
+        </Paper>
+      );
+
+    case "error":
+      if (state.recoverable) {
+        // The page around this section stays; only the history degrades.
+        return (
+          <Alert
+            severity="warning"
+            action={
+              <Button color="inherit" size="small" onClick={state.retry}>
+                Retry
+              </Button>
+            }
+          >
+            Battery history could not be loaded. The server did not answer.
+          </Alert>
+        );
+      }
+      return (
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Battery history is unavailable: {state.message}
+        </Typography>
+      );
+
+    case "ready":
+      return (
+        <Paper sx={{ p: 3 }}>
+          <ReadyContent history={state.history} />
+        </Paper>
+      );
+  }
+}

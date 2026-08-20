@@ -21,9 +21,11 @@ import {
   selectStatusPresentation,
 } from "@/entities/robot/selectors";
 import { useRobotDetail, type RobotDetailState } from "@/entities/robot/useRobotDetail";
+import { useRobotHistory } from "@/entities/robot/useRobotHistory";
 
 import { TENANT } from "@/config/tenant";
 
+import { BatteryHistoryContent } from "./batteryHistorySection";
 import { CapabilityPanel } from "./capabilityPanels";
 import { disabledPanelsFor } from "./panelVisibility";
 import { selectSiteLabel } from "@/entities/site/model";
@@ -197,6 +199,21 @@ function SummarySection({ robot }: { readonly robot: RobotDetail }): ReactNode {
 }
 
 /**
+ * The last minute of battery, fetched once per visit as its own resource
+ * (ADR 33). Operator-visible and placed after Summary, per the spec's section
+ * order; its failure degrades this section inline and never blanks the page.
+ */
+function BatteryHistorySection({ robotId }: { readonly robotId: string }): ReactNode {
+  const state = useRobotHistory(robotId, { apiBaseUrl: TENANT.endpoints.apiBaseUrl });
+
+  return (
+    <Section index="02" title="Battery history">
+      <BatteryHistoryContent state={state} />
+    </Section>
+  );
+}
+
+/**
  * Declared non-core capabilities only. An empty declaration renders nothing at
  * all — no heading, no empty grid, no disabled placeholder (spec §10).
  *
@@ -212,7 +229,7 @@ function CapabilitiesSection({ robot }: { readonly robot: RobotDetail }): ReactN
   }
 
   return (
-    <Section index="02" title="Capabilities">
+    <Section index="03" title="Capabilities">
       <Box
         sx={{
           display: "grid",
@@ -238,7 +255,7 @@ function DiagnosticsSection({ robot }: { readonly robot: RobotDetail }): ReactNo
     // Registration names no adapter and no schema version. A row of em dashes
     // would imply the robot reported and said nothing (spec §10).
     return (
-      <Section index="03" title="Diagnostics">
+      <Section index="04" title="Diagnostics">
         <Paper sx={{ p: 3 }}>
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             This robot is registered and has not reported yet. There is nothing for an adapter to
@@ -250,7 +267,7 @@ function DiagnosticsSection({ robot }: { readonly robot: RobotDetail }): ReactNo
   }
 
   return (
-    <Section index="03" title="Diagnostics">
+    <Section index="04" title="Diagnostics">
       <Paper sx={{ p: 3 }}>
         <Stack component="dl" spacing={1.5} sx={{ m: 0 }}>
           <Field label="Adapter" value={`${diagnostics.adapterId} ${diagnostics.adapterVersion}`} />
@@ -292,7 +309,7 @@ function DiagnosticsSection({ robot }: { readonly robot: RobotDetail }): ReactNo
 /** Technician only. States the absence rather than rendering an empty block. */
 function RawPayloadSection({ robot }: { readonly robot: RobotDetail }): ReactNode {
   return (
-    <Section index="04" title="Raw payload">
+    <Section index="05" title="Raw payload">
       <Paper sx={{ p: 3 }}>
         {/*
           States the exposure rather than implying protection (ADR 26). This content is
@@ -366,6 +383,7 @@ function RobotDetailBody({ robot }: { readonly robot: RobotDetail }): ReactNode 
     <>
       <DetailHeader robot={robot} persona={persona} onPersonaChange={setPersona} />
       <SummarySection robot={robot} />
+      <BatteryHistorySection robotId={robot.id} />
       <CapabilitiesSection robot={robot} />
       {persona === "technician" ? (
         <>

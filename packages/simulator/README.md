@@ -45,19 +45,19 @@ pnpm --filter @fleet/simulator start -- --drop R-007,R-023,R-041
 
 ## Options
 
-| Flag                  | Meaning                                  | Default                 |
-| --------------------- | ---------------------------------------- | ----------------------- |
-| `--robots <n>`        | Robots to simulate, 1–5000               | `50`                    |
-| `--hz <n>`            | Emission rate **per robot**, 0 < n ≤ 50  | `1`                     |
-| `--seed <n>`          | Seed for fleet layout and evolution      | `1`                     |
-| `--drop <ids>`        | Robot ids that emit nothing at all       | none                    |
-| `--endpoint <url>`    | Server ingest origin                     | `http://127.0.0.1:8080` |
-| `--timeout <ms>`      | Per-request timeout                      | `2000`                  |
-| `--max-in-flight <n>` | Concurrent request ceiling               | `64`                    |
-| `--retries <n>`       | Bounded retries, retryable outcomes only | `0`                     |
-| `--summary <ms>`      | Interval between structured summaries    | `5000`                  |
-| `--print-manifest`    | Print the fleet roster as JSON and exit  | —                       |
-| `--help`              | Print usage and exit                     | —                       |
+| Flag                  | Meaning                                                                                                       | Default                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `--robots <n>`        | Robots to simulate, 1–5000                                                                                    | `50`                    |
+| `--hz <n>`            | Emission rate **per robot**, 0 < n ≤ 50 (the server sizes battery-history retention to this ceiling — ADR 33) | `1`                     |
+| `--seed <n>`          | Seed for fleet layout and evolution                                                                           | `1`                     |
+| `--drop <ids>`        | Robot ids that emit nothing at all                                                                            | none                    |
+| `--endpoint <url>`    | Server ingest origin                                                                                          | `http://127.0.0.1:8080` |
+| `--timeout <ms>`      | Per-request timeout                                                                                           | `2000`                  |
+| `--max-in-flight <n>` | Concurrent request ceiling                                                                                    | `64`                    |
+| `--retries <n>`       | Bounded retries, retryable outcomes only                                                                      | `0`                     |
+| `--summary <ms>`      | Interval between structured summaries                                                                         | `5000`                  |
+| `--print-manifest`    | Print the fleet roster as JSON and exit                                                                       | —                       |
+| `--help`              | Print usage and exit                                                                                          | —                       |
 
 `FLEET_INGEST_URL` and `FLEET_SIM_SEED` set the endpoint and seed from the
 environment. Precedence is defaults → environment → flags, so a flag in a `dev` script

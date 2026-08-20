@@ -51,8 +51,14 @@ export { RingBuffer } from "./state/ringBuffer.ts";
 export {
   CurrentStateStore,
   HISTORY_CAPACITY,
+  type BatteryHistorySample,
   type CurrentRobotState,
   type ManifestRobot,
   type UnobservedRobotState,
   type UpsertResult,
 } from "./state/currentStateStore.ts";
+
+export {
+  selectBatteryHistory,
+  type SelectBatteryHistoryInput,
+} from "./history/selectBatteryHistory.ts";

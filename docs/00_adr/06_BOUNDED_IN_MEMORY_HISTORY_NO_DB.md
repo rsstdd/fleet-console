@@ -1,7 +1,7 @@
 # ADR 6 — Bounded In-Memory History, No Database
 
 **Decision:** Current robot state and a small bounded ring buffer per robot for history live in memory; there is no database in the server package.
-**Status:** Decided · 2026-08-19 · Partial 2026-08-20
+**Status:** Decided · 2026-08-19 · Implemented (amended by ADR 33, 20 August 2026)
 **Group:** Data / server-side state.
 
 ## Issue
@@ -63,6 +63,19 @@ The point at which persistence becomes necessary is named in Implications rather
   retains 60 canonical observations per robot, enough for a one-minute sparkline at
   the nominal 1 Hz reporting rate while remaining in the "tens of points" budget.
 
+- **20 August 2026 — retention shape and capacity superseded by
+  [ADR 33](./33_BATTERY_HISTORY_RETAINED_COMPACT_AND_SERVED_DECIMATED.md) (D24).** The
+  buffer now holds compact `{receivedAt, batteryPercent | null}` samples, not canonical
+  envelopes, at `HISTORY_CAPACITY = 3_001` per robot — one 60-second contract window at
+  the simulator's validated 50 Hz ceiling, plus one inclusive boundary sample. The
+  1 Hz-sized 60-envelope buffer covered 1.2 seconds at that ceiling, which is a sparkline
+  claiming a minute while holding a second. This ADR's decision — bounded, in memory, no
+  database, rebuildable, cleared on restart — stands unchanged; what moved is the
+  arithmetic. Measured at the design workload: 500 robots × 3,001 samples retain 89.5 MiB
+  (~63 bytes/sample), reported and not gated (ADR 22). The "tens of points" sizing
+  language above now describes the **response** (60 decimated points), which is the read
+  path's budget, rather than the retention that feeds it.
+
 - **19 August 2026 — the separate retention question this ADR named is now answered.**
   § Constraints said the raw payload "is a separate retention question from the history
   ring buffer" and deliberately left it open.
@@ -88,10 +101,10 @@ The point at which persistence becomes necessary is named in Implications rather
 - Principle 12 — performance budgets are product behaviour, and the in-memory path keeps the ingest measurement legible.
 - Principle 10 — tests prove behaviour at the cheapest reliable boundary; simple memory structures are pure unit tests.
 - Principle 14 (the repository is operable by agents and auditable by people) — choosing not to build something is as much a decision as choosing to build it, and recording it here is what keeps the omission auditable rather than accidental.
-- Artifact `packages/server` (not yet implemented) — will contain the ring buffer and current-state map.
+- Artifact `packages/server` — contains the current-state map and compact bounded battery-history retention implemented under ADR 33.
 - Artifact README "not built" table — carries the persistence cut with this ADR as its reference.
 - Artifact frontend robot-detail component set — the sparkline is the consumer this sizing decision is calibrated against.
 
 ## Notes
 
-- 19 August 2026: decision recorded ahead of server implementation. The first expected observed-consequence entry is the ring-buffer size actually chosen once the sparkline's real point count is known, which may differ from the estimate in Assumptions.
+- 19 August 2026: decision recorded ahead of server implementation. The later observed consequences above record the implemented capacity and ADR 33 amendment.
