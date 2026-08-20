@@ -16,7 +16,7 @@ This file is intentionally short: resolved entries are tombstones linking to the
 | D6  | Implemented | [ADR 14](./00_adr/14_SHARED_FLEET_ROSTER_PARITY.md)                               | Shared fleet-roster parity                                                       |
 | D7  | Implemented | [ADR 16](./00_adr/16_TEST_ONLY_ADAPTERS_DEPENDENCY_FOR_VENDOR_PARITY.md)          | Supported-vendor authority and drift guard                                       |
 | D8  | Implemented | [ADR 17](./00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md)                          | Tenant configuration and feature flags                                           |
-| D9  | Not started | [ADR 8](./00_adr/08_SERVER_TRANSPORT_IMPLEMENTATION.md)                           | Vendor identity on ingest                                                        |
+| D9  | Partial     | [ADR 8](./00_adr/08_SERVER_TRANSPORT_IMPLEMENTATION.md)                           | Vendor identity on ingest                                                        |
 | D10 | Partial     | [ADR 18](./00_adr/18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md)       | Delta granularity and flush sequence                                             |
 | D11 | Implemented | [ADR 19](./00_adr/19_CAPABILITY_KIND_SPLITS_THE_NAME_SET_IN_CONTRACTS.md)         | Capability classification                                                        |
 | D12 | Partial     | [ADR 25](./00_adr/25_CONTRACTS_OWNS_EVERY_DECODED_RESPONSE_COUNTERS_BY_SCOPE.md)  | Ownership of fleet, health, and diagnostic response schemas                      |

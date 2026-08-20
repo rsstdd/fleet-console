@@ -1,7 +1,7 @@
 # ADR 8 — Hono on `node:http` for HTTP, `ws` for WebSocket Fan-Out
 
 **Decision:** `packages/server` serves HTTP with Hono via `@hono/node-server` and serves WebSocket fan-out with `ws`, attached to the same Node HTTP server.
-**Status:** Decided · 2026-08-19 · Not started
+**Status:** Decided · 2026-08-19 · Partial
 **Group:** Integration / transport (the implementation half of ADR 2, which chose the transports but named no library).
 
 ## Issue
@@ -93,6 +93,8 @@ The cost is three dependencies where one would do, and one of them (`@hono/node-
 
 ## Observed consequences
 
+- **20 August 2026 — the router landed without the listener, and only `hono` was declared.** `createHttpApp` in `packages/server/src/http/createApp.ts` mounts the cross-origin policy ahead of every route and owns the responses no route produces. `@hono/node-server` and `ws` are deliberately still absent: ADR 29's gate rejects a declared package nothing imports, so a transport dependency cannot be added ahead of the code that uses it, and this ADR's three-dependency decision is therefore discharged one dependency at a time rather than in one install. Hono's validators and RPC client are unused as decided, and the app takes `allowedOrigins` as an argument rather than loading configuration, which is what lets `app.request()` exercise the whole surface at two different policies in one test run — no port, no socket, and no wall-clock wait.
+- **20 August 2026 — a preflight is answered by the middleware, not routed.** Routing `OPTIONS` would either 404 on a path that accepts `POST` alone or force an `OPTIONS` twin onto every route. The consequence worth naming is that the preflight's method and header list is now a claim about the whole surface, maintained beside the router rather than derived from it; a route added with a method outside `GET, POST, OPTIONS` is a two-line change, and the second line is easy to miss.
 - **19 August 2026 — the assumption had already shipped in two packages before it was a decision.** `ingestUrlFor` posts to the route and asserts it in an integration test; `isSupportedVendor(value: unknown)` was widened specifically to take an unvalidated route parameter, a signature that only makes sense under this option. Neither package was wrong, and that is the register's point: three artifacts agreed on a rule no document had decided, which is how a rule becomes architecture by accident rather than by choice.
 - **19 August 2026 — selection landed ahead of the listener.** `selectIngestVendor` and its tests exist while Hono is still uninstalled and no route is served. The selector is framework-independent by construction, so mounting it later is a handler that calls it; the ordering guarantee does not wait on the transport.
 

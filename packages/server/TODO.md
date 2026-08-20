@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 16 files, 107 tests     |
+| `pnpm test`      | passes — 17 files, 115 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -46,16 +46,18 @@ packages/server/
     ├── ingest/errorResponse.ts     the one HTTP error body, in ContractIssue (ADR 20)
     ├── ingest/requestSizeLimit.ts  byte cap ahead of JSON.parse (ADR 26)
     ├── http/originPolicy.ts        the cross-origin grant ADR 21 configured (B1d)
+    ├── http/createApp.ts           the Hono router, policy mounted ahead of it (B1a)
     ├── config/freshnessPolicy.ts   validated sweep thresholds (ADR 3, Principle 13)
     ├── config/fleetManifest.ts     strict roster loader (ADR 14)
     ├── config/runtimeEndpoints.ts  host/port/origins from the environment (ADR 21)
     └── config/serverConfiguration.ts  the two files loaded together, strictly
 ```
 
-**None of this listens.** Every module above is framework-independent by design —
+**None of this listens.** Every module above was framework-independent by design —
 required by an accepted ADR, testable without a socket, and correct without an HTTP
-library. What does not exist is the process that composes them: no listener, no route, no
-socket, no `dev` script. Sections 4, 7 and 8 are that work.
+library — and `http/createApp.ts` is now the router that composes them, still testable
+without one. What does not exist is the process that binds a port: no listener, no socket,
+no `dev` script, and no route mounted on the app. Sections 4, 7 and 8 are that work.
 
 On the four earliest pieces, whose reasoning is worth keeping:
 
@@ -75,9 +77,10 @@ On the four earliest pieces, whose reasoning is worth keeping:
   fallback default. A server that silently runs a policy nobody deployed is the failure
   Principle 13 names.
 
-Deliberately **not** added: no HTTP framework, no WebSocket library, no `dev` script.
-The first two need an ADR (**B1**); the third would break the root `pnpm dev` fan-out
-until there is something to run.
+Deliberately **not** added: no WebSocket library and no `dev` script. `@hono/node-server`
+and `ws` stay undeclared until the listener imports them, because ADR 29's gate rejects a
+declared package nothing uses; the `dev` script would break the root `pnpm dev` fan-out
+until there is a `src/main.ts` to run.
 
 ---
 
@@ -118,13 +121,24 @@ now decides what implements them. The listener is unblocked.
       `@fleet/contracts` schema decodes them, and a second validation layer would be a
       second decode authority (Principles 1 and 2). `node:http` alone was the runner-up
       and remains the fallback if the route count shrinks or the `ws` upgrade path breaks.
-- [ ] **B1a — Add the transport dependencies and write the listener.** `hono`,
-      `@hono/node-server`, `ws` as dependencies; `@types/ws` as a devDependency. Close
-      socket clients before closing the HTTP server on shutdown, or in-flight frames are
-      dropped on a listener that no longer exists (ADR 8 § Implications). Bind
-      host and port from `loadRuntimeEndpoints()` (**C5**, ADR 21) — never a literal, and
-      never `0.0.0.0` by default: the loopback default is what keeps an unauthenticated
-      ingest endpoint serving raw vendor payloads off every interface (**D18**).
+- [ ] **B1a — Add the transport dependencies and write the listener. Router landed 20
+      August 2026; the listener has not.** `hono` is declared, vetted in
+      `scripts/checkDependencies.mjs` (ADR 29) and consumed by `createHttpApp` in
+      `src/http/createApp.ts`, which mounts the **B1d** origin policy ahead of every route
+      and owns the two responses no route produces: the canonical `not_found` envelope and
+      an `internal` envelope that reads nothing off the thrown error (**G6**). Hono's
+      validators and RPC client stay unused (ADR 8). The app is built from a configuration
+      value rather than reading one, so `app.request()` drives it against a real `Request`
+      with no port to pick — which is where the mounted half of **L8** now comes from.
+      Still open, and deliberately not started here: `@hono/node-server` and `ws` (with
+      `@types/ws`), which stay undeclared until something imports them — the dependency
+      gate rejects a declared package nothing uses, and that is the correct pressure. The
+      listener must bind host and port from `loadRuntimeEndpoints()` (**C5**, ADR 21) —
+      never a literal, and never `0.0.0.0` by default, because the loopback default is what
+      keeps an unauthenticated ingest endpoint serving raw vendor payloads off every
+      interface (**D18**) — and must close socket clients before closing the HTTP server on
+      shutdown, or in-flight frames are dropped on a listener that no longer exists (ADR 8
+      § Implications).
 - [x] **B1d — Policy done 20 August 2026; mounting waits on B1a.** `evaluateOriginPolicy`
       in `src/http/originPolicy.ts` reads `RuntimeEndpoints.allowedOrigins` and decides all
       three cases — an allowed origin echoed rather than `*`, an origin outside the list
@@ -572,16 +586,17 @@ is missing is everything that needs a socket.
       it; a leaked interval passes every other test.
 - [ ] **L7 — Keep performance tests reproducible** and report degradation rather than
       asserting only a favourable scale point (AGENTS.md § Tests).
-- [ ] **L8 — Cross-origin, against a real request.** The unit half landed with **B1d**
-      (`src/http/originPolicy.test.ts`, nine cases) and is **not** this item. What is still
-      owed is the same four claims driven through the mounted listener: an origin in
-      `FLEET_ALLOWED_ORIGINS` gets that exact origin echoed; an origin outside it gets no
-      grant; a request with no `Origin` header is unaffected; and with an empty allow-list
-      no cross-origin request is granted while same-origin traffic still works. Assert the
-      decline, not only the success — an allow-list nothing rejects is indistinguishable
-      from no allow-list, which is ADR 7's recorded failure mode. A unit test of the policy
-      cannot show that the middleware is actually _mounted_, which is the failure this item
-      exists to catch.
+- [ ] **L8 — Cross-origin, against a real request. Mounted half done 20 August 2026.**
+      `src/http/createApp.test.ts` drives all four claims through `app.request()`: an origin
+      in `FLEET_ALLOWED_ORIGINS` gets that exact origin echoed, an origin outside it gets no
+      grant, a request with no `Origin` header is unaffected, and an empty allow-list grants
+      nobody — each asserted on the 404 path, so the grant is shown to survive a response
+      the router synthesized rather than only one a handler returned. The decline is
+      asserted, not only the success: an allow-list nothing rejects is indistinguishable
+      from no allow-list, which is ADR 7's recorded failure mode. What remains is the same
+      evidence through a **bound socket** rather than an in-process `Request`, which is the
+      only form that also proves `loadRuntimeEndpoints()` reached the app. It lands with
+      **B1a**'s listener.
 
 ---
 
