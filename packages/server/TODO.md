@@ -547,12 +547,16 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       never-observed robot; and the sequence currently has no restart story — a restarted
       server begins at zero and a client holding a higher snapshot sequence discards
       everything until it catches up (ADR 18 § Open questions).
-- [ ] **H3b — Get the client's cold-start order right, and test it.** Socket open →
-      buffer → fetch → reconcile → apply, where reconcile is
-      `isDeltaCoveredBySnapshot` from `@fleet/contracts` (ADR 18) rather than a
-      comparison written again here. Fetching before opening loses every delta
-      emitted in the gap, and the symptom is a row that quietly stops updating rather
-      than an error. That is worth an explicit test, because nothing else will catch it.
+- [ ] **H3b — Get the client's cold-start order right, and test it. Ordering unit landed
+      20 August 2026 in `packages/web`; the transport around it has not.**
+      `packages/web/src/shared/lib/coldStart.ts` implements buffer → settle → replay and
+      reconciles with `isDeltaCoveredBySnapshot` from `@fleet/contracts` (ADR 18) rather
+      than a comparison written again there. It is a module rather than a comment because
+      fetching before opening loses every delta emitted in the gap, and the symptom is a
+      row that quietly stops updating rather than an error — nothing else catches that.
+      What remains is the socket and snapshot fetch that call it, which is fleet TODO
+      **A3**, and the running-browser evidence that the order is what the console actually
+      performs.
 - [ ] **H4 — [web] There is no transport client yet.** `packages/web/src/shared/lib`
       contains only `time.ts`, and `packages/web/src/entities/robot/useFleetRobots.ts`
       returns hardcoded fixtures. The wire format decided here has no consumer until that

@@ -77,9 +77,18 @@ validation in the table; that would be a second decode authority (Principle 1).
       supplies a state yet, so the Freshness column is empty today. That is correct; do
       not restore an optimistic default.
 
-- [ ] **A3 — Wire the delta stream.** `shared/lib` has no transport client at all
-      (`time.ts` is the only file). Deltas apply keyed by `robotId` on a scheduled frame,
-      never synchronously per message (spec § 6, ADR 2, Principle 12).
+- [ ] **A3 — Wire the delta stream. Cold-start ordering landed 20 August 2026; the
+      transport itself has not.** `shared/lib/coldStart.ts` is the joining sequence —
+      buffer while the snapshot is in flight, then discard what the snapshot already
+      covers with `isDeltaCoveredBySnapshot` from `@fleet/contracts` rather than a
+      comparison written again here, then replay the rest oldest first. It exists as its
+      own module because the failure it prevents is invisible: fetching before opening
+      loses every delta emitted in the gap, and the symptom is a row that quietly stops
+      updating rather than an error (server TODO **H3b**). Six tests, including the cold
+      server at sequence zero discarding nothing.
+      What is still missing is the transport around it: no socket, no snapshot fetch, no
+      store. Deltas apply keyed by `robotId` on a scheduled frame, never synchronously per
+      message (spec § 6, ADR 2, Principle 12).
       _Where to connect is already decided and configured_
       ([ADR 21](../../../../../docs/00_adr/21_ENDPOINTS_FROM_THE_ENVIRONMENT_WITH_A_DEV_PROXY.md)):
       read `TENANT.endpoints.streamUrl` and `TENANT.endpoints.apiBaseUrl` from
