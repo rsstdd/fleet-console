@@ -108,7 +108,8 @@ Owner: `packages/adapters`.
   including exact canonical-output, malformed-input, boundary, capability, and
   unknown-field tests (loose, not strict: ADR 15).
 - ~~Normalize units, timestamps, statuses, and capabilities with injected `receivedAt`.~~
-  Done per vendor; the cross-vendor equality assertion remains under adapter TODO **D7**.
+  Done 20 August 2026, including D7's cross-vendor equality assertion over both shared
+  boundary states.
 - Settle the four canonical fields no dialect sources — `adapterId`, `adapterVersion`,
   `position.frame`, `connectivity`. See `packages/adapters/TODO.md` § FIXME; three
   spellings of `adapterId` are already loose in the tree.
@@ -116,8 +117,8 @@ Owner: `packages/adapters`.
   `telemetry.firmware_channel`.~~ Done and asserted at its dotted path.
 - ~~Add the exhaustive dispatch registry with one process-owned unknown-field ledger.~~
   Done 20 August 2026; server deep imports are rejected by a tested lint boundary.
-- Add the cross-vendor normalization test; per-vendor malformed input, conversions,
-  capability absence, Vendor B ordering, and contract parsing are covered.
+- ~~Add the cross-vendor normalization test.~~ Done 20 August 2026; both shared boundary
+  states normalize to identical canonical cores across A, B, and C.
 - Join simulator output to the contracts/web decode path in an E2E contract test.
 
 Raw-payload retention has moved off this item: ADR 26 put it wholly in `packages/server`,

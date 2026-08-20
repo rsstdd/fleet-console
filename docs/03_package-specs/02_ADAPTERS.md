@@ -240,7 +240,7 @@ ADR 1 § Constraints is explicit that one fixture per vendor is a smoke test rat
 proof of the entire mapping, and asks for at least one boundary or malformed case per
 vendor where time allows.
 
-201 tests today, covering core behavior, fixtures, all three vendor contracts, cross-vendor
+219 tests today, covering core behavior, fixtures, all three vendor contracts, cross-vendor
 source tracing, registry dispatch, public-surface enforcement, and boundary enforcement.
 
 ## 11. Implementation status
@@ -250,14 +250,17 @@ union, accepted-only unknown-field ledger, passthrough/key-difference detection,
 identity narrowing, recorded fixtures with a drift guard, each vendor's loose schema and
 adapter, and the enforcement suite.
 
-**Not built:** the cross-vendor normalization assertion (`D7`). C1–C8 and the per-vendor
-contract evidence are complete, and `createAdapterRegistry()` is exported from the package
+**Nothing on the critical path is outstanding.** C1–C9 and D7 are closed along with the
+per-vendor contract evidence, and `createAdapterRegistry()` is exported from the package
 root, so `@fleet/server` has everything it needs to dispatch — building its ingest handler
 on top is now server-side work rather than a gap here.
 
-ADR 1's per-vendor evidence exists, and `src/capabilityTrace.test.ts` covers the
-field-level half of its cross-vendor evidence (`C6`); the remaining gap is `D7`'s
-assertion that two dialects describing the same robot normalize to the same core.
+ADR 1's claim is evidenced in both directions. `src/capabilityTrace.test.ts` covers the
+field-level half — every non-core field traces to a declared capability, established by
+mutating one payload field at a time (`C6`). `src/crossVendorNormalization.test.ts` covers
+the cross-vendor half: the two boundary fixtures are one physical state written in three
+dialects, and all three decode to a byte-identical canonical core while keeping their real
+differences in the capability records (`D7`).
 
 **Decision consequences.** Adapters return only validated pre-freshness envelopes
 ([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)); publish unknown recorded

@@ -167,7 +167,7 @@ Verified 20 August 2026, from `packages/adapters`, after all three vendor adapte
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 14 files, 201 tests     |
+| `pnpm test`      | passes — 15 files, 219 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -294,8 +294,9 @@ cannot drift.
       deliberately so: that is a vocabulary matrix, one payload per source value, not
       another extreme. **C5** covers them now, by building those payloads in the tests
       rather than recording them.
-      **Recording still covers one robot per vendor** (`R-001`, `R-002`, `R-003`), so
-      **D7**'s cross-vendor test still has no input — see that item.
+      **Recording still covers one robot per vendor** (`R-001`, `R-002`, `R-003`), but the
+      boundary cases apply the same pinned physical state to all three robots; those six
+      payloads are D7's cross-vendor input.
 - [x] **B1 / C2 — Vendor A. Done 20 August 2026.** `src/vendors/a/schema.ts` (loose at every
       level, `identifierSchema`/`displayNameSchema` reused from contracts rather than
       restated, `VENDOR_A_KNOWN_PATHS` derived once at module load) and
@@ -504,8 +505,9 @@ cannot drift.
 ## Section 3 — Tests
 
 The wire and per-vendor contract harnesses are done: `vitest.config.ts`, node environment,
-12 passing test files, and a `test:coverage` script. What remains is dispatch and the
-cross-vendor normalization assertion under **D7**.
+and a `test:coverage` script. Dispatch (**C8**) and the cross-vendor normalization assertion
+(**D7**) are closed too, so the package's own evidence is complete at 219 tests; what remains
+in this section is listed item by item below.
 
 - [x] **D1 — Shared fixture loader. Done 19 August 2026.** `src/testing/fixtures.ts` loads a
       fixture by vendor and name, typed `unknown` at the call site. The subpath question is
@@ -552,7 +554,7 @@ cross-vendor normalization assertion under **D7**.
       **Vendor C done 20 August 2026** — its absent `lidarHealth` and present `waterLevel`
       are the pair that makes robot detail render a different panel from vendor A's, which is
       the difference page spec 03 § 3 exists to show. All three vendors are now covered.
-- [ ] **D7 — Unit and timestamp conversion.** Centimetres and metres to the same canonical
+- [x] **D7 — Unit and timestamp conversion.** Centimetres and metres to the same canonical
       value; ISO and epoch-ms to the same instant. Cross-vendor: two fixtures describing
       the same physical robot state must produce identical canonical cores. That test is
       the strongest evidence the normalization is real.
@@ -570,6 +572,33 @@ cross-vendor normalization assertion under **D7**.
       records should differ. That is the whole test, and it needs no new fixture and no
       re-record — write it against `loadVendorFixture(v, "boundary-empty")` for each vendor
       and compare `envelope.core`.
+      **CLOSED 20 August 2026 — `src/crossVendorNormalization.test.ts`, 15 tests.** Both
+      boundary cases, decoded through `createAdapterRegistry()` so the public dispatch path
+      is what is exercised. Each conversion is asserted on its own line as well as inside the
+      deep-equal, so a failure reads as "the unit conversion moved" rather than "an object
+      differs": centimetres against metres, a `0..1` fraction against an integer percent, a
+      status word against a numeric code, and ISO-8601 against epoch milliseconds. The two
+      timestamp forms were confirmed to name the same instant — `2025-08-19T10:40:00.000Z`
+      is exactly `1755600000000` — before anything was asserted about them.
+      **Equality alone would have been too weak, so each core is also checked against a
+      written-out literal.** Three adapters sharing one defect agree perfectly, and an
+      equality-only test would have called that evidence.
+      **Two premise guards.** Identity fields must still differ across the three envelopes,
+      or a registry routing everything to one adapter would satisfy every assertion above;
+      and the capability records must still differ, because identical cores bought by
+      discarding the lidar and the water tank would be the opposite of ADR 1. The
+      `representative` payloads are the control: those three robots come from the seeded
+      fleet in three different states, so their cores must **not** collapse to one. That is
+      what shows the equality comes from the normalization rather than from the shape of the
+      comparison.
+      **This test earns its place, which was checked rather than assumed.** The per-vendor
+      suites pin exact output against recorded fixtures, so they already catch most
+      single-vendor drift — running vendor B's position in centimetres fails 2 of its own
+      tests and 4 here. The case only this file catches is the normal one: a dialect changed
+      **and its own tests updated in step**. With vendor B emitting centimetres and its
+      literals updated to match, `src/vendors/b/adapter.test.ts` is green at 26/26 and this
+      file is the only thing in the repository that fails. An ISO offset bug affecting A and
+      C but not B was also confirmed to fire here.
 - [x] **D8 — Coverage gate. CLOSED 19 August 2026: there is no gate, on purpose**
       ([ADR 22](../../docs/00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md)).
       The proposed 90% threshold had no derivation and, over a `src/vendors/**` containing no
@@ -670,7 +699,7 @@ overtaken on 19 August 2026.
 1. Three vendor adapters decode their recorded fixtures into exact canonical output.
 2. Vendor B declares `dock` alone; vendor C declares no `lidarHealth`; both asserted by tests.
 3. Vendor C's `telemetry.firmware_channel` appears in `ledger.snapshot().byAdapter.C` and is never dropped.
-4. Two payloads from different vendors describing the same robot state produce identical canonical cores (**D7** — decide the input first).
+4. Two payloads from different vendors describing the same robot state produce identical canonical cores (**D7**, covered by both shared boundary cases).
 5. Every malformed fixture returns an `AdapterResult` failure; none throws.
 6. No file in this package reads the clock, and the enforcement fixture confirms the rule still fires.
 7. `packages/server` decodes telemetry through `decodeTelemetry` and imports no vendor module directly.
