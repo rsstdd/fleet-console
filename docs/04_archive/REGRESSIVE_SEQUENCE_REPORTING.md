@@ -1,8 +1,17 @@
 # Regressive Sequence Observability
 
-**Authority:** Planning only. Logging is a proposed non-critical follow-up.
-**Status:** Active
-**Updated:** 2026-08-20
+**Authority:** Historical only. This plan was consumed by the server implementation,
+package specification, TODOs, READMEs, and focused tests named below.
+**Status:** Done
+**Archived:** 2026-08-20
+**Superseded by:** `packages/server/src/state/currentStateStore.ts`,
+`packages/server/src/ingest/ingestTelemetry.ts`, `packages/server/src/runServer.ts`, and
+`docs/03_package-specs/04_SERVER.md` § State and verification matrix.
+
+> Executed without a D-id, ADR, health-contract change, dependency, browser requirement,
+> or counter reclassification. The server suite passed 189 tests; focused tests cover the
+> enriched store result, exact safe event, non-emitting inputs, unchanged state/history/
+> diagnostics/deltas/counters, and the logger's live composition path.
 
 ## Summary
 
