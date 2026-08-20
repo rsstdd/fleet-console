@@ -228,24 +228,52 @@ either place, deliberately.
 - `config/tenant.test.ts` asserts wordmark, theme and the flag differ together, and
   `features/robot/tenantPanelFlag.test.tsx` proves the panel is absent under Tenant B.
 
-### P2.2 Remove duplicate palette authority
+### P2.2 Remove duplicate palette authority — **PINNED INSTEAD, 20 August 2026**
 
 `tenantTheme.ts` repeats colors from `tokens.css`; MUI reads the JavaScript copy, so the
 two can drift. Make CSS tokens authoritative—read resolved tokens or use CSS variables
 where MUI accepts them—then remove `TENANT_PALETTE` without adding raw component colors.
 
-### P2.3 Consolidate `FreshnessLabel` styling
+**Resolved differently, and the difference is deliberate.** The prescription was to remove
+the duplicate. Both routes to that turn out to cost more than the drift does: reading
+resolved custom properties at runtime needs a live document, so `createTheme` cannot run
+before paint and the theme becomes async; handing MUI `var(--x)` strings breaks its own
+colour maths, which needs real values for alpha and contrast computation. Generating one
+file from the other needs a build step this workspace deliberately does not have (ADR 9:
+libraries export source and there is no emit).
+
+So the duplication stands and is **pinned** by `scripts/checkTokens.mjs`, which fails CI on
+any disagreement across the nine colours in both themes, and also fails if a palette key is
+added that the check does not cover — otherwise it would keep passing over a shrinking
+subset. That is ADR 21's pattern for an unavoidable restatement, applied here for a
+stronger reason: ADR 21's drift was loud (a 502), and this one is silent.
+
+**Reopen this if** a build step arrives for another reason, at which point generating the
+CSS from the palette is strictly better than checking them against each other.
+
+### P2.3 Consolidate `FreshnessLabel` styling — **DONE 20 August 2026**
+
+Done as prescribed: the classes are authoritative, the inline `CSSProperties` are gone, and
+the obsolete `.state`/`.age` rules are deleted. Worth recording what they were: not merely
+stale but **contradictory**, colouring freshness from the status palette three lines under
+a comment saying freshness "does not share the status palette. It is carried by emphasis."
+The inline styles followed that comment and the CSS did not, and nothing failed because
+nothing matched. One test got weaker in the move and the trade is named in
+`packages/FIXME.md` **F8**. Original text follows.
 
 The component uses inline `CSSProperties` while `global.css` contains a partially stale
 class implementation. Make the spec-mandated classes authoritative, delete obsolete
 `.freshness .state`/`.age` rules, align element names, and preserve muted
 unreachable/unknown treatment without tenant accent.
 
-### P2.4 Resolve the stylelint/BEM mismatch
+### P2.4 Resolve the stylelint/BEM mismatch — **DONE 20 August 2026**
 
-The selector pattern permits modifiers but rejects spec-required `__element` names;
-narrow disable comments bypass it. Extend the rule to the BEM form already used, test
-representative selectors if practical, and remove the suppressions.
+`selector-class-pattern` now admits `block__element`, widened once and centrally with the
+reason carried in the rule's own `message` so the next reader sees it at the point of
+failure. No suppressions remain. This was the same defect as **P2.3** from the other side:
+the rule rejected the markup `docs/02_component-specs` mandates, so consolidating the
+styling into classes was impossible without either widening the rule or scattering
+suppressions — which is what the bullet objected to.
 
 ### P2.5 Reconcile shared-UI paths, exports, and documentation
 
@@ -304,14 +332,50 @@ from those results; until then it is a deferral, not a completed scale claim.
 **Partly done, 19 August 2026** ([ADR 22](docs/00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md),
 register D17): validation cost is measured and gated at ADR 2's own falsification
 threshold — 5.8–6.4 µs per message against 400 µs — and the console's first-load size is
-gated at 720 kB raw / 300 kB gzip. Everything else on this list needs a listening server
-and is unchanged. Adapter coverage was deliberately left ungated; do not add a threshold
-without a derivation.
+gated at 720 kB raw / 300 kB gzip. Adapter coverage was deliberately left ungated; do not
+add a threshold without a derivation.
 
-### P3.3 Record WCAG 2.2 AA contrast evidence
+**Server half done, 20 August 2026**, now that there is a listening server:
 
-Verify both themes for every pair in `DESIGN_SYSTEM.md` §6, all status tints, muted ink
-on surface, and forced-colors status/freshness. Record ratios/results in README.
+- **Per-request cost**, sequential: 892 µs at 50 robots, 926 µs at 500 — whole request,
+  route to upsert. Transport dominates validation ~150×, confirming ADR 2's estimate and
+  redirecting its staged mitigation to batch ingest rather than worker-pooled validation.
+- **Throughput**, concurrent at 500 robots: 1,264 req/s at concurrency 1, 4,786 at 16,
+  5,971 at 128 — about 2.4× ADR 2's 2,500 msg/s design scale.
+- **Sweep lateness**: zero late ticks at every level, interval still running afterwards.
+  This is the measurement that matters for correctness rather than speed, because ADR 3's
+  failure under saturation is a sweep that stops firing and leaves stale robots reported as
+  LIVE.
+- Published in `README.md` § 10, ADR 2 and ADR 3, with the caveat that no degradation point
+  was found — a statement about this machine and this offered load, not about the ceiling.
+
+**Still owed:** fan-out p50/p95, coalesced WebSocket rate, memory, client frame time and row
+count — all client-side or stream-side, and all needing the browser automation registered as
+decision **D23**. Virtualization stays deferred until delta-apply cost at 500 robots is
+measured under a live stream (ADR 24), which is the same blocker.
+
+### P3.3 Record WCAG 2.2 AA contrast evidence — **CONTRAST DONE 20 August 2026; forced-colors open**
+
+Computed and **gated** rather than recorded, which is the difference that matters: a ratio
+written into a document rots, and `scripts/checkTokens.mjs` fails CI instead. It checks text
+tokens at 4.5:1 on both backgrounds and all six status tints at 3:1 as non-text UI
+(WCAG 1.4.11), across both themes, and prints all eighteen ratios whether or not anything
+fails (ADR 22's report-as-well-as-gate).
+
+**It found a failure on its first run**: `--status-neutral` at 2.84:1 in dark, on a token
+used for a freshness dot and a status chip. Lightened to `#767068` — 3.34:1 on `--surface`,
+3.66:1 on `--bg` — with the reasoning beside it in `tokens.css`.
+
+**Still open: forced-colors.** It cannot be computed from tokens, because the whole point of
+forced-colors mode is that the system replaces them. It needs a person in Windows
+high-contrast or `forced-colors: active`, checking that the status chip's dashed border and
+the freshness state word still carry meaning once `box-shadow` and background colours are
+dropped — which `global.css` already anticipates in its `@media (forced-colors: active)`
+block, untested.
+
+Original text follows. Verify both themes for every pair in `DESIGN_SYSTEM.md` §6, all
+status tints, muted ink on surface, and forced-colors status/freshness. Record
+ratios/results in README.
 
 ### P3.4 Replace submission placeholders
 
