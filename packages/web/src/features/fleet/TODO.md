@@ -136,7 +136,14 @@ validation in the table; that would be a second decode authority (Principle 1).
       **empty** store, not a fixture set, because a fixture default makes a missing provider
       invisible while emptiness shows on the screen. The fleet table and the banner now
       describe the same connection.
-      **Not yet verified in a running browser.** The proxy path was checked live end to end
+      **Verified in a running browser, 20 August 2026.** Headless Chrome against the running
+      stack rendered 50 rows from the live server with all three dialects normalised, showed
+      freshness degrading to `Unreachable` while the banner stayed `Stream connected`, and —
+      with the server stopped — retained every row while suppressing every per-robot
+      freshness label under a `Stream reconnecting` banner. That is ADR 3's suppression rule
+      and ADR 23's default, observed rather than injected. It is not automated: see decision
+      **D23**.
+      The earlier note stands for the transport itself: the proxy path was checked live end to end
       — Vite serves the app, `/api/fleet` proxies to the server and returns the committed
       roster, and `/ws` answers `101 Switching Protocols` through the proxy — and the
       transport's sequencing is unit-tested. What has **not** been observed is the console

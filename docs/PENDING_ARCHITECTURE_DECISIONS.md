@@ -30,6 +30,7 @@ This file is intentionally short: resolved entries are tombstones linking to the
 | D20 | Implemented | [ADR 29](./00_adr/29_VETTED_DEPENDENCY_ALLOW_LIST_AND_RELEASE_AGE_QUARANTINE.md)  | Admission of third-party packages                                                |
 | D21 | Implemented | [ADR 30](./00_adr/30_FIELDS_WITH_NO_COUNTERPART_ACROSS_THE_ADAPTER_BOUNDARY.md)   | Canonical fields with no vendor source, and vendor fields with no canonical home |
 | D22 | Open        | —                                                                                 | Stream reconnection policy for the console                                       |
+| D23 | Open        | —                                                                                 | Browser-driven end-to-end testing: framework, or none                            |
 
 ## Open stubs
 
@@ -42,3 +43,15 @@ Three things have to be decided together, which is why none of them was taken pi
 _Recommendation:_ bounded exponential backoff with a ceiling and no cap on attempts, and treat a handshake that never opened as distinct from a connection that dropped — the first has already failed once for a reason retrying will not change, and `streamLifecycle` already distinguishes `connecting` from `reconnecting` for exactly that reason. That is a recommendation, not a decision.
 
 _Resolves on:_ an ADR, then `packages/web/src/shared/lib/streamLifecycle.ts` gaining the schedule and `fleetTransport` calling it. It also decides whether `StreamConnectionState` must widen: the published vocabulary cannot currently distinguish a console that is retrying from one that has stopped, and a retry control that does nothing observable is the class of lie `connectionBanner.tsx` says this project exists to argue against.
+
+### D23 — Browser-driven end-to-end testing: framework, or none
+
+**The behaviour is verified; the automation is not.** On 20 August 2026 the console was driven in headless Chrome over the DevTools Protocol using only Node built-ins, and the whole vertical path was observed rendering: 50 rows from the live server with all three vendor dialects normalised, freshness degrading `Live` → `Stale` → `Unreachable` while the banner stayed `Stream connected`, and — on stream loss — the banner changing to `Stream reconnecting` with rows retained and every per-robot freshness label suppressed. That is README demo steps 4 and 5 and root `TODO.md` **P1.4**, observed rather than inferred.
+
+None of it is committed, because it was a throwaway script rather than a test, and turning it into one is a decision this repository has rules about. ADR 6 § Constraints forbids a dependency without an ADR and ADR 29 requires an allow-list entry with a reason; a browser-driving framework is among the larger dependencies a repository adopts, and it brings a second test runner, a second CI job, and a class of test known for flaking — which `packages/FIXME.md` **F14** has already been burned by once here.
+
+_Options:_ **Playwright** (installed on the development machine already, one dependency, own runner and CI action); **a hand-rolled CDP harness** inside the existing Vitest run (no dependency, and the script above shows it is perhaps forty lines — but it is a browser driver this repository would then own and maintain); or **none**, keeping browser verification a documented manual step and accepting that P1.4 never becomes automated.
+
+_Recommendation:_ the hand-rolled CDP harness, scoped to the two claims that cannot be made any other way — freshness suppression on stream loss, and a delta arriving as a rendered row. It adds no dependency, runs in the existing runner, and its cost is bounded by refusing to grow into a general browser-testing layer. Playwright is the right answer if browser coverage is ever meant to be broad. That is a recommendation, not a decision.
+
+_Also blocked on this:_ ADR 24's deferred virtualization question and register **D10**'s deferred delta-granularity half both want delta-apply cost measured at 500 robots under a live stream, which is a browser measurement and not a server one.

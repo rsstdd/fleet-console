@@ -177,17 +177,20 @@ banner ships a manual retry control, so the path exists and is honest.
 
 Detailed sources: the two web feature TODOs after **P0.2** updates their references.
 
-### P1.4 Prove the integrated behavior in a running browser — **the only thing between this repository and a finished claim**
+### P1.4 Prove the integrated behavior in a running browser — **behaviour observed 20 August 2026; automation is decision D23**
 
-Every hop below is now built and each has been checked at the wire; none has been watched
-in a browser. That distinction is the whole of this item, and it is why the README still
-marks the demo script `[PARTIAL]`.
+Every hop below is built, and on 20 August 2026 the load-bearing ones were watched in
+headless Chrome rather than only at the wire. What remains is not evidence but
+**automation**: the run was a throwaway CDP script, and whether this repository adopts a
+browser-testing framework is registered as **D23**.
 
-- [x] _at the wire_ / [ ] _in a browser_ — Vendor payload → adapter → ingest/state →
-      HTTP/WebSocket → web model and row. One `pnpm dev` run: 1,993 readings sent, 1,993
-      accepted; a subscriber saw one robot as `live` then `stale`.
-- [x] _at the API_ / [ ] _in a browser_ — A targeted drop moves only those robots
-      LIVE → STALE → UNREACHABLE. Run on 20 August 2026: a normal simulator run, then a
+- [x] **Done 20 August 2026, in a browser.** Vendor payload → adapter → ingest/state →
+      HTTP/WebSocket → web model and row. Headless Chrome rendered 50 rows from the live
+      server with all three dialects normalised into one table.
+- [x] **Done 20 August 2026.** A targeted drop moves only those robots
+      LIVE → STALE → UNREACHABLE; the whole-fleet version of the same transition was then
+      watched rendering in a browser (`{Live: 46, Stale: 4}` → `{Unreachable: 50}`, banner
+      staying `Stream connected` throughout — the distinction from stream loss, visible). Run on 20 August 2026: a normal simulator run, then a
       `--drop R-007,R-023,R-041` run, produced `{live: 47, unreachable: 3}` with exactly
       those three unreachable. Recovery came free with it — robots that had aged out while
       the simulator was stopped returned to `LIVE` within seconds of it resuming.
@@ -195,9 +198,11 @@ marks the demo script `[PARTIAL]`.
       `UNREACHABLE`**, because those robots never reported. Following the README's step 3
       from a cold fleet is the one way to make this demo look broken while it is working,
       and the step now says so.
-- [ ] Stream loss shows the banner, retains rows, and suppresses per-robot freshness;
-      **reconnect restores labels without reload** — which cannot pass until P1.3's
-      deferred automatic reconnection is decided.
+- [x] _the suppression half_ / [ ] _the reconnect half_ — Stream loss shows the banner,
+      retains rows, and suppresses per-robot freshness. **Observed in a browser**: with the
+      server stopped, all 50 rows remained and **no** per-robot freshness label rendered,
+      while the banner read `Stream reconnecting`. **Reconnect restores labels without
+      reload** still cannot pass, because automatic reconnection is decision **D22**.
 - [x] _at the wire_ / [ ] _in a browser_ — Malformed payloads are rejected and counted
       without crashing stream or list. Verified against a running server: a non-JSON body
       is a counted 400, a bad payload increments `malformedIngest`, and neither disturbs the

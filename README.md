@@ -124,13 +124,27 @@ and the simulator POSTs into the real ingest — 1,993 readings sent and 1,993 a
 
 ## 3. Demo script
 
-**[PARTIAL] as an end-to-end sequence.** The path the steps run over exists: the server
-listens, the adapters decode, the sweep ages, and deltas reach a connected socket — checked
-on 20 August 2026 by watching one ingested robot go `live` then `stale` on a subscriber
-that received nothing else. What has **not** been re-run since is the sequence itself, in a
-browser, with fault injection: steps 4 and 5 are the submission's two most load-bearing
-claims and are still evidenced by unit tests plus a wire-level check rather than by the
-demo. Read the steps as acceptance criteria that are now runnable, not as a transcript.
+**Observed in a browser on 20 August 2026.** Headless Chrome against the running stack, at
+`http://127.0.0.1:5301`:
+
+| Moment                  | Rendered freshness         | Banner                |
+| ----------------------- | -------------------------- | --------------------- |
+| Simulator running       | `{Live: 46, Stale: 4}`     | `Stream connected`    |
+| Simulator stopped, +12s | `{Unreachable: 50}`        | `Stream connected`    |
+| Server stopped          | no per-robot labels at all | `Stream reconnecting` |
+
+Rows carried all three dialects normalised — `R-001 A … 93.46%`, `R-002 B … 72%`,
+`R-003 C … 35.53%` — from one table with no vendor branch.
+
+**That contrast is the demo.** Steps 4 and 5 are different failures on purpose, and the
+middle and bottom rows above are what tells them apart: a robot going silent degrades to
+`UNREACHABLE` **while the stream stays connected**, because the server still has a current
+answer about it; the console going blind suppresses every per-robot label and says so at
+the connection level instead. Deriving freshness server-side is what makes those two
+distinguishable at all.
+
+Still not automated: this was a throwaway CDP script, not a committed test. Choosing whether
+this repository takes on a browser-testing framework is registered as decision **D23**.
 
 Sequence to watch (Steps 2 & 4 are the submission):
 
