@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Guided demonstration driver for the fleet console.
 #
-# Walks a presenter through the seven acts in demo/DEMO.md: it starts the server,
-# console, and simulator itself, injects the fault scenarios (--drop, server kill,
-# restart), and prints live fleet/health summaries between acts. The browser half of
-# the show stays in your hands — keep http://localhost:5173 visible throughout.
+# Follows the seven acts in the companion demonstration guide. The script starts
+# the server, console, and simulator; injects the drop and server-outage scenarios;
+# and prints fleet and health summaries between acts. Keep
+# http://localhost:5173 visible throughout because the browser remains under the
+# presenter's control.
 #
 # Usage:  ./demo/demo.sh
 # Stop:   Ctrl-C at any pause; every child process is cleaned up on exit.
@@ -261,7 +262,21 @@ if ! command -v node >/dev/null 2>&1 || ! command -v pnpm >/dev/null 2>&1; then
   echo "  node and pnpm must both be on PATH." >&2
   exit 1
 fi
-say "Node $(node --version), pnpm $(pnpm --version)."
+version_at_least() {
+  local installed="${1#v}" required="$2"
+  [ "$(printf '%s\n%s\n' "$required" "$installed" | sort -V | head -n 1)" = "$required" ]
+}
+NODE_VERSION="$(node --version)"
+PNPM_VERSION="$(pnpm --version)"
+if ! version_at_least "$NODE_VERSION" "24.15.0"; then
+  echo "  Node >= 24.15.0 is required; found $NODE_VERSION." >&2
+  exit 1
+fi
+if ! version_at_least "$PNPM_VERSION" "11.20.0"; then
+  echo "  pnpm >= 11.20.0 is required; found $PNPM_VERSION." >&2
+  exit 1
+fi
+say "Node $NODE_VERSION, pnpm $PNPM_VERSION."
 # Preflight clears the field itself. Any leftover process from this repo — a
 # 'pnpm dev' stack (whose watch-mode simulator would feed the demo's fresh
 # server and turn Act 1's Unknown into Live), a previous demo's server,
@@ -316,142 +331,150 @@ pause
 
 # ----------------------------------------------------------------------- acts --
 
-act "$CYAN" "ACT 1" "Cold start: UNKNOWN is honest"
-say "No simulator is running yet."
-say "The server seeded 50 robots from the fleet manifest."
-say "It has never heard from any of them, and it says so. Every row reads 'Unknown'."
+act "$CYAN" "ACT 1" "Cold start: before the robots check in"
+say "We'll start with the console connected, but no simulator running."
+say "The fleet manifest tells the server to expect 50 robots, but none of them has reported yet."
+say "With no telemetry to work from, every robot correctly starts as 'Unknown'."
 data "$(fleet_summary)"
-browser "the summary strip reads 'Unknown: 50'. The banner reads 'Stream connected'."
+browser "confirm that the summary reads 'Unknown: 50' while the banner reads 'Stream connected'."
+say "The console is connected, but it does not pretend to know the state of robots it has not heard from."
 pause
 
-act "$GREEN" "ACT 2" "Live fleet: three dialects, one table"
-say "Starting the simulator: 50 robots at 1 Hz across vendors A, B, and C."
+act "$GREEN" "ACT 2" "Live fleet: three vendors, one table"
+say "Starting the simulator with 50 robots reporting once a second across vendors A, B, and C."
 start_sim
-say "Giving it a few seconds to report…"
+say "Giving the robots a few seconds to check in…"
 sleep 4
 data "$(fleet_summary)"
-browser "the table is live now. Scan it before opening anything."
-say "R-001 is vendor A. R-002 is vendor B. R-003 is vendor C."
-say "Three wire dialects. One table. No vendor branches."
-say "Try the site, vendor, and freshness filters. Try search."
+browser "the fleet is live. Take a moment to scan the table before opening a robot."
+say "R-001 is vendor A, R-002 is vendor B, and R-003 is vendor C."
+say "Three different vendor data formats are translated into one consistent fleet view."
+say "Try using the site, vendor, freshness, and free-text filters."
+say "Narrow the list to one robot, return to the full fleet, and then choose filters that produce no results."
+browser "confirm that the designed no-results state appears instead of a blank table."
+say "Finally, use only the keyboard to move through the filters and open a robot."
+browser "confirm that focus stays visible and moves in a logical order."
 pause
 
-act "$GREEN" "ACT 3" "Adapters up close: capabilities, personas, unknown fields"
-browser "open R-001, then R-002, then R-003."
-say "The capability panels differ by vendor:"
-say "A shows dock + lidar health. B shows dock only. C shows dock + water level."
-say "In the Robot View, flip the persona toggle to Technician."
-say "It reveals the adapter id and version, the raw payload, and sequence evidence."
-say "The battery sparkline fetches its history when you open the robot."
-pause "Press Enter to fetch /api/health…"
-say "This is the server's health ledger. Unknown fields are counted, never silently ignored:"
+act "$GREEN" "ACT 3" "Capabilities and the technician view"
+browser "open R-001, R-002, and R-003 in turn."
+say "Notice how the capability panels reflect what each robot reports:"
+say "Vendor A shows dock and lidar health, vendor B shows dock only, and vendor C shows dock and water level."
+say "Now switch from the default Operator view to Technician."
+say "The Technician view adds the adapter id and version, raw payload, sequence evidence, and timestamps."
+say "Raw payloads are available only from the single-robot endpoint, never from the fleet read model or delta stream."
+say "The battery sparkline loads historical readings only when you open a robot."
+say "That keeps the fleet view lightweight and avoids fetching detailed history for robots you are not inspecting."
+pause "Press Enter to inspect the adapter diagnostics…"
+say "This is the server's health ledger. It counts unknown fields instead of silently ignoring them:"
 printf '\n'
 show_health | sed 's/^/  /'
-data "find byAdapter → C → unknownFields → fields."
-say "Vendor C's undocumented field is there as the dotted path 'telemetry.firmware_channel'."
-say "A and B stay at zero."
-say "B's sequence block reads 'evaluated: false' — vendor B has no counter to evaluate."
+data "follow byAdapter → C → unknownFields → fields."
+say "Vendor C's undocumented field appears as the dotted path 'telemetry.firmware_channel'."
+say "Vendors A and B remain at zero."
+say "Vendor B's sequence block reads 'evaluated: false' because it has no counter to evaluate."
 pause
 
-act "$YELLOW" "ACT 4" "Robots go silent (stream stays up)"
-say "Next: drop three robots. R-007, R-023, and R-041 will stop sending."
-say "Everything else stays healthy."
-browser "get those three rows on screen first. Search 'R-0' or filter by freshness."
-say "Once dropped, each goes Live → Stale (~2 s) → Unreachable (~10 s)."
-say "The banner will keep reading 'Stream connected'."
-say "The stream is fine. The robots are not. That difference is the point."
+act "$YELLOW" "ACT 4" "Three robots go silent"
+say "Next, we'll stop R-007, R-023, and R-041 from reporting."
+say "The rest of the fleet will keep reporting normally."
+browser "bring those three rows into view. Search for 'R-0' or use the freshness filter."
+say "After they stop reporting, each robot moves from Live to Stale after about 2 seconds, then to Unreachable after about 10 seconds."
+say "The banner will continue to read 'Stream connected'."
+say "The connection is healthy; only those three robots have gone silent. The UI keeps those conditions separate."
 pause "Press Enter to drop the three robots…"
 stop_sim
 start_sim --drop R-007,R-023,R-041
-say "Watching the fleet tally for 15 seconds."
-say "Expect 3 robots to leave live:, pass through stale:, and settle in unreachable:."
-dim "  (a healthy robot may flicker stale for a beat at 1 Hz — honest, not a bug)"
+say "We'll watch the fleet totals for 15 seconds."
+say "The three robots should leave Live, pass through Stale, and settle in Unreachable."
+dim "  (At 1 Hz, a healthy robot may briefly appear stale. That reflects the actual timing, not a bug.)"
 printf '\n'
 watch_fleet 15
-say "Silence is an event. The server's 500 ms sweep noticed the absence."
+say "The server treats silence as meaningful. Its 500 ms freshness sweep detects that the updates have stopped."
 pause
 
-act "$RED" "ACT 5" "The console goes blind (server killed)"
-say "Next: kill the server mid-stream."
-say "The simulator keeps sending into the void. That is fine."
-say "Act 4 was a silent robot. This is a blind console. They must look different."
-browser "get everyone's eyes on the banner before you continue."
+act "$RED" "ACT 5" "The console loses its connection"
+say "Next, we'll stop the server while the simulator is still sending updates."
+say "The simulator will keep reporting, but there will be no server to receive those updates."
+say "In Act 4, three robots went silent while the console stayed connected. This time, the console loses visibility of the entire fleet."
+browser "bring the connection banner into view before continuing."
 pause "Press Enter to kill the server…"
 stop_server
-data "server is down. Nothing answers on $SERVER_URL."
-browser "within a few seconds the banner flips to 'Stream reconnecting'."
-say "Every per-robot freshness label disappears. The console will not guess per row."
-say "Rows keep their last-known data."
-say "The summary heading now reads 'Fleet freshness · last known'."
+data "The server is down. Nothing is responding at $SERVER_URL."
+browser "watch the banner change to 'Stream reconnecting' within a few seconds."
+say "Once the stream is down, every per-robot freshness label disappears."
+say "Without a live connection, the console will not present old readings as current."
+say "The rows remain visible, but only as last-known data."
+say "The summary makes that clear with the heading 'Fleet freshness · last known'."
 pause
 
-act "$GREEN" "ACT 6" "Recovery: no reload, no retry"
-say "Next: restart the server. The console recovers on its own."
-say "Its jittered reconnect detects the new serverSessionId and re-joins fresh."
-browser "touch nothing. Watch for three things: the banner returns to"
-say "'Stream connected', freshness labels come back, and rows flood from"
-say "Unknown to Live. No page reload."
+act "$GREEN" "ACT 6" "Recovery without a reload"
+say "Now we'll bring the server back and let the console recover on its own."
+say "The reconnect loop detects the new server session and resynchronizes automatically."
+browser "do not reload the page. Watch the banner return to 'Stream connected'."
+say "The freshness labels will reappear, and the rows will move from Unknown to Live as updates arrive."
 pause "Press Enter to restart the server…"
 start_server
 sleep 2
 data "$(fleet_summary)"
-say "Look at the trio. This fresh process has never heard from R-007, R-023, R-041."
-say "So they read Unknown — not Unreachable. The server only claims what it saw."
-say "Now restarting the simulator without --drop. The trio resumes from frozen state."
+say "Now look at R-007, R-023, and R-041. This new server process has never received an update from them."
+say "They appear as Unknown, not Unreachable, because the server only reports what it has observed."
+say "Next, we'll restart the simulator without the drop option so those three robots can report again."
 stop_sim
 start_sim
-say "Watching for 8 seconds. Expect the trio to rejoin live:."
+say "We'll watch for 8 seconds as they rejoin the fleet and return to Live."
 printf '\n'
 watch_fleet 8
 pause
 
-act "$MAGENTA" "ACT 7" "Optional: scale and tenancy"
-say "Two extras. Both optional."
-say "The documented load profile is 500 robots at 5 Hz (~2,500 requests/s):"
+act "$MAGENTA" "ACT 7" "Optional scale and tenant demonstrations"
+say "We'll finish with two optional demos: scale and tenant configuration."
+say "Our documented, measured load profile is 500 robots at 5 Hz, or about 2,500 requests per second:"
 dim "      pnpm --filter @fleet/simulator start -- --robots 500 --hz 5"
-say "And the Tenant B build gates the lidar panel off via typed config:"
+say "That is the workload we've verified, not a claimed ceiling."
+say "Tenant B uses typed configuration to hide the lidar panel:"
 dim "      pnpm dev:tenant-b                       # whole stack as tenant B"
 dim "      VITE_TENANT=tenant-b pnpm --filter web dev   # console only"
 printf '\n'
 read -r -p "  ${GREEN}▶${RESET} Run the 500-robot load profile now? [y/N] " answer
 if [[ "${answer:-n}" =~ ^[Yy]$ ]]; then
-  say "The server only accepts robots its manifest lists, and the committed"
-  say "manifest holds 50. So this needs a 500-robot manifest and a server restart."
-  say "Generating one with the simulator's --print-manifest. Same seed:"
-  say "the first 50 robots are identical, R-051 through R-500 are new."
+  say "Before we run it, the server needs a manifest that lists all 500 robots."
+  say "The committed manifest lists 50, so we'll generate a larger one and restart the server."
+  say "The simulator uses the same seed, which keeps the first 50 robots identical and adds R-051 through R-500."
   swap_in_load_manifest
-  say "Restarting the server on the 500-robot manifest. Fleet state resets."
+  say "Now we'll restart the server with the 500-robot manifest. This resets the fleet state."
   stop_sim
   stop_server
   start_server
-  browser "the console reconnects on its own. The table now holds 500 rows,"
-  say "all Unknown — none of the 450 new robots has ever reported."
-  say "Starting the simulator: 500 robots at 5 Hz (~2,500 requests/s)."
+  browser "watch the console reconnect on its own. The table now contains 500 rows."
+  say "All 500 begin as Unknown because this new server process has not received any updates yet."
+  say "Now we'll start 500 robots at 5 Hz, producing about 2,500 requests per second."
   start_sim --robots 500 --hz 5
-  say "Load is running. The un-virtualized table absorbs this by measurement (ADR 24)."
-  say "Watching for 15 seconds. Expect live to climb to 500:"
+  say "The load is running. ADR 24 keeps the table unvirtualized because this scale has been measured and remains usable."
+  say "We'll watch for 15 seconds as the Live count climbs toward 500."
   printf '\n'
   watch_fleet 15
-  browser "scroll the table. 500 live rows, and search still narrows to one."
-  say "After the demo shuts down, the committed 50-robot manifest is restored."
+  browser "scroll through the 500 live rows, then use search to narrow the table to one robot."
+  say "When the demo shuts down, it will restore the committed 50-robot manifest."
 fi
 printf '\n'
-read -r -p "  ${GREEN}▶${RESET} Start the tenant-B console next to tenant A? [y/N] " answer
+read -r -p "  ${GREEN}▶${RESET} Start the Tenant B console next to Tenant A? [y/N] " answer
 if [[ "${answer:-n}" =~ ^[Yy]$ ]]; then
-  say "Tenant is a build-time profile (ADR 17). Same components, different config."
-  say "Starting a second console: tenant B on port 5174. Same server, same fleet."
+  say "ADR 17 defines each tenant as a build-time profile: the components stay the same while the configuration changes."
+  say "We'll start a second console for Tenant B on port 5174, connected to the same server and fleet."
   if start_tenant_web; then
     browser "open $TENANT_URL next to $WEB_URL."
-    say "Tenant B ships the light theme and the 'Northwind Robotics' wordmark."
+    say "Tenant B uses the light theme and the 'Northwind Robotics' wordmark."
     browser "open robot R-001 in both consoles."
-    say "Tenant A shows the lidar panel. Tenant B does not — flags.lidarHealthPanel"
-    say "gates it off. No component branches on tenant. The config decides."
+    say "Tenant A shows the lidar panel, while Tenant B hides it through flags.lidarHealthPanel."
+    say "The component never checks the tenant name; the typed configuration controls the feature."
     dim "  (pnpm dev:tenant-b runs the whole stack this way from a clean terminal)"
     pause
   fi
 fi
 
-act "$DIM" "FIN" "Everything you just showed is committed automation"
-say "pnpm test:e2e replays Acts 2, 4, 5, and 6 against the real stack,"
-say "in Chromium, Firefox, and WebKit."
+act "$DIM" "FIN" "The failure and recovery paths are committed automation"
+say "pnpm test:e2e runs seven scenarios against the real server, simulator,"
+say "and production bundle, including Acts 4, 5, and 6."
+say "The suite runs in Chromium and Firefox, with WebKit included in CI."
 pause "Press Enter to shut everything down…"
