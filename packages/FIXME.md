@@ -373,6 +373,13 @@ only scoped guides/TODOs, which is acceptable while their public runtime behavio
 incomplete. Add their READMEs when the adapter registry and server process land,
 covering public API, boundary behavior, commands, configuration, and failure modes.
 
+**The adapters half is closed (20 August 2026).** The registry landed (adapters TODO
+**C8**), which is what this finding was waiting for, and `packages/adapters/README.md`
+now covers the dialect differences, `createAdapterRegistry` as the one public way in,
+the two rejection kinds, and the measured cost of adding a fourth vendor. `server` is
+still open on the same terms: its public runtime behavior is a set of pieces, not a
+process, so a README would describe an HTTP surface nothing serves yet.
+
 `packages/web/README.md` is still the Vite template — verbatim, down to the React
 Compiler section and the `@vitejs/plugin-react-swc` link — and says nothing about the
 console. Replace it now: the web package already has meaningful routes, architecture,

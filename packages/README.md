@@ -9,13 +9,13 @@ belongs at a boundary, not in the UI.** Vendor disagreement is absorbed by
 and filter vendor identity, but rendering behavior comes from declared
 capabilities and never branches on a vendor name.
 
-| Package                    | Owns                                                               | Status                                   |
-| -------------------------- | ------------------------------------------------------------------ | ---------------------------------------- |
-| [`contracts`](./contracts) | Canonical envelope, capabilities, wire schemas, freshness function | Landed                                   |
-| [`adapters`](./adapters)   | Vendor dialect decoding, unknown-field accounting                  | Partial — core landed, no vendor modules |
-| [`simulator`](./simulator) | Deterministic vendor telemetry, fault injection                    | Landed                                   |
-| [`server`](./server)       | Ingest, state, freshness sweep, fan-out, health                    | Partial — pieces landed, no process yet  |
-| [`web`](./web)             | The operations console                                             | Partial — UI built, data is fixtures     |
+| Package                    | Owns                                                               | Status                                    |
+| -------------------------- | ------------------------------------------------------------------ | ----------------------------------------- |
+| [`contracts`](./contracts) | Canonical envelope, capabilities, wire schemas, freshness function | Landed                                    |
+| [`adapters`](./adapters)   | Vendor dialect decoding, unknown-field accounting                  | Landed — three vendors, dispatch registry |
+| [`simulator`](./simulator) | Deterministic vendor telemetry, fault injection                    | Landed                                    |
+| [`server`](./server)       | Ingest, state, freshness sweep, fan-out, health                    | Partial — pieces landed, no process yet   |
+| [`web`](./web)             | The operations console                                             | Partial — UI built, data is fixtures      |
 
 A **canonical envelope** is the shared robot record every vendor is translated
 into. A **capability** is an optional payload a vendor may or may not send;

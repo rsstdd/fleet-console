@@ -31,6 +31,28 @@
  * checker. Keeping the three bindings and switching over them leaves
  * `switch-exhaustiveness-check` as the only thing standing between a fourth
  * `SupportedVendor` and a compile error, which is what C8 asks for.
+ *
+ * ## What crosses this call, in both directions
+ *
+ * **`receivedAt` comes in.** `packages/server/src/runtime/clock.ts` is the one
+ * wall-clock reader in the repository and stamps receipt time at the ingest
+ * boundary, because ADR 3 gives that clock to the server and derives freshness
+ * from it alone. Nothing in this package may read a clock — `no-restricted-globals`
+ * bans the `Date` global outright — so a caller that passes something other than a
+ * receipt reading (a vendor instant, a replayed one) redefines freshness for every
+ * robot it decodes, and no test here can see it happen.
+ *
+ * **The `sequence` capability goes out.** Vendors A and C declare it; vendor B
+ * sends no counter and declares nothing, and that absent key is the signal. The
+ * server reads `capabilities.sequence?.value ?? null` off the envelope into
+ * `CurrentStateStore.upsert`, which rejects duplicate and regressive readings with
+ * it, and rolls the outcome up per adapter through `HealthMetrics.noteSequence`.
+ * The absence is what makes a robot's `sequenceHealth` `{ evaluated: false }` on
+ * the diagnostic envelope rather than zero gaps — and reporting `0 gaps` for a
+ * vendor that sends no sequence is a false statement to an operator (ADR 25). An
+ * adapter for a dialect without a counter therefore leaves the key absent; it never
+ * emits `{ value: 0 }`. The per-robot half is still server work: `HealthMetrics`
+ * keys its map by adapter id, and ADR 25 § Observed consequences names that gap.
  */
 import type { AdapterEnvelope } from "@fleet/contracts";
 

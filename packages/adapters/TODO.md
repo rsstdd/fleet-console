@@ -177,6 +177,7 @@ packages/adapters/
 ├── tsconfig.json         extends ../../tsconfig.base.json; node types, no DOM
 ├── vitest.config.ts      node environment, @/ alias, v8 coverage, no thresholds (ADR 22)
 ├── eslint.config.js      the package's rules, enforced and tested (§ 4)
+├── README.md             the package's public face: dialects, dispatch, adding a vendor
 ├── TODO.md               this file
 ├── TODO_E2E_JOIN.md      the joining test's extra constraints on the same items
 └── src/
@@ -675,16 +676,38 @@ rules a future change is most likely to break:
 
 ## Section 5 — Package hygiene
 
-- [ ] **F1 — `README.md`.** Short: what a vendor dialect is, how to add a fourth vendor
-      (one directory, one registry line, fixtures, contract test), and what may not change
-      (the canonical model). `packages/FIXME.md` **F11** agrees this waits for the registry.
-- [ ] **F3 — Document cross-package coupling on both sides.** Two of four are done: the
-      unknown-field ledger names `packages/server`'s health endpoint, and
-      `packages/simulator`'s vendor modules already name their adapter counterparts.
-      Outstanding, and none has a here-side to comment on until **C8** lands:
-      `receivedAt` injection (server → adapters); the `sequence` capability the server reads
-      to derive per-robot `sequenceHealth` (ADR 25). Raw payload is **not** on this list any
-      more — ADR 26 put it wholly on the server side, so there is no adapter half to pair.
+- [x] **F1 — `README.md`. CLOSED 20 August 2026.** `README.md` covers what a vendor
+      dialect is (the A/B/C disagreement table, and the two readings that are easy to get
+      wrong: an absence is a declaration, and two dialects agreeing is a coincidence), the
+      one way in through `createAdapterRegistry`, receipt time in and freshness never out,
+      the two rejection kinds, and what may not change.
+      **The vendor-addition checklist is six steps, not four.** C9 measured it rather than
+      asserting it, so the README says the same: `core/vendor.ts`, the vendor directory,
+      the registry `case`, the snapshot literal in `core/unknownFields.ts`, the two fixture
+      registries in `testing/fixtures.ts`, and the simulator producer plus a re-record. The
+      briefer "one directory, one registry line" this item asked for undercounts by two,
+      and both extra literals are written per vendor precisely so a gap is a compile error.
+      `packages/FIXME.md` **F11** is updated: its adapters half is closed by this and its
+      server half still waits on the server process.
+- [x] **F3 — Document cross-package coupling on both sides. CLOSED 20 August 2026.** Both
+      outstanding couplings now name their counterpart from each side, which **C8** is what
+      made possible — before the registry there was no adapters-side module to hang either
+      comment on.
+      `receivedAt`: `src/registry.ts` § What crosses this call names
+      `packages/server/src/runtime/clock.ts` as the reading's origin, and `clock.ts` names
+      `decodeTelemetry`'s third argument as its destination. Both halves say the same
+      consequence rather than restating the mechanism — a vendor instant passed there moves
+      freshness onto vendor clocks and fails no test in either package.
+      `sequence`: the same registry section names `CurrentStateStore.upsert` and
+      `HealthMetrics.noteSequence`, and `upsert`'s doc names
+      `capabilities.sequence?.value ?? null` as where its argument comes from. The load-bearing
+      half is vendor B's _absent_ key: `null` means the dialect has no counter, so
+      the ordering check is disabled rather than defaulted, and `sequenceHealth` reads
+      `{ evaluated: false }` instead of zero gaps (ADR 25). The per-robot rollup is still
+      server work; the comment points at ADR 25 § Observed consequences rather than
+      restating the gap here.
+      Raw payload stays off this list — ADR 26 put it wholly on the server side, so there is
+      no adapter half to pair.
 
 **F2 is done and removed:** every export in `src/core/*` and `src/index.ts` carries a
 one-sentence doc comment. It is no longer only a review matter: ADR 28 added

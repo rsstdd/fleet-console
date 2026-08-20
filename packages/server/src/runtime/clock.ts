@@ -7,6 +7,13 @@
  * detection, coalescing and shutdown are all testable with an injected clock rather
  * than a wall-clock sleep. `eslint.config.js` names this file as the one place the
  * wall-clock ban is lifted; move the file and the exception moves with it.
+ *
+ * Coupling: a reading from here is the third argument to `decodeTelemetry` in
+ * `packages/adapters/src/registry.ts`. That package bans the `Date` global in its own
+ * lint config and has no clock at all, so `receivedAt` on every envelope it returns is
+ * whatever this file was asked for at the ingest boundary — and the freshness sweep
+ * then derives from that value and no other. Passing a vendor timestamp there would
+ * move freshness onto vendor clocks without failing a test in either package.
  */
 
 /** A source of epoch-millisecond readings, injected wherever time is needed. */
