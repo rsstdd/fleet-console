@@ -652,12 +652,20 @@ describe("telemetryBatchSchema", () => {
 });
 
 describe("fleetSnapshotSchema", () => {
+  /** Every site the test robots reference, so referential checks pass by default. */
+  const DIRECTORY = [
+    { siteId: "site.north", label: "North site" },
+    { siteId: "site.south", label: "South site" },
+    { siteId: "SITE-NORTH", label: "North site" },
+  ];
+
   function snapshot(overrides: Record<string, unknown> = {}) {
     return {
       schemaVersion: SCHEMA_VERSION,
       serverSessionId: SERVER_SESSION,
       flushSequence: 41,
       capturedAt: RECEIVED_AT,
+      sites: DIRECTORY,
       robots: [completeWire()],
       ...overrides,
     };
@@ -707,6 +715,63 @@ describe("fleetSnapshotSchema", () => {
 
   it("rejects the version-1 wire format, which predates the session field", () => {
     expect(fleetSnapshotSchema.safeParse(snapshot({ schemaVersion: "1" })).success).toBe(false);
+  });
+
+  it("rejects the version-2 wire format, which predates the site directory", () => {
+    // ADR 34: no compatibility fallback. A version-2 snapshot carries site ids
+    // the console has no labels for, so it is refused rather than reinterpreted.
+    expect(fleetSnapshotSchema.safeParse(snapshot({ schemaVersion: "2" })).success).toBe(false);
+  });
+
+  it("requires the site directory", () => {
+    expect(fleetSnapshotSchema.safeParse(without(snapshot(), "sites")).success).toBe(false);
+  });
+
+  it("rejects a site whose label is missing", () => {
+    expect(
+      fleetSnapshotSchema.safeParse(snapshot({ sites: [{ siteId: "site.north" }] })).success,
+    ).toBe(false);
+  });
+
+  it("rejects duplicate site ids in the directory", () => {
+    const result = fleetSnapshotSchema.safeParse(
+      snapshot({
+        sites: [...DIRECTORY, { siteId: "site.north", label: "North again" }],
+        robots: [],
+      }),
+    );
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("expected failure");
+    expect(result.error.issues[0]?.path).toEqual(["sites", 3, "siteId"]);
+  });
+
+  it("rejects a robot referencing a site the directory does not define", () => {
+    // Referential integrity is the contract's job, not a consumer fallback:
+    // an undefined reference would make every console invent a label (ADR 34).
+    const result = fleetSnapshotSchema.safeParse(
+      snapshot({ sites: [{ siteId: "site.south", label: "South site" }] }),
+    );
+    expect(result.success).toBe(false);
+    if (result.success) throw new Error("expected failure");
+    expect(result.error.issues[0]?.path).toEqual(["robots", 0, "siteId"]);
+  });
+
+  it("accepts a registered-only robot whose site is defined", () => {
+    expect(
+      fleetSnapshotSchema.safeParse(
+        snapshot({
+          robots: [
+            {
+              schemaVersion: SCHEMA_VERSION,
+              robotId: "R-999",
+              siteId: "SITE-NORTH",
+              vendorId: "B",
+              freshness: "unknown",
+            },
+          ],
+        }),
+      ).success,
+    ).toBe(true);
   });
 
   it("rejects a raw payload smuggled into the snapshot", () => {

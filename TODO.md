@@ -77,8 +77,9 @@ Several scoped TODOs describe implemented code as absent:
   and enforcement work that landed.
 - `packages/contracts/TODO.md` is locally complete but retains downstream integration
   gates; reduce it to those gates or archive the bootstrap checklist.
-- `packages/web/UI_PLAN.md` says `ConnectionBanner`, `Stat` styling, and `EmptyState`
-  styling are not built.
+- `packages/web/UI_PLAN.md` said `ConnectionBanner`, `Stat` styling, and `EmptyState`
+  styling were not built; its claims were corrected in place and the document is now
+  archived at `docs/04_archive/WEB_UI_PLAN.md` (20 August 2026).
 - Feature TODOs correctly identify live-data gaps but reference retired root item ids.
 
 Audit each against its package, retain genuine work, and remove stale checklist
@@ -336,7 +337,7 @@ the rule rejected the markup `docs/02_component-specs` mandates, so consolidatin
 styling into classes was impossible without either widening the rule or scattering
 suppressions — which is what the bullet objected to.
 
-### P2.5 Reconcile shared-UI paths, exports, and documentation — **exports and comments done 20 August 2026; file naming left alone**
+### P2.5 Reconcile shared-UI paths, exports, and documentation — **DONE 20 August 2026**
 
 - **Exports: named only, no barrel.** Four components carried a redundant
   `export default` beside their named export and four did not; nothing imported a default,
@@ -347,16 +348,14 @@ suppressions — which is what the bullet objected to.
 - **Comments: the export surface was audited, not just the six named.** A script over every
   `export` in `shared/ui` and `entities/site` found exactly the six the item listed, and all
   six now carry a sentence that says something the signature does not (ADR 28).
-- **File naming: not changed, deliberately.** The specs write `FreshnessLabel.tsx` and the
-  repository uses `freshnessLabel.tsx`. Renaming eight files and every import to satisfy a
-  document is the larger and riskier half of this item, and the convention in the tree is
-  consistent — it is the specs that are the outlier. Whoever picks this up should change the
-  specs, not the files, unless there is a reason beyond symmetry.
+- **File naming: the specs changed, not the files (20 August 2026).** The tree's
+  camelCase convention is consistent; the component specs were the outlier and all eight
+  implementation paths now read `shared/ui/freshnessLabel.tsx`-style. No file was renamed.
 
-**One thing this audit turned up:** `entities/site` is now the **only** invented data left
-in the console, and it cannot read the server because the fleet manifest carries no site
-label to read. Recorded as `packages/FIXME.md` **F16** with the two ways to close it, both
-of which are decisions rather than cleanups.
+**One thing this audit turned up — since closed:** `entities/site` was the last invented
+data in the console. ADR 34 closed it (`packages/FIXME.md` **F16**): the manifest carries
+a `sites` directory, the snapshot serves it, and the console labels from the decoded
+directory alone.
 
 ### P2.6 Remove or configure inert Git-hook tooling — DONE 19 August 2026
 

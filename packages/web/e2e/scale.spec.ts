@@ -134,6 +134,9 @@ test.describe("500-robot live-stream measurement", () => {
       serverSessionId: session,
       flushSequence: 0,
       capturedAt: observed.snapshot.capturedAt,
+      // The real snapshot's directory: every expanded robot keeps a real siteId,
+      // so the strict referential check holds at 500 too (ADR 34).
+      sites: observed.snapshot.sites,
       robots: seedWire,
     };
     expect(parseFleetSnapshot(snapshotWire).ok).toBe(true);

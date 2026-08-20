@@ -32,7 +32,8 @@ This file is intentionally short: resolved entries are tombstones linking to the
 | D22 | Implemented | [ADR 31](./00_adr/31_JITTERED_RECONNECT_AND_SERVER_SESSION_RECONCILIATION.md)     | Stream reconnection policy for the console                                       |
 | D23 | Implemented | [ADR 32](./00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)  | Browser-driven end-to-end testing: framework, or none                            |
 | D24 | Implemented | [ADR 33](./00_adr/33_BATTERY_HISTORY_RETAINED_COMPACT_AND_SERVED_DECIMATED.md)    | Battery-history response shape and retention capacity                            |
+| D25 | Implemented | [ADR 34](./00_adr/34_SITE_DIRECTORY_ON_THE_SNAPSHOT_SCHEMA_VERSION_3.md)          | Site labels: directory on the snapshot, schema version 3                         |
 
 ## Open stubs
 
-None. Every stub D1–D24 routes to a numbered ADR; see the table above for each one's implementation status.
+None. Every stub D1–D25 routes to a numbered ADR; see the table above for each one's implementation status.

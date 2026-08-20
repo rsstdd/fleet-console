@@ -30,3 +30,4 @@ Every file here carries a header naming the date it was archived and what supers
 | [`DOCUMENTATION_AUDIT_AND_RECONCILIATION.md`](./DOCUMENTATION_AUDIT_AND_RECONCILIATION.md) | Whole-repository documentation reconciliation       | Current docs and ROADMAP Phase 8 handoff                       |
 | [`ROADMAP.md`](./ROADMAP.md)                                                               | Phased delivery and repository reconciliation       | Current ADRs, specs, implementation, TODOs, and READMEs        |
 | [`SUBMISSION_NOTES.md`](./SUBMISSION_NOTES.md)                                             | Partial evaluator notes for ADRs 1–6                | Current ADRs, README/TODO handoff, and external review record  |
+| [`WEB_ALIGNMENT_PLAN.md`](./WEB_ALIGNMENT_PLAN.md)                                         | Web package alignment (schema v3, live detail)      | ADR 34 (register D25), web/page specs, and TODO P2.7/P3.3      |

@@ -169,6 +169,11 @@ jobs:
       - name: 500-robot live-stream measurement (reported, not gated)
         run: pnpm test:e2e:scale
 
+      # The tenant-B production bundle, built and driven for real (ADR 17):
+      # light theme, disabled lidar panel, and narrow-viewport behavior.
+      - name: Tenant-B production build evidence (Chromium)
+        run: pnpm test:e2e:tenant
+
       # `if: always()`: the report matters most on the runs that fail.
       - name: Upload Playwright report, traces, and measurements
         if: always()

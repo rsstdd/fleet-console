@@ -137,6 +137,9 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
       allowedOrigins: endpoints.allowedOrigins,
       readFleet: () =>
         encodeFleetSnapshot({
+          // The directory the console labels sites from; validated at startup
+          // against the same referential rules the contract enforces (ADR 34).
+          sites: configuration.manifest.sites,
           robots: store.list(),
           capturedAt: clock.now(),
           serverSessionId,

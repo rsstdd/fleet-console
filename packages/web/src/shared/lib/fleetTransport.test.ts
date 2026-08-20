@@ -23,6 +23,7 @@ describe("createFleetTransport", () => {
       serverSessionId,
       flushSequence,
       capturedAt: 0,
+      sites: [],
       robots: [],
     };
   }
@@ -203,7 +204,7 @@ describe("createFleetTransport", () => {
   });
 
   it("gives up on a body the contract refuses, rather than retrying the same bytes", async () => {
-    // W-6: the server did not stumble; retrying returns the same bytes.
+    // ADR 20: the server did not stumble; retrying returns the same bytes.
     const h = harness({ fetchLike: serving({ schemaVersion: SCHEMA_VERSION }) });
     h.transport.connect();
     h.last()?.open();

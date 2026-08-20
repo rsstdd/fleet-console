@@ -13,6 +13,7 @@ import { encodeHealthResponse } from "./healthResponse.ts";
 /** An empty fleet: these cases are about the policy and the routes, not about state. */
 const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
   encodeFleetSnapshot({
+    sites: [],
     robots: [],
     capturedAt: 0,
     serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",

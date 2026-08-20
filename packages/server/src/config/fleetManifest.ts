@@ -1,5 +1,5 @@
 import { SUPPORTED_VENDORS } from "@fleet/adapters";
-import { displayNameSchema, identifierSchema } from "@fleet/contracts";
+import { displayNameSchema, fleetSiteSchema, identifierSchema } from "@fleet/contracts";
 import { z } from "zod";
 
 import { ConfigValidationError } from "./freshnessPolicy.ts";
@@ -11,10 +11,34 @@ const manifestRobotSchema = z.strictObject({
   model: displayNameSchema,
 });
 
-/** Strict schema for the shared registered-robot roster. */
+/**
+ * Strict schema for the shared fleet configuration: the site directory plus the
+ * registered-robot roster (ADR 14, ADR 34).
+ *
+ * Site definitions reuse the contract's `fleetSiteSchema` rather than a local
+ * shape, because the manifest's sites are exactly what `GET /api/fleet` carries
+ * onward — a second spelling here is where the two would drift (Principle 1).
+ * The same referential rules apply at both boundaries: site ids are unique and
+ * every robot references a defined site.
+ */
 export const fleetManifestSchema = z
-  .strictObject({ robots: z.array(manifestRobotSchema).min(1) })
+  .strictObject({
+    sites: z.array(fleetSiteSchema).min(1),
+    robots: z.array(manifestRobotSchema).min(1),
+  })
   .superRefine((manifest, ctx) => {
+    const siteIds = new Set<string>();
+    manifest.sites.forEach((site, index) => {
+      if (siteIds.has(site.siteId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["sites", index, "siteId"],
+          message: `duplicate site id: ${site.siteId}`,
+          input: site.siteId,
+        });
+      }
+      siteIds.add(site.siteId);
+    });
     const seen = new Set<string>();
     manifest.robots.forEach((robot, index) => {
       if (seen.has(robot.robotId)) {
@@ -26,6 +50,14 @@ export const fleetManifestSchema = z
         });
       }
       seen.add(robot.robotId);
+      if (!siteIds.has(robot.siteId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["robots", index, "siteId"],
+          message: `robot references undefined site: ${robot.siteId}`,
+          input: robot.siteId,
+        });
+      }
     });
   });
 

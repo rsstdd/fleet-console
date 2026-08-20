@@ -1,7 +1,7 @@
 # TODO — `features/robot`
 
 **Authority:** Planning only. The robot-detail page specification and accepted ADRs govern conflicts.
-**Reconciled:** 20 August 2026 against live detail/health fetches and 313 web tests.
+**Reconciled:** 20 August 2026 against live detail/health fetches and the web unit suites.
 
 ## Status
 
@@ -12,12 +12,14 @@ suppresses per-robot freshness whenever the stream is not connected.
 
 ## Remaining work
 
-- **R6 — live background updates.** Detail is fetched on navigation and does not subscribe
-  to fleet deltas, so changing summary/header values in place remains unverified and the
-  page can lag the fleet store until navigation or retry.
-- **R7 — remove the placeholder boundary export.** Retarget the deliberate fleet
-  feature-to-feature violation at the real `RobotDetailPage` export, prove lint still
-  reports the boundary, then remove `RobotDetail = "placeholder"`.
+- **R6 — live background updates — done (20 August 2026).** The page subscribes to this
+  robot's fleet row through `useFleetRobot(id)` and overlays it onto the fetched detail
+  with the pure `reconcileDetailWithRow`: core values and freshness update from deltas
+  with no refetch, unrelated robots' deltas cause no re-render, and the Playwright suite
+  watches detail values change live without navigation.
+- **R7 — remove the placeholder boundary export — done (20 August 2026).** The deliberate
+  fleet violation fixture imports the real `RobotDetailPage` export, the boundary test
+  still reports the rule, and `RobotDetail = "placeholder"` is deleted.
 - **Battery history — done (ADR 33, register D24, 20 August 2026).** `useRobotHistory`
   fetches the ratified contract once per visit as its own resource beside `useRobotDetail`,
   and the "Battery history" section renders the full state matrix — loading, inline retry,

@@ -337,5 +337,5 @@ directory; this one is a map, not a rulebook.
 | Independent vendor lists with test-only parity   | ADR 16                                    |
 | Per-package scoped rules                         | `<name>/AGENTS.md`, or `<name>/CLAUDE.md` |
 | Remaining work — the four Node packages          | `<name>/TODO.md`                          |
-| Remaining work — `web`                           | `UI_PLAN.md`, per-slice `TODO.md`         |
+| Remaining work — `web`                           | per-slice `TODO.md` files under `src/**`  |
 | Cross-package audit findings                     | [`FIXME.md`](./FIXME.md)                  |

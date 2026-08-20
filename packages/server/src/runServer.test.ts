@@ -56,6 +56,7 @@ describe("startServer", () => {
   const CONFIGURATION: ServerConfiguration = {
     freshness: ADR3_BASELINE_FRESHNESS_POLICY,
     manifest: {
+      sites: [{ siteId: "site-a", label: "Site A" }],
       robots: [
         { robotId: "rbt-1", siteId: "site-a", vendorId: "A", model: "m" },
         { robotId: "rbt-2", siteId: "site-a", vendorId: "B", model: "m" },
@@ -115,6 +116,7 @@ describe("startServer", () => {
       configuration: {
         freshness: ADR3_BASELINE_FRESHNESS_POLICY,
         manifest: {
+          sites: [{ siteId: "SITE-NORTH", label: "North site" }],
           robots: [{ robotId: "R-001", siteId: "SITE-NORTH", vendorId: "A", model: "AX-240" }],
         },
       },
@@ -183,20 +185,21 @@ describe("startServer", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toStrictEqual({
-      schemaVersion: "2",
+      schemaVersion: "3",
       serverSessionId: running.serverSessionId,
       flushSequence: 0,
       capturedAt: CAPTURED_AT,
+      sites: [{ siteId: "site-a", label: "Site A" }],
       robots: [
         {
-          schemaVersion: "2",
+          schemaVersion: "3",
           robotId: "rbt-1",
           siteId: "site-a",
           vendorId: "A",
           freshness: "unknown",
         },
         {
-          schemaVersion: "2",
+          schemaVersion: "3",
           robotId: "rbt-2",
           siteId: "site-a",
           vendorId: "B",

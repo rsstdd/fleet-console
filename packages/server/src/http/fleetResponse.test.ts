@@ -41,10 +41,14 @@ describe("encodeFleetSnapshot", () => {
     capabilities: { dock: { docked: false, dockId: null } },
   };
 
+  /** The directory the encoded snapshot must carry and its robots must satisfy. */
+  const SITES = [{ siteId: "site-a", label: "Site A" }];
+
   function encode(robots: readonly CurrentRobotState[]): unknown {
     return JSON.parse(
       JSON.stringify(
         encodeFleetSnapshot({
+          sites: SITES,
           robots,
           capturedAt: 1_755_000_001_000,
           serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
@@ -70,6 +74,7 @@ describe("encodeFleetSnapshot", () => {
       serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
       flushSequence: 0,
       capturedAt: 1_755_000_001_000,
+      sites: [{ siteId: "site-a", label: "Site A" }],
       robots: [
         {
           schemaVersion: SCHEMA_VERSION,
@@ -88,6 +93,12 @@ describe("encodeFleetSnapshot", () => {
     expect(encoded).toMatchObject({
       robots: [{ capabilities: [{ name: "dock", payload: { docked: false, dockId: null } }] }],
     });
+  });
+
+  it("carries the site directory the console labels sites from", () => {
+    // ADR 34: the snapshot is the only response that carries labels; a robot
+    // pointing outside the directory would have failed the decode above.
+    expect(encode([OBSERVED])).toMatchObject({ sites: SITES });
   });
 
   it("carries no raw vendor payload for either population", () => {

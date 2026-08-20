@@ -18,6 +18,25 @@ import {
  */
 export const SITE_IDS = ["SITE-NORTH", "SITE-SOUTH", "SITE-EAST"] as const;
 
+/**
+ * The site directory a printed manifest carries: each fixed site id with its
+ * operator-facing label (ADR 34).
+ *
+ * Mirrors the server's `fleetManifestSchema.sites` the same way
+ * `FleetManifestEntry` mirrors its roster entries — deliberately, with
+ * `manifestParity.test.ts` keeping the mirror honest, because the printed
+ * document must be valid server input and this package must not import
+ * `packages/server` to find out (ADR 14).
+ */
+export const SITE_DIRECTORY: ReadonlyArray<{
+  readonly siteId: (typeof SITE_IDS)[number];
+  readonly label: string;
+}> = [
+  { siteId: "SITE-NORTH", label: "North site" },
+  { siteId: "SITE-SOUTH", label: "South site" },
+  { siteId: "SITE-EAST", label: "East site" },
+];
+
 /** Model names per vendor; cosmetic, but stable so fixtures do not churn. */
 const MODELS: Record<VendorId, readonly string[]> = {
   A: ["AX-200", "AX-240"],

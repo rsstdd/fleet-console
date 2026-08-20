@@ -14,14 +14,14 @@ This separation keeps domain logic out of primitives (Principle 1), enforces lay
 
 | Component         | Owning specification      | Implementation                   |
 | ----------------- | ------------------------- | -------------------------------- |
-| Status chip       | `01_STATUS_CHIP.md`       | `shared/ui/StatusChip.tsx`       |
-| Freshness label   | `02_FRESHNESS_LABEL.md`   | `shared/ui/FreshnessLabel.tsx`   |
-| Section label     | `03_SECTION_LABEL.md`     | `shared/ui/SectionLabel.tsx`     |
-| Data plate        | `04_DATA_PLATE.md`        | `shared/ui/DataPlate.tsx`        |
-| Stat              | `05_STAT.md`              | `shared/ui/Stat.tsx`             |
-| Empty state       | `06_EMPTY_STATE.md`       | `shared/ui/EmptyState.tsx`       |
-| Connection banner | `07_CONNECTION_BANNER.md` | `shared/ui/ConnectionBanner.tsx` |
-| Persona toggle    | `08_PERSONA_TOGGLE.md`    | `shared/ui/PersonaToggle.tsx`    |
+| Status chip       | `01_STATUS_CHIP.md`       | `shared/ui/statusChip.tsx`       |
+| Freshness label   | `02_FRESHNESS_LABEL.md`   | `shared/ui/freshnessLabel.tsx`   |
+| Section label     | `03_SECTION_LABEL.md`     | `shared/ui/sectionLabel.tsx`     |
+| Data plate        | `04_DATA_PLATE.md`        | `shared/ui/dataPlate.tsx`        |
+| Stat              | `05_STAT.md`              | `shared/ui/stat.tsx`             |
+| Empty state       | `06_EMPTY_STATE.md`       | `shared/ui/emptyState.tsx`       |
+| Connection banner | `07_CONNECTION_BANNER.md` | `shared/ui/connectionBanner.tsx` |
+| Persona toggle    | `08_PERSONA_TOGGLE.md`    | `shared/ui/personaToggle.tsx`    |
 
 ## 3. Normative hierarchy
 

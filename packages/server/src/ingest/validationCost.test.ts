@@ -184,7 +184,13 @@ describe("per-request ingest transport cost", () => {
 
     const server = await startServer({
       endpoints: { host: "127.0.0.1", port: 0, allowedOrigins: [] },
-      configuration: { freshness: ADR3_BASELINE_FRESHNESS_POLICY, manifest: { robots: manifest } },
+      configuration: {
+        freshness: ADR3_BASELINE_FRESHNESS_POLICY,
+        manifest: {
+          sites: [{ siteId: identity.value.siteId, label: "Load site" }],
+          robots: manifest,
+        },
+      },
       logger: createJsonLogger(() => undefined),
       clock: systemClock,
     });

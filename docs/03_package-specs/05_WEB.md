@@ -6,7 +6,11 @@
   displayed, never derived), ADR 4 (feature-sliced structure), ADR 5 (MUI with tokens
   only), ADR 7 (the resolver is part of the dependency rule), ADR 17 (build-time tenant
   configuration), ADR 21 (typed endpoints and Vite dev proxy), ADR 22 (first-load bundle
-  gate); Principles 1, 4, 5, 6, 8, 9, 11, 12, 13
+  gate), ADR 23 (connection state through shared lib), ADR 24 (unvirtualized table until
+  measured churn), ADR 25 (contracts owns every decoded response), ADR 26 (demo-only raw
+  diagnostics), ADR 31 (reconnect and session reconciliation), ADR 32 (browser evidence),
+  ADR 33 (battery history), ADR 34 (site directory on the snapshot); Principles 1–15
+  (see § 13 for the enforcement/evidence mapping)
 - **Related specs:** `docs/01_page-specs/`, `docs/02_component-specs/`,
   `docs/DESIGN_SYSTEM.md`
 
@@ -116,10 +120,16 @@ into `entities` or `shared`, never sideways.
 `src/entities/robot/model.ts` mirrors the capability payload types as a read model, and
 `src/entities/robot/fromEnvelope.ts` maps envelope → read model at the boundary.
 
-The read model deliberately narrows where the contract is deliberately open: `Vendor` is a
-closed union of `"A" | "B" | "C"` here because it is a read model for three known
-fixtures, while `vendorId` in contracts stays an open identifier so a fourth vendor is
-never a contracts change (ADR 1 § Observed consequences).
+The read model keeps `vendor` as open as the contract keeps `vendorId` (ADR 1): there is
+no closed `Vendor` union and no `VENDORS` constant. The fleet filter derives its vendor
+options from the robots it was given, so a fourth vendor is an adapter change, never a
+console change.
+
+**Sites.** The snapshot's required `sites` directory (ADR 34) is the only source of a site
+label. `entities/site` holds no fixture table — `selectSiteLabel(siteId, sites)` resolves
+against the decoded directory and falls back to the raw identifier only on surfaces that
+render before the first snapshot has arrived. The contract's referential check guarantees
+a decoded fleet always resolves.
 
 **Owned — the selector layer.** Every rule that turns canonical data into something
 displayable lives in `entities/robot/selectors.ts` and is tested as pure domain logic:
@@ -198,21 +208,44 @@ reached by a test that constructs ESLint with `ignore: false`:
 - `features/fleet/__boundary-violation__/legal.ts` — the control, violating nothing.
 - `entities/robot/__boundary-violation__/adapterImport.ts` — entity → adapters import.
 
-`features/robot/index.ts` exports a placeholder named `RobotDetail` **deliberately**: the
-cross-feature fixture imports that name to prove the rule rejects it. Renaming it would
-silently defeat the fixture. Do not repair or delete any of them.
+The cross-feature fixture imports the real `RobotDetailPage` export from
+`features/robot/index.ts` — the actual public surface, not a placeholder — to prove the
+rule rejects feature → feature against production code. Removing or renaming that export
+would silently defeat the fixture. Do not repair or delete any of them.
 
 ## 8. State, lifecycle and configuration
 
 State is separated by authority, lifetime and transition model (Principle 11):
 
-| Kind            | Owner            | Notes                                                     |
-| --------------- | ---------------- | --------------------------------------------------------- |
-| Remote resource | `entities`       | Fetched records, loaded or refreshed once                 |
-| Observed live   | `entities/robot` | Delta stream, normalized by robot id                      |
-| Requested       | `entities/robot` | Command acknowledgements, kept **separate** from observed |
-| Workflow        | creating feature | In-progress user intent, short-lived                      |
-| Local view      | features         | Filter inputs, selections, persona toggle                 |
+| Kind           | Owner            | Notes                                                     |
+| -------------- | ---------------- | --------------------------------------------------------- |
+| Fleet resource | `entities/robot` | `FleetResourceState` union owned by the fleet store       |
+| Observed live  | `entities/robot` | Delta stream, normalized by robot id                      |
+| Requested      | `entities/robot` | Command acknowledgements, kept **separate** from observed |
+| Workflow       | creating feature | In-progress user intent, short-lived                      |
+| Local view     | features         | Filter inputs, selections, persona toggle                 |
+
+**Resource-state ownership.** The entity-owned fleet store is a state machine, not a bag
+of rows: the app transport reports what happened — `snapshotStart`, `applySnapshot`,
+`applyBatch`, `recoverableFailure`, `terminalFailure` — and the store owns what that means
+for the fleet surface. `useFleetRobots()` returns the full `FleetResourceState` union:
+`loading`, `ready`, `refreshing`, `recoverable-error` (the only state exposing `retry`),
+and `terminal-error` carrying the decoder's issue paths and codes (ADR 20). Data-bearing
+states retain robots, the site directory, the snapshot's `capturedAt`, and the latest
+applied frame's `sentAt` — the decoded provenance the fleet footer renders (Principle 4).
+
+**Live detail by reconciliation.** Robot detail fetches diagnostics and history once per
+visit, then stays live by overlaying this robot's fleet row — via `useFleetRobot(id)` and
+the pure `reconcileDetailWithRow` — onto the fetched detail. Core values and freshness
+update from deltas; diagnostics and the retained raw payload are never refetched by a
+delta, and frames naming other robots do not re-render the page (the store keeps
+unrelated rows' identity, and the per-id snapshot bails out on it).
+
+**Stream diagnostics.** The transport's session-wide rejected-frame count travels through
+`StreamDiagnosticsContext` in `shared/lib` (the ADR 23 pattern) to the technician
+Diagnostics section, which states its scope: console session, all robots. Whether a run
+of rejections should escalate to a terminal state remains trigger-deferred (fleet TODO
+A4).
 
 **Observed and requested state are never collapsed into one value.** Acknowledgement is
 not proof of physical state change (Principle 11, non-negotiable 4).
@@ -262,6 +295,11 @@ The rules that matter most:
 - **Never present stale data as current.** A non-`live` row uses an outline status chip
   labelled `(last known)` and an em dash in place of a battery number. The suffix matters
   more than the colour: a reader scanning the status column alone must not be misled.
+- **Malformed payloads split by surface.** A malformed snapshot is **terminal**: the
+  resource enters `terminal-error` with the decoder's issue paths and codes, no retry is
+  offered, and retained rows stay on screen under the banner. A malformed stream frame is
+  **dropped and counted**, surfaced in technician diagnostics — the next frame may be
+  fine, where re-requesting the same snapshot cannot be.
 - **Stream down** → connection banner appears, the table retains last-known data, and
   per-robot freshness labels are **suppressed**. A robot going silent and the console going
   blind are different failures, and deriving freshness server-side is what lets the console
@@ -296,8 +334,9 @@ The rules that matter most:
 | Large lists                | Fleet table usable at several hundred robots                                                             |
 | Battery history            | Section state matrix, sparkline coordinates and accessible name, and failure isolation from robot detail |
 
-313 tests across 30 files. No snapshot tests — a snapshot asserts output did not change,
-which is not the same as asserting it is correct.
+No snapshot tests — a snapshot asserts output did not change, which is not the same as
+asserting it is correct. (Test counts are recorded in dated audit evidence, not here,
+because they change with every addition.)
 
 ADR 22 deliberately does not turn adapter coverage into a gate. CI reports it so a human
 can notice a change, but the discarded 90% threshold had no derivation and therefore no
@@ -314,11 +353,15 @@ primitives with their specs; the robot and site entity layers with selectors and
 full token layer; the boundary enforcement fixtures; and a development component gallery.
 
 **Wired to live data.** `useFleetRobots` subscribes to the decoded fleet store populated by
-the app-owned socket-first, snapshot-second transport. Robot detail fetches and decodes the
-single-robot and health endpoints. The running path is proven in real browsers by the
-committed Playwright suite (ADR 32): rendering, streamed row updates, freshness
-transitions, suppression on stream loss, and automatic restart recovery, against the real
-server and simulator with the production bundle served by `vite preview`.
+the app-owned socket-first, snapshot-second transport, and returns the complete resource
+state (§ 8). Robot detail fetches and decodes the single-robot and health endpoints, then
+stays live from the same delta stream by reconciliation. The running path is proven in
+real browsers by the committed Playwright suite (ADR 32): rendering, streamed row updates,
+live detail from deltas, manifest site labels and filters, first-load failure with a
+working retry, a controlled malformed snapshot rendered terminally, freshness transitions,
+suppression on stream loss, automatic restart recovery, and the tenant-B production
+build — against the real server and simulator with the production bundle served by
+`vite preview`.
 
 The transport recovers automatically under
 [ADR 31](../00_adr/31_JITTERED_RECONNECT_AND_SERVER_SESSION_RECONCILIATION.md): an
@@ -359,3 +402,23 @@ flags and validated build-time selection are implemented (ADR 17).
   implementation detail.
 - Stop and ask if a change introduces a vendor conditional, a new dependency, logic in
   `config`, a collapsed state type, or a cross-feature import.
+
+## 13. Principles 1–15: enforcement and evidence
+
+| Principle                              | Enforcement / evidence in this package                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 1 — one authoritative implementation   | Selectors own display rules; contracts own decoding; `reconcileDeltaWithSnapshot` imported, not copied |
+| 2 — validate at the boundary           | `shared/lib/transportDecoding.ts` is the only decode site; everything downstream takes decoded values  |
+| 3 — vendor differences as capabilities | Panel registry over declared keys; no vendor `if` in features; open vendor filter options              |
+| 4 — freshness first-class              | Server-derived labels, suppression while disconnected, decoded footer provenance, no client timer      |
+| 5 — complete async states              | `FleetResourceState`, `RobotDetailState`, history state unions; page tests drive every member          |
+| 6 — accessibility                      | Roles/names asserted in component tests; keyboard smoke test in three engines                          |
+| 7 — server authorizes                  | The console renders and never authorizes; ADR 26's demo-only exposure is stated on the surface         |
+| 8 — one styling system                 | MUI + tokens; stylelint/eslint reject raw literals outside `shared/ui` and `config`                    |
+| 9 — enforced boundaries                | `eslint-plugin-boundaries` default-disallow plus live `__boundary-violation__` fixtures                |
+| 10 — test-first, verified in browser   | Focused unit suites plus the ADR 32 Playwright evidence against the real stack                         |
+| 11 — state separated by authority      | Store transitions are explicit; observed and requested never collapse; view state stays in features    |
+| 12 — usable at scale                   | 500-row correctness test plus the measured live-stream run (ADR 24 trigger unfired)                    |
+| 13 — deployment in configuration       | Build-time tenant profiles; the tenant-B build is driven in CI, not reasoned about                     |
+| 14 — documented coupling               | Doc comments on every export (ADR 28 lint); coupling named on both sides                               |
+| 15 — proportionate enforcement         | Gates are derived (bundle budget, diff cap); reported-not-gated where no derivation exists (ADR 22)    |

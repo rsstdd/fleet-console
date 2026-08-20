@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { Alert, Box, Button, Paper, Skeleton, Stack, Typography } from "@mui/material";
 
@@ -22,6 +22,9 @@ import {
 } from "@/entities/robot/selectors";
 import { useRobotDetail, type RobotDetailState } from "@/entities/robot/useRobotDetail";
 import { useRobotHistory } from "@/entities/robot/useRobotHistory";
+import { useFleetRobot, useFleetSites } from "@/entities/robot/useFleetRobots";
+import { reconcileDetailWithRow } from "@/entities/robot/fromEnvelope";
+import { useStreamDiagnostics } from "@/shared/lib/streamDiagnosticsContext";
 
 import { TENANT } from "@/config/tenant";
 
@@ -107,6 +110,8 @@ function DetailHeader({
   const presentation = selectStatusPresentation(robot);
   /* One fact about the console's socket, not about this robot (Principle 11, ADR 23). */
   const streamConnected = isStreamConnected(useConnectionState());
+  /* The snapshot's directory, the only source of a site label (ADR 34). */
+  const sites = useFleetSites();
 
   return (
     <Stack
@@ -147,7 +152,7 @@ function DetailHeader({
             />
           ) : null}
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {selectSiteLabel(robot.siteId)} · Vendor {robot.vendor} · {robot.model ?? "—"}
+            {selectSiteLabel(robot.siteId, sites)} · Vendor {robot.vendor} · {robot.model ?? "—"}
           </Typography>
         </Stack>
       </Box>
@@ -247,6 +252,25 @@ function CapabilitiesSection({ robot }: { readonly robot: RobotDetail }): ReactN
   );
 }
 
+/**
+ * The console's own stream health, distinct from anything about this robot.
+ *
+ * The count is session-wide and across all robots — a property of this
+ * console's socket, not of the machine on screen — and the label says exactly
+ * that rather than implying a per-robot precision the counter does not have
+ * (Principle 11). Whether a run of rejections should escalate to a terminal
+ * state is trigger-deferred (fleet TODO A4).
+ */
+function StreamDiagnosticsRow(): ReactNode {
+  const { rejectedFrames } = useStreamDiagnostics();
+  return (
+    <Field
+      label="Rejected stream frames (console session, all robots)"
+      value={String(rejectedFrames)}
+    />
+  );
+}
+
 /** Technician only. Severity is carried by words, never by colour (spec §9). */
 function DiagnosticsSection({ robot }: { readonly robot: RobotDetail }): ReactNode {
   const { diagnostics } = robot;
@@ -257,10 +281,13 @@ function DiagnosticsSection({ robot }: { readonly robot: RobotDetail }): ReactNo
     return (
       <Section index="04" title="Diagnostics">
         <Paper sx={{ p: 3 }}>
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
             This robot is registered and has not reported yet. There is nothing for an adapter to
             have seen.
           </Typography>
+          <Stack component="dl" spacing={1.5} sx={{ m: 0 }}>
+            <StreamDiagnosticsRow />
+          </Stack>
         </Paper>
       </Section>
     );
@@ -300,6 +327,7 @@ function DiagnosticsSection({ robot }: { readonly robot: RobotDetail }): ReactNo
                 : String(diagnostics.unknownFieldCount)
             }
           />
+          <StreamDiagnosticsRow />
         </Stack>
       </Paper>
     </Section>
@@ -424,18 +452,36 @@ function DetailSkeleton(): ReactNode {
  * (Principle 3). Freshness is displayed, never derived — the header label
  * changes because a delta changed it, and this page holds no timer (ADR 3).
  *
- * What this page cannot do yet — the ADR 3 suppression path, the real
- * transport behind the fixture, the three async states nothing can currently
- * produce — is recorded in `./TODO.md`, one item each with its owner. Read it
- * before concluding a gap here is an oversight.
+ * Live by overlay, not by polling: the page fetches diagnostics and history
+ * once per visit, then keeps core values and freshness current by reconciling
+ * this robot's fleet row — fed by the same stream the fleet page reads — over
+ * the fetched detail. No delta re-triggers a fetch, and deltas for other
+ * robots do not re-render this page.
  */
 export function RobotDetailPage(): ReactNode {
   const { id } = useParams<{ id: string }>();
   // The address is deployment configuration; this layer may read it and the entity may
   // not (ADR 4, ADR 21).
-  const state: RobotDetailState = useRobotDetail(id, {
+  const fetched: RobotDetailState = useRobotDetail(id, {
     apiBaseUrl: TENANT.endpoints.apiBaseUrl,
   });
+  /*
+   * The live half: this robot's fleet row, updated by stream deltas. Identity-
+   * stable while frames name other robots, so this page re-renders only for its
+   * own machine, and the overlay never refetches diagnostics or history —
+   * `reconcileDetailWithRow` carries those forward from the one fetch.
+   */
+  const live = useFleetRobot(id);
+  const state = useMemo(() => {
+    if (live === undefined) return fetched;
+    if (fetched.status === "ready") {
+      return { ...fetched, robot: reconcileDetailWithRow(fetched.robot, live) };
+    }
+    if (fetched.status === "error" && fetched.recoverable && fetched.robot !== null) {
+      return { ...fetched, robot: reconcileDetailWithRow(fetched.robot, live) };
+    }
+    return fetched;
+  }, [fetched, live]);
 
   return (
     <Box>

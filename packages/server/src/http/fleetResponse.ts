@@ -1,5 +1,6 @@
 import {
   type CanonicalEnvelopeWire,
+  type FleetSite,
   type FleetSnapshot,
   type RegisteredRobotState,
   SCHEMA_VERSION,
@@ -27,12 +28,19 @@ import type { CurrentRobotState } from "../state/currentStateStore.ts";
  */
 
 /** The snapshot as it is serialized: robots in their wire forms. */
-export type FleetSnapshotWire = Omit<FleetSnapshot, "robots"> & {
+export type FleetSnapshotWire = Omit<FleetSnapshot, "robots" | "sites"> & {
+  readonly sites: readonly FleetSite[];
   readonly robots: readonly (CanonicalEnvelopeWire | RegisteredRobotState)[];
 };
 
 /** What a snapshot needs beyond the robots themselves. */
 export interface FleetSnapshotOptions {
+  /**
+   * The site directory, straight from the validated manifest (ADR 34). The
+   * snapshot is the only response that carries it; envelopes keep carrying
+   * bare `siteId` values, so labels exist in exactly one place.
+   */
+  readonly sites: readonly FleetSite[];
   readonly robots: readonly CurrentRobotState[];
   /** Read from the injected `Clock` by the caller; this module never reads one. */
   readonly capturedAt: number;
@@ -61,6 +69,7 @@ export function encodeFleetSnapshot(options: FleetSnapshotOptions): FleetSnapsho
     serverSessionId: options.serverSessionId,
     flushSequence: options.flushSequence,
     capturedAt: options.capturedAt,
+    sites: options.sites,
     robots: options.robots.map(toWireRobot),
   };
 }

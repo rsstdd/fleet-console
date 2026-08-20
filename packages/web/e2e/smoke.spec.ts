@@ -210,6 +210,93 @@ test.describe("fleet console against the real stack", () => {
     await expect(section.getByText(/samples retained/)).toBeVisible();
   });
 
+  test("updates robot detail live from stream deltas, without navigation or reload", async ({
+    page,
+    stack,
+  }) => {
+    await openFleet(page, stack.consoleUrl);
+    await robotLinks(page).filter({ hasText: "R-001" }).click();
+    await expect(page.getByRole("heading", { name: "Robot R-001" })).toBeVisible();
+
+    // The one fetch happened; from here every change is a delta reconciled over
+    // it. "Last seen" is the field every emission moves.
+    const summary = page.getByRole("region", { name: "Summary" });
+    const lastSeen = summary.getByText(/^\d{2}:\d{2}:\d{2}Z$/).last();
+    const before = await lastSeen.textContent();
+    await expect(lastSeen).not.toHaveText(before ?? "", { timeout: 10_000 });
+
+    // Still the same page — live by overlay, not by reload or re-navigation.
+    await expect(page).toHaveURL(/\/robots\/R-001$/);
+    await expect(page.getByRole("heading", { name: "Robot R-001" })).toBeVisible();
+  });
+
+  test("labels sites from the manifest directory and filters by them", async ({ page, stack }) => {
+    await openFleet(page, stack.consoleUrl);
+
+    // The labels are configuration, decoded off the snapshot — never a fixture
+    // table in the console (ADR 34).
+    await page.getByRole("combobox", { name: "Site" }).click();
+    for (const label of ["All sites", "North site", "South site", "East site"]) {
+      await expect(page.getByRole("option", { name: label })).toBeVisible();
+    }
+    await page.getByRole("option", { name: "North site" }).click();
+
+    // The table narrows to the north rows, and every visible Site cell carries
+    // the directory's label rather than the raw SITE-NORTH identifier.
+    await expect(robotLinks(page)).not.toHaveCount(50);
+    const rows = page.getByRole("table", { name: "Fleet" }).getByRole("row");
+    await expect(rows.nth(1).getByText("North site")).toBeVisible();
+    await expect(page.getByRole("table", { name: "Fleet" }).getByText("South site")).toHaveCount(0);
+  });
+
+  test("shows a first-load failure with a working retry when the server is down from the start", async ({
+    page,
+    stack,
+  }) => {
+    // A console opened against a dead server: the initial probe exhausts its
+    // three attempts and the fleet resource reports a recoverable failure with
+    // nothing retained (Principle 5, ADR 31).
+    await stack.stopServer();
+    await page.goto(stack.consoleUrl);
+
+    const failure = page.getByRole("alert").filter({ hasText: "could not be loaded" });
+    await expect(failure).toBeVisible({ timeout: 20_000 });
+    await expect(failure.getByRole("button", { name: "Retry" })).toBeVisible();
+    await expect(page.getByRole("table", { name: "Fleet" })).toHaveCount(0);
+
+    // The operator's retry, against a server that has come back, joins for real.
+    await stack.startServer();
+    await failure.getByRole("button", { name: "Retry" }).click();
+
+    await expect(robotLinks(page)).toHaveCount(50, { timeout: 20_000 });
+    await expect(page.getByText("Stream connected")).toBeVisible();
+  });
+
+  test("renders a malformed snapshot as a terminal contract failure, with no retry", async ({
+    page,
+    stack,
+  }) => {
+    // Controlled corruption at the one boundary: the real server answers, the
+    // route hands the console a body missing its site directory. Malformed
+    // snapshots are terminal — retrying returns the same bytes (ADR 20).
+    await page.route("**/api/fleet", async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as Record<string, unknown>;
+      delete body["sites"];
+      await route.fulfill({ response, json: body });
+    });
+    await page.goto(stack.consoleUrl);
+
+    const failure = page
+      .getByRole("alert")
+      .filter({ hasText: "did not match the canonical contract" });
+    await expect(failure).toBeVisible({ timeout: 20_000 });
+    // The decoder's own issue path and code, never a rejected value (ADR 20).
+    await expect(failure.getByText(/sites/)).toBeVisible();
+    await expect(failure.getByRole("button", { name: "Retry" })).toHaveCount(0);
+    await expect(page.getByText("Stream disconnected", { exact: true })).toBeVisible();
+  });
+
   test("recovers automatically after a server restart, without Retry or reload", async ({
     page,
     stack,

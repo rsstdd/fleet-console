@@ -119,6 +119,11 @@
       "id": "D24",
       "question": "Battery-history response shape and retention capacity",
       "adr": 33
+    },
+    {
+      "id": "D25",
+      "question": "Site labels: directory on the snapshot, schema version 3",
+      "adr": 34
     }
   ],
   "mechanicalRules": [
@@ -233,12 +238,29 @@
     {
       "path": "packages/web/src/features/robot/batteryHistorySection.tsx",
       "adr": 33
+    },
+    {
+      "path": "packages/contracts/src/envelope/envelopeSchema.ts",
+      "adr": 34
+    },
+    {
+      "path": "packages/server/src/config/fleetManifest.ts",
+      "adr": 14
+    },
+    {
+      "path": "packages/simulator/src/fleet/manifestParity.test.ts",
+      "adr": 14
     }
   ],
   "authorityMarkers": {
     "repository process": ["docs/DOCUMENT_LIFECYCLES.md"],
     "compatibility": ["CLAUDE.md"],
-    "historical": ["docs/ARCHITECTURE_AUDIT.md", "packages/FIXME.md", "packages/web/UI_PLAN.md"],
+    "historical": [
+      "docs/ARCHITECTURE_AUDIT.md",
+      "packages/FIXME.md",
+      "docs/04_archive/WEB_UI_PLAN.md",
+      "docs/04_archive/WEB_ALIGNMENT_PLAN.md"
+    ],
     "planning": [
       "TODO.md",
       "packages/adapters/TODO.md",

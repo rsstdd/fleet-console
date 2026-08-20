@@ -8,7 +8,7 @@
  * (TODO § 16).
  */
 import { createFaultPolicy, NO_FAULTS, type FaultPolicy } from "./faults/faultPolicy.ts";
-import { createFleet, toFleetManifest } from "./fleet/createFleet.ts";
+import { SITE_DIRECTORY, createFleet, toFleetManifest } from "./fleet/createFleet.ts";
 import { evolveRobot, type SimulatedRobot } from "./fleet/simulatedRobot.ts";
 import { createMetrics, type SimulatorMetrics } from "./observability/simulatorMetrics.ts";
 import { createJsonLogger, sanitizeEndpoint, type Logger } from "./observability/logger.ts";
@@ -47,14 +47,15 @@ export interface SimulatorApp {
  * (`--print-manifest`).
  *
  * The output is exactly what `fleetManifestSchema` accepts and nothing more:
- * a `robots` array, no wrapper. The seed that produced it is operator
- * information, not roster data, so it goes to stderr at the call site — a
- * `seed` key here is an unrecognized field to a strict schema, and would fail
- * the server at startup on a file the operator just generated for it (ADR 14).
+ * a `sites` directory and a `robots` array, no wrapper (ADR 34). The seed that
+ * produced it is operator information, not roster data, so it goes to stderr
+ * at the call site — a `seed` key here is an unrecognized field to a strict
+ * schema, and would fail the server at startup on a file the operator just
+ * generated for it (ADR 14).
  */
 export function renderFleetManifest(config: SimulatorConfig): string {
   const robots = createFleet(config.robots, config.seed);
-  return JSON.stringify({ robots: toFleetManifest(robots) }, null, 2);
+  return JSON.stringify({ sites: SITE_DIRECTORY, robots: toFleetManifest(robots) }, null, 2);
 }
 
 /**

@@ -11,7 +11,7 @@ current.** Most of what looks like extra machinery below is there to hold that l
 ```bash
 pnpm dev                       # console, server and simulator together
 pnpm --filter web dev          # console alone, on http://localhost:5173
-pnpm --filter web test         # 265 tests
+pnpm --filter web test         # unit and component suites (vitest)
 pnpm --filter web lint         # eslint + stylelint + tsc
 ```
 
@@ -19,9 +19,12 @@ The console alone is honest but empty: with no server it reports itself **discon
 suppresses every per-robot freshness label, and shows no rows. That is the designed
 behaviour, not a broken build.
 
-`VITE_TENANT` selects a tenant profile at build time — `tenant-a` (dark) or `tenant-b`
-(light, with the lidar panel disabled). An unknown value fails the build
-([ADR 17](../../docs/00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md)).
+`VITE_TENANT` selects a tenant profile at build time — `tenant-a` (dark, "Fleet Console")
+or `tenant-b` (light, "Northwind Robotics", with the lidar panel disabled). An unknown
+value fails the build
+([ADR 17](../../docs/00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md)). To browse the
+tenant-B profile against the live dev stack, run `pnpm dev:tenant-b` from the repository
+root; `pnpm test:e2e:tenant` drives its production bundle in Chromium.
 
 ## Layers, and the rule that matters
 
@@ -52,9 +55,16 @@ that would be tempted to inline it.
 - `shared/lib/transportDecoding.ts` — the **one** decode. A failed request is recoverable;
   a body the contract refuses is terminal, because retrying returns the same bytes.
 - `shared/lib/streamLifecycle.ts` — the complete state matrix, as a pure reducer.
-- `entities/robot/fleetStore.ts` — robots keyed by id, **replaced whole, never merged**.
+- `entities/robot/fleetStore.ts` — robots keyed by id, **replaced whole, never merged**,
+  under the entity-owned `FleetResourceState` machine: the transport reports what
+  happened (snapshot start/success, recoverable or terminal failure, a frame) and the
+  store owns what the fleet surface shows — loading, ready, refreshing, a recoverable
+  error with the one Retry, or a terminal contract failure naming issue paths and codes.
 - `entities/robot/fromEnvelope.ts` — the one place a canonical envelope becomes a read
-  model. No component ever reaches into a response.
+  model. No component ever reaches into a response. Its `reconcileDetailWithRow` is what
+  keeps robot detail live: one fetch per visit, then core values and freshness update by
+  overlaying this robot's fleet row, with no refetch and no re-render for other robots'
+  deltas.
 
 **There is no freshness timer anywhere in this package, and adding one is a defect.**
 `freshness` is a field the server's sweep computed and sent. A client that aged robots
@@ -92,26 +102,31 @@ makes them distinguishable at all.
 - **Operator view is default**; technician diagnostics — adapter ids, clock delta, the raw
   vendor payload — sit behind an explicit toggle.
 
-## Still fixture-backed
+## Site labels
 
-`entities/site` alone, and not for want of trying: the fleet manifest carries a `siteId` per
-robot and no label for it, so there is nothing to read. Recorded as `packages/FIXME.md`
-**F16** with the two ways to close it.
+Site labels come from the manifest's `sites` directory, carried on the fleet snapshot
+(ADR 34): the console holds no fixture table and invents no label. `entities/site`
+resolves labels against the decoded directory and falls back to the raw id only before
+the first snapshot arrives.
 
 ## Browser evidence
 
 Browser-driven end-to-end tests are committed under
 [ADR 32](../../docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md):
-`pnpm test:e2e` runs seven smoke scenarios per engine (Chromium, Firefox, and — in CI,
+`pnpm test:e2e` runs the smoke scenarios per engine (Chromium, Firefox, and — in CI,
 where its system libraries exist — WebKit) against the real server, real simulator, and
 the production bundle served by `vite preview`; `pnpm test:e2e:scale` reports the
-500-robot client measurement. The harness lives in [`e2e/`](./e2e/), builds once in
+500-robot client measurement, and `pnpm test:e2e:tenant` builds and drives the tenant-B
+production bundle in Chromium (light theme, disabled lidar panel, narrow viewport).
+Locally, run the Chromium and Firefox projects; WebKit is exercised in CI where its
+system libraries are installed. The harness lives in [`e2e/`](./e2e/), builds once in
 global setup, gives each test a fresh stack, and attaches process logs, traces, and
 screenshots on failure. Automatic reconnection (landed 20 August 2026 under
 [ADR 31](../../docs/00_adr/31_JITTERED_RECONNECT_AND_SERVER_SESSION_RECONCILIATION.md))
 is proven there against a really-restarted server. Real screen-reader output and
 subjective forced-colors inspection remain manual.
 
-Remaining work lives in [`UI_PLAN.md`](./UI_PLAN.md) and three per-slice TODOs under
-`src/entities/robot`, `src/features/fleet` and `src/features/robot`.
+Remaining work lives in three per-slice TODOs under `src/entities/robot`,
+`src/features/fleet` and `src/features/robot`. (The historical `UI_PLAN.md` is archived
+at `docs/04_archive/WEB_UI_PLAN.md`; it is not current remaining work.)
 [`AGENTS.md`](./AGENTS.md) is the scoped guide and has the task routing table.
