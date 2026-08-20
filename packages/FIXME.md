@@ -115,9 +115,9 @@ TODOs and the root TODO; do not “fix” them by weakening the ADR.
 recorded representative and boundary fixtures per vendor, publishes one separately
 hand-authored malformed payload per vendor, and implements the accepted-only unknown-field
 ledger and path discovery. All three vendors now have loose schemas, adapters, and exact
-contract tests; the dispatch registry and cross-vendor normalization assertion remain.
-Therefore integrated dispatch evidence and process-wide unknown-field reporting do not
-yet exist. The simulator intentionally has
+contract tests; the exhaustive dispatch registry owns their shared process tally. The
+cross-vendor normalization assertion and server ingest integration remain. Therefore
+end-to-end dispatch evidence and HTTP health reporting do not yet exist. The simulator intentionally has
 no production dependency on contracts/adapters; its test-only adapters dependency guards
 the supported-vendor list (ADR 16).
 

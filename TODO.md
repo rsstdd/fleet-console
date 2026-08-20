@@ -114,8 +114,10 @@ Owner: `packages/adapters`.
   spellings of `adapterId` are already loose in the tree.
 - ~~Count unknown fields per adapter, including Vendor C's
   `telemetry.firmware_channel`.~~ Done and asserted at its dotted path.
-- Add the registry and cross-vendor normalization test; per-vendor malformed input,
-  conversions, capability absence, Vendor B ordering, and contract parsing are covered.
+- ~~Add the exhaustive dispatch registry with one process-owned unknown-field ledger.~~
+  Done 20 August 2026; server deep imports are rejected by a tested lint boundary.
+- Add the cross-vendor normalization test; per-vendor malformed input, conversions,
+  capability absence, Vendor B ordering, and contract parsing are covered.
 - Join simulator output to the contracts/web decode path in an E2E contract test.
 
 Raw-payload retention has moved off this item: ADR 26 put it wholly in `packages/server`,

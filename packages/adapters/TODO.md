@@ -167,7 +167,7 @@ Verified 20 August 2026, from `packages/adapters`, after all three vendor adapte
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 12 files, 182 tests     |
+| `pnpm test`      | passes — 13 files, 199 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
