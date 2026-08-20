@@ -60,6 +60,7 @@ src/
   state/                    currentStateStore, ringBuffer
   freshness/freshnessSweep  the recurring interval that calls contracts
   fanout/pendingDeltas      coalescing keyed by robot id
+  fanout/deltaFanOut        one coalescing set per console, flushed at a bounded rate
   health/healthMetrics      counters at their true scope
   ingest/                   selectVendor, errorResponse, requestSizeLimit — all pre-body
   http/originPolicy         the cross-origin grant ADR 21 configured and nothing consumed

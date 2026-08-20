@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 21 files, 138 tests     |
+| `pnpm test`      | passes — 22 files, 144 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -40,6 +40,7 @@ packages/server/
     ├── state/ringBuffer.ts         bounded per-robot history (ADR 6)
     ├── state/currentStateStore.ts  manifest-seeded state, idempotent upsert (ADR 6)
     ├── fanout/pendingDeltas.ts     per-robot delta coalescing (ADR 2)
+    ├── fanout/deltaFanOut.ts       one coalescing set per console, bounded flush (H1-H6a)
     ├── freshness/freshnessSweep.ts recurring sweep + late-tick detection (ADR 3)
     ├── health/healthMetrics.ts     counters by scope (ADR 25)
     ├── ingest/selectVendor.ts      route segment → adapter, before the body (ADR 8)
@@ -442,16 +443,34 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
 
 ## Section 8 — WebSocket fan-out (ADR 2)
 
-- [ ] **H1 — One connection per console; changed robots only.** Never a full snapshot on
-      every flush (ADR 2 Position 3).
-- [ ] **H2 — Coalesce between flushes and flush at no more than 10 Hz**, on a scheduler
-      independent of the 500 ms sweep. `PendingDeltaSet` is the coalescing half; the
-      scheduler is not written.
+- [x] **H1, H2, H5, H6, H6a — the fan-out unit. Done 20 August 2026; not yet attached to a
+      socket.** `DeltaFanOut` in `src/fanout/deltaFanOut.ts` holds one `PendingDeltaSet`
+      per console (**H6**), marks every set on a change, and flushes on its own interval
+      floored at 100 ms — independent of the 500 ms sweep, because ADR 3 states that
+      conflating them makes the two impossible to tune separately (**H2**). A frame carries
+      changed robots only (**H1**), encoded so the capability record becomes the wire array
+      JSON preserves (**H5**), and a test parses a real frame with the contract's own
+      `parseTelemetryBatch` rather than eyeballing its shape. A console that joins after a
+      change gets nothing: its picture is the `GET /api/fleet` snapshot, so the socket
+      carries one message shape for its whole lifetime (**H3**). It owns no socket —
+      clients arrive as a `send`/`close` pair — so the whole of fan-out is testable without
+      a port, as every other unit in this package is. **Composition into the listener is
+      the next step and is not done**: nothing calls `add()` on a real connection, and the
+      sweep and ingest still mark a standalone set rather than this one.
 - [x] **H3 — Decided 19 August 2026: `GET /api/fleet` first, socket for deltas only.**
       Recorded by amending [ADR 2 § Decision](../../docs/00_adr/02_TRANSPORT_HTTP_INGEST_WS_FANOUT.md),
       which had been silent on it. The socket carries one message shape for its whole
       lifetime, and cold start and reconnect are the same code path.
-- [ ] **H3a — Produce the server-wide flush sequence. Contracts half done ([ADR 18](../../docs/00_adr/18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md), register D10).**
+- [ ] **H3a — Produce the server-wide flush sequence. Counter built 20 August 2026; not yet
+      shared with the snapshot handler.** `createFlushSequence()` is the one monotonic
+      source, and `DeltaFanOut` advances it **only on a flush that sends something** — a
+      counter climbing on empty ticks would describe no state, and a client reconciling a
+      delta against its snapshot would discard readings it needed. Every frame in one flush
+      carries that number, which is also the maximum any of them contains, satisfying
+      **H6a** by construction rather than by a separate step. What remains: `GET /api/fleet`
+      still hardcodes `flushSequence: 0` instead of reading this counter, which is exactly
+      the two-sources defect ADR 18 exists to prevent — it lands with the composition.
+      Original item follows. ([ADR 18](../../docs/00_adr/18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md), register D10.)
       `packages/contracts` now carries `flushSequenceSchema`, a required `flushSequence`
       on `telemetryBatchSchema`, the `fleetSnapshotSchema` that did not previously exist,
       and `isDeltaCoveredBySnapshot` — the reconciliation rule itself, so the client and
@@ -486,12 +505,23 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       is bounded by fleet size rather than by how far behind it is, and it receives
       current state less often but never stale state. The class this package already has
       is the right shape — fan-out just owns one per client instead of one in total.
-- [ ] **H6a — Carry the highest flush sequence in a coalesced frame.** A frame assembled
-      across flushes 41–44 states 44. The client only uses it to reconcile against its
-      cold-start snapshot (**H3a**), so the maximum is the correct value.
-- [ ] **H6b — Close a connection that never drains, on a timeout.** A bounded set is
-      still a set held for a client that will never read it. This is the only place
-      fan-out discards a client; count it on `/api/health`.
+- [x] **H6a — Carry the highest flush sequence in a coalesced frame. Done 20 August 2026
+      by construction.** Every frame carries the sequence of the flush that sent it, and a
+      set that coalesced across earlier flushes is sent in the later one, so the value is
+      the maximum it contains without a separate maximum being computed.
+- [ ] **H6b — Close a connection that never drains, on a timeout. Deferred; the decision it
+      needs is not made.** A bounded set is still a set held for a client that will never
+      read it. This is the only place fan-out discards a client, and it must be counted on
+      `/api/health`. **What blocks it:** ADR 8 § Open questions asks whether the connection
+      cap and maximum frame size are configuration or constants, leans configuration
+      "alongside the freshness policy in `config/`", and names _this_ work as the resolver.
+      That is not a free choice — `freshnessPolicySchema` is strict and ADR 3 § Constraints
+      fixes its keys, so it means either a fourth key with an ADR 3 amendment or a new
+      configuration surface, and both are bigger than a threshold constant. `DeltaFanOut`
+      therefore has **no backpressure signal at all** today: it flushes to every console
+      with a pending set and never skips or drops one. That is correct at ADR 2's stated
+      scale of single-digit consoles and wrong at any scale where a console stops reading.
+      Decide the configuration surface first; do not put a number in the fan-out.
 - [ ] **H6c — Define the remaining connection states.** Reconnect and orderly shutdown
       still need defining; ADR 8 § Implications requires socket clients to close before
       the HTTP server does, or in-flight frames land on a dead listener.
