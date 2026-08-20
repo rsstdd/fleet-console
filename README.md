@@ -319,11 +319,23 @@ Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing,
 > what the map-keyed store predicted.
 >
 > Read the 892 µs honestly: it is a **sequential round trip over loopback including the
-> client's own `fetch`**, so it is an upper bound on server-side per-request work rather
-> than an isolate of it. Whether the server sustains ADR 2's 2,500 msg/s is a concurrency
-> question this harness deliberately does not ask — a concurrent flood measures queueing
-> rather than per-request cost, and saturation is server TODO **I4**. The load tables below
-> stay empty until that run happens (Principle 12).
+> client's own `fetch`**, so it bounds server-side per-request work from above rather than
+> isolating it — and it is emphatically **not** a capacity figure.
+>
+> **Under concurrency, measured 20 August 2026 by `src/freshness/sweepUnderLoad.test.ts`
+> at 500 robots:**
+>
+> | Offered concurrency | Accepted    | Sweep ticks late |
+> | ------------------- | ----------- | ---------------- |
+> | 1                   | 1,264 req/s | 0 of 4           |
+> | 16                  | 4,786 req/s | 0 of 4           |
+> | 128                 | 5,971 req/s | 0 of 4           |
+>
+> That is **~2.4× ADR 2's 2,500 msg/s design scale**, and the freshness sweep never ran
+> late at any level — which is the measurement that actually matters, because ADR 3's
+> failure under saturation is not slowness but a sweep that stops firing and leaves stale
+> robots reported as LIVE. No degradation point was found on this machine; the honest
+> statement is that saturation was not reached, not that it cannot be.
 >
 > The contrast table is blocked on nothing at all and is simply not yet done. It needs
 > a person reading ratios off both themes, and it is tracked as `packages/FIXME.md`

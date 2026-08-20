@@ -665,14 +665,26 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       one run; produce all its numbers together rather than one at a time.
 - [ ] **I3 — Report the degradation point, not only a favourable number. Half done 20
       August 2026.** ADR 2 § Observed consequences is no longer empty and the README
-      carries the per-request table, including the unfavourable reading: 892 µs sequential
-      is ~1,100 requests/second on one connection, which is **below** ADR 2's 2,500 msg/s
-      design scale, and the harness deliberately does not claim otherwise. What is still
-      owed is the degradation _point_ — the offered load at which latency leaves its floor
-      — which needs the concurrent run **I4** describes.
-- [ ] **I4 — Treat event-loop saturation as a freshness-correctness bug**, not a latency
-      nit: it delays the sweep, and a delayed sweep reports stale robots as LIVE
-      (ADR 3, ADR 6 § Implications).
+      carries both tables. The unfavourable reading published first — 892 µs sequential is
+      ~1,100 req/s on one connection, below ADR 2's design scale — turned out to be an
+      artefact of measuring one connection, and the concurrent run corrected it to ~2.4×
+      above. **The correction is left visible rather than tidied away**, because a
+      measurement published and then revised is the more useful record. What is still owed
+      is the degradation _point_ itself: no saturation was reached on this machine, so no
+      point exists to report. "Not found" is a statement about this run, not about the
+      ceiling, and the README says so rather than claiming headroom nobody measured.
+- [x] **I4 — Treat event-loop saturation as a freshness-correctness bug. Done 20 August 2026.** `src/freshness/sweepUnderLoad.test.ts` measures the right thing: not
+      throughput, but whether the sweep keeps firing while ingest competes for the loop. A
+      delayed sweep reports stale robots as LIVE (ADR 3, ADR 6 § Implications), so the
+      assertion is about the **detector** — whatever load this machine reaches, a tick that
+      ran late must be counted, and `lastLatenessMs` staying null while `count` climbed
+      would be the silence ADR 3 names as the failure. Concurrency 1, 16 and 128 all
+      produced zero late ticks, and the interval was still running afterwards. Two honest
+      caveats, both recorded in ADR 3 § Observed consequences: "no saturation found" is
+      about this machine and this offered load, not a proof the interval cannot be starved;
+      and because nothing ran late, this run left the detector **unexercised** — it is
+      watched instead by the manual-clock case in `runServer.test.ts`, which forces a late
+      tick and asserts both the counter and the warning (ADR 7).
 
 ---
 
