@@ -1,6 +1,6 @@
 # 05 — `web`
 
-- **Status:** substantially implemented — live decoded transport; automatic recovery remains
+- **Status:** implemented live console; named follow-ups remain in scoped TODOs
 - **Package:** `packages/web`
 - **Governing documents:** ADR 1 (capability-driven rendering), ADR 3 (freshness is
   displayed, never derived), ADR 4 (feature-sliced structure), ADR 5 (MUI with tokens
@@ -87,17 +87,25 @@ Three consequences the informal "entities → shared" summary hides, each load-b
 The default is `disallow`, so a new layer is denied until someone writes its policy — the
 opposite of a default-allow list where an omission silently permits.
 
-| Directory            | Contents                                            | Forbidden                                  |
-| -------------------- | --------------------------------------------------- | ------------------------------------------ |
-| `src/app`            | Providers, router, shell, theme bridge, dev gallery | Domain rules, presentational primitives    |
-| `src/features/fleet` | Fleet table, site grouping, summary                 | Robot-detail components, domain derivation |
-| `src/features/robot` | Robot detail, capability panels, persona views      | Fleet components, domain derivation        |
-| `src/entities/robot` | Robot read model, selectors, hooks                  | JSX, MUI imports                           |
-| `src/entities/site`  | Site model, grouping                                | JSX, MUI imports                           |
-| `src/shared/ui`      | Pure presentational primitives                      | Any domain reference                       |
-| `src/shared/lib`     | Formatting, time helpers, transport client          | Domain rules, payload interpretation       |
-| `src/config`         | Tenant themes, feature flags, thresholds            | Logic of any kind                          |
-| `src/styles`         | `tokens.css`, `global.css`, `utilities.css`         | Component-level hex or raw px              |
+Test files inherit the production layer containing them. The `test` element in the lint
+configuration names only `src/test/**` setup infrastructure; it is not a universal escape
+from feature/entity/shared direction. The two sibling robot-detail suites therefore share
+`features/robot/robotDetailFixtures.ts` inside their own feature. Multiple imports of that
+same-feature helper are reuse, not cross-layer duplication. Reconsider a narrowly scoped
+fixture location only if fixture construction or data is copied across production layers
+or feature directories.
+
+| Directory            | Contents                                                                  | Forbidden                                  |
+| -------------------- | ------------------------------------------------------------------------- | ------------------------------------------ |
+| `src/app`            | Providers, router, shell, theme bridge, dev gallery                       | Domain rules, presentational primitives    |
+| `src/features/fleet` | Fleet table, site grouping, summary                                       | Robot-detail components, domain derivation |
+| `src/features/robot` | Robot detail, capability panels, persona views, battery-history sparkline | Fleet components, domain derivation        |
+| `src/entities/robot` | Robot read model, selectors, hooks                                        | JSX, MUI imports                           |
+| `src/entities/site`  | Site model, grouping                                                      | JSX, MUI imports                           |
+| `src/shared/ui`      | Pure presentational primitives                                            | Any domain reference                       |
+| `src/shared/lib`     | Formatting, time helpers, transport client                                | Domain rules, payload interpretation       |
+| `src/config`         | Tenant themes, feature flags, thresholds                                  | Logic of any kind                          |
+| `src/styles`         | `tokens.css`, `global.css`, `utilities.css`                               | Component-level hex or raw px              |
 
 Cross-layer movement is downward only. Shared behaviour between two features moves **down**
 into `entities` or `shared`, never sideways.

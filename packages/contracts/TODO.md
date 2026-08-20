@@ -6,21 +6,26 @@
 ## Status
 
 `@fleet/contracts` is locally complete: its public schemas, codecs, error vocabulary,
-health responses, and pure freshness derivation are covered by 150 tests. The adapter,
+health responses, battery-history response, and pure freshness derivation are covered by
+174 tests. The adapter,
 server, simulator, and web consumers are wired and the raw-fixture-to-browser join covers
 all three vendors.
 
 ## Remaining cross-package gates
 
-- **D22 — stream recovery and server-restart reconciliation.** Any required wire evolution
-  begins here only after a numbered ADR ratifies it.
-- **Battery history.** The proposed history response and retention constants are not a
-  contract until the history/retention decision is registered and ratified.
+- **Stream recovery and server-restart reconciliation — done (ADR 31, 20 August 2026).**
+  The wire evolved to version 2: `serverSessionId` is required on fleet snapshots and
+  telemetry batches, and `reconcileDeltaWithSnapshot` replaced the sequence-only rule.
+- **Battery history — done (ADR 33, register D24, 20 August 2026).**
+  `robotBatteryHistorySchema` and its constants are the contract: literal 60-second
+  window, 60-point budget, its own `schemaVersion: "1"`, and cross-field checks that
+  enforce the server decimator's count and window invariants on the wire.
 - **Regressive sequence reporting.** Do not add a counter until a consumer-driven health
   contract revision is approved; lower sequences are already rejected by server state.
-- **D23 — browser automation.** This package has no implementation work, but its strict
-  parsers and encoders must be used by any committed browser harness rather than hand-built
-  canonical payloads.
+- **Browser automation — done (ADR 32, 20 August 2026), and the constraint held.** The
+  committed scale measurement expands its 500-robot seed through `encodeCanonicalEnvelope`
+  and re-validates with `parseFleetSnapshot`/`parseTelemetryBatch` before serving a byte;
+  no browser test hand-builds a canonical payload.
 
 ## Verification
 

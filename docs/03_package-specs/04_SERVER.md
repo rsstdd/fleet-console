@@ -1,11 +1,12 @@
 # 04 — `@fleet/server`
 
-- **Status:** runnable live telemetry authority; history read and slow-client policy remain
+- **Status:** runnable live telemetry authority; slow-client policy remains trigger-deferred
 - **Package:** `packages/server`
 - **Governing documents:** ADR 2 (HTTP ingest, WS fan-out), ADR 3 (freshness is derived
-  here), ADR 6 (bounded in-memory history, no database), ADR 8 (Hono + `ws`), ADR 9
-  (runtime), ADR 20 (the error body), ADR 21 (validated runtime endpoints), ADR 22
-  (validation-cost gate); Principles 1, 2, 4, 5, 7, 11, 12, 13
+  here), ADR 6 (bounded in-memory history, no database; retention arithmetic amended by
+  ADR 33), ADR 8 (Hono + `ws`), ADR 9 (runtime), ADR 20 (the error body), ADR 21
+  (validated runtime endpoints), ADR 22 (validation-cost gate), ADR 33 (battery history
+  retained compact and served decimated); Principles 1, 2, 4, 5, 7, 11, 12, 13
 
 ## 1. Responsibility
 
@@ -41,7 +42,10 @@ framework-independent pieces it assembles, kept separately testable:
 `FreshnessPolicy`, `FleetManifest`, `ServerConfiguration`, `RuntimeEndpoints`.
 
 **State** — `CurrentStateStore`, `RingBuffer`, `HISTORY_CAPACITY`. Types:
-`CurrentRobotState`, `UnobservedRobotState`, `ManifestRobot`, `UpsertResult`.
+`CurrentRobotState`, `UnobservedRobotState`, `ManifestRobot`, `UpsertResult`,
+`BatteryHistorySample`.
+
+**History** — `selectBatteryHistory`. Type: `SelectBatteryHistoryInput`.
 
 **Freshness** — `FreshnessSweep`. Type: `FreshnessSweepOptions`.
 
@@ -59,11 +63,12 @@ src/
   config/                   freshnessPolicy, fleetManifest, serverConfiguration
   state/                    currentStateStore, ringBuffer
   freshness/freshnessSweep  the recurring interval that calls contracts
+  history/selectBatteryHistory  window selection and extrema-preserving decimation, pure
   fanout/pendingDeltas      coalescing keyed by robot id
   fanout/deltaFanOut        one coalescing set per console, flushed at a bounded rate
   health/healthMetrics      counters at their true scope
   ingest/                   selectVendor, errorResponse, requestSizeLimit — all pre-body
-  http/originPolicy         the cross-origin grant ADR 21 configured and nothing consumed
+  http/originPolicy         the cross-origin grant configured by ADR 21 and mounted by createApp
   http/createApp            the Hono router, with that policy mounted ahead of every route
   http/listener             HTTP and /ws on one port, closed in the order ADR 8 requires
   observability/logger      one JSON object per line, injected sink
@@ -82,7 +87,9 @@ those rules on the Hono listener and the `/ws` upgrade. Preconditions such as ve
 body-size validation are decided before anything reads a body, so the ordering guarantees
 remain properties of the signatures rather than handler convention (ADR 8).
 
-Planned and not yet present: the history read for the sparkline.
+The history read landed 20 August 2026 (ADR 33): `history/selectBatteryHistory` keeps
+selection and decimation framework-independent, and `http/createApp` mounts the route on
+an injected `readHistory` function.
 
 ## 5. Contracts owned and consumed
 
@@ -91,13 +98,14 @@ adapter result union, vendor narrowing and unknown-field ledger from `@fleet/ada
 
 **Owned — the implemented HTTP and WebSocket surface** (ADR 2):
 
-| Endpoint                      | Purpose                                                                                             |
-| ----------------------------- | --------------------------------------------------------------------------------------------------- |
-| `POST /api/telemetry/:vendor` | Ingest, one reading per request                                                                     |
-| `GET /api/fleet`              | Canonical read model for every registered robot. No raw payload                                     |
-| `GET /api/robots/:id`         | The same canonical robot **plus** the retained raw payload                                          |
-| `GET /api/health`             | Malformed-ingest, unsupported-vendor, per-adapter unknown fields, sequence health, late sweep ticks |
-| WebSocket                     | Coalesced deltas — changed robots only — flushed at up to 10 Hz                                     |
+| Endpoint                      | Purpose                                                                                                     |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `POST /api/telemetry/:vendor` | Ingest, one reading per request                                                                             |
+| `GET /api/fleet`              | Canonical read model for every registered robot. No raw payload                                             |
+| `GET /api/robots/:id`         | The same canonical robot **plus** the retained raw payload                                                  |
+| `GET /api/robots/:id/history` | The last 60 seconds of battery readings, decimated to at most 60 points (ADR 33); `Cache-Control: no-store` |
+| `GET /api/health`             | Malformed-ingest, unsupported-vendor, per-adapter unknown fields, sequence health, late sweep ticks         |
+| WebSocket                     | Coalesced deltas — changed robots only — flushed at up to 10 Hz                                             |
 
 Vendor identity travels in the **route**, validated against the adapter registry's key set
 before any body decoding. ADR 8's D9 amendment ratifies this as **Option 1 — the path
@@ -124,8 +132,9 @@ shape.
   on the envelope. A freshness-only transition must be treated as a changed robot by the
   coalescing logic, even when no telemetry field changed — a direct dependency from ADR 3
   onto ADR 2's implementation.
-- **ADR 6** — bounded in-memory history, no database. History stores canonical envelopes,
-  not raw payloads, which is part of why it stays small.
+- **ADR 6** — bounded in-memory history, no database. As amended by ADR 33, history stores
+  compact `{receivedAt, batteryPercent | null}` samples — not canonical envelopes and never
+  raw payloads — which is what keeps 3,001 samples per robot small.
 - **ADR 8** — Hono via `@hono/node-server` for HTTP, `ws` for WebSocket, attached to the
   same Node HTTP server.
 - **ADR 9** — runs through `tsx`, which is what makes ADR 8's listener runnable. Plain
@@ -293,8 +302,8 @@ software that decodes it.
 
 The transport critical path is closed: the simulator posts to the live ingest route, the
 freshness demonstration observes sweep transitions over the socket, and ADR 2 records the
-complete-harness throughput measurement. History reads and slow-consumer backpressure
-remain separate server work.
+complete-harness throughput measurement. Slow-consumer backpressure remains separate,
+trigger-deferred server work; the history read closed with ADR 33.
 
 **Decision consequences.** Ingest completes `AdapterEnvelope` only through
 `withFreshness` ([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)); health keeps
@@ -303,10 +312,12 @@ the committed roster is the package-neutral parity join ([ADR 14](../00_adr/14_S
 and validation is gated only at ADR 2's 400 µs falsifier while the missing transport
 harness remains reportable work ([ADR 22](../00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md)).
 
-Two design questions remain open in the package TODO: **M4** (ring-buffer capacity, to be
-picked from the sparkline's real decimated point count rather than a round number) and
-**M6** (slow-client backpressure, recommendation: drop with a counter). **M5** (initial
-WebSocket state) leans toward the HTTP read, so cold start and reconnect are one path.
+One design question remains open in the package TODO: **M6** (slow-client backpressure,
+recommendation: drop with a counter). **M4** (ring-buffer capacity) resolved with ADR 33:
+capacity is derived from the contract window and the validated source ceiling, not picked
+from the decimated point count — the response budget and the retention that feeds it are
+different numbers. **M5** (initial WebSocket state) leans toward the HTTP read, so cold
+start and reconnect are one path.
 
 ## 12. Change rules
 

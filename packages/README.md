@@ -9,13 +9,13 @@ belongs at a boundary, not in the UI.** Vendor disagreement is absorbed by
 and filter vendor identity, but rendering behavior comes from declared
 capabilities and never branches on a vendor name.
 
-| Package                    | Owns                                                               | Status                                    |
-| -------------------------- | ------------------------------------------------------------------ | ----------------------------------------- |
-| [`contracts`](./contracts) | Canonical envelope, capabilities, wire schemas, freshness function | Landed                                    |
-| [`adapters`](./adapters)   | Vendor dialect decoding, unknown-field accounting                  | Landed — three vendors, dispatch registry |
-| [`simulator`](./simulator) | Deterministic vendor telemetry, fault injection                    | Landed                                    |
-| [`server`](./server)       | Ingest, state, freshness sweep, fan-out, health                    | Live process; history/backpressure open   |
-| [`web`](./web)             | The operations console                                             | Live data; automatic recovery/E2E open    |
+| Package                    | Owns                                                               | Status                                      |
+| -------------------------- | ------------------------------------------------------------------ | ------------------------------------------- |
+| [`contracts`](./contracts) | Canonical envelope, capabilities, wire schemas, freshness function | Landed                                      |
+| [`adapters`](./adapters)   | Vendor dialect decoding, unknown-field accounting                  | Landed — three vendors, dispatch registry   |
+| [`simulator`](./simulator) | Deterministic vendor telemetry, fault injection                    | Landed                                      |
+| [`server`](./server)       | Ingest, state, history, freshness sweep, fan-out, health           | Live process; backpressure trigger-deferred |
+| [`web`](./web)             | The operations console                                             | Live data, automatic recovery, browser E2E  |
 
 A **canonical envelope** is the shared robot record every vendor is translated
 into. A **capability** is an optional payload a vendor may or may not send;
@@ -221,8 +221,10 @@ suppressed label.
 
 The app-owned transport now reports the real state. The context and `AppShell` defaults
 remain `disconnected`, so missing composition fails closed rather than asserting
-freshness. Automatic retry is not implemented; the banner's manual retry remains the
-recovery path pending D22.
+freshness. Recovery is automatic under ADR 31 — full-jitter reconnect with a
+server-session check that detects a restarted server — and the banner's manual retry
+remains for the terminal states (initial probe exhausted, contract failure, stream
+integrity mismatch).
 
 A row reading LIVE from a socket that died two minutes ago is the failure this
 rule prevents. A row reading UNREACHABLE is no better: it blames the machine for
@@ -243,13 +245,16 @@ the entity layer that maps a canonical envelope into the read model.
 
 **Landed 20 August 2026:** the transport. `shared/lib` holds the cold-start ordering, the
 stream lifecycle, the one decode boundary and the client that sequences them; `app` owns
-the socket and publishes connection state; `useFleetRobots` reads a keyed store and
-`useRobotDetail` fetches `GET /api/robots/:id`. No hook renders invented data.
+the socket and publishes connection state; `useFleetRobots` reads a keyed store,
+`useRobotDetail` fetches `GET /api/robots/:id`, and `useRobotHistory` fetches the
+battery-history window once per visit for the detail-page sparkline (ADR 33). No hook
+renders invented data.
 
-**Not yet:** proof in a browser, and automatic reconnection. The console has been verified
-at the wire — snapshot, deltas, a freshness-only transition — but not watched rendering
-them; and `connect()` after a close is the caller's call, because an attempt limit and a
-backoff schedule are unchosen (fleet TODO **A3**).
+**Also landed 20 August 2026:** both halves of what this section used to defer.
+Reconnection is automatic under ADR 31 — full-jitter schedule, capped initial probe,
+server-session restart detection — and the proof in a browser is the committed Playwright
+suite under ADR 32 (`packages/web/e2e`): real server, real simulator, production bundle,
+three engines, plus the reported 500-robot client measurement.
 
 ---
 

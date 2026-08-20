@@ -17,7 +17,9 @@ import type { FetchLike } from "@/shared/lib/transportDecoding";
  * It sits beside the page rather than under `src/test/**` because this package classifies
  * `features/robot/robotDetailPage.test.tsx` as a *feature* file, and a feature may not
  * import `test`. Nothing but the sibling suites imports this, so it is absent from the
- * bundle — but the classification is worth revisiting; see the note in `TODO.md`.
+ * bundle. Tests inherit their production layer, so this same-feature location remains
+ * authoritative until fixture construction is materially copied across layers or feature
+ * directories (`docs/03_package-specs/05_WEB.md` § 4).
  */
 
 /** The per-vendor half of a fixture response: what the dialect declares. */
@@ -205,14 +207,20 @@ function buildRegisteredResponse(robot: Robot): unknown {
 }
 
 /**
- * A `fetch` stub answering the two requests the detail hook makes.
+ * A `fetch` stub answering the three requests the detail page makes.
  *
- * Both, because the hook fetches the robot and the health counters in parallel and they
- * fail independently — a test that stubbed only the robot would exercise a path the
- * console never takes.
+ * All three, because the robot, the health counters and the battery history are separate
+ * resources that fail independently — a test that stubbed only the robot would exercise
+ * paths the console never takes. History has its own overrides for the same reason health
+ * does: its failure modes are section-local and the page must survive each of them.
  */
 export function createFixtureFetch(
-  options: { readonly health?: unknown; readonly healthFails?: boolean } = {},
+  options: {
+    readonly health?: unknown;
+    readonly healthFails?: boolean;
+    readonly history?: unknown;
+    readonly historyFails?: boolean;
+  } = {},
 ): FetchLike {
   return (url: string) => {
     if (url.includes("/health")) {
@@ -221,6 +229,16 @@ export function createFixtureFetch(
         ok: true,
         status: 200,
         json: () => Promise.resolve(options.health ?? buildHealthResponse()),
+      });
+    }
+
+    if (url.endsWith("/history")) {
+      if (options.historyFails === true) return Promise.reject(new Error("history unavailable"));
+      const historyId = decodeURIComponent(url.split("/").at(-2) ?? "");
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve(options.history ?? buildHistoryResponse(historyId)),
       });
     }
 
@@ -244,6 +262,43 @@ export function buildRobotResponse(id: string): unknown {
   // nulls: it has no telemetry instant and no core (ADR 1).
   if (reportedAt === null || fixture === undefined) return buildRegisteredResponse(robot);
   return buildWireResponse(robot, fixture, reportedAt);
+}
+
+/**
+ * The wire body `GET /api/robots/:id/history` would serve for one fixture robot.
+ *
+ * A robot that has reported gets a short declining ramp ending at its current battery,
+ * so the chart a test renders agrees with the Summary beside it (Principle 1); a robot
+ * that has never reported — or has no battery — gets the contract's honest empty shapes.
+ */
+export function buildHistoryResponse(id: string): unknown {
+  const robot = buildFixtureRobots().find((candidate) => candidate.id === id);
+  const capturedAt = Date.now();
+  const base = {
+    schemaVersion: "1",
+    robotId: id,
+    capturedAt,
+    windowMs: 60_000,
+    maxPoints: 60,
+  };
+  if (robot === undefined || robot.lastSeenAt === null) {
+    return { ...base, sourceSampleCount: 0, missingBatterySampleCount: 0, points: [] };
+  }
+  const battery = robot.batteryPercent;
+  if (battery === null) {
+    // Samples arrived and none carried a battery value — counted, never plotted as zero.
+    return { ...base, sourceSampleCount: 6, missingBatterySampleCount: 6, points: [] };
+  }
+  const points = Array.from({ length: 6 }, (_unused, index) => ({
+    receivedAt: capturedAt - (5 - index) * 10_000,
+    batteryPercent: Math.min(100, battery + (5 - index)),
+  }));
+  return {
+    ...base,
+    sourceSampleCount: points.length,
+    missingBatterySampleCount: 0,
+    points,
+  };
 }
 
 /** A health body carrying a per-adapter unknown-field count for each fixture vendor. */

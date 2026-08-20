@@ -17,9 +17,11 @@ does not enter the production bundle.
   fleet before removing the compatibility alias and constant.
 - **Fleet resource state.** Replace the bare-array hook contract with a discriminated state
   only as part of fleet A1, keeping transport lifecycle in `app` and robot data here.
-- **Future contract revisions.** Session-aware stream reconciliation, battery history, or a
-  regressions counter begin in `@fleet/contracts` after their decisions are ratified; do
-  not invent local optional fields.
+- **Future contract revisions.** A regressions counter or other new stream fields begin in
+  `@fleet/contracts` after their decisions are ratified; do not invent local optional
+  fields. (Session-aware reconciliation landed with ADR 31; battery history landed with
+  ADR 33 — `useRobotHistory` decodes the contracts-owned response here and never joins the
+  delta store.)
 
 ## Settled constraints
 

@@ -7,7 +7,9 @@
 
 The page reads the app-owned decoded fleet store, renders fleet-wide filters and counts,
 retains rows during connection loss, and suppresses every per-robot freshness label unless
-the socket is connected. The live vertical path has been observed in a browser.
+the socket is connected; the summary counts stay visible under a heading qualified
+"· last known" while the stream is down. The live vertical path has been observed in a
+browser.
 
 ## Remaining work
 
@@ -19,14 +21,22 @@ the socket is connected. The live vertical path has been observed in a browser.
   malformed stream frames are dropped and counted, but the rejected-frame count has no
   technician diagnostics surface. Escalation after repeated failures is trigger-deferred
   until that surface is scheduled.
-- **A7 — qualify disconnected fleet counts.** Rows correctly suppress freshness while the
-  stream is down, but the aggregate counts remain visible. ADR 23 owns the open product
-  question: qualify the group as last known or suppress it. Do not leave it looking current.
-- **D22 — automatic recovery.** Manual retry exists; retry schedule, stopping behavior,
-  initial-handshake treatment, and server-restart reconciliation remain unratified.
-- **D23 — committed browser automation.** Manual headless observation is not a durable test.
-- **Scale evidence.** The non-virtualized table is correct at 500 static rows. Delta-to-paint
-  cost at that size remains unmeasured, so ADR 24's virtualization trigger has not fired.
+- **A7 — qualify disconnected fleet counts — done (ADR 23 amendment, 20 August 2026).**
+  The four counts sit in a section under a visible h2 that reads "Fleet freshness" while
+  connected and "Fleet freshness · last known" in any other state, derived from the same
+  `isStreamConnected` that suppresses the rows. No per-metric tag, no aria-live, no client
+  timestamp. Six unit tests and the Playwright outage scenario hold it; fleet spec § 2/§ 8
+  record it.
+- **Automatic recovery — done (ADR 31, 20 August 2026).** The transport reconnects on a
+  full-jitter schedule, detects a restarted server by its session, and the published
+  vocabulary gained `connecting` plus terminal causes for the banner.
+- **Committed browser automation — done (ADR 32, 20 August 2026).** Six Playwright
+  scenarios drive this page against the real stack in Chromium, Firefox, and (in CI)
+  WebKit, including keyboard operation with streaming updates and freshness degradation.
+- **Scale evidence — measured (ADR 32, 20 August 2026).** Delta-to-paint at 500 robots
+  under a live 10 Hz stream: p50 47.3 ms, p95 53.7 ms, max 74.5 ms, 120/120 frames
+  applied. ADR 24's virtualization trigger was checked against a real number and has not
+  fired; the deferral now rests on evidence.
 
 ## Constraints
 

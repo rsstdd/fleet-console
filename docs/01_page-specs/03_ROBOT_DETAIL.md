@@ -7,7 +7,8 @@
 - **Revision 4:** document number aligned to filename. Capability model now cites ADR 1 rather than a planning document. `sequence` carved out of the capability panels explicitly. Panel rendering specified as a registry rather than a conditional chain. Asynchronous state set completed (Principle 5).
 - **Revision 5:** freshness derivation resolved (TODO **D12**) in favour of ADR 3 as written — server-side only. § 6 no longer implies a page-local timer.
 - **Revision 6:** the `sequence` carve-out moved from this document into `@fleet/contracts`' `CAPABILITY_KINDS` (ADR 19). § 6 still states the rule; it no longer _is_ the rule, because a capability that reaches neither surface is now a compile error.
-- **Governing documents:** `PRINCIPLES.md` (esp. 2, 3, 4, 5, 6, 9, 11); ADR 1 (canonical core plus declared capabilities); ADR 3 (freshness, server-derived); component specs 01–08; wireframes Operator / Technician
+- **Revision 7 (20 August 2026):** Battery history added as section 02, between Summary and Capabilities, per ADR 33 (register D24): a fetch-on-visit resource independent of the main detail fetch, rendered as an inline-SVG sparkline over the contract's fixed 60-second window with a visible textual summary, every empty/failure state named in prose, and no join to the delta stream. Later sections renumber 03/04/05.
+- **Governing documents:** `PRINCIPLES.md` (esp. 2, 3, 4, 5, 6, 9, 11); ADR 1 (canonical core plus declared capabilities); ADR 3 (freshness, server-derived); ADR 33 (battery history); component specs 01–08; wireframes Operator / Technician
 
 ## 1. Product intent
 
@@ -15,28 +16,29 @@ Robot detail answers: what is this machine's state, how fresh is it, and (for te
 
 ## 2. Locked decisions
 
-| Concern            | Decision                                                                                                                                 |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Default persona    | Operator                                                                                                                                 |
-| Persona UI         | `PersonaToggle` in header; same layout, additional sections for technician                                                               |
-| Back navigation    | Link/button to Fleet (`/`)                                                                                                               |
-| Header identity    | Robot id (mono), `StatusChip`, `FreshnessLabel`, site, vendor/model                                                                      |
-| Operator body      | Summary block (core fields only) + capability panels (declared non-core capabilities only)                                               |
-| Technician body    | Operator-visible content plus Diagnostics + Raw payload                                                                                  |
-| Missing capability | Panel omitted entirely (no disabled placeholder)                                                                                         |
-| Commands           | None (not built; do not fake success)                                                                                                    |
-| Raw payload        | Technician only; mono; retained for diagnosis; served on `GET /api/robots/:id` only, excluded from the fleet read model and delta stream |
-| Footer             | `DataPlate` with adapter version, sequence, received time                                                                                |
+| Concern            | Decision                                                                                                                                                              |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Default persona    | Operator                                                                                                                                                              |
+| Persona UI         | `PersonaToggle` in header; same layout, additional sections for technician                                                                                            |
+| Back navigation    | Link/button to Fleet (`/`)                                                                                                                                            |
+| Header identity    | Robot id (mono), `StatusChip`, `FreshnessLabel`, site, vendor/model                                                                                                   |
+| Operator body      | Summary block (core fields only) + Battery history (fixed 60-second window, fetched once per visit, ADR 33) + capability panels (declared non-core capabilities only) |
+| Technician body    | Operator-visible content plus Diagnostics + Raw payload                                                                                                               |
+| Missing capability | Panel omitted entirely (no disabled placeholder)                                                                                                                      |
+| Commands           | None (not built; do not fake success)                                                                                                                                 |
+| Raw payload        | Technician only; mono; retained for diagnosis; served on `GET /api/robots/:id` only, excluded from the fleet read model and delta stream                              |
+| Footer             | `DataPlate` with adapter version, sequence, received time                                                                                                             |
 
 ## 3. Hierarchy
 
 1. App shell
 2. Back control + header identity + `PersonaToggle`
 3. `SectionLabel` + Summary (core fields: battery, position, status, health, connectivity)
-4. `SectionLabel` + Capability panels (declared non-core capabilities only — the section that differs by vendor)
-5. If technician: `SectionLabel` + Diagnostics
-6. If technician: `SectionLabel` + Raw payload
-7. `DataPlate`
+4. `SectionLabel` + Battery history (sparkline over the last 60 seconds, with textual summary — ADR 33)
+5. `SectionLabel` + Capability panels (declared non-core capabilities only — the section that differs by vendor)
+6. If technician: `SectionLabel` + Diagnostics
+7. If technician: `SectionLabel` + Raw payload
+8. `DataPlate`
 
 ## 4. Desktop layout
 
@@ -56,13 +58,14 @@ Robot detail answers: what is this machine's state, how fresh is it, and (for te
 
 Input: robot id from route. Load from store/API selectors.
 
-| Block        | Fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Header       | id, status, freshness, site, vendor, model                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Summary      | battery, position (map frame, frame named — e.g. `frame: site-map`), status, health (severity + description, as its own field, not appended to status text), connectivity / last seen                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Capabilities | Only keys present on the robot's declared capability set — `dock`, `lidarHealth`, `waterLevel` and any later addition. Each panel is a pure mapping from capability to fields. Core fields never appear here. **`sequence` is excluded**: ADR 1 declares it a capability, but it is transport metadata rather than an operator-facing machine capability, and it renders in Diagnostics. Since ADR 19 that exclusion is not this page's to remember: `@fleet/contracts` classifies every capability `operator` or `diagnostic` in `CAPABILITY_KINDS`, and the panel registry is keyed by the operator-facing set, so a future capability that is diagnostic rather than operational is carved out by classifying it — and one that is classified neither way does not compile |
-| Diagnostics  | adapter id/version, sequence, sequence gaps (total since start, not a rolling window), vendor ts, received ts, clock delta, schema version, unknown-field count (labelled as per-adapter fleet-wide, unless a per-robot counter is added)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Raw          | retained payload object, fetched as a separate field on the single-robot endpoint (decoded at the boundary, per Principle 2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Block           | Fields                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Header          | id, status, freshness, site, vendor, model                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Battery history | `robotBatteryHistorySchema` from `GET /api/robots/:id/history`, fetched once per visit by its own resource hook (`useRobotHistory`), never joined to the delta stream. The x-axis spans exactly `[capturedAt − windowMs, capturedAt]` and the y-axis is fixed 0–100%; timestamps are server receipt times and feed no freshness reasoning (ADR 3, ADR 33). The visible summary carries minimum, maximum, latest, window, and retained sample count                                                                                                                                                                                                                                                                                                                            |
+| Summary         | battery, position (map frame, frame named — e.g. `frame: site-map`), status, health (severity + description, as its own field, not appended to status text), connectivity / last seen                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Capabilities    | Only keys present on the robot's declared capability set — `dock`, `lidarHealth`, `waterLevel` and any later addition. Each panel is a pure mapping from capability to fields. Core fields never appear here. **`sequence` is excluded**: ADR 1 declares it a capability, but it is transport metadata rather than an operator-facing machine capability, and it renders in Diagnostics. Since ADR 19 that exclusion is not this page's to remember: `@fleet/contracts` classifies every capability `operator` or `diagnostic` in `CAPABILITY_KINDS`, and the panel registry is keyed by the operator-facing set, so a future capability that is diagnostic rather than operational is carved out by classifying it — and one that is classified neither way does not compile |
+| Diagnostics     | adapter id/version, sequence, sequence gaps (total since start, not a rolling window), vendor ts, received ts, clock delta, schema version, unknown-field count (labelled as per-adapter fleet-wide, unless a per-robot counter is added)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Raw             | retained payload object, fetched as a separate field on the single-robot endpoint (decoded at the boundary, per Principle 2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 Freshness continues to update while the page is open, as the server sweep's output arrives on the stream (ADR 3). The page holds no timer of its own, and neither does `entities/robot` — a header label changes because a delta changed it (Principle 4).
 
@@ -70,14 +73,15 @@ There is no "mission" or "activity" field in the canonical envelope. If a future
 
 ## 7. Component composition
 
-| UI need               | Component / MUI                |
-| --------------------- | ------------------------------ |
-| Status / freshness    | `StatusChip`, `FreshnessLabel` |
-| Persona               | `PersonaToggle`                |
-| Section indexes       | `SectionLabel`                 |
-| Surfaces              | MUI Paper / Stack / Divider    |
-| Footer                | `DataPlate`                    |
-| Empty / missing robot | `EmptyState`                   |
+| UI need               | Component / MUI                                                                                                                                                                           |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Status / freshness    | `StatusChip`, `FreshnessLabel`                                                                                                                                                            |
+| Persona               | `PersonaToggle`                                                                                                                                                                           |
+| Section indexes       | `SectionLabel`                                                                                                                                                                            |
+| Surfaces              | MUI Paper / Stack / Divider                                                                                                                                                               |
+| Battery sparkline     | Feature-local inline SVG polyline (no charting dependency — ADR 33), fixed axes, theme tokens, no animation, no live region; `DataPlate` figcaption states times are server receipt times |
+| Footer                | `DataPlate`                                                                                                                                                                               |
+| Empty / missing robot | `EmptyState`                                                                                                                                                                              |
 
 Capability panel bodies may be feature-local presentational fragments, but they must not import other features or adapters (Principle 9).
 
@@ -99,6 +103,7 @@ A declared capability with no registered panel renders nothing and increments no
 - Capability panel titles are `h3` under the Capabilities `h2`; the outline never skips a level
 - Persona group is labelled, and switching persona keeps focus on the toggle. The technician sections are additive and appear after it, so no focus management is required (component spec 08)
 - Raw payload is text in a readable element. Diagnostics severity is never carried by colour alone
+- The battery sparkline is `role="img"` with an accessible name stating the robot, the range, and the window; the same facts appear as visible text beside it, so the chart is never the only carrier (Principle 6, ADR 33)
 
 ## 10. Failure behavior
 
@@ -106,33 +111,44 @@ A declared capability with no registered panel renders nothing and increments no
 | ---------------------------------------------- | --------- |
 | Complete asynchronous state set (Principle 5): |
 
-| Condition               | Behaviour                                                                                                                                        |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Initial load            | Header skeleton; do not render an empty Summary that later fills in with different values                                                        |
-| Background refresh      | Values update in place with tabular numerals and no layout shift                                                                                 |
-| Unknown id              | `EmptyState` with a link back to Fleet. Not an error banner                                                                                      |
-| Robot known, never seen | Freshness `unknown`, `asOf` is `null`, and the label renders the state word with no date (component spec 02). Panels show registration data only |
-| Capability empty set    | Summary only; no empty capability section chrome                                                                                                 |
-| Partial data            | Present fields render; absent optional fields show an em dash, never a zero or a placeholder date                                                |
-| Stale data              | Header freshness degrades as the server sweep's output arrives; status chip takes the last-known treatment                                       |
-| Offline / stream down   | Shell banner; values freeze at last known; per-robot freshness label suppressed in favour of the connection state (ADR 3)                        |
-| Recoverable error       | Keep whatever remains valid on screen and offer retry; do not blank the page                                                                     |
-| Terminal error          | `EmptyState` stating what failed and the route back to Fleet                                                                                     |
-| Raw payload unavailable | Technician section states that the payload was not retained; it does not render an empty code block                                              |
+| Condition                          | Behaviour                                                                                                                                        |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Initial load                       | Header skeleton; do not render an empty Summary that later fills in with different values                                                        |
+| Background refresh                 | Values update in place with tabular numerals and no layout shift                                                                                 |
+| Unknown id                         | `EmptyState` with a link back to Fleet. Not an error banner                                                                                      |
+| Robot known, never seen            | Freshness `unknown`, `asOf` is `null`, and the label renders the state word with no date (component spec 02). Panels show registration data only |
+| Capability empty set               | Summary only; no empty capability section chrome                                                                                                 |
+| Partial data                       | Present fields render; absent optional fields show an em dash, never a zero or a placeholder date                                                |
+| Stale data                         | Header freshness degrades as the server sweep's output arrives; status chip takes the last-known treatment                                       |
+| Offline / stream down              | Shell banner; values freeze at last known; per-robot freshness label suppressed in favour of the connection state (ADR 3)                        |
+| Recoverable error                  | Keep whatever remains valid on screen and offer retry; do not blank the page                                                                     |
+| Terminal error                     | `EmptyState` stating what failed and the route back to Fleet                                                                                     |
+| Raw payload unavailable            | Technician section states that the payload was not retained; it does not render an empty code block                                              |
+| Battery history loading            | Skeleton inside the section; the rest of the page renders without waiting for it                                                                 |
+| Battery history request failure    | Inline retry within the section; valid robot detail is never blanked by the secondary resource (ADR 33)                                          |
+| Battery history contract failure   | Terminal message inside the section; retrying the same bytes is not offered                                                                      |
+| Battery history empty window       | Prose: no telemetry retained in the window — never a chart of zero (Principle 4)                                                                 |
+| Battery samples without battery    | Prose: battery was not reported in the window — distinguished from "nothing arrived"                                                             |
+| Battery single reading             | Prose stating the one value; a trend line needs a second reading                                                                                 |
+| Battery history during stream loss | Historical values stay visible, because the section is unambiguously historical (window and receipt-time caption stated)                         |
 
 ## 11. Verification
 
-| Concern                    | Check                                                                                              |
-| -------------------------- | -------------------------------------------------------------------------------------------------- |
-| Capability omission        | Fixture robot without a capability → no panel (Principle 10)                                       |
-| Capability/core separation | Fixture: core fields (battery, position, status, health) never appear under Section 02             |
-| Persona                    | Technician shows raw + diagnostics; operator does not                                              |
-| Freshness                  | Visible in header always (Principle 4)                                                             |
-| No cross-feature import    | Lint (Principle 9)                                                                                 |
-| No vendor branches         | No vendor `if` branches anywhere in the feature; panels resolve through the registry (Principle 3) |
-| Panel keys                 | Panels keyed by capability name; a declaration change patches rather than remounts                 |
-| Heading outline            | Each section has a real `h2`; capability panels are `h3`; no level skipped (Principle 6)           |
-| Never-seen robot           | Fixture with `asOf: null` renders the state word and no fabricated date (Principle 4)              |
+| Concern                    | Check                                                                                                                                                                                     |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Capability omission        | Fixture robot without a capability → no panel (Principle 10)                                                                                                                              |
+| Capability/core separation | Fixture: core fields (battery, position, status, health) never appear under Section 02                                                                                                    |
+| Persona                    | Technician shows raw + diagnostics; operator does not                                                                                                                                     |
+| Freshness                  | Visible in header always (Principle 4)                                                                                                                                                    |
+| No cross-feature import    | Lint (Principle 9)                                                                                                                                                                        |
+| No vendor branches         | No vendor `if` branches anywhere in the feature; panels resolve through the registry (Principle 3)                                                                                        |
+| Panel keys                 | Panels keyed by capability name; a declaration change patches rather than remounts                                                                                                        |
+| Heading outline            | Each section has a real `h2`; capability panels are `h3`; no level skipped (Principle 6)                                                                                                  |
+| Never-seen robot           | Fixture with `asOf: null` renders the state word and no fabricated date (Principle 4)                                                                                                     |
+| Battery history placement  | Section 02 renders after Summary and before Capabilities (`batteryHistorySection` + page tests)                                                                                           |
+| Battery history isolation  | History fetch failure leaves detail, capabilities, and the technician toggle intact; inline retry recovers in place                                                                       |
+| Battery history states     | Empty, null-only, and single-reading windows render their prose, never an empty chart (Principle 4)                                                                                       |
+| Sparkline correctness      | Coordinate mapping and accessible name asserted in `batteryHistorySection.test.tsx`; retained-window survival after robot silence asserted in the Playwright smoke suite (ADR 32, ADR 33) |
 
 ## 12. Change rules
 

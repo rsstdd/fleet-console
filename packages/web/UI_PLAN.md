@@ -267,7 +267,7 @@ No `RobotCard`, no `FleetTable`, no `CapabilityPanel` wrapper. Extract only afte
 2. `Stat`, `DataPlate`, `SectionLabel` (Principle 10: component tests for accessibility roles). — _done, styled, tested_
 3. `ConnectionBanner`, `EmptyState` (Principle 10: component tests for state transitions). — _done_
 4. `PersonaToggle`. — _done_
-5. Compose the fleet table and robot detail (Principle 10: browser tests for critical workflows and keyboard flows). — _fleet table and robot detail both compose against fixtures; the app shell and router exist. **The browser tests this step names do not** — the package's 22 suites run under jsdom, and no browser-driven test exists (root TODO **P3.1**)._
+5. Compose the fleet table and robot detail (Principle 10: browser tests for critical workflows and keyboard flows). — _fleet table and robot detail both compose against fixtures; the app shell and router exist, and the browser tests this step names are committed: the Playwright smoke suite drives both pages, including the keyboard flow, in real engines (`e2e/smoke.spec.ts`, ADR 32)._
 
 Nothing outside this list until the vertical path holds: table, freshness, detail, connection integrity.
 
@@ -277,15 +277,15 @@ Nothing outside this list until the vertical path holds: table, freshness, detai
 
 ## 9. What is left in this package
 
-Three items, none of them a component, and each recorded where the repository expects it rather than only here.
+Four items, none of them a component, each recorded where the repository expects it rather than only here. The first two closed on 20 August 2026 and keep their outcomes below; the last two remain open.
 
-### 9.1 Automatic reconnection — decision **D22**
+### 9.1 Automatic reconnection — **done (ADR 31, 20 August 2026)**
 
-The banner's retry is manual. `connect()` after a close is the caller's call, because the wait schedule, the stopping rule and whether a refused upgrade differs from a dropped connection have to be decided together — and the last has a correctness edge, since a 404 or a rejected origin will not fix itself and retrying it lies to the operator. Resolving it also decides whether `StreamConnectionState` must widen: the published vocabulary cannot currently distinguish a console that is retrying from one that has stopped, and `connectionBanner.tsx` calls a retry control that does nothing observable "the class of lie this project exists to argue against". See [`docs/PENDING_ARCHITECTURE_DECISIONS.md`](../../docs/PENDING_ARCHITECTURE_DECISIONS.md).
+D22 resolved everything this section held open, together, as it predicted they had to be: the transport now retries on a full-jitter schedule with a three-attempt cap only while the socket has never opened, a refused upgrade and a dropped connection are distinguished exactly as far as the browser allows, `StreamConnectionState` widened to four values with terminal causes, and the banner's Retry is the manual escape from terminal states rather than the only recovery. The browser proof — a real restarted server, re-joined without reload — is a committed scenario under ADR 32.
 
-### 9.2 Browser-driven tests — decision **D23**
+### 9.2 Browser-driven tests — **done (ADR 32, 20 August 2026)**
 
-The behaviour is verified and the automation is not. Every suite here runs under jsdom, which has no layout, paint or compositor, so the claims that only a browser can settle — freshness suppression on stream loss, a delta arriving as a rendered row, delta-apply cost at 500 robots — are covered by component tests against decoded values plus one throwaway CDP script. D23 carries the options and a recommendation. It also gates ADR 24's virtualization question and the client-side half of root TODO **P3.2**.
+D23 resolved to a committed Playwright suite (`e2e/`), and every claim this section used to defer is automated: freshness suppression on stream loss, a delta arriving as a rendered row, and delta-apply cost at 500 robots — the last measured at p50 47.3 ms / p95 53.7 ms delta-to-paint under a live 10 Hz stream, which checked ADR 24's virtualization trigger against a real number (not fired) and closed the client-side half of root TODO **P3.2**.
 
 ### 9.3 Site labels — `packages/FIXME.md` **F16**
 
@@ -299,4 +299,4 @@ The one accessibility claim that cannot be computed. `scripts/checkTokens.mjs` g
 
 ## 8. Out of scope for `shared/ui`
 
-Domain hooks and domain types. Map markers. Command controls of any kind (these require server-side authorization per Principle 7). Chart wrappers; inline a small SVG feature-locally if a sparkline is needed. Form systems. A second technician layout.
+Domain hooks and domain types. Map markers. Command controls of any kind (these require server-side authorization per Principle 7). Chart wrappers; inline a small SVG feature-locally if a sparkline is needed — which is exactly what the battery-history sparkline did on 20 August 2026: a feature-local polyline in `features/robot`, no charting dependency (ADR 33). Form systems. A second technician layout.

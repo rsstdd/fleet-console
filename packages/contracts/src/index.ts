@@ -28,6 +28,7 @@ export {
   robotStatusSchema,
   schemaVersionSchema,
   sequenceHealthSchema,
+  serverSessionIdSchema,
   toContractIssues,
   vendorIdSchema,
   versionStringSchema,
@@ -46,6 +47,7 @@ export type {
   Position,
   RobotStatus,
   SequenceHealth,
+  ServerSessionId,
 } from "./shared/primitives.js";
 
 export {
@@ -86,13 +88,13 @@ export {
   encodeCanonicalEnvelope,
   fleetSnapshotRobotSchema,
   fleetSnapshotSchema,
-  isDeltaCoveredBySnapshot,
   parseAdapterEnvelope,
   parseCanonicalEnvelope,
   parseFleetSnapshot,
   parseRegisteredRobotState,
   parseRobotDiagnosticEnvelope,
   parseTelemetryBatch,
+  reconcileDeltaWithSnapshot,
   registeredRobotStateSchema,
   robotDiagnosticEnvelopeSchema,
   telemetryBatchSchema,
@@ -104,8 +106,10 @@ export type {
   CanonicalCore,
   CanonicalEnvelope,
   CanonicalEnvelopeWire,
+  DeltaReconciliation,
   FleetSnapshot,
   FleetSnapshotRobot,
+  ReconciliationEpoch,
   RegisteredRobotState,
   RobotDiagnosticEnvelope,
   TelemetryBatch,
@@ -147,3 +151,14 @@ export type {
   UnknownFieldScope,
   UnknownFieldTally,
 } from "./health/healthResponseSchema.js";
+
+export {
+  BATTERY_HISTORY_MAX_POINTS,
+  BATTERY_HISTORY_SCHEMA_VERSION,
+  BATTERY_HISTORY_WINDOW_MS,
+  batteryHistoryPointSchema,
+  parseRobotBatteryHistory,
+  robotBatteryHistorySchema,
+} from "./history/batteryHistorySchema.js";
+
+export type { BatteryHistoryPoint, RobotBatteryHistory } from "./history/batteryHistorySchema.js";

@@ -82,12 +82,19 @@ tests assert the ordering rather than only the outcomes:
 | Body fails the vendor schema | `400`, the adapter's own issues                  | `malformedIngest`, `byAdapter[v].failures` |
 | Body over 64 KiB             | `413 payload_too_large`                          | —                                          |
 | Robot not in the manifest    | `404 not_found`                                  | —                                          |
+| Lower reliable sequence      | `204`; accepted state remains unchanged          | Structured warning only                    |
 | Anything unexpected          | `500 internal`, nothing derived from the request | —                                          |
 
 "Your vendor is not integrated" and "your payload is wrong" are different operator
 problems, counted at different scopes, and `malformedIngest` must never be summed with the
 unknown-field tallies — their _pairing_ is the signal
 ([ADR 15](../../docs/00_adr/15_UNKNOWN_FIELD_ACCOUNTING_ON_ACCEPTED_PAYLOADS.md)).
+
+A lower reliable sequence emits one `telemetry.sequence_regression` warning containing
+only canonical robot/vendor/adapter ids, accepted and received sequence values, and the
+server receipt time. It does not alter current state, retained diagnostics, history,
+deltas, gaps, duplicates, or an existing health counter. Accepted readings, duplicates,
+malformed payloads, and counterless dialects do not emit that event.
 
 ## What it will not do
 
@@ -117,10 +124,14 @@ One `pnpm dev` run and the harness in `src/ingest/validationCost.test.ts` and
 
 ## Not built
 
-Slow-client drain protection (trigger-deferred until evidence or deployment hardening),
-the history read for the proposed sparkline (blocked on an unratified history/retention
-contract), and authentication—which is an explicit product cut. The unauthenticated
-`GET /api/robots/:id` raw diagnostics surface remains a release risk under ADR 26.
+Slow-client drain protection (trigger-deferred until evidence or deployment hardening)
+and authentication—which is an explicit product cut. A public regressive-sequence health
+counter is separately trigger-deferred until a real diagnostics consumer requires a
+coordinated contract version; the structured warning is already built. The history read is
+no longer on this list: it landed 20 August 2026 under ADR 33, with compact retention at
+`HISTORY_CAPACITY = 3_001` samples per robot and extrema-preserving decimation in
+`selectBatteryHistory`. The unauthenticated `GET /api/robots/:id` raw diagnostics
+surface remains a release risk under ADR 26.
 
 See [`TODO.md`](./TODO.md) for the full checklist and [`AGENTS.md`](./AGENTS.md) for the
 scoped rules.
