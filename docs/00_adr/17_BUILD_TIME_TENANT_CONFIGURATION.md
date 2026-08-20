@@ -63,19 +63,17 @@ Naming the flag `lidarHealthPanel` rather than a generic `panelX` follows the sa
 
 - **`zod` is now a direct dependency of `packages/web`.** It was already in the bundle through `@fleet/contracts`, so the cost is a manifest line rather than bytes — the production bundle moved 567.36 kB → 568.32 kB raw, and gzip went _down_ slightly (175.03 → 174.77 kB). This ADR is the record `packages/web/CLAUDE.md` requires for it.
 - **Two validation calls exist on purpose, and deleting either changes the failure mode.** Removing the `vite.config.ts` call moves the failure from a build log to a blank page; removing the module-load parse lets an invalid literal ship. The coupling is commented in both directions.
-- **`VITE_TENANT` establishes a `VITE_`-prefixed build-variable convention** for this package. **D13** — server port, host, origins and the console's API address — is still open and will want the same channel; whoever resolves it should extend this pattern rather than invent a second one, and should note that a variable read in `vite.config.ts` and a variable read in application code are validated in different places.
+- **`VITE_TENANT` establishes a `VITE_`-prefixed build-variable convention** for this package. D13 later resolved as ADR 21: server host/port/origins use validated `FLEET_` process variables, while typed tenant endpoints use the Vite proxy. The lifetimes stay separate rather than forcing runtime endpoint policy into the build-time tenant selector.
 - **The theme union and the palette are one declaration.** `TENANT_THEMES` in `tenantTheme.ts` is the array; the type derives from it and the schema validates against it. A profile naming a colour scheme with no palette behind it is now impossible rather than merely unlikely.
 - **Adding a tenant is one profile literal plus one id**, and it is validated the moment it is added. Adding a _flag_ is one field in the schema plus one line in `panelVisibility.ts` — the schema is strict, so a renamed flag fails the build rather than reading as absent.
 - **`selectPanelCapabilities` now takes a second argument.** It defaults to an empty list, so every existing caller and test kept working, but the signature is the seam through which any future deployment gate reaches the entity layer. Anything richer than a list of disabled panels should be reconsidered rather than appended.
 - **The design system's Tenant B row is now a claim with code behind it.** `DESIGN_SYSTEM.md` § 1 names the panel, and three tests hold the line: the profiles differ in wordmark, theme and flag together; the flag maps to the lidar panel; and a robot that declares lidar health renders no lidar panel under tenant B.
 - **Position 4 stays available and cheap.** If the named flag is ever rejected, deleting the flag field, the visibility module and the design-system row returns the console to an honest two-profile theme switch. Nothing else depends on the flag existing.
-- **`packages/web/README.md` still does not describe the console** (`packages/FIXME.md` **F11**). It should document `VITE_TENANT` when it is written, because a build variable nobody documents is a build variable nobody sets correctly.
+- **`packages/web/README.md` documents `VITE_TENANT` and both supported profiles.** The build variable and its failure behavior are part of the supported workflow rather than source-only knowledge.
 
 ## Open questions
 
-- **Does the tenant profile eventually need endpoints, as `CLAUDE.md`'s "branding, endpoints and feature flags" implies?**
-  _Current lean:_ yes, and it belongs on `TenantConfig` beside the flags rather than in a parallel structure — but the decision is **D13**'s, not this one's, because the server's own port and origin configuration has to be settled in the same breath.
-  _Resolves on:_ D13.
+- ~~**Does the tenant profile eventually need endpoints, as `CLAUDE.md`'s "branding, endpoints and feature flags" implies?**~~ **Resolved by ADR 21.** Typed browser paths live on `TenantConfig`; server binding and allowed origins remain process-lifetime `FLEET_` variables, joined locally by Vite's proxy.
 - **Is one flag enough to demonstrate white-label deployment?**
   _Current lean:_ yes for this build. A second flag would be more surface without more argument, and the register's own advice is to avoid gates nobody defends.
   _Resolves on:_ a reviewer finding the single flag unconvincing, or a second genuine per-tenant difference appearing.

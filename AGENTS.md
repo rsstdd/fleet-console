@@ -1,96 +1,84 @@
 # AGENTS.md
 
-This is a TypeScript monorepo for a multi-vendor robot fleet telemetry console: canonical contracts, vendor adapters, thin simulator/server, and a React + Material UI web console.
+TypeScript monorepo: multi-vendor robot fleet telemetry console.
+Packages: `contracts` (canonical), `adapters`, `simulator`, `server`, `web` (React + MUI).
+`PRINCIPLES.md` is binding (all **fifteen**). Numbered ADRs are the sole normative decision records. If a change would violate a principle or ADR, stop and surface the conflict — never work around it. When in doubt, re-read `PRINCIPLES.md` before editing.
+
+**Precedence**: `PRINCIPLES.md` outranks this file, path-scoped `AGENTS.md`, specs, plans, and TODOs. Apply every relevant principle; if this file and a principle diverge, follow the principle and surface the gap (Principle 14).
+
+## Context
+
+Load the first matching route only. Do not preload directories or paste `PRINCIPLES.md`, ADRs, specs, or this file back into the conversation. Prefer the `00_*` index → one owning doc → package `AGENTS.md`. Quote the smallest span that decides the change. Search before reading; archive/audit files are never normative.
+
+## Layers (lint/CI, Principle 9)
+
+| From        | May import                                                                                                     |
+| ----------- | -------------------------------------------------------------------------------------------------------------- |
+| app         | anything                                                                                                       |
+| features    | entities + shared (never other features)                                                                       |
+| entities    | shared                                                                                                         |
+| shared      | nothing above                                                                                                  |
+| `shared/ui` | presentational only; domain logic lives only in `entities` with one authoritative implementation (Principle 1) |
 
 ## Rules
 
-- Prefer test-driven changes. Write or update a focused test that documents intended behaviour before implementing (Principle 10).
+- Prefer TDD: write or update a focused test that documents intended behaviour before implementing (Principle 10). After a user-facing change, verify end-to-end in a running browser (or documented equivalent); unit tests alone are not enough (Principle 10).
 - One-sentence doc comment on every exported class, function, type, and React component (Principle 14).
 - Document non-trivial cross-file/cross-package coupling on both sides; agents rely on search (Principle 14).
-- Strict dependency rule, enforced by lint/CI (Principle 9):
-  - app → anything
-  - features → entities + shared
-  - entities → shared
-  - shared → nothing above
-  - features never import other features
-- `shared/ui` is pure presentational; domain logic lives only in `entities` and has one authoritative implementation (Principle 1).
 - State is separated by authority, lifetime, and transition model. Observed state and requested state are never collapsed (Principle 11).
-- Freshness is first-class on every value surface (Principle 4).
-- Freshness is derived server-side only — a sweep over `receivedAt` in `packages/server` calling the pure state function in `packages/contracts` — and travels as a field on the envelope. `packages/web` never derives it and holds no freshness timer. While the stream is down, per-robot labels are suppressed in favour of the connection banner (ADR 3).
-- Every asynchronous surface defines its complete user-visible state (loading, empty, stale, offline, recoverable error, terminal error) (Principle 5).
+- Freshness is first-class on every value surface (Principle 4). Derive it server-side only: a sweep over `receivedAt` in `packages/server` calling the pure state function in `packages/contracts`; it travels as a field on the envelope. `packages/web` never derives it and holds no freshness timer. While the stream is down, suppress per-robot labels in favour of the connection banner (ADR 3). Never present stale data as current (P4).
+- Every asynchronous surface defines its complete user-visible state: loading, empty, stale, offline, recoverable error, terminal error (Principle 5).
 - Operator view is default; technician diagnostics are behind an explicit toggle.
-- Target WCAG 2.2 AA. Use semantic HTML, keyboard-operable functionality, and visible, logical focus (Principle 6).
+- Target WCAG 2.2 AA: semantic HTML, keyboard-operable functionality, visible logical focus (Principle 6).
 - UI may hide or disable actions; it never authorizes them. Server is the authority (Principle 7).
-- Use existing Material UI tokens and tenant config; do not introduce another styling system (Principle 8).
-- Tenant branding, endpoints, and feature flags live in typed configuration; no tenant-specific conditionals in components (Principle 13).
-- When adding behaviour, imitate the best existing example in the same area.
-- After a user-facing change, verify end-to-end in a running browser (or documented equivalent). Unit tests alone are not enough (Principle 10).
-- Quality bar: never present stale data as current (P4); keep the fleet table usable at several hundred robots (P12) — it is deliberately **not** virtualized, see [ADR 24](docs/00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md) before adding windowing; reject malformed payloads at the boundary (P2); count unknown fields (P3); keep one-command start working.
-- Treat PRINCIPLES.md as binding. Every change must stay consistent with the **fifteen** principles.
-  If a requested change would violate a principle, stop and surface the conflict instead of
-  working around it. When in doubt, re-read PRINCIPLES.md before editing.
+- Use existing Material UI tokens and tenant config; do not introduce another styling system (Principle 8). Tenant branding, endpoints, and feature flags live in typed configuration; no tenant-specific conditionals in components (Principle 13).
+- Quality bar: keep the fleet table usable at several hundred robots (P12) — deliberately **not** virtualized; see [ADR 24](docs/00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md) before adding windowing. Reject malformed payloads at the boundary (P2). Count unknown fields (P3). Keep one-command start working.
 - New vendor = new module + fixtures under `packages/adapters` only. Never change the canonical model for a vendor (Principle 3).
-- Small focused diffs. Do not drive-by refactor.
-- If a change conflicts with PRINCIPLES.md or an ADR, surface the conflict instead of working around it (Principle 14).
-- Numbered ADRs are the sole normative decision records. `docs/decisions.json` routes D-ids
-  to ADRs, and `docs/PENDING_ARCHITECTURE_DECISIONS.md` is generated with
-  `pnpm docs:decisions`; never edit the generated index by hand.
-- Follow `docs/DOCUMENT_LIFECYCLES.md` for the mandatory decision and plan state machines.
-  Open decisions require a resolution step; resolved mappings remove it; superseded ADRs
-  name their replacement. Plans in `docs/05_plans/` declare checked status/date metadata,
-  and blocked or trigger-deferred plans declare the condition that changes their state.
-- Every mechanical rule cites its ADR in a nearby comment and is registered under
-  `mechanicalRules` in `docs/decisions.json`; code must not reproduce the ADR rationale.
-- TypeScript packages inherit `tsconfig.base.json` with `strict: true` and the additional
-  checked-index, return, override, unused, and switch rules. Typed ESLint must reject
-  explicit `any`; use a precise type or `unknown` plus boundary validation. Run
-  `pnpm check:type-safety` after changing TypeScript or ESLint configuration.
-- Package specifications state consequences and link ADRs; they do not repeat decision
-  rationale or status. TODOs are planning-only and audits are historical, as declared by
-  their `Authority` markers.
-- In planning mode, create or update the task's planning document in `docs/05_plans/`;
-  plans describe intended work and never override `PRINCIPLES.md`, ADRs, or specifications.
-  Search for the owning plan first, execute the plan algorithm in
-  `docs/DOCUMENT_LIFECYCLES.md`, and archive terminal plans rather than leaving stale work
-  in the active directory.
-- Run `pnpm check:architecture-docs` after changing an ADR, package specification,
-  mechanical enforcement rule, audit, TODO, or decision mapping.
-- Do not commit code on my behalf.
-- Keep README.md, TODO.md, and similar files in sync with code.
+- Small focused diffs. Do not drive-by refactor. Do not commit code on my behalf.
+- `docs/decisions.json` routes D-ids to ADRs. `docs/PENDING_ARCHITECTURE_DECISIONS.md` is generated with `pnpm docs:decisions`; never edit the generated index by hand.
+- Follow `docs/DOCUMENT_LIFECYCLES.md` for the mandatory decision and plan state machines (authoritative algorithms and transition rules; CI tests their machine-recognizable invariants). Open decisions require a resolution step; resolved mappings remove it; superseded ADRs name their replacement. Plans in `docs/05_plans/` declare checked status/date metadata; blocked or trigger-deferred plans declare the condition that changes their state.
+- In planning mode, create or update the task’s planning document in `docs/05_plans/`. Plans describe intended work and never override `PRINCIPLES.md`, ADRs, or specifications. Search for the owning plan first, execute the plan algorithm in `docs/DOCUMENT_LIFECYCLES.md`, and archive terminal plans rather than leaving stale work in the active directory.
+- Every mechanical rule cites its ADR in a nearby comment and is registered under `mechanicalRules` in `docs/decisions.json`; code must not reproduce the ADR rationale.
+- TypeScript packages inherit `tsconfig.base.json` with `strict: true` and the additional checked-index, return, override, unused, and switch rules. Typed ESLint must reject explicit `any`; use a precise type or `unknown` plus boundary validation. Run `pnpm check:type-safety` after changing TypeScript or ESLint configuration.
+- Package specifications state consequences and link ADRs; they do not repeat decision rationale or status. TODOs are planning-only and audits are historical, as declared by their `Authority` markers.
+- Keep README.md, TODO.md, and specification files in sync with code. `docs` are authoritative over code and should inform code.
+- When adding behaviour, imitate the best existing example in the same area.
 
-### Decision and plan lifecycle
+## Verify
 
-For a decision:
+Incremental (run the matching line only):
 
-1. Read `PRINCIPLES.md`, search `docs/decisions.json`, and reuse the owning D-id.
-2. Keep an unresolved question as `adr: null` with a concrete `next`; create an ADR only
-   when choosing a durable position.
-3. Map the ADR, remove `next`, add cited and registered mechanical enforcement, and sync
-   specifications, TODOs, and READMEs.
-4. Amend without reversing the chosen position; otherwise create a replacement ADR and
-   mark the old record `Superseded by` it.
-5. Run `pnpm docs:decisions` and `pnpm check:architecture-docs`.
+```bash
+pnpm check:type-safety         # after tsconfig / ESLint config
+pnpm check:doc-comments        # after exported docs (Principle 14)
+pnpm check:dependencies        # after imports, new deps, or layer changes (Principle 9)
+pnpm check:tokens              # after MUI tokens, theme, or DESIGN_SYSTEM
+pnpm docs:decisions            # writes PENDING index; never edit it by hand
+pnpm check:architecture-docs   # after ADR, spec, mechanical rule, audit, TODO, or mapping
+pnpm record:fixtures           # after vendor/simulator payloads; fixtures must stay clean
+pnpm test                      # after behaviour; always serial (`workspace-concurrency=1`)
+pnpm test:e2e                  # after user-facing web change (browser, not unit-only)
+pnpm test:e2e:scale            # after fleet table / scale / ADR 24
+pnpm check:diff-size           # before commit if the diff grew
+pnpm check:bundle              # after web/bundle or dependency changes
+```
 
-For a plan:
+Full local gate (install → docs → type-safety → doc-comments → tokens → deps → audit → lint → typecheck → test → build → fixtures + `git diff --exit-code` on vendor fixtures → diff-size → bundle):
 
-1. Search for and update the single owning plan; read its authorities before changing it.
-2. Declare planning authority, `Status`, and `Updated`; add `Trigger` only when
-   trigger-deferred or `Blocker` only when blocked.
-3. Define outcome, scope, ordering, acceptance evidence, documentation closure, and checks.
-4. Revalidate authority and identifiers before execution; a plan recommendation is not a
-   decision.
-5. When the trigger/blocker changes, update metadata and revalidate the plan. When all
-   acceptance evidence passes, synchronize durable docs and archive the consumed plan.
+```bash
+pnpm check:ci
+```
 
-The detailed algorithms and transition rules are authoritative in
-`docs/DOCUMENT_LIFECYCLES.md`; CI tests their machine-recognizable invariants.
+`pnpm test` must stay serial: adapters/server/simulator/web boundary suites lint the tree on disk; a parallel workspace run races those files (packages/FIXME.md F14). Serial cost is a few seconds; do not raise `--workspace-concurrency` to buy speed.
+
+One-command start: `pnpm dev`. Keep it working. Engines: Node `>=24.15.0`, pnpm `>=11.20.0`.
 
 ## Routing table
 
-Read only the first matching route, then follow its “then” path. Use each documentation
-family's `00_*` index to find its single owning document; do not preload a directory.
-For an existing plan, search `docs/05_plans/` by filename or task term and open only the
-match. Within a package, read its scoped agent guide before editing.
+Do not preload a directory. Use each family's `00_*` index.
+Read only the first matching route, then follow its “then” path.
+For an existing plan, search `docs/05_plans/` by filename or task term and open only the match.
+Within a package, read its scoped agent guide (`AGENTS.md`) before editing.
 
 | Task                                                                   | Start here                                                         | Then narrow to                                                                                 |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |

@@ -1,7 +1,11 @@
 # End-to-end contract join — completed
 
-**Authority:** Planning only. Accepted ADRs and current package specifications govern conflicts.
-**Status:** Complete 20 August 2026.
+**Authority:** Historical only. This completed joining checklist is retained for provenance;
+current ADRs and package specifications govern behavior.
+**Archived:** 2026-08-20
+**Superseded by:** the contracts and adapters package specifications plus the
+raw-fixture-to-browser joining test.
+**Completion:** 20 August 2026.
 
 The joined path is raw recorded vendor fixture → adapter registry → `AdapterEnvelope` →
 server freshness/wire encoding → strict browser decode → robot read model. It covers A, B,

@@ -62,8 +62,8 @@ export type RobotDetailState =
  * One line naming what failed to decode, for the terminal error state.
  *
  * Coupling: `ContractIssue` is the repository's one failure vocabulary (ADR 20),
- * so these are the decoder's own issues — and, once the transport lands, the
- * ones an HTTP error body carries (`parseErrorEnvelope` in `@fleet/contracts`).
+ * so these are the decoder's own issues and the ones an HTTP error body carries
+ * (`parseErrorEnvelope` in `@fleet/contracts`).
  * The console composes its own sentence from `path` and `code`; the envelope's
  * server-authored `message` is for logs and non-console callers, not for this.
  */

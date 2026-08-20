@@ -7,7 +7,8 @@ import { AppRouter } from "./appRouter";
 /**
  * Proves the router is the application. Until 19 August 2026 `main.tsx` rendered
  * the component gallery and `appRouter.tsx` was an orphaned module that did not
- * compile, so nothing here was reachable at any URL (TODO D10).
+ * compile, so nothing here was reachable at any URL. The app-shell spec now owns the
+ * route contract this regression test protects.
  */
 function renderAt(path: string): void {
   render(
