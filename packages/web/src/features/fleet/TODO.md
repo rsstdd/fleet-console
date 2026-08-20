@@ -136,9 +136,32 @@ validation in the table; that would be a second decode authority (Principle 1).
       recorded in [`packages/FIXME.md`](../../../../FIXME.md) **F13**, and the one thing
       about ADR 21 that is configured rather than working.
 
-- [ ] **A4 — Decode at the boundary.** Validate envelopes with the `@fleet/contracts`
-      schemas in the transport client, skip malformed rows, and count the rejections.
-      The count belongs on a diagnostics surface, not on the fleet table.
+- [x] **A4 — Decode at the boundary. Done 20 August 2026.**
+      `shared/lib/transportDecoding.ts` is the console's one decode: `fetchFleetSnapshot`
+      and `decodeFrame`/`decodeFrameText`, with `fetch` injected so the boundary is
+      testable without a network or a global. Everything downstream takes a decoded value,
+      so no component reaches into a response (Principle 2).
+      **A failed request and a failed decode are separate outcomes**, and merging them is
+      the failure worth naming: a `unreachable` outcome is retryable — including a 500,
+      because the server failing to produce a body is not the same event as producing one
+      this console cannot read — while a `contract` outcome is terminal, since the server
+      did not stumble and retrying returns the same bytes (**W-6**). A console that merged
+      them would retry forever against a contract mismatch, showing a spinner where it owes
+      an error naming the field. The `ContractIssue[]` travels with the terminal outcome
+      rather than being flattened, so a diagnostics surface can say which field disagreed
+      without a vendor payload reaching an operator's screen (ADR 20).
+      **The scope of "skip malformed rows" changed, and this item is the record.** It is
+      per _frame_, not per row: `fleetSnapshotSchema.robots` is a strict array, so a client
+      that salvaged surviving rows would need a looser top-level shape and would be
+      re-deriving the response — a second decode authority (Principle 1, ADR 25). A
+      snapshot is therefore all-or-nothing and terminal; a frame is dropped and counted,
+      because a stream is many messages and the next may be fine. The cost is a missed
+      update for the robots that frame named, which the next flush or freshness sweep
+      corrects. **Deferred, decision not made — whether a run of frame failures should
+      escalate to terminal.** Dropping one frame is cheap; dropping every frame is a broken
+      contract with a console degrading silently, and there is no threshold, no counter
+      exposure and no surface for it yet. The count belongs on a diagnostics surface, not
+      on the fleet table.
 
 - [ ] **A5 — Render the states in `fleetPage.tsx`.** Only after A1–A4. Skeleton for
       `loading`; `isRefreshing` leaves rows untouched; `error` renders `EmptyState` with
