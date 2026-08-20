@@ -65,10 +65,11 @@ describe("a tenant that disables a panel", () => {
   });
 
   it("hides the lidar panel for a robot that declares lidar health", async () => {
-    // R-055 declares dock and lidar health. Under tenant A both panels render;
+    // R-118 (vendor A) declares dock and lidar health — B does not, and using B here
+    // would have made this pass for the wrong reason. Under tenant A both panels render;
     // under tenant B the capability is still declared and the panel is still
     // absent, which is the whole distinction ADR 17 draws.
-    await renderRobot("R-055");
+    await renderRobot("R-118");
 
     const section = screen.getByRole("region", { name: "Capabilities" });
     expect(within(section).getByRole("heading", { name: "Dock" })).toBeInTheDocument();

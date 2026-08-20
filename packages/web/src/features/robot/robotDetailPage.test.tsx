@@ -27,8 +27,8 @@ afterEach(() => {
  * Verification table from docs/01_page-specs/03_ROBOT_DETAIL.md §11.
  *
  * Fixture ids come from `entities/robot` and are chosen for what they declare:
- * R-118 (vendor A) and R-055 (vendor B) declare dock + lidar, R-301 (vendor C)
- * declares dock + water level and omits lidar, R-055 alone is sequence-less,
+ * R-118 (vendor A) declares dock + lidar, R-301 (vendor C) declares dock + water level
+ * and omits lidar, R-055 (vendor B) declares dock alone and is sequence-less,
  * and R-233 has never reported. That contrast is the point of the surface — a
  * panel exists because a robot declared the capability, never because of the
  * vendor's name.
@@ -117,12 +117,24 @@ describe("RobotDetailPage", () => {
   });
 
   it("renders a panel only for a declared capability", async () => {
-    await renderRobot("R-055");
+    await renderRobot("R-118");
 
     const section = capabilitiesSection();
     expect(within(section).getByRole("heading", { name: "Dock" })).toBeInTheDocument();
     expect(within(section).getByRole("heading", { name: "Lidar" })).toBeInTheDocument();
     // Undeclared: omitted entirely, not a disabled placeholder (spec §2).
+    expect(within(section).queryByRole("heading", { name: "Water level" })).toBeNull();
+  });
+
+  it("gives vendor B a dock panel and nothing else, as its dialect declares", async () => {
+    // The narrowest profile of the three, and the one that proves absence is the
+    // interface: B's payload carries no lidar source data at all (ADR 1 § Observed
+    // consequences), so there is no panel rather than an empty one.
+    await renderRobot("R-055");
+
+    const section = capabilitiesSection();
+    expect(within(section).getByRole("heading", { name: "Dock" })).toBeInTheDocument();
+    expect(within(section).queryByRole("heading", { name: "Lidar" })).toBeNull();
     expect(within(section).queryByRole("heading", { name: "Water level" })).toBeNull();
   });
 

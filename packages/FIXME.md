@@ -33,14 +33,26 @@ library.
 
 ## Confirmed conflicts
 
-### F1. Vendor B's web fixture violates ADR 1's resolved capability profile
+### F1. Vendor B's web fixture violates ADR 1's resolved capability profile — **CLOSED 20 August 2026**
 
-**Assessment: incorrect implementation; open.**
+**Assessment: was an incorrect implementation; fixed, and now checkable against the real adapter.**
 
 ADR 1's observed consequence resolves Vendor B to `dock` and nothing else, explicitly
 stating that its payload carries no lidar source data. The simulator follows that
 decision. `packages/web/src/entities/robot/useRobotDetail.ts`, however, declares both
 `dock` and `lidarHealth` for Vendor B, and its comment repeats the obsolete profile.
+
+**Fixed 20 August 2026.** The fixture declares `dock` alone for vendor B, and the tests
+moved with it: the "renders a panel only for a declared capability" case now uses R-118
+(vendor A, which does declare lidar), a new case asserts B's narrower profile directly, and
+`tenantPanelFlag.test.tsx` moved to R-118 too — it was hiding a lidar panel for a robot that
+should never have had one, so it had been passing for the wrong reason.
+
+What makes this different from a fixture edit is that the answer is no longer a matter of
+reading an ADR. Decoding the recorded payloads through the real registry gives
+`A: dock+lidarHealth+sequence`, `B: dock`, `C: dock+sequence+waterLevel`, so the console's
+fixtures can be checked against the system rather than against a document. The original
+instruction follows.
 
 Fix the fixture and its capability-absence tests so all packages demonstrate the same
 profile:

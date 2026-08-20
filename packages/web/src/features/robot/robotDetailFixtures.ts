@@ -38,9 +38,10 @@ interface VendorFixture {
 }
 
 /**
- * ADR 1's three dialects, as capability declarations: A and B declare dock and
- * lidarHealth, C declares dock and waterLevel and omits lidarHealth, and B
- * alone is sequence-less. C reports an undocumented field its adapter counted
+ * ADR 1's three dialects, as capability declarations, matching what the real adapters
+ * produce from the recorded payloads: A declares dock + lidarHealth + sequence, B declares
+ * dock alone, and C declares dock + waterLevel + sequence. B is therefore both
+ * lidar-less and sequence-less. C reports an undocumented field its adapter counted
  * rather than dropped. Capabilities are in wire form — an array of entries —
  * because that is what JSON carries; the schema decodes them to the record
  * (ADR 1).
@@ -73,8 +74,12 @@ const FIXTURE_BY_VENDOR: Readonly<Record<string, VendorFixture>> = {
     adapterVersion: "0.9.2",
     position: { frame: "site-map", x: 7.4, y: 62.1 },
     capabilities: [
+      // Dock alone. ADR 1 § Observed consequences resolved vendor B to this profile —
+      // its payload carries no lidar source data — and the real adapter agrees: decoding
+      // the recorded B fixture yields `dock` and nothing else. This file used to declare
+      // `lidarHealth` here, which made the console's own tests assert a fleet the system
+      // cannot produce (`packages/FIXME.md` **F1**).
       { name: "dock", payload: { docked: true, dockId: "dock-a3" } },
-      { name: "lidarHealth", payload: { severity: "nominal", rpm: 480 } },
     ],
     counters: { unknownFieldCount: 0 },
     // No sequence declared, so there is nothing to count gaps in. "Not
