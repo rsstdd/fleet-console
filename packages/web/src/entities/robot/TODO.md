@@ -96,6 +96,22 @@ options from the fleet and both can go.
 
 ## Decisions taken, recorded so they can be challenged
 
+### W-10 — `Robot.batteryPercent` is carried at every freshness and suppressed at presentation
+
+Recorded 20 August 2026, because the doc comment on the field said the opposite of what
+the code does and either could have been read as the rule. `toRobot` copies
+`core.batteryPercent` whatever the freshness; `formatBattery` in `selectors.ts` refuses to
+render a number for a robot that is not live (fleet page spec § 6).
+
+Carrying it is the right half to keep. The detail view can legitimately show a last-known
+figure with its age beside it, which a nulled model would make impossible, and nulling in
+the mapper would put a display rule in the read model. The comment was corrected to say
+so and to name where the suppression lives, so the two statements of one rule cannot be
+read as disagreeing (Principle 1).
+
+**Challenge it if** a surface ever needs the raw value _and_ must not show it — at which
+point the suppression belongs in a type, not a formatter.
+
 ### W-4 — Contract types are imported, never redeclared; the read model is what remains
 
 `model.ts` imports `RobotStatus`, `HealthSeverity`, `FreshnessState`, `Health`,

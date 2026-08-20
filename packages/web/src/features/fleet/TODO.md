@@ -96,9 +96,19 @@ validation in the table; that would be a second decode authority (Principle 1).
       Nine tests, including a sweep asserting `isStreamConnected` is true for exactly one
       phase — being wrong in the permissive direction is what makes a console assert
       currency it cannot support (ADR 3).
-      What is still missing is the transport around them: no socket, no snapshot fetch, no
-      store. Deltas apply keyed by `robotId` on a scheduled frame, never synchronously per
-      message (spec § 6, ADR 2, Principle 12). **Deferred, decision not made — the published vocabulary is narrower than the
+      `entities/robot/fleetStore.ts` is the third piece: robots keyed by id, **replaced
+      whole rather than merged**, because ADR 18 keeps delta granularity at the robot level
+      and a field-level patch would make this a merge engine with partial application as a
+      possible state. A snapshot replaces everything, so a robot that left the manifest
+      cannot survive as a stale row. Notification is what is scheduled — application stays
+      synchronous, since holding state the console has already received would be a second
+      coalescing layer on top of the server's 10 Hz cap and would make the store lie about
+      what it knows. `getRobots()` returns a cached array by reference, because
+      `useSyncExternalStore` compares by identity and a fresh array per call is an infinite
+      render loop rather than a performance note. Eight tests.
+      What is still missing is the transport that drives them: no socket, no snapshot
+      fetch, and nothing calls `useSyncExternalStore` against this store yet — `useFleetRobots`
+      is still fixture-backed. **Deferred, decision not made — the published vocabulary is narrower than the
       transport's, and two distinctions are dropped at the projection.** `idle` and
       `failed` both publish as `disconnected`, and `connecting` and `reconnecting` both
       publish as `reconnecting`. So the banner cannot say "connecting for the first time"
