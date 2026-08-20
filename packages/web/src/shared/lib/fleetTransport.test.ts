@@ -59,7 +59,7 @@ describe("createFleetTransport", () => {
       handlers: {
         onSnapshot: (value) => snapshots.push(value),
         onBatch: (value) => batches.push(value),
-        onConnectionState: (value) => states.push(value),
+        onConnectionState: (published) => states.push(published),
         onTerminalError: (issues) => terminal.push(issues),
         onFrameRejected: () => {
           rejected += 1;
@@ -127,6 +127,9 @@ describe("createFleetTransport", () => {
 
     h.control.open?.();
     expect(h.states).toStrictEqual(["reconnecting", "connected"]);
+    // Reported on every transition, not only when the published value moves: an attempt
+    // can increment while the banner still says "reconnecting".
+    expect(h.transport.state.attempt).toBe(0);
   });
 
   it("gives up on a body the contract refuses, rather than retrying the same bytes", async () => {

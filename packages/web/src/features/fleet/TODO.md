@@ -117,8 +117,27 @@ validation in the table; that would be a second decode authority (Principle 1).
       may still be delivering. It emits decoded values and never touches a store —
       `shared` may not import `entities` (ADR 4) — so the caller wires the callbacks to
       `createFleetStore`. Nine tests.
-      What is still missing is the wiring: nothing constructs a transport, nothing calls
-      `useSyncExternalStore` against the store, and `useFleetRobots` is still fixture-backed.
+      `app/useFleetTransport.ts` owns the console's one socket and `AppRouter` holds it, so
+      it opens once for the session rather than once per page (ADR 23 puts transport
+      lifecycle in `app`). The banner is now driven by a real connection: `connectionState`,
+      `lastEventAt`, `attempt` and `onRetry` all come from the transport instead of the
+      optimistic literal the shell used to default to. `resolveStreamUrl` builds the socket
+      URL from `TENANT.endpoints.streamUrl` and the **page's** origin — never from
+      configuration, because a console that knew the server's real address would stop being
+      same-origin (ADR 21). That gives `TENANT.endpoints` its first reader and closes
+      `packages/FIXME.md` **F13**. The hook holds one `StreamState` rather than separate
+      published/attempt values, because two views of one fact held separately is how they
+      come to disagree.
+      What is still missing is the last hop: `useFleetRobots` does not yet read the store
+      the transport is filling, so the fleet table still renders fixtures while the banner
+      beside it reports a real socket. **That inconsistency is deliberate and short-lived**,
+      not a shipped state — the store swap is the next change.
+      **Not yet verified in a running browser.** The proxy path was checked live end to end
+      — Vite serves the app, `/api/fleet` proxies to the server and returns the committed
+      roster, and `/ws` answers `101 Switching Protocols` through the proxy — and the
+      transport's sequencing is unit-tested. What has **not** been observed is the console
+      itself rendering against a live socket, which AGENTS.md requires for a user-facing
+      change (Principle 10). It is owed before this item is called done.
       **Deferred, decision not made — nothing reconnects.** `connect()` after a close is
       the caller's call, because an attempt limit, a backoff schedule and how a refused
       upgrade differs from a dropped connection are all unchosen (**H7**). The banner

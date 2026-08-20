@@ -233,7 +233,7 @@ alone fails two assertions, and one in `SUPPORTED_VENDORS` alone fails three.
 
 ### F13. ADR 21's endpoint configuration is decoded everywhere and consumed nowhere
 
-**Assessment: accurate plan, incomplete integration; open.**
+**Assessment: closed 20 August 2026. Both halves now have readers.**
 
 [ADR 21](../docs/00_adr/21_ENDPOINTS_FROM_THE_ENVIRONMENT_WITH_A_DEV_PROXY.md) closed
 register **D13** and ended the state where three packages guessed at one address. What it
@@ -242,16 +242,18 @@ them do not exist. Both halves are configuration that validates correctly and ch
 nothing:
 
 - **`FLEET_ALLOWED_ORIGINS` is validated and unenforced.** `parseRuntimeEndpoints` decodes
-  it into `RuntimeEndpoints.allowedOrigins`, rejecting a wildcard, a trailing slash and a
-  path — and nothing reads the result. An operator who sets it today gets a startup check
-  and no CORS policy. The middleware is server TODO **B1d** and its test is **L8**; both
-  wait on the listener (**B1a**), which is ADR 8's and still Not started. This is the one
-  piece of ADR 21's required evidence that was scoped forward rather than satisfied.
+  it into `RuntimeEndpoints.allowedOrigins` — and, at the time of writing, nothing read the
+  result. **Closed 20 August 2026:** `evaluateOriginPolicy` consumes the list, the listener
+  mounts it ahead of every route (**B1d**), and **L8** asserts the grant and the decline
+  through a bound socket.
 - **`TENANT.endpoints` has no reader.** Both tenant profiles carry
   `{ apiBaseUrl: "/api", streamUrl: "/ws" }`, validated at module load and pinned by a
-  test, and `packages/web/src/shared/lib` still contains only `time.ts`. The transport
-  client that would consume them is fleet TODO **A3**. Confirmed by inspecting a
-  production build: neither path appears in the bundle, because nothing imports the field.
+  test, and `packages/web/src/shared/lib` contained only `time.ts` at the time of writing.
+  **Closed 20 August 2026:** `app/useFleetTransport.ts` builds the snapshot URL from
+  `apiBaseUrl` and the socket URL from `streamUrl` plus the **page's** origin — never from
+  configuration, since a console that knew the server's real address would stop being
+  same-origin. Verified live through the dev proxy: `/api/fleet` returns the committed
+  roster and `/ws` answers `101 Switching Protocols`.
 
 **Why this is not a defect in ADR 21.** The alternative was to leave the addresses
 hardcoded until their consumers arrived, which is precisely the state D13 recorded — a

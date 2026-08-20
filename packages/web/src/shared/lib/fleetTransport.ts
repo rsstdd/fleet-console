@@ -49,7 +49,15 @@ export interface FleetTransportHandlers {
   onSnapshot: (snapshot: FleetSnapshot) => void;
   /** One decoded frame, in order, including buffered ones replayed after the snapshot. */
   onBatch: (batch: TelemetryBatch) => void;
-  onConnectionState: (state: StreamConnectionState) => void;
+  /**
+   * Reports every lifecycle transition, with both vocabularies.
+   *
+   * `published` is what `ConnectionContext` carries (ADR 23); `state` is the transport's
+   * full phase and attempt count, which the banner needs to show a retry counter that is
+   * actually counting. Fired on every transition rather than only on a published change,
+   * because an attempt can increment without the published value moving.
+   */
+  onConnectionState: (published: StreamConnectionState, state: StreamState) => void;
   /** A body this console cannot read. Terminal: retrying returns the same bytes (**W-6**). */
   onTerminalError: (issues: readonly ContractIssue[]) => void;
   /** One frame dropped. Counted for a diagnostics surface, never for the fleet table. */
@@ -87,10 +95,9 @@ export function createFleetTransport(options: {
   let generation = 0;
 
   function advance(event: Parameters<typeof nextStreamState>[1]): void {
-    const previous = publishedConnectionState(state);
+    const previous = state;
     state = nextStreamState(state, event);
-    const next = publishedConnectionState(state);
-    if (next !== previous) handlers.onConnectionState(next);
+    if (state !== previous) handlers.onConnectionState(publishedConnectionState(state), state);
   }
 
   async function loadSnapshot(attempt: number): Promise<void> {
