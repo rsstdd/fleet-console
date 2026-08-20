@@ -19,12 +19,15 @@
   "dependencies": {
     "@fleet/adapters": "workspace:*",
     "@fleet/contracts": "workspace:*",
+    "@hono/node-server": "^2.1.0",
     "hono": "^4.13.1",
+    "ws": "^8.21.3",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "catalog:",
+    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
     "eslint-plugin-jsdoc": "catalog:",

@@ -64,6 +64,7 @@ src/
   ingest/                   selectVendor, errorResponse, requestSizeLimit — all pre-body
   http/originPolicy         the cross-origin grant ADR 21 configured and nothing consumed
   http/createApp            the Hono router, with that policy mounted ahead of every route
+  http/listener             HTTP and /ws on one port, closed in the order ADR 8 requires
   __boundary-violation__/   deliberate lint violations that prove the rules fire
   index.ts
 ```
@@ -73,10 +74,9 @@ a route segment, a header or a byte count, decided before anything reads a body,
 ordering guarantees are properties of the signatures rather than rules a handler has to
 remember (ADR 8 § Observed consequences).
 
-Planned and not yet present: the listener that binds a port (`@hono/node-server`), the
-WebSocket server (`ws` attached to it), every route, the ingest handler, the adapter
-registry dispatch, and the composition root. The two absent dependencies stay absent until
-something imports them, because ADR 29's gate rejects a declared package nothing uses.
+Planned and not yet present: every route, the ingest handler, the adapter registry
+dispatch, the fan-out that writes to a connected stream, and the composition root that
+loads configuration and wires the listener to a process lifecycle.
 
 ## 5. Contracts owned and consumed
 
@@ -254,11 +254,12 @@ configuration loaders are covered.
 validation, the current-state store with manifest seeding, the bounded ring buffer, the
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
-**Not built:** the listener that binds a port, every route wrapper, adapter-registry
-ingest composition, health-response composition, the WebSocket server, and the runtime
-composition root. The router itself exists (`http/createApp`) with the cross-origin policy
-mounted and the `not_found` and `internal` envelopes it owns, driven in tests through a
-real `Request`.
+**Not built:** every route wrapper, adapter-registry ingest composition, health-response
+composition, delta fan-out onto a connected stream, and the runtime composition root. The
+router exists (`http/createApp`) with the cross-origin policy mounted and the `not_found`
+and `internal` envelopes it owns, and `http/listener` binds it — with `/ws` — to a real
+port with an ordered shutdown. Nothing composes those into a process, so `pnpm dev` still
+starts no server.
 
 Ingest composition is intentionally deferred: ADR 10 has not resolved runtime
 re-validation of adapter output, and ADR 11 has not decided how a server ingest test may

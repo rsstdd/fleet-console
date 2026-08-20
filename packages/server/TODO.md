@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 17 files, 115 tests     |
+| `pnpm test`      | passes — 18 files, 120 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -47,17 +47,19 @@ packages/server/
     ├── ingest/requestSizeLimit.ts  byte cap ahead of JSON.parse (ADR 26)
     ├── http/originPolicy.ts        the cross-origin grant ADR 21 configured (B1d)
     ├── http/createApp.ts           the Hono router, policy mounted ahead of it (B1a)
+    ├── http/listener.ts            one port for HTTP and /ws, ordered shutdown (B1a)
     ├── config/freshnessPolicy.ts   validated sweep thresholds (ADR 3, Principle 13)
     ├── config/fleetManifest.ts     strict roster loader (ADR 14)
     ├── config/runtimeEndpoints.ts  host/port/origins from the environment (ADR 21)
     └── config/serverConfiguration.ts  the two files loaded together, strictly
 ```
 
-**None of this listens.** Every module above was framework-independent by design —
-required by an accepted ADR, testable without a socket, and correct without an HTTP
-library — and `http/createApp.ts` is now the router that composes them, still testable
-without one. What does not exist is the process that binds a port: no listener, no socket,
-no `dev` script, and no route mounted on the app. Sections 4, 7 and 8 are that work.
+**This binds a port; nothing composes it into a process.** The framework-independent
+modules are unchanged, `http/createApp.ts` routes, and `http/listener.ts` serves that
+router and `/ws` on one socket with an ordered shutdown. What does not exist is the
+composition root that loads configuration and wires them to a process lifecycle, and no
+route is mounted on the app — every request is the router's 404. Sections 4, 7 and 8 are
+that work.
 
 On the four earliest pieces, whose reasoning is worth keeping:
 
@@ -77,10 +79,11 @@ On the four earliest pieces, whose reasoning is worth keeping:
   fallback default. A server that silently runs a policy nobody deployed is the failure
   Principle 13 names.
 
-Deliberately **not** added: no WebSocket library and no `dev` script. `@hono/node-server`
-and `ws` stay undeclared until the listener imports them, because ADR 29's gate rejects a
-declared package nothing uses; the `dev` script would break the root `pnpm dev` fan-out
-until there is a `src/main.ts` to run.
+Deliberately **not** added: no `dev` script. All three ADR 8 dependencies are now declared
+and vetted, each landing with the code that imports it. The `dev` script waits on a
+`src/main.ts` to run — root `pnpm dev` is `pnpm -r --parallel dev`, so a script pointing at
+a file that does not exist breaks the one-command start for every package at once
+(**B1c**).
 
 ---
 
@@ -130,28 +133,20 @@ now decides what implements them. The listener is unblocked.
       validators and RPC client stay unused (ADR 8). The app is built from a configuration
       value rather than reading one, so `app.request()` drives it against a real `Request`
       with no port to pick — which is where the mounted half of **L8** now comes from.
-      Still open, and deliberately not started here: `@hono/node-server` and `ws` (with
-      `@types/ws`), which stay undeclared until something imports them — the dependency
-      gate rejects a declared package nothing uses, and that is the correct pressure. The
-      listener must bind host and port from `loadRuntimeEndpoints()` (**C5**, ADR 21) —
-      never a literal, and never `0.0.0.0` by default, because the loopback default is what
-      keeps an unauthenticated ingest endpoint serving raw vendor payloads off every
-      interface (**D18**) — and must close socket clients before closing the HTTP server on
-      shutdown, or in-flight frames are dropped on a listener that no longer exists (ADR 8
-      § Implications).
-- [x] **B1d — Policy done 20 August 2026; mounting waits on B1a.** `evaluateOriginPolicy`
-      in `src/http/originPolicy.ts` reads `RuntimeEndpoints.allowedOrigins` and decides all
-      three cases — an allowed origin echoed rather than `*`, an origin outside the list
-      granted nothing, and a request with **no** `Origin` treated as not cross-origin, which
-      is the answer ADR 21 § Open questions named as intended and is now closed there. Empty
-      `allowedOrigins` grants nobody. `Vary: Origin` is set on every outcome so a cache
-      cannot hand a grant to a different origin, and the preflight a JSON `POST` requires is
-      answered with `content-type` and nothing else. No `Access-Control-Allow-Credentials`
-      is emitted anywhere, which is the guard against this quietly introducing what
-      **K1**–**K3** cut. Framework-independent and unit-tested (nine cases); the middleware
-      that calls it is one wrapper, and it lands with the listener. **L8** — the same
-      evidence against a real request — is still outstanding and still owed. Two decisions
-      it deliberately does not make are stated below.
+      **Listener landed 20 August 2026.** `@hono/node-server` and `ws` (with `@types/ws`)
+      are now declared and vetted, each having arrived with the code that imports it.
+      `startListener` in `src/http/listener.ts` serves the router and upgrades `/ws` on one
+      port, and its `close()` closes stream clients, then the socket server, then the HTTP
+      server — the order ADR 8 § Implications requires, asserted by rebinding the same port
+      afterwards rather than by inspection. Upgrades use `noServer: true` with an explicit
+      path check, so a handshake on any other path is destroyed instead of opening a stream
+      nothing reads. Still open: the **composition root** (`src/main.ts`) that calls
+      `loadRuntimeEndpoints()` and passes what it returns to `startListener` — never a
+      literal, and never `0.0.0.0` by default, because the loopback default is what keeps
+      an unauthenticated ingest endpoint serving raw vendor payloads off every interface
+      (**D18**) — plus signal handling and startup reporting. The listener accepts port `0`
+      although the configuration refuses it; that is deliberate, documented at
+      `ListenerOptions.port`, and what lets the tests bind without picking a number.
 - [x] **B1b — `tsx` is the runtime**, recorded in
       [ADR 9](../../docs/00_adr/09_WORKSPACE_SOURCE_EXPORTS_AND_TSX_RUNTIME.md). Already
       a devDependency here. Plain `node src/main.ts` does **not** work for this package:
@@ -586,7 +581,7 @@ is missing is everything that needs a socket.
       it; a leaked interval passes every other test.
 - [ ] **L7 — Keep performance tests reproducible** and report degradation rather than
       asserting only a favourable scale point (AGENTS.md § Tests).
-- [ ] **L8 — Cross-origin, against a real request. Mounted half done 20 August 2026.**
+- [x] **L8 — Cross-origin, against a real request. Done 20 August 2026.**
       `src/http/createApp.test.ts` drives all four claims through `app.request()`: an origin
       in `FLEET_ALLOWED_ORIGINS` gets that exact origin echoed, an origin outside it gets no
       grant, a request with no `Origin` header is unaffected, and an empty allow-list grants
@@ -596,7 +591,11 @@ is missing is everything that needs a socket.
       from no allow-list, which is ADR 7's recorded failure mode. What remains is the same
       evidence through a **bound socket** rather than an in-process `Request`, which is the
       only form that also proves `loadRuntimeEndpoints()` reached the app. It lands with
-      **B1a**'s listener.
+      **B1a**'s listener — and now does: `src/http/listener.test.ts` repeats the grant and
+      the decline through a bound socket with `fetch`, which is the only form that also
+      shows the app the listener actually serves is the one the policy is mounted on. What
+      is not yet proven end to end is that `loadRuntimeEndpoints()` supplies those origins,
+      because no composition root reads it yet (**B1a**).
 
 ---
 
