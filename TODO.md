@@ -169,11 +169,11 @@ Owners: web `shared/lib`, `entities/robot`, and composing features.
 - [x] Retained diagnostics are decoded at the boundary and stay behind the technician
       toggle; the raw payload is served by one route and no other (ADR 1).
 
-**Not done, and deliberately:** nothing reconnects automatically. `connect()` after a close
-is the caller's call, because an attempt limit, a backoff schedule and how a refused upgrade
-differs from a dropped connection are all unchosen (server TODO **H7**, fleet TODO **A3**).
-The banner ships a manual retry control, so the path exists and is honest; an automatic one
-that guessed a schedule would not be.
+**Not done, and deliberately:** nothing reconnects automatically, and it is now registered
+as decision **D22** in [`docs/PENDING_ARCHITECTURE_DECISIONS.md`](docs/PENDING_ARCHITECTURE_DECISIONS.md)
+rather than carried as a note in three TODO files. The wait schedule, the stopping rule and
+whether a refused upgrade differs from a dropped connection have to be decided together; the
+banner ships a manual retry control, so the path exists and is honest.
 
 Detailed sources: the two web feature TODOs after **P0.2** updates their references.
 

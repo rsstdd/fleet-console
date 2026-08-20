@@ -589,9 +589,14 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       with a pending set and never skips or drops one. That is correct at ADR 2's stated
       scale of single-digit consoles and wrong at any scale where a console stops reading.
       Decide the configuration surface first; do not put a number in the fan-out.
-- [ ] **H6c — Define the remaining connection states.** Reconnect and orderly shutdown
-      still need defining; ADR 8 § Implications requires socket clients to close before
-      the HTTP server does, or in-flight frames land on a dead listener.
+- [ ] **H6c — Define the remaining connection states. Orderly shutdown done 20 August
+      2026; reconnect is registered as decision D22.** Fan-out stops and closes every
+      console before the listener closes, which is what ADR 8 § Implications requires, and
+      the test asserts it by rebinding the same port afterwards rather than by inspection.
+      Reconnect is not a server-side gap at all — the client decides when to come back —
+      and it is now a registered open decision rather than a note here; see
+      [`docs/PENDING_ARCHITECTURE_DECISIONS.md`](../../docs/PENDING_ARCHITECTURE_DECISIONS.md)
+      **D22**.
 - [x] **H7 — Every asynchronous surface defines its complete state. Defined 20 August
       2026 in `packages/web`; the consumer is still fixture-backed.**
       `shared/lib/streamLifecycle.ts` is the matrix as a pure reducer —

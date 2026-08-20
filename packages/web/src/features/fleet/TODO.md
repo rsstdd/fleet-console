@@ -142,11 +142,13 @@ validation in the table; that would be a second decode authority (Principle 1).
       transport's sequencing is unit-tested. What has **not** been observed is the console
       itself rendering against a live socket, which AGENTS.md requires for a user-facing
       change (Principle 10). It is owed before this item is called done.
-      **Deferred, decision not made — nothing reconnects.** `connect()` after a close is
-      the caller's call, because an attempt limit, a backoff schedule and how a refused
-      upgrade differs from a dropped connection are all unchosen (**H7**). The banner
-      already ships an `onRetry` control, so a manual path exists and is honest; an
-      automatic one that guessed a schedule would not be. **Deferred, decision not made — the published vocabulary is narrower than the
+      **Deferred, and now registered as decision D22** — see
+      [`docs/PENDING_ARCHITECTURE_DECISIONS.md`](../../../../../docs/PENDING_ARCHITECTURE_DECISIONS.md).
+      Nothing reconnects: `connect()` after a close is the caller's call, because the wait
+      schedule, the stopping rule and whether a refused upgrade differs from a dropped
+      connection have to be decided together. The banner ships an `onRetry` control, so a
+      manual path exists and is honest; an automatic one that guessed a schedule would not
+      be. It blocks README demo step 6 and server TODO **H6c**. **Deferred, decision not made — the published vocabulary is narrower than the
       transport's, and two distinctions are dropped at the projection.** `idle` and
       `failed` both publish as `disconnected`, and `connecting` and `reconnecting` both
       publish as `reconnecting`. So the banner cannot say "connecting for the first time"
