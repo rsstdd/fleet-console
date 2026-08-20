@@ -70,7 +70,7 @@ Feature-sliced (ADR 4). The dependency rule, stated exactly as
 | `shared-ui`  | shared-ui, external                                             |
 | `shared-lib` | shared-lib, external                                            |
 | `config`     | config, external                                                |
-| `test`       | everything, plus external                                       |
+| `test`       | setup files under `src/test/**`: everything, plus external      |
 
 Three consequences the informal "entities → shared" summary hides, each load-bearing:
 
@@ -224,6 +224,11 @@ robot's update does not re-render the fleet. No denormalized lists.
 loading and error booleans, which is what makes the state matrix in page spec 03
 exhaustively checkable.
 
+`useRobotHistory` is the same pattern for the battery-history resource (ADR 33): fetched
+once per visit, its own discriminated state, never joined to the delta stream, and its
+failure degrades the section inline rather than blanking valid robot detail. A future
+"live sparkline" is a new decision, not a refetch interval added to this hook.
+
 **Theme and tenant.** `data-theme="dark" | "light"` is set on `<html>` from tenant
 configuration at boot. Dark and light are not a user preference — they are the two tenant
 profiles (`docs/DESIGN_SYSTEM.md` § 1). There is no `localStorage` persistence and no
@@ -260,7 +265,14 @@ The rules that matter most:
 - **Stream down** → connection banner appears, the table retains last-known data, and
   per-robot freshness labels are **suppressed**. A robot going silent and the console going
   blind are different failures, and deriving freshness server-side is what lets the console
-  tell them apart.
+  tell them apart. The fleet summary keeps its four counts but its heading gains the
+  "· last known" qualification (ADR 23), so the aggregate makes the same honest claim the
+  rows do.
+- **Battery history is explicitly historical**, so it stays visible during stream loss:
+  the section states its window and that times are server receipt times, which is what
+  makes retention during an outage honest rather than stale-as-current. Its three empty
+  shapes — no samples, samples without battery, one reading — render as prose, never as a
+  chart of zero (ADR 33, Principle 4).
 - **Missing capability** → panel omitted entirely. No disabled placeholder, because a
   disabled control implies the capability exists and is merely unavailable.
 - **"0 gaps" for a robot that is not checked for gaps is a false statement to an
@@ -269,21 +281,22 @@ The rules that matter most:
 
 ## 10. Verification matrix
 
-| Concern                    | Check                                                                    |
-| -------------------------- | ------------------------------------------------------------------------ |
-| Selector rules             | Pure unit tests with injected time, no React                             |
-| Freshness display          | Never recomputed; label suppressed when the stream is down               |
-| Capability rendering       | Fixture robot without a capability renders no panel                      |
-| Core/capability separation | Core fields never appear under the Capabilities section                  |
-| No vendor branches         | No vendor `if` anywhere in features; panels resolve through the registry |
-| Accessibility              | Names, roles, state; keyboard flows; heading outline never skips a level |
-| Boundaries                 | Every fixture violation is reported; the control stays silent            |
-| Tokens                     | No raw hex or px outside `shared/ui` and `config`                        |
-| Development endpoints      | Tenant paths match proxy keys; HTTP and WebSocket proxy end to end       |
-| First-load bundle          | JS + CSS stay within 720 kB raw and 300 kB gzip (`pnpm check:bundle`)    |
-| Large lists                | Fleet table usable at several hundred robots                             |
+| Concern                    | Check                                                                                                    |
+| -------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Selector rules             | Pure unit tests with injected time, no React                                                             |
+| Freshness display          | Never recomputed; label suppressed when the stream is down                                               |
+| Capability rendering       | Fixture robot without a capability renders no panel                                                      |
+| Core/capability separation | Core fields never appear under the Capabilities section                                                  |
+| No vendor branches         | No vendor `if` anywhere in features; panels resolve through the registry                                 |
+| Accessibility              | Names, roles, state; keyboard flows; heading outline never skips a level                                 |
+| Boundaries                 | Every fixture violation is reported; the control stays silent                                            |
+| Tokens                     | No raw hex or px outside `shared/ui` and `config`                                                        |
+| Development endpoints      | Tenant paths match proxy keys; HTTP and WebSocket proxy end to end                                       |
+| First-load bundle          | JS + CSS stay within 720 kB raw and 300 kB gzip (`pnpm check:bundle`)                                    |
+| Large lists                | Fleet table usable at several hundred robots                                                             |
+| Battery history            | Section state matrix, sparkline coordinates and accessible name, and failure isolation from robot detail |
 
-265 tests across 29 files. No snapshot tests — a snapshot asserts output did not change,
+313 tests across 30 files. No snapshot tests — a snapshot asserts output did not change,
 which is not the same as asserting it is correct.
 
 ADR 22 deliberately does not turn adapter coverage into a gate. CI reports it so a human
@@ -302,22 +315,30 @@ full token layer; the boundary enforcement fixtures; and a development component
 
 **Wired to live data.** `useFleetRobots` subscribes to the decoded fleet store populated by
 the app-owned socket-first, snapshot-second transport. Robot detail fetches and decodes the
-single-robot and health endpoints. The running path has been observed rendering freshness
-transitions and suppressing row labels on stream loss; committed browser automation remains
-open decision D23.
+single-robot and health endpoints. The running path is proven in real browsers by the
+committed Playwright suite (ADR 32): rendering, streamed row updates, freshness
+transitions, suppression on stream loss, and automatic restart recovery, against the real
+server and simulator with the production bundle served by `vite preview`.
 
-The transport connects on demand and exposes a manual retry, but it does not schedule
-automatic recovery. Retry policy and server-restart sequence reconciliation remain open
-decision D22.
+The transport recovers automatically under
+[ADR 31](../00_adr/31_JITTERED_RECONNECT_AND_SERVER_SESSION_RECONCILIATION.md): an
+immediate first attempt, full-jitter exponential delays under a 30-second ceiling, a
+three-attempt cap only while the socket has never opened, and a `serverSessionId`
+comparison that re-joins a restarted server instead of discarding its deltas. The
+published connection vocabulary is `connecting | connected | reconnecting | disconnected`
+with a terminal cause (`handshake-exhausted`, `contract`, `session-mismatch`) carried for
+the banner's copy; every non-connected state suppresses row freshness. Manual retry
+remains, for the terminal states.
 
 Virtualization of the fleet table is **deferred by decision**
 ([ADR 24](../00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md), register D14).
 The table renders one row per robot and is asserted correct at 500 rows in
 `features/fleet/fleetScale.test.tsx` — 500 rows, 500 activation links, fleet-wide counts, and a
-filter that still narrows to one. What is not claimed is a ceiling: the workload that decides
-whether windowing helps is delta churn at 500 robots, not a static render, and has not yet been
-captured by committed browser automation. Nothing here should be read as an assumption that the table
-is windowed; a test fails if it becomes so without revisiting that ADR.
+filter that still narrows to one. No ceiling is claimed. ADR 32 captured the reopening
+workload in committed browser automation: at 500 robots and ten frames per second,
+120/120 frames applied with delta-to-next-paint p95 53.7 ms. ADR 24 records that this
+evidence did not trigger virtualization. Nothing here should be read as an assumption that
+the table is windowed; a test fails if it becomes so without revisiting that ADR.
 
 The joining test in `entities/robot/fromEnvelope.test.ts` now makes the test-only
 `@fleet/adapters` dependency earn its keep for all three dialects (ADR 12). Tenant feature

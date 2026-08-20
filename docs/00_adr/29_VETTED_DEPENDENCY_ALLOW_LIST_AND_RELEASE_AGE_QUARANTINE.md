@@ -80,6 +80,7 @@ The cost that is not mitigated is friction, and it is the intended product. Seve
 
 ## Observed consequences
 
+- **20 August 2026 — the list admitted its first post-adoption dependency through the front door (ADR 32).** `@playwright/test` entered with its reason written in the allow-list, at 1.62.1 — a release old enough to clear the seven-day quarantine, chosen over newer ones because of it. The check's skip list gained Playwright's generated `playwright-report/` and `test-results/` directories, which is the gate learning about a new tool's exhaust rather than being weakened by it.
 - 19 August 2026: implemented. `pnpm check:dependencies` passes with 35 allow-list entries, all declared and all used; four tests, including a fixture workspace that carries one instance of each violation.
 - **The gate caught a live addition on its first run.** `eslint-plugin-jsdoc` had been added to all five packages by the concurrent ADR 28 work and was not on the list. It is legitimate and was allow-listed; the point is that the check found it in the same run that found the two dead packages, without anyone knowing to look.
 - **The first install under `minimumReleaseAge` failed**, rejecting ten lockfile entries younger than seven days — nine of them the dependency closure of that same `eslint-plugin-jsdoc@64.2.1`, published two days earlier. They are excepted by pinned version rather than reverted: the quarantine governs what enters next, and reverting another workstream's ratified tooling to satisfy a policy added after it is not that rule's job.

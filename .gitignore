@@ -12,6 +12,8 @@ out/
 # Testing & Coverage
 coverage/
 .nyc_output/
+playwright-report/
+test-results/
 
 # Environment & Secrets
 .env

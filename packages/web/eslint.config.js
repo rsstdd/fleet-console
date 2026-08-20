@@ -16,7 +16,16 @@ const TOKEN_MESSAGE =
   "Use a theme token. If the token does not exist, add the token.";
 
 export default tseslint.config(
-  { ignores: ["dist", "coverage", "**/__boundary-violation__/**"] },
+  // playwright-report and test-results are Playwright's generated diagnostics (ADR 32).
+  {
+    ignores: [
+      "dist",
+      "coverage",
+      "playwright-report",
+      "test-results",
+      "**/__boundary-violation__/**",
+    ],
+  },
 
   {
     files: ["**/*.{js,mjs,cjs}"],

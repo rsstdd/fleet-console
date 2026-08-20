@@ -169,6 +169,10 @@ const ALLOWED = {
   },
 
   // Tests
+  "@playwright/test": {
+    kind: "import",
+    why: "Browser evidence ADR 32 committed to: real engines, real WebSockets, keyboard behavior, traces, and paint timing are exactly what Vitest/jsdom cannot verify.",
+  },
   "@testing-library/react": {
     kind: "import",
     why: "Renders components against the accessibility tree, which is what the specs assert on.",
@@ -209,6 +213,9 @@ const SKIP_DIRS = new Set([
   ".git",
   "__enforcement__",
   "__boundary-violation__",
+  // Playwright output: generated report bundles and failure artifacts, not source.
+  "playwright-report",
+  "test-results",
 ]);
 
 /** Extensions that can carry a module specifier this checker needs to see. */
