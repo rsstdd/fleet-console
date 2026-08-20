@@ -11,22 +11,22 @@ component specs, design system, wireframes, manifests, package TODOs, and source
 
 ## Current implementation baseline
 
-| Area      | Current state                                                                                                                                                                                     |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contracts | Canonical schemas, capability codecs, freshness derivation, wire responses, and 150 tests are built.                                                                                              |
-| Adapters  | Complete locally: fixtures, three adapters, exhaustive dispatch, unknown-field accounting, browser join, and 227 tests are built.                                                                 |
-| Simulator | Deterministic payload generation, CLI/config, fault injection, bounded scheduling/transport, metrics, lifecycle, and 211 tests are built. Measured full-stack results remain.                     |
-| Server    | Runnable HTTP/WebSocket process with ingest, reads, health, bounded state/history, freshness sweep, coalesced fan-out, and 160 tests. Battery history and slow-client policy remain.              |
-| Web       | Live decoded fleet store, fleet/detail routes, eight shared UI components, tenant configuration, connection handling, and 265 tests are built. Automatic reconnect and browser automation remain. |
+| Area      | Current state                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contracts | Canonical schemas, capability codecs, freshness derivation, wire responses including the battery-history contract (ADR 33), and 174 tests are built.                                                                                                                                                                                                                                                       |
+| Adapters  | Complete locally: fixtures, three adapters, exhaustive dispatch, unknown-field accounting, browser join, and 227 tests are built.                                                                                                                                                                                                                                                                          |
+| Simulator | Deterministic payload generation, CLI/config, fault injection, bounded scheduling/transport, metrics, lifecycle, and 211 tests are built. Measured full-stack results remain.                                                                                                                                                                                                                              |
+| Server    | Runnable HTTP/WebSocket process with ingest, reads, health, bounded state, compact battery-history retention with the decimated history route (ADR 33), privacy-safe regressive-sequence logging, freshness sweep, coalesced fan-out, and 189 tests. Slow-client policy and a consumer-triggered regressions health counter remain deferred.                                                               |
+| Web       | Live decoded fleet store, fleet/detail routes, eight shared UI components, tenant configuration, connection handling with automatic jittered reconnect and restart reconciliation (ADR 31), the fetch-on-visit battery-history sparkline (ADR 33), 313 unit/component tests, and the committed Playwright browser suite — three-engine smoke plus the reported 500-robot measurement (ADR 32) — are built. |
 
 ## Current decision and blocker register
 
-| Classification             | Items                                                                                                                                           | Effect                                                                                                                                              |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Registered active blockers | **D22** automatic stream recovery/server-restart integrity; **D23** committed browser automation                                                | D22 blocks automatic recovery and safe sequence reconciliation after restart. D23 blocks durable browser, forced-colors, and client-scale evidence. |
-| Actionable non-blockers    | Disconnected fleet-count qualification; history API/retention decision; complete fleet resource-state modeling; robot-detail delta subscription | Product/spec work is clear enough to schedule but is not authority to change contracts until the relevant decision is ratified.                     |
-| Trigger-deferred           | Repeated malformed-frame escalation; slow-client drain limits; regressions health counter; cross-layer testing-fixture location                 | Register or implement only when the documented diagnostics, deployment, consumer, or duplication trigger occurs.                                    |
-| Deliberate cuts            | Authentication/authorization UI, commands, database, broker/MQTT, commissioning/discovery, map route                                            | Keep visible as non-goals or release risks; do not misreport them as accidentally missing bootstrap work.                                           |
+| Classification          | Items                                                                                                                                                                                                                                                                                                                                           | Effect                                                                                                                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Active blockers         | Submission-specific AI authorship/review record (**P3.4**)                                                                                                                                                                                                                                                                                      | The tree cannot establish who generated, rejected, or reviewed which work. It needs the author's own record and must not be inferred. No registered architecture stub is open: D22 and D23 resolved as ADRs 31 and 32. |
+| Actionable non-blockers | Complete fleet resource-state modeling; robot-detail delta subscription and placeholder-boundary cleanup; site-label authority; WebSocket origin policy; remaining server/stream measurements; real screen-reader, responsive-theme, and forced-colors review; dead-code/export, consumer-fixture, mutation, static-security, and hygiene gates | These have enough evidence or a named decision point to schedule. ADR 32 keeps assistive-technology and subjective forced-colors evidence manual; planning is not authority to change a contract or product policy.    |
+| Trigger-deferred        | Repeated malformed-frame escalation; slow-client drain limits; regressions health counter; cross-layer testing-fixture location; batch ingest/process scaling; fleet-table virtualization                                                                                                                                                       | Activate only when the documented diagnostics, deployment, consumer, duplication, saturation, or measured-churn trigger occurs.                                                                                        |
+| Deliberate cuts         | Authentication/authorization UI, commands, database, broker/MQTT, commissioning/discovery, map route, schema-driven configuration forms, alerting                                                                                                                                                                                               | Keep visible as non-goals or release risks; unauthenticated raw diagnostics remain a deployment blocker by ADR 26, not an authorization feature supplied by the technician toggle.                                     |
 
 Planning documents under `docs/05_plans/` are proposals. They do not reserve D-ids or ADR
 numbers and do not turn recommendations into decisions.
@@ -68,7 +68,8 @@ one is raised. Original text follows.
 
 Several scoped TODOs describe implemented code as absent:
 
-- `packages/adapters/TODO.md` and `TODO_E2E_JOIN.md` were reconciled on 20 August 2026;
+- `packages/adapters/TODO.md` was reconciled and its completed joining checklist archived
+  on 20 August 2026;
   their remaining open items match the current adapter source and ADRs 1, 10–16, 19,
   20, 22, 25–29.
 - `packages/simulator/TODO.md` leaves most implemented and tested bootstrap work open.
@@ -171,11 +172,16 @@ Detailed source: `packages/adapters/TODO.md`, audited against ADRs 10-29 on 20 A
 
 ### P1.2 Build server transport and the composition root — **DONE 20 August 2026**
 
-The server listens, ingests through the registry, sweeps, serves three reads and fans
+The server listens, ingests through the registry, sweeps, serves four reads and fans
 coalesced deltas out over `/ws`, composed from repository-root configuration under
-`pnpm dev`. What remains of Section 8's list is backpressure (**H6b**) and the history read
-(**G4**), both tracked in `packages/server/TODO.md` and both blocked on named ADR
-questions. Original text follows.
+`pnpm dev`. The history read (**G4**) closed on 20 August 2026 as ADR 33/D24; what remains
+of Section 8's list is backpressure (**H6b**), tracked in `packages/server/TODO.md` and
+trigger-deferred. Original text follows.
+
+The D6a remainder also closed on 20 August 2026: a rejected lower sequence emits one
+privacy-safe `telemetry.sequence_regression` warning without changing state, deltas,
+history, or existing counters. A public regressions counter is still trigger-deferred
+until a real health or technician-diagnostics consumer requires contract versioning.
 
 ADR 8 selects Hono, `@hono/node-server`, and `ws`; the dependencies and listener are
 not present.
@@ -217,20 +223,22 @@ Owners: web `shared/lib`, `entities/robot`, and composing features.
 - [x] Retained diagnostics are decoded at the boundary and stay behind the technician
       toggle; the raw payload is served by one route and no other (ADR 1).
 
-**Not done, and deliberately:** nothing reconnects automatically, and it is now registered
-as decision **D22** in [`docs/PENDING_ARCHITECTURE_DECISIONS.md`](docs/PENDING_ARCHITECTURE_DECISIONS.md)
-rather than carried as a note in three TODO files. The wait schedule, the stopping rule and
-whether a refused upgrade differs from a dropped connection have to be decided together; the
-banner ships a manual retry control, so the path exists and is honest.
+**Resolved 20 August 2026 by [ADR 31](docs/00_adr/31_JITTERED_RECONNECT_AND_SERVER_SESSION_RECONCILIATION.md):**
+the console now reconnects automatically — immediate first attempt, full-jitter exponential
+delays under a 30-second ceiling, a three-attempt cap only while the socket has never
+opened — and every snapshot and batch carries a `serverSessionId` so a restarted server is
+re-joined rather than silently ignored. The banner's manual retry remains, for the terminal
+states.
 
 Detailed sources: the two web feature TODOs after **P0.2** updates their references.
 
-### P1.4 Prove the integrated behavior in a running browser — **behaviour observed 20 August 2026; automation is decision D23**
+### P1.4 Prove the integrated behavior in a running browser — **DONE 20 August 2026; automated by ADR 32**
 
-Every hop below is built, and on 20 August 2026 the load-bearing ones were watched in
-headless Chrome rather than only at the wire. What remains is not evidence but
-**automation**: the run was a throwaway CDP script, and whether this repository adopts a
-browser-testing framework is registered as **D23**.
+Every hop below is built, and each was first watched in headless Chrome via a throwaway
+CDP script, then committed as automation: D23 was ratified as
+[ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md), and
+`pnpm test:e2e` now drives the real server, simulator, and built console through seven
+scenarios per engine in Chromium, Firefox, and (in CI) WebKit.
 
 - [x] **Done 20 August 2026, in a browser.** Vendor payload → adapter → ingest/state →
       HTTP/WebSocket → web model and row. Headless Chrome rendered 50 rows from the live
@@ -246,11 +254,16 @@ browser-testing framework is registered as **D23**.
       `UNREACHABLE`**, because those robots never reported. Following the README's step 3
       from a cold fleet is the one way to make this demo look broken while it is working,
       and the step now says so.
-- [x] _the suppression half_ / [ ] _the reconnect half_ — Stream loss shows the banner,
-      retains rows, and suppresses per-robot freshness. **Observed in a browser**: with the
-      server stopped, all 50 rows remained and **no** per-robot freshness label rendered,
-      while the banner read `Stream reconnecting`. **Reconnect restores labels without
-      reload** still cannot pass, because automatic reconnection is decision **D22**.
+- [x] _the suppression half_ / [x] _the reconnect half at unit/process boundaries_ /
+      [x] _the reconnect half in a browser_ — Stream loss shows the banner, retains rows,
+      and suppresses per-robot freshness. **Observed in a browser**: with the server
+      stopped, all 50 rows remained and **no** per-robot freshness label rendered, while
+      the banner read `Stream reconnecting`. Automatic reconnection landed with ADR 31 on
+      20 August 2026 (restart recovery proven with fake sockets in
+      `fleetTransport.test.ts` and over real sockets in `runServer.test.ts`), and the
+      browser proof is now a committed Playwright scenario: kill the real server, restart
+      it, watch the console re-join and resume live rows without Retry or reload
+      (`packages/web/e2e/smoke.spec.ts`, ADR 32).
 - [x] _at the wire_ / [ ] _in a browser_ — Malformed payloads are rejected and counted
       without crashing stream or list. Verified against a running server: a non-JSON body
       is a counted 400, a bad payload increments `malformedIngest`, and neither disturbs the
@@ -369,16 +382,17 @@ row reads correctly, and DOM reasoning alone is insufficient.
 
 ### P3.1 Finish integration, browser, and accessibility coverage
 
-Existing suites cover contracts, simulator primitives, server state/freshness,
-shared UI, routing, fleet filters/summary, robot capabilities/personas, and boundaries.
-Remaining high-value coverage:
+Existing suites cover contracts, all adapter boundary matrices, simulator behavior,
+server HTTP/WebSocket integration and shutdown, shared UI, routing, fleet
+filters/summary, robot capabilities/personas, and boundaries.
+Landed 20 August 2026 under
+[ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md):
+disconnected freshness suppression, reconnect/restart recovery, live stale-transition
+E2E, and keyboard workflows, all in real engines against the real stack, repeatable via
+`pnpm test:e2e`. Remaining high-value coverage:
 
-- adapter contracts and malformed-boundary matrices;
-- server HTTP/WebSocket integration and shutdown;
-- disconnected freshness suppression/reconnect and live stale-transition E2E;
-- screen-reader reading order and keyboard workflows;
-- both themes, responsive views, and forced colors;
-- running-browser verification after each integrated user-facing change.
+- screen-reader reading order (real assistive technology, not automation);
+- both themes, responsive views, and forced colors.
 
 Do not add snapshot tests; package guidance requires observable behavior.
 
@@ -396,6 +410,12 @@ threshold — 5.8–6.4 µs per message against 400 µs — and the console's fi
 gated at 720 kB raw / 300 kB gzip. Adapter coverage was deliberately left ungated; do not
 add a threshold without a derivation.
 
+**Client half done, 20 August 2026**
+([ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)):
+`pnpm test:e2e:scale` reports client frame time, delta-to-paint latency, achieved frame
+rate, heap, and row/link integrity at 500 robots under a live 10 Hz stream, reported not
+gated. The server/stream-side numbers above remain owed.
+
 **Server half done, 20 August 2026**, now that there is a listening server:
 
 - **Per-request cost**, sequential: 892 µs at 50 robots, 926 µs at 500 — whole request,
@@ -410,10 +430,12 @@ add a threshold without a derivation.
 - Published in `README.md` § 10, ADR 2 and ADR 3, with the caveat that no degradation point
   was found — a statement about this machine and this offered load, not about the ceiling.
 
-**Still owed:** fan-out p50/p95, coalesced WebSocket rate, memory, client frame time and row
-count — all client-side or stream-side, and all needing the browser automation registered as
-decision **D23**. Virtualization stays deferred until delta-apply cost at 500 robots is
-measured under a live stream (ADR 24), which is the same blocker.
+**Client half measured 20 August 2026 (ADR 32):** 500 robots at ten frames per second in
+a real Chromium against the production build — 120/120 frames applied, delta-to-next-paint
+p50 47.3 ms / p95 53.7 ms / max 74.5 ms, animation-frame interval p50 16.7 ms, 500 rows
+and links retained. Virtualization stays deferred, now on that evidence rather than on its
+absence (ADR 24 § Observed consequences). **Still owed, server/stream side:** fan-out
+p50/p95, coalesced WebSocket rate under real load, and process memory over time.
 
 ### P3.3 Record WCAG 2.2 AA contrast evidence — **CONTRAST DONE 20 August 2026; forced-colors open**
 
@@ -450,7 +472,7 @@ These are optional hardening after **P0.5** makes the existing CI baseline green
 must identify the failure it prevents and cite an ADR when it mechanically enforces an
 architecture decision; do not add arbitrary percentages or permanently noisy checks.
 
-### P4.0 Reviewable-diff budget — DONE 19 August 2026
+### P4.0 Reviewable-diff budget — **DONE 19 August 2026**
 
 Resolved as register **D19** and recorded in
 [ADR 27](docs/00_adr/27_CAP_THE_REVIEWABLE_DIFF_WITH_A_NAMED_OVERRIDE.md): a pull request's
@@ -473,7 +495,7 @@ is in the script's header, so raising it means changing that claim.
 - `scripts/checkDiffSize.test.mjs` covers the counting, exclusions and trailer parsing, so
   a wrong answer surfaces in a test rather than in a confusing red build.
 
-### P4.1 Dependency admission — DONE 19 August 2026
+### P4.1 Dependency admission — **DONE 19 August 2026**
 
 Resolved as register **D20** and recorded in
 [ADR 29](docs/00_adr/29_VETTED_DEPENDENCY_ALLOW_LIST_AND_RELEASE_AGE_QUARANTINE.md): every
@@ -530,7 +552,7 @@ Keep these documented in README “Not Built”; they are cuts, not active tasks
 - persona in the URL;
 - alerting/escalation and schema-driven vendor configuration forms.
 
-Virtualization is different: it is deferred pending **P3.2**, not permanently cut — and the deferral is now a recorded decision rather than an omission ([ADR 24](docs/00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md), register D14). The claim was narrowed to what a test can back: one row per robot, correct at 500 rows, ceiling unmeasured.
+Virtualization is different: it is deferred on evidence, not permanently cut — and the deferral is a recorded decision rather than an omission ([ADR 24](docs/00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md), register D14). The 20 August 2026 measurement (ADR 32) showed the un-virtualized table absorbing the documented 500-robot workload with the frame budget intact, so the reopening condition was checked and not met.
 
 ## Recommended sequence
 

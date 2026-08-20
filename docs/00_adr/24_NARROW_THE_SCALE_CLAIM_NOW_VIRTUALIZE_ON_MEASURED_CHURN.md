@@ -80,6 +80,7 @@ Narrowing the claim costs a graded promise, which is a real loss and the reason 
 
 ## Observed consequences
 
+- **20 August 2026 — the number this ADR waits on arrived, and it does not trigger the reopening condition (ADR 32).** Live-stream delta churn at 500 robots was measured in a real Chromium against the production build: ten frames per second with 250 robots changing per frame, 120/120 frames applied, delta-to-next-paint p50 47.3 ms / p95 53.7 ms / max 74.5 ms, animation-frame interval p50 16.7 ms / p95 50.1 ms, achieved rate 9.79 of 10 Hz. The un-virtualized table absorbs the documented workload with the frame budget intact, so virtualization stays deferred — now on evidence rather than on the absence of it. The measurement is a report, not a gate, and lives in the e2e scale project (`packages/web/e2e/scale.spec.ts`).
 - 19 August 2026: the table renders correctly at 500 robots — 500 body rows, 500 activation links, fleet-wide counts of 125 in each freshness state, and a search filter that still narrows to one row. Asserted in `fleetScale.test.tsx`; four assertions, no timing.
 - 19 August 2026: the row-count assertion was probed by rendering 30 robots while the test still expected 500 — a stand-in for a window — and all four assertions failed, including the summary counts (8 rather than 125). The tripwire works (Principle 15).
 - 19 August 2026: no ceiling was published anywhere. `docs/ARCHITECTURE_AUDIT.md` § 5 keeps its 300–500 row estimate, explicitly labelled an estimate, and README § 10's rows stay empty.

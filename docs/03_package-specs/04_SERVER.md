@@ -178,12 +178,26 @@ robot with no telemetry instant to null out) and `CanonicalEnvelope`. Modelling 
 unobserved case as its own type rather than an envelope with nulled provenance is what
 prevents a nullable-provenance field from existing at all.
 
-**History** is a `RingBuffer` per robot, capacity 60. Bounded by construction: there is no
-path by which a long-running process grows history without limit (ADR 6).
+**History** is a `RingBuffer` of compact `BatteryHistorySample`s per robot, capacity
+`HISTORY_CAPACITY = 3_001` — one 60-second contract window at the simulator's validated
+50 Hz ceiling plus one inclusive boundary sample, derived in code from named constants
+(ADR 33). Only accepted upserts record; duplicates, regressive sequences and
+freshness-only sweep changes append nothing. Bounded by construction: there is no path by
+which a long-running process grows history without limit (ADR 6). Measured at the design
+workload: 500 robots at capacity retain 89.5 MiB, reported and not gated (ADR 22).
 
 **Upsert is idempotent.** Duplicate or out-of-order input must not roll observed state
 backward or append misleading history. The comparison is against the current stored
 sequence for that robot only — there is no sequence log, per ADR 6.
+
+**A rejected lower sequence is observable without becoming a counter.** The store returns
+the accepted and received values to `ingestTelemetry`, which emits exactly one
+`telemetry.sequence_regression` warning with canonical robot, vendor, and adapter ids and
+server `receivedAt`. It emits no raw payload or vendor prose, and accepted readings,
+duplicates, malformed payloads, and counterless dialects emit no such event. State,
+retained diagnostics, history, deltas, gaps, duplicates, and existing health counters do
+not change. A public `regressions` field remains consumer-triggered work requiring a
+coordinated contract version; it is not approximated through another counter.
 
 **Sequence health is three-valued**: `gap`, `duplicate`, `not-evaluated`. The third exists
 because Vendor B has no sequence and its adapter synthesizes ordering from timestamps,
@@ -243,33 +257,39 @@ per robot, malformed ingest and unsupported vendors process-wide.
 
 ## 10. Verification matrix
 
-| Concern                | Check                                                               |
-| ---------------------- | ------------------------------------------------------------------- |
-| Freshness derivation   | Sweep transitions live → stale → unreachable against a manual clock |
-| Freshness invariant    | A freshness-only change alters no observed field                    |
-| Freshness propagation  | A freshness-only transition arrives at a client as a delta          |
-| Never-seen robots      | Manifest-seeded robot reads `unknown`, is present, not absent       |
-| Idempotent upsert      | Duplicate and out-of-order input roll nothing backward              |
-| Sequence not-evaluated | Vendor B robots report `not-evaluated`, never `0`                   |
-| History bound          | Ring buffer never exceeds capacity under sustained ingest           |
-| Coalescing             | N updates to one robot between flushes send one message             |
-| Raw payload exclusion  | Absent from `/api/fleet`, from history and from every delta         |
-| Config validation      | An invalid file stops startup naming the field                      |
-| Runtime endpoints      | Invalid env values fail together; absent values use safe defaults   |
-| Enforcement            | Every lint rule fires on its fixture                                |
+| Concern                | Check                                                                                 |
+| ---------------------- | ------------------------------------------------------------------------------------- |
+| Freshness derivation   | Sweep transitions live → stale → unreachable against a manual clock                   |
+| Freshness invariant    | A freshness-only change alters no observed field                                      |
+| Freshness propagation  | A freshness-only transition arrives at a client as a delta                            |
+| Never-seen robots      | Manifest-seeded robot reads `unknown`, is present, not absent                         |
+| Idempotent upsert      | Duplicate and out-of-order input roll nothing backward                                |
+| Regression event       | One safe warning; no event for accepted, duplicate, malformed, or counterless input   |
+| Sequence not-evaluated | Vendor B robots report `not-evaluated`, never `0`                                     |
+| History bound          | Ring buffer never exceeds capacity under sustained ingest                             |
+| History recording      | Only accepted upserts append; rejected input and sweep changes do not                 |
+| Decimation             | Extrema survive; output stays chronological; response round-trips the contract parser |
+| History route statuses | Unknown robot → canonical 404; registered-unheard → empty 200; success → `no-store`   |
+| Coalescing             | N updates to one robot between flushes send one message                               |
+| Raw payload exclusion  | Absent from `/api/fleet`, from history and from every delta                           |
+| Config validation      | An invalid file stops startup naming the field                                        |
+| Runtime endpoints      | Invalid env values fail together; absent values use safe defaults                     |
+| Enforcement            | Every lint rule fires on its fixture                                                  |
 
-98 tests. The store, sweep, ring buffer, delta set, health metrics, clock and all three
-configuration loaders are covered.
+189 tests. The store, sweep, ring buffer, battery-history retention and decimation, delta
+set, health metrics, clock, all three configuration loaders, the HTTP surface and the live
+runtime path are covered.
 
 ## 11. Implementation status
 
-**Framework-independent pieces only.** Built and tested: configuration loading and
-validation, the current-state store with manifest seeding, the bounded ring buffer, the
-freshness sweep, the pending-delta set, health metrics, and the clock.
+**Built as a live process.** Configuration loading and validation, state, history,
+freshness, fan-out, health, and clocks remain framework-independent where their behavior
+does not require HTTP or WebSocket. The composition root mounts them on the live listener
+and owns their lifecycle.
 
-**Not built:** the history read for the sparkline, whose shape is undecided, and
-backpressure on a console that stops reading. The server **runs, sweeps, ingests, serves
-the fleet read and fans deltas out over `/ws`**:
+**Not built:** backpressure on a console that stops reading (trigger-deferred). The
+history read landed 20 August 2026 under ADR 33. The server **runs, sweeps, ingests,
+serves the fleet, robot, history and health reads and fans deltas out over `/ws`**:
 `http/createApp` routes with the cross-origin policy mounted, `http/listener` binds it and
 `/ws` to one port with an ordered shutdown, `main.ts` composes them from repository-root
 configuration under `pnpm dev`/`pnpm start`, `POST /api/telemetry/:vendor` decodes one
@@ -279,10 +299,15 @@ record's `routes` count says how many are mounted so a deliberate 404 is disting
 from a broken one.
 
 The ADR 3 sweep runs from the composition root, feeding `HealthMetrics.lateFreshnessTicks`
-and a `freshness.tick_late` structured warning; freshness-only transitions reach a
+and a `freshness.tick_late` structured warning. The same injected process logger carries
+the privacy-safe `telemetry.sequence_regression` warning from ingest, while the store
+remains the sole ordering authority and no health response field changes. Freshness-only transitions reach a
 connected console as a coalesced frame, verified against a running server. One flush
-counter serves both the snapshot and every frame (ADR 18). The health counters reach
-`GET /api/health` through the contract-owned response shape.
+counter serves both the snapshot and every frame (ADR 18), and one `serverSessionId`
+UUID — minted per `startServer` and recorded in the startup log — is stamped beside it on
+both paths, so a reconnecting console can tell a restarted process's sequence epoch from
+its own stale one ([ADR 31](../00_adr/31_JITTERED_RECONNECT_AND_SERVER_SESSION_RECONCILIATION.md)).
+The health counters reach `GET /api/health` through the contract-owned response shape.
 
 Server state is a superset of the wire contract, so responses are **translated** rather
 than serialized: `http/fleetResponse` drops the manifest-only `model` and encodes

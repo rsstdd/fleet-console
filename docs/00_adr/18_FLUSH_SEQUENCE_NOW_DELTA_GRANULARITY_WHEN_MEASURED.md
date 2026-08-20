@@ -2,7 +2,7 @@
 
 **Decision:** The wire gains the server-wide flush sequence ADR 2 requires, on both the delta batch and a new fleet-snapshot response; delta granularity stays whole-envelope-per-changed-robot until a measured mass-transition flush says otherwise.
 **Group:** Integration / transport (the wire-format half of ADR 2, decided before the fan-out that will carry it).
-**Status:** Decided · 2026-08-19 · Partial
+**Status:** Decided · 2026-08-19 · Implemented 2026-08-20
 
 ## Issue
 
@@ -60,27 +60,32 @@ The counter-argument is that retrofitting option 2 after the fan-out exists is m
 
 ## Implications
 
-- **`packages/server` can now be written against a complete wire format.** H3a's contracts half is done: both shapes carry the counter. What remains there is producing it — one monotonic source per server process, incremented per flush, read by both the snapshot handler and the fan-out. Two sources would be the defect this decision exists to prevent.
-- **`packages/web`'s cold-start order is now expressible and still untested.** Socket open → buffer → fetch → reconcile → apply. `isDeltaCoveredBySnapshot` is the reconcile step. The ordering test (server TODO **H3b**) cannot be written until a transport client exists (**H4**), and its absence is the known gap in this ADR's evidence.
+- **`packages/server` uses one monotonic source per process.** Both shapes carry the counter; `DeltaFanOut` advances it only for a non-empty flush and the snapshot handler reads the same source. Two sources would be the defect this decision exists to prevent.
+- **`packages/web` implements and tests the cold-start order.** Socket open → buffer → fetch → reconcile → apply. ADR 31 replaced the sequence-only helper with `reconcileDeltaWithSnapshot` so the process session wins before sequence comparison; unit, process, and browser tests cover the join and restart path.
 - **The server must project `model` off an unobserved robot before serializing.** `UnobservedRobotState` in `packages/server` is `RegisteredRobotState & Pick<ManifestRobot, "model">`, and `registeredRobotStateSchema` is strict, so passing one through unchanged fails to parse. This is a real integration edge worth knowing before hitting it.
 - **A frame assembled from several flushes carries the highest sequence it contains** (ADR 2 § Decision). Coalescing across flushes must therefore take the max, not the last-written — those differ only if flushes can be assembled out of order, and relying on them not being is the kind of assumption that survives until it does not.
 - **The reconciliation boundary is at-or-below, and that choice has a shelf life.** Under whole-envelope replace, getting it wrong by one re-applies a flush harmlessly. The moment option 2 lands and application becomes a merge, the same off-by-one duplicates a merge. The comment on `isDeltaCoveredBySnapshot` says this, so whoever implements option 2 finds it.
 - **Option 3 is closed, not deferred.** Reopening it needs a new ADR, not a measurement.
-- **The granularity question reopens with a number.** One mass-transition flush at 500 robots, measured with the ADR 2 harness — which is itself unbuilt and tracked as **D17**. Until that harness exists, this half of the decision cannot be revisited on evidence, only on argument.
+- **The granularity question reopens with a number.** The ADR 32 client measurement did
+  not trigger it. One mass-transition flush containing all 500 transitions still needs its
+  wire-byte measurement before this half can be revisited on evidence.
 
 ## Open questions
 
-- **What is one mass-transition flush actually worth in bytes?** The reopening condition. 500 robots all crossing LIVE → STALE inside one window, whole-envelope, measured. Blocked on D17's harness.
+- **What is one mass-transition flush actually worth in bytes?** The reopening condition. 500 robots all crossing LIVE → STALE inside one window, whole-envelope, measured. The general browser harness exists under ADR 32; this specific byte case has not been added.
 - **Does the snapshot need `capturedAt` at all, given `flushSequence`?** It is there as the analogue of a batch's `sentAt` and for measuring snapshot age, but nothing consumes it yet. If the client never reads it, it is a field ADR 1 would call a defect.
-- **Should the flush sequence survive a server restart?** Currently unstated. In-memory state rebuilds from the next telemetry (ADR 6), so a restarted server would begin at zero and a client holding a high snapshot sequence would discard everything until the counter caught up. That is a real reconnect bug, and the cheapest fix is probably a per-process session identifier alongside the sequence rather than persistence. Not decided here because no server process exists to have the problem yet.
+- ~~**Should the flush sequence survive a server restart?**~~ **Resolved by ADR 31** (20 August 2026): it does not survive, by design. A per-process `serverSessionId` UUID now scopes the sequence on both the snapshot and every batch, and `reconcileDeltaWithSnapshot` compares the session before any sequence — the "per-process session identifier alongside the sequence" this question predicted, taken instead of persistence.
 
 ## Observed consequences
 
+- **20 August 2026 — the deferred granularity half has its first client-side number (ADR 32).** The browser harness drove 500 robots at ten whole-envelope frames per second, 250 robots per frame, against the production build: 120/120 frames applied, delta-to-next-paint p50 47.3 ms / p95 53.7 ms / max 74.5 ms, animation-frame interval p50 16.7 ms. Whole-envelope frames at the documented workload are absorbed inside a few frame intervals, so nothing in this number compels field-level deltas. The mass-transition byte question below remains open — this workload alternates halves; it does not put 500 simultaneous transitions in one flush.
+- **20 August 2026 — the restart gap this ADR predicted was closed by ADR 31.** The comparison this ADR shipped as `isDeltaCoveredBySnapshot` was subsumed into `reconcileDeltaWithSnapshot`, which checks the new `serverSessionId` epoch before the sequence; the at-or-below boundary and its merge-path shelf-life warning carry over unchanged into the same-session branch. The wire version advanced to 2 in the same change.
 - **20 August 2026 — one counter, and it advances only on a flush that sends something.** `createFlushSequence()` is the single source; `DeltaFanOut` advances it and `GET /api/fleet` reads it, so the comparison a client makes is between two views of one number rather than two numbers that both look plausible. The rule that a tick sending nothing does **not** advance it was not stated here and matters: a counter climbing on empty ticks describes no state, and a client reconciling against its snapshot would discard deltas it needed. Verified end to end — snapshot 0, then frames 1 and 2, then snapshot 2.
 - 19 August 2026: contracts half implemented. `flushSequenceSchema` and `FlushSequence` in `shared/primitives.ts`; `flushSequence` required on `telemetryBatchSchema`; `fleetSnapshotSchema`, `fleetSnapshotRobotSchema`, `parseFleetSnapshot` and `isDeltaCoveredBySnapshot` added; all exported and pinned in the public-surface test. Contracts at 115 tests, up from 103.
 - Making `flushSequence` required broke three existing batch tests and the pinned public-surface test, which is the wire-format change being noticed exactly where it should be. No other package broke, confirming the assumption that `telemetryBatchSchema` had no consumer.
 - The union's lack of a discriminator key is pinned by a test asserting a half-populated robot — registered fields plus `receivedAt` — is rejected by both variants rather than accepted by one.
-- Status is **Partial**, not Implemented: the server produces no sequence and the client performs no reconciliation, because neither the fan-out nor the transport client exists.
+- That contracts-only landing was **Partial** at the time. The server and client halves
+  landed later on 20 August 2026 and are recorded above; the decision is now implemented.
 
 ## Related
 
@@ -88,7 +93,10 @@ The counter-argument is that retrofitting option 2 after the fan-out exists is m
 - **ADR 3** (freshness derived on a timer) — produces the mass transition that makes granularity a question at all, and the never-reported population the snapshot must carry.
 - **ADR 1** (adapter boundary) — keeps the raw payload out of both the snapshot and the delta stream, enforced by the strict schemas rather than by server discipline.
 - **ADR 6** (bounded in-memory state, no database) — the source of the restart question in Open questions.
+- **ADR 31** (jittered reconnect and server session reconciliation) — closed that restart question with a per-process session epoch and replaced `isDeltaCoveredBySnapshot` with `reconcileDeltaWithSnapshot`.
 - **Register D10** — resolved by this ADR, with its granularity half explicitly deferred rather than closed.
-- **Register D17 / ADR 22** — resolved the numeric-gate policy and shipped the validation half of the harness. This ADR's reopening condition still needs the unbuilt transport half to measure a 500-robot mass-transition flush; the validation number alone cannot settle delta granularity.
+- **Register D17 / ADR 22** — resolved the numeric-gate policy. ADR 32 supplied the
+  browser harness and client-churn result; this ADR's narrower 500-robot mass-transition
+  byte measurement remains the trigger.
 - **Principle 4** (freshness is explicit; never present stale data as current) — the reason option 3's mixed-instant robot is disqualifying rather than merely risky.
 - **Principle 12** (performance is product behaviour, budgets are measured) — the reason option 2 waits for a measurement instead of an estimate.

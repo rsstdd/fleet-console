@@ -242,9 +242,7 @@
     "planning": [
       "TODO.md",
       "packages/adapters/TODO.md",
-      "packages/adapters/TODO_E2E_JOIN.md",
       "packages/contracts/TODO.md",
-      "packages/contracts/TODO_E2E_JOIN.md",
       "packages/server/TODO.md",
       "packages/simulator/TODO.md",
       "packages/web/src/entities/robot/TODO.md",

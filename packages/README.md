@@ -178,16 +178,17 @@ once by `loadRuntimeEndpoints()` — the only `process.env` read in the package 
 21). Both raise the same `ConfigValidationError`.
 
 **Landed 20 August 2026:** the composition root. `pnpm --filter @fleet/server start` binds
-what `loadRuntimeEndpoints()` returns, serves `POST /api/telemetry/:vendor` and the three
-reads, runs the ADR 3 sweep, fans coalesced deltas out on `/ws`, and refuses to continue
-past a `ConfigValidationError`. `FLEET_ALLOWED_ORIGINS` is now enforced ahead of every
+what `loadRuntimeEndpoints()` returns, serves `POST /api/telemetry/:vendor` and the four
+reads (fleet, robot, battery history, health), runs the ADR 3 sweep, fans coalesced deltas
+out on `/ws`, and refuses to continue past a `ConfigValidationError`. `FLEET_ALLOWED_ORIGINS` is now enforced ahead of every
 route, and the ingest size cap runs before `JSON.parse` rather than after it — both were
 configuration with no consumer, and `FIXME.md` **F13** closed with them.
 
-**Not yet:** backpressure on a console that stops reading, and the history read for the
-sparkline. The first is deferred on ADR 8's undecided question of whether the connection
-cap is configuration or a constant; the second on ADR 6's ring-buffer capacity, which
-resolves from the sparkline's real point count and not from a round number.
+**Not yet:** backpressure on a console that stops reading, deferred on ADR 8's undecided
+question of whether the connection cap is configuration or a constant. The history read
+landed 20 August 2026 under ADR 33: `GET /api/robots/:id/history` serves the retained
+minute decimated behind the contracts-owned response, and capacity resolved from the
+window and the validated source ceiling rather than from the sparkline's point count.
 
 **Retention is decided.** One raw payload per robot, replaced not accumulated,
 kept verbatim with no redaction, bounded at 64 KiB per request — 31.25 MiB across
@@ -311,27 +312,27 @@ Every package carries a `CLAUDE.md`, and the four Node packages carry an
 its rules in `CLAUDE.md` directly. Those files are authoritative for their
 directory; this one is a map, not a rulebook.
 
-| Concern                                          | Source                                 |
-| ------------------------------------------------ | -------------------------------------- |
-| Binding engineering principles                   | [`PRINCIPLES.md`](../PRINCIPLES.md)    |
-| Architecture decisions and their consequences    | [`docs/00_adr/`](../docs/00_adr)       |
-| Adapter boundary, canonical core, capabilities   | ADR 1                                  |
-| Transport, ingest, fan-out                       | ADR 2                                  |
-| Freshness derivation and its two halves          | ADR 3                                  |
-| Feature-sliced structure and the dependency rule | ADR 4                                  |
-| Material UI and the CSS-token styling boundary   | ADR 5                                  |
-| In-memory state and bounded history              | ADR 6                                  |
-| Module-resolution boundary enforcement           | ADR 7                                  |
-| Server HTTP/WebSocket implementation libraries   | ADR 8                                  |
-| Source exports and TypeScript runtime            | ADR 9                                  |
-| Pre-freshness adapter envelope                   | ADR 10                                 |
-| Public testing subpath for fixtures              | ADR 11                                 |
-| Test-only web dependency on adapters             | ADR 12                                 |
-| Recorded fixtures and CI drift guard             | ADR 13                                 |
-| Shared fleet roster parity                       | ADR 14                                 |
-| Accepted-only unknown-field accounting           | ADR 15                                 |
-| Independent vendor lists with test-only parity   | ADR 16                                 |
-| Per-package scoped rules                         | `<name>/AGENTS.md`, or `web/CLAUDE.md` |
-| Remaining work — the four Node packages          | `<name>/TODO.md`                       |
-| Remaining work — `web`                           | `UI_PLAN.md`, per-slice `TODO.md`      |
-| Cross-package audit findings                     | [`FIXME.md`](./FIXME.md)               |
+| Concern                                          | Source                                    |
+| ------------------------------------------------ | ----------------------------------------- |
+| Binding engineering principles                   | [`PRINCIPLES.md`](../PRINCIPLES.md)       |
+| Architecture decisions and their consequences    | [`docs/00_adr/`](../docs/00_adr)          |
+| Adapter boundary, canonical core, capabilities   | ADR 1                                     |
+| Transport, ingest, fan-out                       | ADR 2                                     |
+| Freshness derivation and its two halves          | ADR 3                                     |
+| Feature-sliced structure and the dependency rule | ADR 4                                     |
+| Material UI and the CSS-token styling boundary   | ADR 5                                     |
+| In-memory state and bounded history              | ADR 6, amended by ADR 33                  |
+| Module-resolution boundary enforcement           | ADR 7                                     |
+| Server HTTP/WebSocket implementation libraries   | ADR 8                                     |
+| Source exports and TypeScript runtime            | ADR 9                                     |
+| Pre-freshness adapter envelope                   | ADR 10                                    |
+| Public testing subpath for fixtures              | ADR 11                                    |
+| Test-only web dependency on adapters             | ADR 12                                    |
+| Recorded fixtures and CI drift guard             | ADR 13                                    |
+| Shared fleet roster parity                       | ADR 14                                    |
+| Accepted-only unknown-field accounting           | ADR 15                                    |
+| Independent vendor lists with test-only parity   | ADR 16                                    |
+| Per-package scoped rules                         | `<name>/AGENTS.md`, or `<name>/CLAUDE.md` |
+| Remaining work — the four Node packages          | `<name>/TODO.md`                          |
+| Remaining work — `web`                           | `UI_PLAN.md`, per-slice `TODO.md`         |
+| Cross-package audit findings                     | [`FIXME.md`](./FIXME.md)                  |

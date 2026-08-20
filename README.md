@@ -25,9 +25,11 @@ Sections 2-3 cover freshness; 4 covers normalization; 7 covers scale.
 > `telemetry.firmware_channel` counted 235 times, vendor B's ordering as _not evaluated_
 > rather than as zero gaps, and no malformed payloads.
 >
-> What is **not** yet demonstrated: the console rendering against a live socket has not
-> been observed in a browser, and the fault-injection and load steps below have not been
-> re-run since the server landed. Section 5 has the per-item table;
+> The console rendering against a live socket is committed browser automation: the
+> Playwright suite drives the real stack in Chromium, Firefox, and (in CI) WebKit,
+> including freshness degradation, stream loss, and automatic restart recovery
+> ([ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)).
+> Section 5 has the per-item table;
 > [`packages/FIXME.md`](packages/FIXME.md) preserves the historical package audit;
 > [`TODO.md`](TODO.md) is the current work queue.
 
@@ -58,8 +60,8 @@ Two deliberate hard problems:
                 A/B/C schemas, registry, unknown-field ledger, recorded fixtures and
                 public `testing` subpath
   /simulator    multi-vendor telemetry producer with fault injection
-  /server       ingest, adapter dispatch, current state, WebSocket fan-out, health
-                runnable HTTP/WebSocket process; battery history and slow-client policy open
+  /server       ingest, adapter dispatch, current state, battery history, WebSocket fan-out, health
+                runnable HTTP/WebSocket process; slow-client policy remains trigger-deferred
   /web          the console — primary deliverable
 PRINCIPLES.md   binding engineering principles
 AGENTS.md       normative agent routing and hard rules (Principle 14)
@@ -356,6 +358,24 @@ Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing,
 > robots reported as LIVE. No degradation point was found on this machine; the honest
 > statement is that saturation was not reached, not that it cannot be.
 >
+> **The client half, measured 20 August 2026 by the Playwright scale project**
+> (`packages/web/e2e/scale.spec.ts`,
+> [ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)):
+> 500 robots at ten WebSocket frames per second (250 robots changing per frame) against
+> the production build in a real Chromium:
+>
+> | Client metric at 500 robots, live stream | Measured                                |
+> | ---------------------------------------- | --------------------------------------- |
+> | Frames applied                           | 120 of 120                              |
+> | Achieved frame rate                      | 9.79 Hz of 10 Hz offered                |
+> | Delta to next paint                      | p50 47.3 ms · p95 53.7 ms · max 74.5 ms |
+> | Animation-frame interval                 | p50 16.7 ms · p95 50.1 ms               |
+>
+> The un-virtualized table absorbs the documented workload with the frame budget intact,
+> so ADR 24's virtualization deferral now rests on evidence. Integrity is asserted in CI;
+> the numbers are reported, never gated, and each run writes its own `scale-report.json`
+> with the environment attached.
+>
 > The contrast table is blocked on nothing at all and is simply not yet done. It needs
 > a person reading ratios off both themes, and it is tracked as `packages/FIXME.md`
 > **F8** and `TODO.md` **P3.3**.
@@ -446,7 +466,10 @@ authoritative for an uncommitted local tree; an indivisible change over the budg
 the `Oversized-diff: <reason>` commit trailer documented by ADR 27.
 
 CI also runs adapter coverage and writes it to the job summary, but that step is explicitly
-report-only and does not gate a merge. The workflow file remains the executable source of
+report-only and does not gate a merge. A separate `browser-evidence` job runs
+`pnpm test:e2e` across three engines and `pnpm test:e2e:scale`, uploading the report,
+traces, and measurement JSON (ADR 32); it is not part of `check:ci` because it needs
+Playwright's browsers installed. The workflow file remains the executable source of
 truth if this list and CI ever disagree.
 
 Deliberate scope (Principle 10). Built today:
@@ -454,6 +477,8 @@ Deliberate scope (Principle 10). Built today:
 - Envelope validation (valid, missing, malformed, boundary, unknown) — `packages/contracts`.
 - Freshness machine (injected time, threshold boundaries) — `contracts` + the server sweep.
 - No double-apply, no backwards state — `currentStateStore.test.ts` rejects duplicate and out-of-order sequences.
+- Privacy-safe regression reporting — store, ingest, and live-composition tests prove one
+  stable warning and no mutation or counter misclassification.
 - Simulator HTTP delivery against a live receiver — `simulator/src/integration/ingest.integration.test.ts`.
 - Boundary lint (violation fails, legal passes) — `__boundary-violation__` / `__enforcement__` suites in `web`, `server`, `adapters`.
 - **No component snapshots** (asserts no-change, not correctness; trains blind diff acceptance). Verified: the repository contains no `.snap` files.
@@ -462,10 +487,9 @@ Named in the scope and now built:
 
 - Adapter contract tests (recorded fixture → exact output), drift-gated in CI (ADR 13).
 - Idempotent ingest at the HTTP boundary, over the store-level guarantee above.
+- E2E (simulator → visibly stale row) **in a browser** ([ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)). `pnpm test:e2e` runs seven scenarios per engine against the real server, simulator, and production bundle — rendering and streamed row updates, vendor normalization with capability panels, keyboard operability without focus theft, freshness degradation with the stream up, row retention with the server down, the battery-history chart surviving a robot going silent (ADR 33), and automatic restart recovery. `pnpm test:e2e:scale` reports the 500-robot client measurement (integrity asserted, numbers reported, gated by nothing). Chromium and Firefox run anywhere; WebKit's system libraries are installed in CI (`--with-deps`), so a box without them proves two engines and leaves the third to the `browser-evidence` job.
 
-Still **[NOT BUILT]**:
-
-- E2E (simulator → visibly stale row) **in a browser**. Every hop underneath it is covered — the adapter tests, the ingest test against recorded bytes, and a wire-level check that watched one robot go `live` then `stale` on a real socket — but no browser-driven test exists, so the last hop from delta to rendered row is asserted by component tests against decoded values rather than end to end.
+Still explicitly **manual**: real screen-reader output and subjective forced-colors inspection (ADR 32 keeps them named rather than claimed).
 
 ## Licence
 
