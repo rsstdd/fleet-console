@@ -8,6 +8,7 @@ dist/
 build/
 out/
 *.tsbuildinfo
+dist-tenant-b/
 
 # Testing & Coverage
 coverage/

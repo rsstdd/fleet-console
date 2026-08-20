@@ -226,16 +226,16 @@ presented as blocked, and all nine subordinate plans agree with the final state.
 
 Use the narrowest applicable commands within phases, then run the closure set below.
 
-| Concern            | Required evidence                                                    | Enforcement          |
-| ------------------ | -------------------------------------------------------------------- | -------------------- |
-| Runtime decoding   | Valid, missing, malformed, boundary, extra-field, and version tests  | Runtime, Types, Test |
-| State and recovery | Deterministic transition/race tests and restart process/browser flow | Types, Test          |
-| Boundaries         | Lint rules and existing enforcement fixtures remain green            | Static, Test         |
-| Freshness honesty  | Server-derived fields, suppression, and last-known assertions        | Runtime, Test        |
-| Accessibility      | Names, roles, status, headings, keyboard, and focus                  | Static, Test, Review |
-| Performance        | Existing bundle gate and reported 500-robot measurement              | Test, Review         |
-| Observability      | Stable safe events/counters and deterministic emission tests         | Runtime, Test        |
-| Documentation      | ADR mapping/index check, source-backed status review, and lifecycle guardrail tests | Test, Review |
+| Concern            | Required evidence                                                                   | Enforcement          |
+| ------------------ | ----------------------------------------------------------------------------------- | -------------------- |
+| Runtime decoding   | Valid, missing, malformed, boundary, extra-field, and version tests                 | Runtime, Types, Test |
+| State and recovery | Deterministic transition/race tests and restart process/browser flow                | Types, Test          |
+| Boundaries         | Lint rules and existing enforcement fixtures remain green                           | Static, Test         |
+| Freshness honesty  | Server-derived fields, suppression, and last-known assertions                       | Runtime, Test        |
+| Accessibility      | Names, roles, status, headings, keyboard, and focus                                 | Static, Test, Review |
+| Performance        | Existing bundle gate and reported 500-robot measurement                             | Test, Review         |
+| Observability      | Stable safe events/counters and deterministic emission tests                        | Runtime, Test        |
+| Documentation      | ADR mapping/index check, source-backed status review, and lifecycle guardrail tests | Test, Review         |
 
 ```sh
 pnpm check:architecture-docs
