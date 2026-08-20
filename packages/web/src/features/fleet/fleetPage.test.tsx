@@ -220,6 +220,65 @@ describe("FleetPage", () => {
     expect(connected.every((text) => text !== "")).toBe(true);
   });
 
+  it("labels the summary Fleet freshness, without qualification, while connected (ADR 23)", () => {
+    renderPage("connected");
+
+    expect(screen.getByRole("heading", { level: 2, name: "Fleet freshness" })).toBeInTheDocument();
+    // Scoped to headings: rows legitimately say "(last known)" per non-live status chip.
+    expect(screen.queryByRole("heading", { name: /last known/ })).not.toBeInTheDocument();
+  });
+
+  it("qualifies the whole summary as last known while disconnected (ADR 23)", () => {
+    // The counts stay useful during an outage; what is withdrawn is the claim that
+    // they are current. One shared heading qualifies the group — never a per-metric
+    // tag, and never a client-derived timestamp (fleet spec § 2).
+    renderPage("disconnected");
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Fleet freshness · last known" }),
+    ).toBeInTheDocument();
+  });
+
+  it("qualifies it while reconnecting too — only connected removes the qualification", () => {
+    renderPage("reconnecting");
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Fleet freshness · last known" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps all four counts visible and unchanged while disconnected", () => {
+    renderPage("disconnected");
+
+    const counts = summaryCounts();
+    expect(counts).toEqual({ Live: 1, Stale: 1, Unreachable: 1, Unknown: 1 });
+  });
+
+  it("keeps the qualified summary fleet-wide when a filter narrows the table while down", async () => {
+    const user = userEvent.setup();
+    renderPage("disconnected");
+
+    const before = summaryCounts();
+    await user.type(screen.getByLabelText("Search"), "R-204");
+
+    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(2);
+    expect(summaryCounts()).toEqual(before);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Fleet freshness · last known" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the page's heading order: one h1, then the summary h2", () => {
+    renderPage("connected");
+
+    const headings = screen.getAllByRole("heading");
+    expect(headings[0]).toHaveTextContent("Fleet overview");
+    expect(headings[0]?.tagName).toBe("H1");
+    expect(headings[1]).toHaveTextContent("Fleet freshness");
+    expect(headings[1]?.tagName).toBe("H2");
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+  });
+
   it("counts the four freshness states so they total the fleet exactly", () => {
     renderPage();
 

@@ -1,8 +1,17 @@
 # Qualify disconnected fleet counts as last known
 
-**Authority:** Planning only. ADR 23's fleet-summary question remains open.
-**Status:** Active
-**Updated:** 2026-08-20
+**Authority:** Historical only. Executed and archived; ADR 23's amended Open questions and
+fleet page spec revision 5 are the living record.
+**Status:** Done
+**Archived:** 2026-08-20
+**Superseded by:** [ADR 23](../00_adr/23_CONNECTION_STATE_TRAVELS_THROUGH_SHARED_LIB.md)
+(amended in place — its fleet-summary open question is resolved, no new D-id or ADR),
+[fleet page spec revision 5](../01_page-specs/02_FLEET.md), the qualified summary in
+`packages/web/src/features/fleet/fleetPage.tsx` with six unit tests, and the extended
+Playwright outage scenario in `packages/web/e2e/smoke.spec.ts`.
+
+> Executed as planned, with one naming correction: the item this plan calls "A8" is
+> recorded in `features/fleet/TODO.md` and ADR 23 as **A7**, and is closed under that id.
 
 Fleet freshness-summary suppression (A8): Keep the summary visible but label it clearly as last known while the stream is down, with the connection banner remaining the authoritative current status. If the UI cannot provide an unambiguous qualification within the existing design, suppress the summary instead. Never leave the counts visible as if current
 
