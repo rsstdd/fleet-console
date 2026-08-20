@@ -109,15 +109,31 @@ ADR 1 and ADR 3 also retain “not yet implemented” artifact/Notes prose after
 implemented consequences. Update each ADR atomically so its header, artifacts, notes,
 and observed consequences describe the same repository (Principle 14).
 
-### F4. The fixture detail model derives robot connectivity from freshness
+### F4. The fixture detail model derives robot connectivity from freshness — **CLOSED 20 August 2026, and its remedy corrected**
 
-**Assessment: fixture-only ADR conflict; open.**
+**Assessment: was a fixture-only ADR conflict; the inference is gone, and the fix it asked for turned out to be unconstructible.**
 
 `packages/web/src/entities/robot/useRobotDetail.ts` currently returns `unknown`
 connectivity only for an unreachable robot and `online` otherwise. ADR 1 explicitly
 defines reported robot connectivity, server-derived freshness, and console socket state
 as three disjoint facts. Inferring one from another creates false telemetry even in a
 fixture.
+
+**Fixed 20 August 2026.** `fixtureConnectivity` is deleted and the fixture reports a
+constant `unknown`. The real mapper still copies `core.connectivity` unchanged, as this
+entry required.
+
+**The remedy this entry prescribed cannot be carried out, and that is a finding rather than
+a shortfall.** It asked for "at least one case that proves connectivity and freshness can
+disagree". No such case can be built: decoding all nine recorded payloads through the real
+registry gives `connectivity: "unknown"` for every one, because **no vendor dialect reports
+a link state at all** (ADR 30 § Implications). A fixture showing `online` would be the same
+invention this entry objected to, wearing the other label. The disagreement case becomes
+constructible only if ADR 30's open question — should the dialects report a link state? —
+is answered yes, and it should be written then.
+
+The original instruction follows, kept because its reasoning about the three disjoint facts
+is why the inference was wrong in the first place.
 
 Give each fixture an explicit reported connectivity value, including at least one case
 that proves connectivity and freshness can disagree. The real mapper already copies

@@ -135,20 +135,24 @@ function withRobotId(
 }
 
 /**
- * Connectivity is the robot's own link state, not the console's socket and not
- * freshness (ADR 1). The fixture reports `unknown` for a robot the server has
- * stopped hearing from, because at that point the link state is exactly what
- * nobody knows.
+ * Connectivity is `unknown` for every fixture, because it is `unknown` for every real
+ * robot.
  *
- * FIXME(fixture-only): this rule is invented here because a fixture has to
- * choose something. The real endpoint reports connectivity, at which point this
- * function is deleted rather than kept as a fallback — a plausible stand-in
- * that outlives its fixture becomes an undocumented product rule
- * (src/entities/robot/TODO.md W-7).
+ * This used to derive the value from freshness — `online` unless the robot was
+ * unreachable — which is the inference ADR 1 forbids: reported link state, server-derived
+ * freshness and the console's socket state are three disjoint facts, and deriving one from
+ * another manufactures telemetry (`packages/FIXME.md` **F1** was the same class of error in
+ * capabilities). It was also simply false. Decoding all nine recorded payloads through the
+ * real registry yields `connectivity: "unknown"` for every one of them, because **no vendor
+ * dialect reports a link state at all** (ADR 30 § Implications).
+ *
+ * So there is nothing to choose and no stand-in to outlive its fixture. If the dialects
+ * ever report connectivity — ADR 30's open question, leaning yes — this constant is where
+ * the fixture starts varying, and the case worth adding then is one where connectivity and
+ * freshness **disagree**, which cannot be constructed from anything the system produces
+ * today.
  */
-function fixtureConnectivity(robot: Robot): "online" | "unknown" {
-  return robot.freshness === "unreachable" ? "unknown" : "online";
-}
+const FIXTURE_CONNECTIVITY = "unknown" as const;
 
 /**
  * Builds the JSON body `GET /api/robots/:id` will serve, for a robot that has
@@ -170,7 +174,7 @@ function buildWireResponse(robot: Robot, fixture: VendorFixture, reportedAt: num
     reportedAt,
     receivedAt: reportedAt + FIXTURE_RECEIPT_DELAY_MS,
     core: {
-      connectivity: fixtureConnectivity(robot),
+      connectivity: FIXTURE_CONNECTIVITY,
       batteryPercent: robot.batteryPercent,
       position: fixture.position,
       status: robot.status,
