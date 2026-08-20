@@ -98,15 +98,22 @@
    * degraded maps to health severity. No token exists for a state no
    * adapter emits, which is why maintenance and info are absent.
    */
-  --status-neutral: #6b6560;
+  /*
+   * Lightened from #6b6560 on 20 August 2026. That value measured 2.84:1 against
+   * --surface, below WCAG 1.4.11's 3:1 for non-text UI components, and this token is a
+   * freshness dot and a chip — carriers of meaning, even though a word always sits beside
+   * them. #767068 measures 3.34:1 here and 3.66:1 against --bg. `tokens.test.ts` computes
+   * both and fails below the threshold, so this cannot silently regress.
+   */
+  --status-neutral: #767068;
   --status-active: #3d9b6e;
   --status-charging: #3b82a0;
   --status-degraded: #c4a035;
   --status-fault: #c75138;
   --status-unknown: #8e8b82;
 
-  --status-neutral-bg: rgba(107, 101, 96, 0.15);
-  --status-neutral-border: rgba(107, 101, 96, 0.3);
+  --status-neutral-bg: rgba(118, 112, 104, 0.15);
+  --status-neutral-border: rgba(118, 112, 104, 0.3);
   --status-active-bg: rgba(61, 155, 110, 0.12);
   --status-active-border: rgba(61, 155, 110, 0.28);
   --status-charging-bg: rgba(59, 130, 160, 0.12);

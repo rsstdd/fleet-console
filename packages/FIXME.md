@@ -272,11 +272,26 @@ not themselves an ADR 3 violation; adding a client freshness timer would be.
 The web uses MUI and CSS custom-property tokens and has no competing CSS framework.
 Remaining alignment work is concrete:
 
-- `FreshnessLabel` duplicates class styling with inline style objects and stale CSS;
-- JavaScript `TENANT_PALETTE` duplicates values in `tokens.css`;
+- `FreshnessLabel` duplicates class styling with inline style objects and stale CSS —
+  **open**;
+- ~~JavaScript `TENANT_PALETTE` duplicates values in `tokens.css`~~ — **closed 20 August 2026.** The duplication is unavoidable without a build step (CSS custom properties are
+  the design source; MUI needs JavaScript values), so it is pinned instead:
+  `scripts/checkTokens.mjs` fails CI if any of the nine colours disagrees between the two
+  files, and fails if a new palette key is added that the check does not cover;
 - the stylelint selector rule rejects spec-required BEM element names, requiring local
-  suppressions;
-- contrast/forced-colors evidence is not recorded.
+  suppressions — **open**;
+- ~~contrast/forced-colors evidence is not recorded~~ — **contrast closed 20 August 2026;
+  forced-colors open.** The same script computes every WCAG ratio and gates on them: 4.5:1
+  for text tokens on both backgrounds, 3:1 for status colours as non-text UI (1.4.11). It
+  prints all eighteen ratios whether or not anything fails, so the evidence is in the run
+  rather than in a document that rots (ADR 22's report-as-well-as-gate).
+
+  **It found a real failure on its first run.** `--status-neutral` measured **2.84:1** in
+  the dark theme, below the 3:1 non-text threshold, on a token used for a freshness dot and
+  a chip. Lightened to `#767068` (3.34:1 on `--surface`, 3.66:1 on `--bg`) with the
+  reasoning recorded beside it in `tokens.css`. Every other token already cleared.
+
+  Forced-colors mode is still unrecorded and still needs a person.
 
 Resolve these through the token/MUI boundary; do not introduce another styling system.
 
