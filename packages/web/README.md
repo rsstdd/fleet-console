@@ -82,7 +82,9 @@ makes them distinguishable at all.
   capability. No disabled placeholders, and `if (vendor === …)` in a component is a defect
   rather than a shortcut.
 - **Non-live rows do not show live numbers.** Battery renders as an em dash and status
-  chips go hollow with `(last known)`.
+  chips go hollow with `(last known)`. While the stream itself is down, per-robot freshness
+  labels are suppressed and the fleet summary's heading reads "Fleet freshness · last
+  known" over unchanged counts (ADR 23).
 - **A robot that never reported has `null`, not zero.** No health severity, no battery, no
   last-seen. `nominal` for a machine nobody has heard from is a fabricated reassurance.
 - **Tokens, not literals.** Colours live in `styles/tokens.css`; `scripts/checkTokens.mjs`
@@ -96,11 +98,19 @@ makes them distinguishable at all.
 robot and no label for it, so there is nothing to read. Recorded as `packages/FIXME.md`
 **F16** with the two ways to close it.
 
-## Not built
+## Browser evidence
 
-Automatic reconnection — the banner's retry is manual, and the schedule is registered as
-open decision **D22** — and browser-driven end-to-end tests, registered as **D23**. Both are
-in [`docs/PENDING_ARCHITECTURE_DECISIONS.md`](../../docs/PENDING_ARCHITECTURE_DECISIONS.md).
+Browser-driven end-to-end tests are committed under
+[ADR 32](../../docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md):
+`pnpm test:e2e` runs seven smoke scenarios per engine (Chromium, Firefox, and — in CI,
+where its system libraries exist — WebKit) against the real server, real simulator, and
+the production bundle served by `vite preview`; `pnpm test:e2e:scale` reports the
+500-robot client measurement. The harness lives in [`e2e/`](./e2e/), builds once in
+global setup, gives each test a fresh stack, and attaches process logs, traces, and
+screenshots on failure. Automatic reconnection (landed 20 August 2026 under
+[ADR 31](../../docs/00_adr/31_JITTERED_RECONNECT_AND_SERVER_SESSION_RECONCILIATION.md))
+is proven there against a really-restarted server. Real screen-reader output and
+subjective forced-colors inspection remain manual.
 
 Remaining work lives in [`UI_PLAN.md`](./UI_PLAN.md) and three per-slice TODOs under
 `src/entities/robot`, `src/features/fleet` and `src/features/robot`.

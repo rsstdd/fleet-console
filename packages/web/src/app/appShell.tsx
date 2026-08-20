@@ -25,16 +25,20 @@ export interface AppShellProps {
   readonly connectionState?: ConnectionState;
   readonly lastEventAt?: ConnectionBannerProps["lastEventAt"];
   readonly attempt?: number;
+  /** Why retrying stopped, forwarded to the banner's terminal copy (ADR 31). */
+  readonly terminalCause?: ConnectionBannerProps["terminalCause"];
   readonly onRetry?: () => void;
 }
 
 const CONNECTION_LABEL: Readonly<Record<ConnectionState, string>> = {
+  connecting: "Stream connecting",
   connected: "Stream connected",
   reconnecting: "Stream reconnecting",
   disconnected: "Stream disconnected",
 };
 
 const CONNECTION_COLOR: Readonly<Record<ConnectionState, string>> = {
+  connecting: "var(--warning)",
   connected: "var(--success)",
   reconnecting: "var(--warning)",
   disconnected: "var(--error)",
@@ -52,6 +56,7 @@ export function AppShell({
   connectionState = "disconnected",
   lastEventAt,
   attempt,
+  terminalCause,
   onRetry,
 }: AppShellProps): ReactElement {
   return (
@@ -133,6 +138,7 @@ export function AppShell({
               state={connectionState}
               lastEventAt={lastEventAt}
               attempt={attempt}
+              terminalCause={terminalCause}
               onRetry={onRetry}
             />
           </Container>

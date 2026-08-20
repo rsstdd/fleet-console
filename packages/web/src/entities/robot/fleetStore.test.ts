@@ -41,11 +41,23 @@ describe("createFleetStore", () => {
   }
 
   function snapshot(robots: FleetSnapshot["robots"]): FleetSnapshot {
-    return { schemaVersion: SCHEMA_VERSION, flushSequence: 0, capturedAt: 0, robots };
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+      flushSequence: 0,
+      capturedAt: 0,
+      robots,
+    };
   }
 
   function batch(robots: CanonicalEnvelope[]): TelemetryBatch {
-    return { schemaVersion: SCHEMA_VERSION, flushSequence: 1, sentAt: 0, robots };
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+      flushSequence: 1,
+      sentAt: 0,
+      robots,
+    };
   }
 
   it("seeds both populations from a snapshot", () => {

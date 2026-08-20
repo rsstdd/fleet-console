@@ -14,7 +14,7 @@ The wrong answers are both available and both cheap. An adapter can stamp a plac
 
 ## Assumptions
 
-- The server's ingest handler receives one whole pre-freshness value from the adapter rather than assembling an envelope from separately validated identity, core and capability parts. This is the assumption most likely to be wrong, and contracts `TODO_E2E_JOIN.md` **C-1** recorded it as the falsifier before any code existed: if ingest turns out to assemble from parts, this type is ceremony and the loose-parts shape is right.
+- The server's ingest handler receives one whole pre-freshness value from the adapter rather than assembling an envelope from separately validated identity, core and capability parts. This is the assumption most likely to be wrong, and the archived contracts joining plan **C-1** recorded it as the falsifier before any code existed: if ingest turns out to assemble from parts, this type is ceremony and the loose-parts shape is right.
 - `freshness` stays the only server-owned field on the envelope. A second one would force either another pre-shaped schema or a different pattern entirely.
 - Adapters are the only producer of this type. Nothing else in the system has a reason to construct an envelope that is deliberately incomplete.
 - Three vendors is enough to fix the return type. A fourth vendor adds a module, not a shape (ADR 1).

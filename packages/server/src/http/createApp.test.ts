@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vitest";
 
-import { SCHEMA_VERSION } from "@fleet/contracts";
+import { SCHEMA_VERSION, parseRobotBatteryHistory } from "@fleet/contracts";
 
 import { createHttpApp } from "./createApp.ts";
 import { createAdapterRegistry } from "@fleet/adapters";
 
 import { HealthMetrics } from "../health/healthMetrics.ts";
+import { selectBatteryHistory } from "../history/selectBatteryHistory.ts";
 import { encodeFleetSnapshot } from "./fleetResponse.ts";
 import { encodeHealthResponse } from "./healthResponse.ts";
 
 /** An empty fleet: these cases are about the policy and the routes, not about state. */
 const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
-  encodeFleetSnapshot({ robots: [], capturedAt: 0, flushSequence: 0 });
+  encodeFleetSnapshot({
+    robots: [],
+    capturedAt: 0,
+    serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+    flushSequence: 0,
+  });
 
 /** Zeroed health: these cases are about routing and policy, not about counters. */
 const readHealth = (): ReturnType<typeof encodeHealthResponse> =>
@@ -24,6 +30,9 @@ const readHealth = (): ReturnType<typeof encodeHealthResponse> =>
 
 /** No robot: these cases are about routing and policy, not about state. */
 const readRobot = (): null => null;
+
+/** No robot again: the history route's default stub mirrors `readRobot`. */
+const readHistory = (): null => null;
 
 /** A stub ingest port: these cases are about routing and policy, not the transition. */
 const ingest = {
@@ -46,6 +55,7 @@ describe("createHttpApp", () => {
     allowedOrigins: [ALLOWED],
     readFleet,
     readRobot,
+    readHistory,
     readHealth,
     ingest,
   });
@@ -77,7 +87,14 @@ describe("createHttpApp", () => {
   });
 
   it("grants nothing at all when the allow-list is empty", async () => {
-    const closed = createHttpApp({ allowedOrigins: [], readFleet, readRobot, readHealth, ingest });
+    const closed = createHttpApp({
+      allowedOrigins: [],
+      readFleet,
+      readRobot,
+      readHistory,
+      readHealth,
+      ingest,
+    });
 
     const response = await closed.request("/api/nothing", { headers: { origin: ALLOWED } });
 

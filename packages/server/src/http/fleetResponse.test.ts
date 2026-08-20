@@ -44,7 +44,12 @@ describe("encodeFleetSnapshot", () => {
   function encode(robots: readonly CurrentRobotState[]): unknown {
     return JSON.parse(
       JSON.stringify(
-        encodeFleetSnapshot({ robots, capturedAt: 1_755_000_001_000, flushSequence: 0 }),
+        encodeFleetSnapshot({
+          robots,
+          capturedAt: 1_755_000_001_000,
+          serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+          flushSequence: 0,
+        }),
       ),
     );
   }
@@ -62,6 +67,7 @@ describe("encodeFleetSnapshot", () => {
     // fails the decoder on a field no fleet row uses.
     expect(encode([UNOBSERVED])).toStrictEqual({
       schemaVersion: SCHEMA_VERSION,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
       flushSequence: 0,
       capturedAt: 1_755_000_001_000,
       robots: [

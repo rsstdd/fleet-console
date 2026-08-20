@@ -37,8 +37,12 @@ const DESCRIPTION_MAX_LENGTH = 240;
  * The only schema version this package understands. Bumping it is a deliberate
  * act with coordinated consumer changes; an envelope carrying any other value
  * is rejected rather than reinterpreted (packages/contracts/AGENTS.md).
+ *
+ * Version 2 added the required `serverSessionId` on fleet snapshots and
+ * telemetry batches (ADR 31); a version-1 payload lacks the field a client's
+ * restart reconciliation depends on, so it is rejected rather than defaulted.
  */
-export const SCHEMA_VERSION = "1";
+export const SCHEMA_VERSION = "2";
 
 /**
  * Largest accepted epoch-millisecond value, 31 December 9999. A timestamp past
@@ -99,6 +103,9 @@ export const epochMillisecondsSchema = z.number().int().min(0).max(MAX_EPOCH_MS)
  * sequence. Without it, that reconciliation is unanswerable and the choice of an
  * HTTP snapshot over a socket-borne one stops being safe (ADR 18).
  *
+ * It restarts at zero with the server process, so the comparison is qualified
+ * by `serverSessionId` and defined only within one session (ADR 31).
+ *
  * Server-wide and per flush, **not** per robot: one number answers "does this
  * predate my snapshot" for the whole fleet, where per-robot versions would answer
  * it with five hundred. It counts flushes, so it is unrelated to a robot's own
@@ -112,6 +119,25 @@ export const epochMillisecondsSchema = z.number().int().min(0).max(MAX_EPOCH_MS)
  * cold snapshot taken before any delta discards nothing.
  */
 export const flushSequenceSchema = z.number().int().min(0);
+
+/**
+ * The identity of one server runtime, as a UUID minted once per process start.
+ *
+ * ADR 31: `flushSequence` restarts at zero when the server process restarts, so
+ * a sequence comparison between a snapshot and a delta is only meaningful when
+ * both came from the same runtime. This value is that qualifier. It carries no
+ * persistence and no cross-session continuity — two starts of the same binary
+ * are two sessions, which is exactly what makes a restart detectable.
+ *
+ * Coupling: `packages/server` mints it once in `runServer.ts` and both the
+ * snapshot and fan-out paths must carry the same instance;
+ * `reconcileDeltaWithSnapshot` in `envelope/envelopeSchema.ts` is the one
+ * comparison it exists to feed.
+ */
+export const serverSessionIdSchema = z.uuid();
+
+/** One server runtime's identity, minted at process start (ADR 31). */
+export type ServerSessionId = z.infer<typeof serverSessionIdSchema>;
 
 /**
  * The vendor that produced a reading, as an open identifier rather than a closed

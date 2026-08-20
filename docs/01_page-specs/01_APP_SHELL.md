@@ -39,11 +39,11 @@ The shell is the operational frame: identity, navigation, theme, connection inte
 
 ## 5. Data dependencies
 
-| Data             | Source                       | Shell responsibility                                          |
-| ---------------- | ---------------------------- | ------------------------------------------------------------- |
-| Connection state | Transport client / app store | Pass into `ConnectionBanner`, including `attempt`             |
-| Tenant config    | `/config`                    | Apply theme, wordmark, and expose flags via context, together |
-| Route            | Router                       | Render outlet only                                            |
+| Data             | Source                       | Shell responsibility                                                  |
+| ---------------- | ---------------------------- | --------------------------------------------------------------------- |
+| Connection state | Transport client / app store | Pass into `ConnectionBanner`, including `attempt` and `terminalCause` |
+| Tenant config    | `/config`                    | Apply theme, wordmark, and expose flags via context, together         |
+| Route            | Router                       | Render outlet only                                                    |
 
 Shell does not subscribe to per-robot telemetry (Principle 9).
 
@@ -71,14 +71,15 @@ Shell does not subscribe to per-robot telemetry (Principle 9).
 
 Asynchronous state set for the shell (Principle 5):
 
-| Condition                        | Behaviour                                                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Initial load                     | Render immediately from the tenant profile baked into this build; there is no runtime configuration fetch          |
-| Connected                        | Banner mounted and empty; routes render normally                                                                   |
-| Reconnecting                     | Banner shows attempt and last event time; page data remains; per-robot freshness suppressed (ADR 3)                |
-| Disconnected                     | Banner states that shown data is last known; page data remains; freshness drifts by timer until the stream returns |
-| Tenant selection/profile invalid | Fail the build; never ship a plausible fallback carrying the wrong tenant's branding or feature policy (ADR 17)    |
-| Unknown route                    | Simple not-found inside `main`: title plus a link to Fleet. Not a marketing 404                                    |
+| Condition                        | Behaviour                                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Initial load                     | Render immediately from the tenant profile baked into this build; there is no runtime configuration fetch                      |
+| Connected                        | Banner mounted and empty; routes render normally                                                                               |
+| Connecting (first attempt)       | Banner shows `Connecting to stream` with the attempt count and no last-event fragment; per-robot freshness suppressed (ADR 31) |
+| Reconnecting                     | Banner shows attempt and last event time; page data remains; per-robot freshness suppressed (ADR 3)                            |
+| Disconnected                     | Banner states that shown data is last known (or the terminal-cause sentence from component spec 07 § 5); page data remains     |
+| Tenant selection/profile invalid | Fail the build; never ship a plausible fallback carrying the wrong tenant's branding or feature policy (ADR 17)                |
+| Unknown route                    | Simple not-found inside `main`: title plus a link to Fleet. Not a marketing 404                                                |
 
 **Freshness while disconnected.** ADR 3 derives freshness from a server sweep delivered over the stream. While the stream is down the client cannot support a per-robot currency claim, so features suppress per-robot freshness labels in favour of the connection-level state. The shell owns the connection state that makes that suppression possible; the rule itself is enforced in the features that render the labels.
 

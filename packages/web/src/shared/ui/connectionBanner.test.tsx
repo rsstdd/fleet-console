@@ -95,6 +95,45 @@ describe("ConnectionBanner", () => {
     expect(banner()).not.toHaveTextContent("NaN");
   });
 
+  it("renders the connecting message with attempt and no last-event fragment (§5)", () => {
+    // ADR 31: nothing has ever been received, so there is no event whose time would be
+    // true — and "reconnecting" would describe a loss that never happened.
+    render(
+      <ConnectionBanner state="connecting" attempt={2} lastEventAt="2026-08-19T09:41:02.000Z" />,
+    );
+
+    expect(banner()).toHaveTextContent("Connecting to stream · attempt 2");
+    expect(banner()).not.toHaveTextContent("last event");
+  });
+
+  it("names an exhausted initial probe rather than a generic disconnect (§5)", () => {
+    render(<ConnectionBanner state="disconnected" terminalCause="handshake-exhausted" />);
+
+    expect(banner()).toHaveTextContent("Unable to connect to stream after 3 attempts");
+  });
+
+  it("names a stream integrity error and that shown data is last known (§5)", () => {
+    // ADR 31: the snapshot and the stream disagree about which server runtime they
+    // describe; that is not a retryable outage and the copy must not claim one.
+    render(<ConnectionBanner state="disconnected" terminalCause="session-mismatch" />);
+
+    expect(banner()).toHaveTextContent(
+      "Stream integrity error · showing last known state (may be stale)",
+    );
+  });
+
+  it("keeps the retry control in every terminal state (§8)", async () => {
+    // ADR 31 pairs every terminal state with an immediate manual retry; a dead end with
+    // no control would strand the operator.
+    const onRetry = vi.fn();
+    render(
+      <ConnectionBanner state="disconnected" terminalCause="session-mismatch" onRetry={onRetry} />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry now" }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
   it("states that disconnected data is last known and may be stale (§5)", () => {
     render(
       <ConnectionBanner state="disconnected" attempt={4} lastEventAt="2026-08-19T09:41:02Z" />,

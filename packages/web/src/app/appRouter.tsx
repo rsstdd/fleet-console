@@ -14,7 +14,7 @@ import { FleetStoreContext } from "@/entities/robot/fleetStoreContext";
  * header, skip link and `#main` outlet exist on all of them including not-found.
  *
  * The gallery at /dev/ui is registered only when import.meta.env.DEV is true, so
- * it and its sample data are tree-shaken out of a production bundle (TODO D10).
+ * it and its sample data are tree-shaken out of a production bundle (app-shell spec § 3).
  *
  * This is also where the console's one socket is owned. `app` owns transport lifecycle
  * (ADR 23), and the router is the outermost thing that renders on every route, so a
@@ -32,6 +32,7 @@ export function AppRouter(): ReactNode {
               connectionState={transport.connectionState}
               lastEventAt={transport.lastEventAt ?? undefined}
               attempt={transport.attempt}
+              terminalCause={transport.terminalCause}
               onRetry={transport.retry}
             />
           }

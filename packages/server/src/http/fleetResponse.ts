@@ -37,11 +37,19 @@ export interface FleetSnapshotOptions {
   /** Read from the injected `Clock` by the caller; this module never reads one. */
   readonly capturedAt: number;
   /**
+   * This runtime's identity, minted once in `runServer.ts` (ADR 31).
+   *
+   * Must be the same value `DeltaFanOut` stamps on every frame — the client
+   * compares the two, and a snapshot and stream that disagree read as a
+   * deployment-integrity failure on the console.
+   */
+  readonly serverSessionId: string;
+  /**
    * The flush this snapshot reflects.
    *
-   * Zero from a server that has never flushed, which is every server today — the counter
-   * arrives with fan-out (**H3a**). A client discards buffered deltas at or below it, so
-   * zero discards nothing, which is the correct behaviour for a cold snapshot.
+   * Zero from a server that has never flushed. A client discards buffered
+   * same-session deltas at or below it, so zero discards nothing, which is the
+   * correct behaviour for a cold snapshot.
    */
   readonly flushSequence: number;
 }
@@ -50,6 +58,7 @@ export interface FleetSnapshotOptions {
 export function encodeFleetSnapshot(options: FleetSnapshotOptions): FleetSnapshotWire {
   return {
     schemaVersion: SCHEMA_VERSION,
+    serverSessionId: options.serverSessionId,
     flushSequence: options.flushSequence,
     capturedAt: options.capturedAt,
     robots: options.robots.map(toWireRobot),

@@ -1,4 +1,4 @@
-import { isDeltaCoveredBySnapshot } from "@fleet/contracts";
+import { reconcileDeltaWithSnapshot } from "@fleet/contracts";
 import type { FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
 
 /**
@@ -6,27 +6,40 @@ import type { FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
  *
  * ADR 2 gives a joining console its initial picture over HTTP rather than as the socket's
  * first frame, so the socket carries one message shape for its whole lifetime. That choice
- * is only safe because of the flush sequence: whatever the server flushes between the
- * socket opening and the snapshot being captured has to be recovered from the buffer, and
- * whatever the snapshot already reflects has to be discarded (ADR 18).
+ * is only safe because of the reconciliation fields: whatever the server flushes between
+ * the socket opening and the snapshot being captured has to be recovered from the buffer,
+ * whatever the snapshot already reflects has to be discarded (ADR 18), and whatever came
+ * from a *different server runtime* has to be refused rather than compared (ADR 31).
  *
  * **Fetching before opening is the failure this module exists to prevent**, and it is worth
  * a module rather than a comment because the symptom is invisible: every delta emitted in
  * the gap is lost, and the console shows a row that quietly stops updating instead of an
- * error. Nothing else in the system catches that (server TODO **H3b**).
+ * error. The deterministic ordering tests here and the ADR 32 restart scenario are the
+ * evidence that catches it (ADR 18, ADR 31).
  *
- * The reconciliation rule itself is `isDeltaCoveredBySnapshot` from `@fleet/contracts`, not
- * a comparison written again here: both sides of the wire must agree on it, and a rule
+ * The reconciliation rule itself is `reconcileDeltaWithSnapshot` from `@fleet/contracts`,
+ * not a comparison written again here: both sides of the wire must agree on it, and a rule
  * implemented once cannot be implemented differently twice (Principle 1).
+ *
+ * Coupling: this module settles only the *buffered* frames. Frames arriving after the
+ * snapshot report `"live"` and `fleetTransport` reconciles each against the settled
+ * snapshot's epoch with the same contracts function — including the session check that
+ * turns a mismatched live frame into the terminal integrity state (ADR 31).
  */
 
 /** What a joining console should apply, in order, once its snapshot arrives. */
 export interface ColdStartResult {
   readonly snapshot: FleetSnapshot;
-  /** Buffered frames the snapshot does not already cover, oldest first. */
+  /** Buffered same-session frames the snapshot does not already cover, oldest first. */
   readonly replay: readonly TelemetryBatch[];
-  /** Frames discarded as redundant; reported so a client can log rather than infer. */
+  /** Same-session frames discarded as redundant; reported so a client can log rather than infer. */
   readonly discarded: number;
+  /**
+   * Frames from a different server runtime than the snapshot (ADR 31). Never applied —
+   * and any positive count means the socket disagrees with the snapshot, which the
+   * transport must treat as a stream-integrity failure rather than noise.
+   */
+  readonly mismatched: number;
 }
 
 /** Buffers frames until the snapshot lands, then hands back what still has to be applied. */
@@ -69,12 +82,24 @@ export function createColdStart(): ColdStart {
       }
       settled = true;
 
-      const replay = buffered.filter(
-        (batch) => !isDeltaCoveredBySnapshot(snapshot.flushSequence, batch.flushSequence),
-      );
-      const discarded = buffered.length - replay.length;
+      const replay: TelemetryBatch[] = [];
+      let discarded = 0;
+      let mismatched = 0;
+      for (const batch of buffered) {
+        switch (reconcileDeltaWithSnapshot(snapshot, batch)) {
+          case "apply":
+            replay.push(batch);
+            break;
+          case "covered":
+            discarded += 1;
+            break;
+          case "session-mismatch":
+            mismatched += 1;
+            break;
+        }
+      }
       buffered.length = 0;
-      return { snapshot, replay, discarded };
+      return { snapshot, replay, discarded, mismatched };
     },
   };
 }

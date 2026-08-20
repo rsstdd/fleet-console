@@ -40,7 +40,7 @@ import { createContext, use } from "react";
  * this vocabulary. Adding a state is a change in three places — that spec, the banner, and
  * here — and the test in `connectionContext.test.ts` names the banner explicitly.
  */
-export type StreamConnectionState = "connected" | "reconnecting" | "disconnected";
+export type StreamConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
 
 /**
  * The value a consumer sees when no provider is above it.
@@ -77,8 +77,9 @@ export function useConnectionState(): StreamConnectionState {
  * one page suppressing while the other does not, which is the state ADR 3 exists to
  * prevent (Principle 1).
  *
- * `reconnecting` counts as not delivering. Nothing is updating freshness during a
- * reconnect, so the last value is ageing silently, which is the same lie as a dead socket.
+ * `connecting` and `reconnecting` count as not delivering. Nothing is updating freshness
+ * while an attempt is in flight, so any last value is ageing silently, which is the same
+ * lie as a dead socket (ADR 31 keeps all non-connected states suppressing).
  *
  * Deliberately **not** named `isStreamLive`: `live` is a freshness state in ADR 3's
  * vocabulary, and a helper whose name collides with it invites exactly the conflation of

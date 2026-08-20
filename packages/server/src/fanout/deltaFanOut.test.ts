@@ -22,6 +22,9 @@ function recorder(): FanOutClient & { readonly frames: string[]; closed: boolean
 
 const SENT_AT = 1_755_600_000_000;
 
+/** The runtime identity every frame from one fan-out must carry (ADR 31). */
+const SESSION = "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b";
+
 function envelope(robotId: string, freshness: CanonicalEnvelope["freshness"]): CanonicalEnvelope {
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -47,7 +50,11 @@ function envelope(robotId: string, freshness: CanonicalEnvelope["freshness"]): C
 
 describe("DeltaFanOut", () => {
   function fanOut(): DeltaFanOut {
-    return new DeltaFanOut({ clock: fixedClock(SENT_AT), sequence: createFlushSequence() });
+    return new DeltaFanOut({
+      clock: fixedClock(SENT_AT),
+      sequence: createFlushSequence(),
+      serverSessionId: SESSION,
+    });
   }
 
   it("sends a frame the contract's own decoder accepts", () => {
@@ -63,6 +70,7 @@ describe("DeltaFanOut", () => {
     const parsed = parseTelemetryBatch(JSON.parse(client.frames[0] ?? "null"));
     expect(parsed.ok).toBe(true);
     expect(JSON.parse(client.frames[0] ?? "{}")).toMatchObject({
+      serverSessionId: SESSION,
       flushSequence: 1,
       sentAt: SENT_AT,
       robots: [{ robotId: "rbt-1", capabilities: [{ name: "dock" }] }],

@@ -87,8 +87,8 @@ const PREFLIGHT_STATUS = 204;
  * accepts `POST` but not `OPTIONS`, or require every route to carry an `OPTIONS` twin.
  *
  * Coupling: `packages/simulator` posts to `POST /api/telemetry/:vendor` and the console
- * reads `/api` through Vite's proxy; the routes those callers need are not mounted yet, so
- * both currently receive this module's 404 (`TODO.md` **D1**, **G1**–**G3**).
+ * reads the four `/api` resources through Vite's proxy. Those consumers and this router
+ * must change together when a route or method changes (ADR 21).
  */
 export function createHttpApp(options: HttpAppOptions): Hono {
   const app = new Hono();
@@ -184,6 +184,19 @@ export function createHttpApp(options: HttpAppOptions): Hono {
       return c.json(body, status);
     }
     return c.json(robot);
+  });
+
+  // The sparkline's data, captured at the request instant. `no-store` because the
+  // response embeds the moment it was computed: a cached copy re-served later would
+  // shift the whole 60-second window into the past while claiming it is current.
+  app.get("/api/robots/:id/history", (c) => {
+    const history = options.readHistory(c.req.param("id"));
+    if (history === null) {
+      const { status, body } = errorResponse("not_found");
+      return c.json(body, status);
+    }
+    c.header("Cache-Control", "no-store");
+    return c.json(history);
   });
 
   // Unauthenticated by decision, like the rest of this surface (**K4**). It exposes
