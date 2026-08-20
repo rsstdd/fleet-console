@@ -46,7 +46,7 @@ Completed, abandoned, and superseded plans are terminal and therefore leave `doc
 
 1. Search `docs/05_plans/` by task terms. Update the single owning plan instead of creating a competing roadmap.
 2. Read the owning principles, decision mapping/ADR, specification, scoped `AGENTS.md`, and relevant public code entry point. Record any conflict and stop; a plan cannot waive authority.
-3. Create a narrowly named plan only if no plan owns the work. Declare `**Authority:** Planning only.`, `**Status:**`, and `**Updated:** YYYY-MM-DD` near the top.
+3. Create a narrowly named plan only if no plan owns the work. Copy `docs/05_plans/00_TEMPLATE.md`, then declare `**Authority:** Planning only.`, `**Status:**`, and `**Updated:** YYYY-MM-DD` near the top.
 4. State one measurable outcome, in-scope and out-of-scope work, dependencies/order, acceptance criteria, documentation synchronization, and the narrowest verification commands.
 5. Use `Active` only for executable scope. Use `Trigger-deferred` plus one observable trigger for unscheduled work. Use `Blocked` plus one concrete blocker only after safe in-scope alternatives are exhausted.
 6. Before implementation, re-read identifiers and authorities; recommendations and reserved numbers in a plan are stale hints, never facts.
