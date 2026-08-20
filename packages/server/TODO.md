@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 15 files, 98 tests      |
+| `pnpm test`      | passes — 16 files, 107 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -45,6 +45,7 @@ packages/server/
     ├── ingest/selectVendor.ts      route segment → adapter, before the body (ADR 8)
     ├── ingest/errorResponse.ts     the one HTTP error body, in ContractIssue (ADR 20)
     ├── ingest/requestSizeLimit.ts  byte cap ahead of JSON.parse (ADR 26)
+    ├── http/originPolicy.ts        the cross-origin grant ADR 21 configured (B1d)
     ├── config/freshnessPolicy.ts   validated sweep thresholds (ADR 3, Principle 13)
     ├── config/fleetManifest.ts     strict roster loader (ADR 14)
     ├── config/runtimeEndpoints.ts  host/port/origins from the environment (ADR 21)
@@ -124,17 +125,19 @@ now decides what implements them. The listener is unblocked.
       host and port from `loadRuntimeEndpoints()` (**C5**, ADR 21) — never a literal, and
       never `0.0.0.0` by default: the loopback default is what keeps an unauthenticated
       ingest endpoint serving raw vendor payloads off every interface (**D18**).
-- [ ] **B1d — Enforce the origin allow-list the configuration already validates.** ADR 21
-      decodes `FLEET_ALLOWED_ORIGINS` into `RuntimeEndpoints.allowedOrigins` and **nothing
-      reads it**, so an operator who sets it today gets validation and no effect. The
-      middleware belongs here, with the listener, and has three cases to get right:
-      an allowed origin is echoed back in `Access-Control-Allow-Origin` rather than
-      answered with `*`; a disallowed origin is refused; and a request carrying **no**
-      `Origin` header at all — same-origin browsers, the simulator, curl — is not
-      cross-origin and must pass. Empty `allowedOrigins` means "refuse every cross-origin
-      request", not "allow everything". Credentials are not involved while authentication
-      is cut (**K1**–**K3**), and this must not become the thing that quietly introduces
-      them. Test with **L8**.
+- [x] **B1d — Policy done 20 August 2026; mounting waits on B1a.** `evaluateOriginPolicy`
+      in `src/http/originPolicy.ts` reads `RuntimeEndpoints.allowedOrigins` and decides all
+      three cases — an allowed origin echoed rather than `*`, an origin outside the list
+      granted nothing, and a request with **no** `Origin` treated as not cross-origin, which
+      is the answer ADR 21 § Open questions named as intended and is now closed there. Empty
+      `allowedOrigins` grants nobody. `Vary: Origin` is set on every outcome so a cache
+      cannot hand a grant to a different origin, and the preflight a JSON `POST` requires is
+      answered with `content-type` and nothing else. No `Access-Control-Allow-Credentials`
+      is emitted anywhere, which is the guard against this quietly introducing what
+      **K1**–**K3** cut. Framework-independent and unit-tested (nine cases); the middleware
+      that calls it is one wrapper, and it lands with the listener. **L8** — the same
+      evidence against a real request — is still outstanding and still owed. Two decisions
+      it deliberately does not make are stated below.
 - [x] **B1b — `tsx` is the runtime**, recorded in
       [ADR 9](../../docs/00_adr/09_WORKSPACE_SOURCE_EXPORTS_AND_TSX_RUNTIME.md). Already
       a devDependency here. Plain `node src/main.ts` does **not** work for this package:
@@ -149,6 +152,26 @@ now decides what implements them. The listener is unblocked.
 - [x] **B2 — Do not add a database, broker, or queue.** ADR 6 decided against a database
       and ADR 2 against a broker; both name the conditions for revisiting. Lint blocks
       the common packages by name with the ADR reference in the failure message (§ 10).
+
+### Deferred prominently — decisions required before **B1d** is finished
+
+- **What a declined cross-origin request is answered with.** Today it is served without
+  the grant, which is what makes a browser block it. The plan text said "refused", and an
+  explicit 403 would be stronger against a non-browser caller — but `@fleet/contracts` has
+  no `ErrorKind` for it (`ERROR_KINDS` is malformed / unmappable / unsupported-dialect /
+  unsupported-vendor / not-found / too-large / internal) and `ErrorStatus` has no 403, so
+  inventing either in a handler would make the server a second authority over a vocabulary
+  ADR 20 puts in contracts. It would also present as authorization the server does not
+  perform: `Origin` is caller-supplied, exactly like the vendor route segment ADR 8 §
+  Implications accepts a caller can lie about. **Reversing this is a contracts change
+  first (ADR 20), then this module.** Do not decide it in the middleware.
+
+- **Whether the same allow-list governs the WebSocket stream.** CORS does not apply to a
+  WebSocket upgrade and `ws` checks no origin of its own, so mounting this policy on the
+  HTTP routes alone leaves `/ws` reachable from any origin while `/api` is not.
+  `evaluateOriginPolicy` can decide an upgrade request unchanged — the gap is that nobody
+  has decided whether it should. That is an ADR 8 or ADR 21 question. Settle it with
+  **H1**, not with a line in the upgrade handler.
 
 ---
 
@@ -549,14 +572,16 @@ is missing is everything that needs a socket.
       it; a leaked interval passes every other test.
 - [ ] **L7 — Keep performance tests reproducible** and report degradation rather than
       asserting only a favourable scale point (AGENTS.md § Tests).
-- [ ] **L8 — Cross-origin:** the third piece of ADR 21's required evidence, which could
-      not be written when that ADR landed because **B1d** does not exist. A request from an
-      origin in `FLEET_ALLOWED_ORIGINS` is allowed and the header echoes that exact origin;
-      a request from an origin outside it is refused; a request with no `Origin` header is
-      unaffected; and with an empty allow-list every cross-origin request is refused while
-      same-origin traffic still works. Assert the refusal, not only the success — an
-      allow-list nothing rejects is indistinguishable from no allow-list, which is ADR 7's
-      recorded failure mode.
+- [ ] **L8 — Cross-origin, against a real request.** The unit half landed with **B1d**
+      (`src/http/originPolicy.test.ts`, nine cases) and is **not** this item. What is still
+      owed is the same four claims driven through the mounted listener: an origin in
+      `FLEET_ALLOWED_ORIGINS` gets that exact origin echoed; an origin outside it gets no
+      grant; a request with no `Origin` header is unaffected; and with an empty allow-list
+      no cross-origin request is granted while same-origin traffic still works. Assert the
+      decline, not only the success — an allow-list nothing rejects is indistinguishable
+      from no allow-list, which is ADR 7's recorded failure mode. A unit test of the policy
+      cannot show that the middleware is actually _mounted_, which is the failure this item
+      exists to catch.
 
 ---
 
@@ -620,5 +645,5 @@ is missing is everything that needs a socket.
 8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps.
 9. The demo script's steps 4 and 5 are both reproducible: three `--drop` robots degrade while the rest stay LIVE, and killing the stream produces a connection-level state rather than per-robot degradation.
 10. Throughput and latency are measured at 50 and 500 robots, the bottleneck is attributed to HTTP overhead or validation cost, and the number is published in the README and in ADR 2 § Observed consequences.
-11. The origin allow-list is enforced rather than merely validated: a disallowed origin is refused by a test, and a request with no `Origin` header still succeeds (**B1d**, **L8**). Until this holds, `FLEET_ALLOWED_ORIGINS` is configuration with no consumer.
+11. The origin allow-list is enforced rather than merely validated: a disallowed origin is granted nothing and a request with no `Origin` header still succeeds, both against a **real request** (**L8**). The policy itself is decided and unit-tested (**B1d**); until a listener mounts it, `FLEET_ALLOWED_ORIGINS` still has no runtime consumer, and what a declined request is _answered with_ is deferred under **B1d** as a contracts decision.
 12. `pnpm lint && pnpm typecheck && pnpm test && pnpm build` pass from the repository root.

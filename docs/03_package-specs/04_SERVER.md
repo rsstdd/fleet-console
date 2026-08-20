@@ -61,9 +61,16 @@ src/
   freshness/freshnessSweep  the recurring interval that calls contracts
   fanout/pendingDeltas      coalescing keyed by robot id
   health/healthMetrics      counters at their true scope
+  ingest/                   selectVendor, errorResponse, requestSizeLimit — all pre-body
+  http/originPolicy         the cross-origin grant ADR 21 configured and nothing consumed
   __boundary-violation__/   deliberate lint violations that prove the rules fire
   index.ts
 ```
+
+`ingest/` and `http/` hold transport _rules_ and no transport. Each is a pure function over
+a route segment, a header or a byte count, decided before anything reads a body, so the
+ordering guarantees are properties of the signatures rather than rules a handler has to
+remember (ADR 8 § Observed consequences).
 
 Planned and not yet present: the HTTP layer (Hono on `node:http`), the WebSocket server
 (`ws` attached to the same listener), the ingest handler, the adapter registry dispatch,
