@@ -117,7 +117,8 @@ fixtures here. It is never an edit to `contracts`.
 
 Unknown fields a vendor sends are **counted, not silently dropped**. Vendor C's
 undocumented field increments the per-adapter tally at
-`telemetry.firmware_channel`; the future health endpoint still needs to expose it.
+`telemetry.firmware_channel`; `GET /api/health` exposes it under the explicitly accepted
+payload scope.
 
 **Landed:** the result type, accepted-payload unknown-field ledger and path discovery,
 the supported-vendor set and parity guard, the complete fixture matrix, all three
@@ -152,22 +153,24 @@ than reacting only to arrivals.
 
 ## `server` — the runtime authority
 
-Thin. Its completed framework-independent core keeps one in-memory entry per
-robot, sweeps freshness every 500 ms, and coalesces pending deltas. The planned
-composition root will accept telemetry over HTTP, dispatch to the right
-adapter, and fan those deltas out over WebSocket.
+Thin. Its framework-independent core keeps one in-memory entry per robot, sweeps
+freshness every 500 ms, and coalesces pending deltas. The composition root accepts
+telemetry over HTTP, dispatches to the right adapter, serves the four read routes, and
+fans those deltas out over WebSocket.
 
 **Owns:** receipt time (`receivedAt`), the current-state store, bounded
 per-robot history, the freshness sweep, delta coalescing, and health accounting.
-The health _endpoint_ is planned, not present: `HealthMetrics` is a counter
-object today and nothing serves it.
+`HealthMetrics` owns the process counters; `GET /api/health` joins them with adapter and
+per-robot sequence scopes through the contracts-owned response.
 
 **Does not own:** freshness _derivation_. That is `contracts`' pure function,
 called by the sweep here. The split is deliberate: the rule is unit-testable
 against an injected clock; the schedule is the server's problem.
 
 No database. Current state rebuilds from the next telemetry snapshot. History is
-a small ring buffer sized to what a decimated sparkline consumes.
+a bounded ring buffer of compact `{receivedAt, batteryPercent | null}` samples —
+one 60-second contract window at the simulator's 50 Hz ceiling — served decimated
+to at most 60 extrema-preserving points (ADR 6 as amended by ADR 33).
 
 **Landed:** configuration and the fleet manifest, the current-state store, the
 ring buffer, the pending-delta set, clocks, health metrics, and the sweep itself.
