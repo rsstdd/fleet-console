@@ -576,6 +576,23 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       by construction.** Every frame carries the sequence of the flush that sent it, and a
       set that coalesced across earlier flushes is sent in the later one, so the value is
       the maximum it contains without a separate maximum being computed.
+- [ ] **H3c — Decide and describe what a restart does to a connected client.** Raised 20
+      August 2026, from `packages/FIXME.md` **F9**, because it had been living only as an
+      ADR 18 open question and nothing owned it. The flush sequence starts at zero on every
+      process start, so a console holding a snapshot at sequence 40 across a server restart
+      discards every delta until the new process passes 40 — and `isDeltaCoveredBySnapshot`
+      is doing exactly what it was designed to do while the rows silently stop updating.
+      **E5** already says a restart loses _state_ and is marked done; this is the separate
+      claim that a restart also invalidates a client's _reconciliation baseline_, which no
+      document states and no test covers.
+      Three candidate answers, and the choice is a decision rather than a fix: a process
+      identity on the snapshot and every frame, so a client can tell "sequence 3 from a new
+      process" from "sequence 3 I already have"; a monotonic counter persisted across
+      restarts, which ADR 6 forbids without a store; or accepting the behaviour and having
+      the client re-fetch its snapshot on any sequence regression. The last is cheapest and
+      is probably right — but it is unwritten either way, and a client cannot implement it
+      from an ADR's open-questions section. Settle it with **D22**, which is already
+      deciding what the client does when a connection comes back.
 - [ ] **H6b — Close a connection that never drains, on a timeout. Deferred; the decision it
       needs is not made.** A bounded set is still a set held for a client that will never
       read it. This is the only place fan-out discards a client, and it must be counted on

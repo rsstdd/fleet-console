@@ -21,7 +21,13 @@ component specs, design system, wireframes, manifests, package TODOs, and source
 
 ## Priority 0 — correct statements that overclaim reality
 
-### P0.1 Make the README describe what actually runs
+### P0.1 Make the README describe what actually runs — **DONE 20 August 2026**
+
+Rewritten against one `pnpm dev` run rather than against the diff: the status banner, the
+one-command section, five rows of the status table, the tree diagram and the adapter and
+unknown-field claims. The two things still unproven were **not** upgraded — the demo script
+stays `[PARTIAL]` and the E2E row stays `[NOT BUILT]`, each narrowed to what is actually
+missing. Original text follows.
 
 `README.md` says `pnpm dev` starts simulator, server, and console, but the server has no
 `dev` script or executable listener. The root recursive command currently starts only
@@ -35,7 +41,18 @@ packages exposing `dev`.
 - Keep simulator commands as implemented facts, but do not say their data reaches the
   console until the adapter/server/web path exists.
 
-### P0.2 Reconcile stale scoped planning documents
+### P0.2 Reconcile stale scoped planning documents — **DONE 20 August 2026, and worth repeating on a schedule**
+
+Two passes. The first corrected the documents that described a repository without a server:
+`README.md`, `packages/README.md`, both package specs, five ADR statuses, and the
+reconciliation list. The second — this one — closed the gap between _work that was finished_
+and _work still marked open_: three FIXME assessment lines reading "open" over
+struck-through bullets, and six P-items with no done-marker.
+
+**The lesson is that this drifts in both directions.** Documents overstate what exists while
+the code is behind, and understate it while the code races ahead; the second is harder to
+notice because nothing looks broken. Re-run this whenever a finding closes, not only when
+one is raised. Original text follows.
 
 Several scoped TODOs describe implemented code as absent:
 
@@ -54,7 +71,9 @@ Several scoped TODOs describe implemented code as absent:
 Audit each against its package, retain genuine work, and remove stale checklist
 history. Do not update prose ahead of code (Principle 14).
 
-### P0.3 Protect the current work in version control
+### P0.3 Protect the current work in version control — **DONE**
+
+The trees this item found untracked are committed. Original text follows.
 
 `git status --short` reports the entire `packages/` and `config/` trees as untracked,
 alongside ADR 7 and ADR 8; many tracked documents are modified. A clone therefore does
@@ -64,7 +83,11 @@ Review and commit intentionally. Keep implementation, documentation, and mechani
 formatting separate where practical. This is operational work, not authorization for a
 blind or destructive Git command.
 
-### P0.4 Refresh the five stale ADR statuses
+### P0.4 Refresh the five stale ADR statuses — **DONE 20 August 2026**
+
+All five now read accurately and carry the date they changed, so a later reader can tell a
+status that was reviewed from one never revisited: ADR 1 Implemented, ADR 2 Partial, ADR 3
+Implemented, ADR 6 Partial, ADR 8 Partial. Original text follows.
 
 ADR 1, 2, 3, 6 and 8 read **"Not started"** while substantially implemented — ADR 1's
 envelope and capability codec, ADR 3's `deriveFreshness` and the server sweep, ADR 6's
@@ -80,7 +103,11 @@ prose it sat in — re-filed here on 19 August 2026 rather than left only in
 Check the implementation state against the code before editing a header. Do not update
 prose ahead of code (Principle 14); an ADR that is genuinely `Not started` should stay so.
 
-### P0.5 Restore a green CI baseline
+### P0.5 Restore a green CI baseline — **DONE**
+
+The named `_omit` lint failure is gone and the full gate set — lint, typecheck, test, build,
+architecture-docs, dependencies, doc-comments, tokens, fixture-drift, bundle — runs green.
+Original text follows.
 
 A consistently failing gate is not a gate: it becomes background noise and encourages
 bypasses. Restore every required CI job to green before adding optional quality gates or
@@ -95,7 +122,10 @@ calling the baseline maintainable.
 
 ## Priority 1 — complete the live telemetry path
 
-### P1.1 Build the vendor adapters
+### P1.1 Build the vendor adapters — **DONE**
+
+Three vendor modules, per-vendor schemas, the dispatch registry, exact-output contract
+tests, and recorded fixtures drift-gated in CI. Original text follows.
 
 Owner: `packages/adapters`.
 
@@ -127,7 +157,13 @@ adapter holds it.
 
 Detailed source: `packages/adapters/TODO.md`, audited against ADRs 10-29 on 20 August 2026.
 
-### P1.2 Build server transport and the composition root
+### P1.2 Build server transport and the composition root — **DONE 20 August 2026**
+
+The server listens, ingests through the registry, sweeps, serves three reads and fans
+coalesced deltas out over `/ws`, composed from repository-root configuration under
+`pnpm dev`. What remains of Section 8's list is backpressure (**H6b**) and the history read
+(**G4**), both tracked in `packages/server/TODO.md` and both blocked on named ADR
+questions. Original text follows.
 
 ADR 8 selects Hono, `@hono/node-server`, and `ws`; the dependencies and listener are
 not present.
@@ -213,7 +249,7 @@ Unit tests alone do not close this item (Principle 10).
 
 ## Priority 2 — configuration and UI alignment
 
-### P2.1 Validate tenant configuration and define flags — DONE 19 August 2026
+### P2.1 Validate tenant configuration and define flags — **DONE 19 August 2026**
 
 Resolved as register **D8** and recorded in
 [ADR 17](docs/00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md): two profiles selected per

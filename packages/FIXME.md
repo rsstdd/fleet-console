@@ -13,6 +13,14 @@ plans; this file is the cross-package reconciliation list.
 **Re-audit outcome.** F1–F12 were each re-verified against source. F1–F11 remain open; **F12 was closed on 19 August 2026** by ADR 16. **F13, F14 and F15 were added on 19 August 2026** — by ADR 21, ADR 25 and ADR 26 respectively — and are the newer kind of finding this file should expect more of: not contradictions, but decisions that landed correctly ahead of the code that will consume them.
 **F14 was closed on 20 August 2026**, by the work its own entry prescribed.
 
+**Fourth pass, 20 August 2026 — the last sweep.** **F7** and **F11** closed, **F8** down to
+its one un-automatable bullet, and **F17** raised and fixed in the same pass. Four findings
+remain open and **none of them is a contradiction between documents and code**: **F9** and
+**F16** are real work behind named ADR questions, **F10** is a retained caution rather than
+a defect, and **F15** is a decided product cut that is a release blocker by design. Three
+assessment lines that still read "open" over struck-through bullets were corrected here;
+that drift is the same shape as **F3** and is worth re-checking whenever a finding closes.
+
 **Third pass, 20 August 2026 — the fixture fictions and the stale metadata.** **F1**
 (vendor B declaring a capability no vendor B payload produces) and **F4** (connectivity
 derived from freshness) are closed, both by checking the console's fixtures against what the
@@ -227,9 +235,16 @@ configuration or a constant and leans configuration "alongside the freshness pol
 fourth key with an ADR 3 amendment or a new configuration surface. Tracked as server TODO
 **H6b**; decide the surface before putting a number in the fan-out.
 
-### F7. ADR 3 is not complete end to end
+### F7. ADR 3 is not complete end to end — **CLOSED 20 August 2026**
 
-**Assessment: accurate plan, incomplete integration; open.**
+**Assessment: was an accurate plan with incomplete integration; every bullet is now closed.**
+
+The last one to fall was the browser proof, which ADR 23 could not reach because there was
+no transport to kill. Headless Chrome against the running stack showed `{Live: 46, Stale: 4}`
+under a connected banner, `{Unreachable: 50}` after the simulator stopped — banner still
+connected — and, with the server stopped, every row retained with **no** per-robot freshness
+label under a `Stream reconnecting` banner. That is the whole of ADR 3's guarantee, observed
+rather than injected.
 
 Contracts and server primitives agree with the ADR: derivation is pure, uses
 `receivedAt`, runs in the server sweep, and marks freshness-only changes. Missing:
@@ -265,9 +280,9 @@ Contracts and server primitives agree with the ADR: derivation is pure, uses
 The `Date.now()` calls used to construct web fixtures do not derive freshness and are
 not themselves an ADR 3 violation; adding a client freshness timer would be.
 
-### F8. ADR 5 remains partially implemented
+### F8. ADR 5 remains partially implemented — **three of four bullets closed 20 August 2026**
 
-**Assessment: accurate Partial status, incomplete alignment/evidence; open.**
+**Assessment: alignment done; forced-colors evidence is the one bullet left, and it cannot be automated.**
 
 The web uses MUI and CSS custom-property tokens and has no competing CSS framework.
 Remaining alignment work is concrete:
@@ -334,7 +349,10 @@ point count and the sparkline is not built — picking a round number now is wha
 exists to prevent (server TODO **G4**, **M4**). Restart loss is still undescribed anywhere
 a reader would find it: a restarted server begins at flush sequence zero and a client
 holding a higher snapshot sequence discards everything until it catches up (ADR 18 § Open
-questions). That is a real client-visible behaviour with no test and no documentation.
+questions). That is a real client-visible behaviour with no test and no documentation, and
+as of 20 August 2026 it is owned: `packages/server/TODO.md` **H3c** carries it with three
+candidate answers, because an ADR's open-questions section is not somewhere a client
+implementer looks.
 
 ### F10. ADR 4 and ADR 7 enforcement is web-specific by decision
 
@@ -377,9 +395,9 @@ What closed it:
 Both drift directions were exercised before landing: a fourth vendor in `VENDOR_IDS`
 alone fails two assertions, and one in `SUPPORTED_VENDORS` alone fails three.
 
-### F13. ADR 21's endpoint configuration is decoded everywhere and consumed nowhere
+### F13. ADR 21's endpoint configuration is decoded everywhere and consumed nowhere — **CLOSED 20 August 2026**
 
-**Assessment: closed 20 August 2026. Both halves now have readers.**
+**Assessment: closed. Both halves now have readers.**
 
 [ADR 21](../docs/00_adr/21_ENDPOINTS_FROM_THE_ENVIRONMENT_WITH_A_DEV_PROXY.md) closed
 register **D13** and ended the state where three packages guessed at one address. What it
@@ -517,7 +535,7 @@ and the panel's notice is retained as the reason.
 
 ## Package README follow-ups
 
-### F17. The 500-robot scale test was failing on a timeout it refuses to assert
+### F17. The 500-robot scale test was failing on a timeout it refuses to assert — **CLOSED 20 August 2026**
 
 **Assessment: fixed 20 August 2026; recorded because the shape recurs.**
 
@@ -567,7 +585,7 @@ Until one is taken, do not "fix" this by extending the fixture list to match the
 manifest: that hides the gap behind data that agrees by hand, which is the class of error
 **F1** and **F4** both were.
 
-### F11. Add focused READMEs where package behavior becomes consumable
+### F11. Add focused READMEs where package behavior becomes consumable — **CLOSED 20 August 2026**
 
 **Assessment: documentation gap/recommendation; open.**
 

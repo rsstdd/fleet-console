@@ -8,7 +8,7 @@ This file is intentionally short: resolved entries are tombstones linking to the
 
 | ID  | Status      | Normative record                                                                  | Question                                                                         |
 | --- | ----------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| D1  | Partial     | [ADR 10](./00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)                           | Adapter output before freshness                                                  |
+| D1  | Implemented | [ADR 10](./00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)                           | Adapter output before freshness                                                  |
 | D2  | Implemented | [ADR 11](./00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)                      | Public access to adapter fixtures                                                |
 | D3  | Implemented | [ADR 12](./00_adr/12_TEST_ONLY_ADAPTER_DEPENDENCY_IN_WEB.md)                      | Test-only adapter dependency in web                                              |
 | D4  | Implemented | [ADR 13](./00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md)                  | Fixture ownership and provenance                                                 |
@@ -42,6 +42,8 @@ Three things have to be decided together, which is why none of them was taken pi
 
 _Recommendation:_ bounded exponential backoff with a ceiling and no cap on attempts, and treat a handshake that never opened as distinct from a connection that dropped — the first has already failed once for a reason retrying will not change, and `streamLifecycle` already distinguishes `connecting` from `reconnecting` for exactly that reason. That is a recommendation, not a decision.
 
+_Also owns:_ what a **server restart** does to a connected client. The flush sequence restarts at zero, so a console holding a higher snapshot sequence discards every delta until the new process catches up — `isDeltaCoveredBySnapshot` behaving exactly as designed while rows silently stop updating. `packages/server/TODO.md` **H3c** carries the three candidate answers; it belongs with this decision because both are about what the client does when a connection comes back.
+
 _Resolves on:_ an ADR, then `packages/web/src/shared/lib/streamLifecycle.ts` gaining the schedule and `fleetTransport` calling it. It also decides whether `StreamConnectionState` must widen: the published vocabulary cannot currently distinguish a console that is retrying from one that has stopped, and a retry control that does nothing observable is the class of lie `connectionBanner.tsx` says this project exists to argue against.
 
 ### D23 — Browser-driven end-to-end testing: framework, or none
@@ -53,5 +55,7 @@ None of it is committed, because it was a throwaway script rather than a test, a
 _Options:_ **Playwright** (installed on the development machine already, one dependency, own runner and CI action); **a hand-rolled CDP harness** inside the existing Vitest run (no dependency, and the script above shows it is perhaps forty lines — but it is a browser driver this repository would then own and maintain); or **none**, keeping browser verification a documented manual step and accepting that P1.4 never becomes automated.
 
 _Recommendation:_ the hand-rolled CDP harness, scoped to the two claims that cannot be made any other way — freshness suppression on stream loss, and a delta arriving as a rendered row. It adds no dependency, runs in the existing runner, and its cost is bounded by refusing to grow into a general browser-testing layer. Playwright is the right answer if browser coverage is ever meant to be broad. That is a recommendation, not a decision.
+
+_Recorded in the packages that wait on it:_ `packages/web/UI_PLAN.md` § 9.2 and root `TODO.md` **P1.4** and **P3.2**.
 
 _Also blocked on this:_ ADR 24's deferred virtualization question and register **D10**'s deferred delta-granularity half both want delta-apply cost measured at 500 robots under a live stream, which is a browser measurement and not a server one.
