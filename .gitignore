@@ -15,6 +15,18 @@ coverage/
 playwright-report/
 test-results/
 
+# Playwright (do not commit)
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
+
+# Tenant-B build output
+dist-tenant-b/
+
+# Demo driver
+demo/.logs/
+
 # Environment & Secrets
 .env
 .env.local
