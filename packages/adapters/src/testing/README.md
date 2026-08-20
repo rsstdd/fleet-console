@@ -44,7 +44,7 @@ cheapest thing that prevents both.
   It reads as belt and braces and is not. ADR 11 originally named "the console's
   test run breaks" as the falsifier; on 20 August 2026 that was tested and found
   false — `packages/web` runs vitest under jsdom, which is an environment inside
-  Node, so `node:fs` resolves there and all 208 tests stay green. Only a real
+  Node, so `node:fs` resolves there and all 265 tests stay green. Only a real
   browser build would have caught it, and nothing in CI does one for this path.
 - **Payloads stay `unknown`.** A typed fixture lets a test pass while the schema
   it exercises is wrong.

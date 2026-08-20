@@ -117,11 +117,10 @@ One `pnpm dev` run and the harness in `src/ingest/validationCost.test.ts` and
 
 ## Not built
 
-Backpressure on a console that stops reading (blocked on ADR 8's undecided configuration
-surface), the history read for the sparkline (blocked on ADR 6's ring-buffer capacity,
-which resolves from the sparkline's real point count), and authentication — which is an
-explicit product cut, and the reason `GET /api/robots/:id` serving raw vendor payloads is
-recorded as a release blocker in `packages/FIXME.md` **F15**.
+Slow-client drain protection (trigger-deferred until evidence or deployment hardening),
+the history read for the proposed sparkline (blocked on an unratified history/retention
+contract), and authentication—which is an explicit product cut. The unauthenticated
+`GET /api/robots/:id` raw diagnostics surface remains a release risk under ADR 26.
 
 See [`TODO.md`](./TODO.md) for the full checklist and [`AGENTS.md`](./AGENTS.md) for the
 scoped rules.

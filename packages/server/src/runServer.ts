@@ -65,9 +65,8 @@ export interface RunningServer {
  * answering 404 for a reason is different from one answering 404 because it is broken,
  * and only the log can tell an operator which they have.
  *
- * The sweep starts here and is the reason this function returns the pieces it composed:
- * nothing drains the delta set and no route reads the counters yet, so a test is currently
- * the only consumer that can prove either one moved.
+ * The sweep and fan-out start here; returning the composed pieces keeps their lifecycle and
+ * counters independently testable while the mounted routes and sockets consume them live.
  */
 export async function startServer(options: StartServerOptions): Promise<RunningServer> {
   const { endpoints, configuration, logger, clock } = options;
@@ -95,9 +94,8 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
 
   // ADR 3 § Implications: under ingest saturation the sweep stops firing, the console
   // freezes robots at their last computed state instead of degrading them, and a sweep
-  // that silently stops looks identical to a healthy fleet. The counter is the durable
-  // record and the log line is what makes it audible before `GET /api/health` exists
-  // (**G3**, blocked on ADR 30).
+  // that silently stops looks identical to a healthy fleet. The health response is the
+  // durable counter and the log line makes it audible without polling.
   const sweep = new FreshnessSweep({
     clock,
     store,

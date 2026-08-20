@@ -19,6 +19,13 @@ export function parseAdrMetadata(source, file) {
   if (!title || !decision || !status) {
     throw new Error(`${file}: ADR metadata must match the template exactly.`);
   }
+  const supersededBy = source.match(/^\*\*Superseded by:\*\* ADR (\d+)$/m);
+  if (status[1] === "Superseded" && !supersededBy) {
+    throw new Error(`${file}: a Superseded ADR must declare **Superseded by:** ADR N.`);
+  }
+  if (status[1] === "Decided" && supersededBy) {
+    throw new Error(`${file}: only a Superseded ADR may declare **Superseded by:**.`);
+  }
   return {
     number: Number(title[1]),
     title: title[2],
@@ -26,8 +33,75 @@ export function parseAdrMetadata(source, file) {
     state: status[1],
     date: status[2],
     implementation: status[3],
+    supersededBy: supersededBy ? Number(supersededBy[1]) : null,
     file,
   };
+}
+
+/** Parses lifecycle metadata from one executable planning document. */
+export function parsePlanMetadata(source, file) {
+  const authority = /^\*\*Authority:\*\* Planning only\./m.test(source);
+  const status = source.match(/^\*\*Status:\*\* (Active|Blocked|Trigger-deferred)$/m);
+  const updated = source.match(/^\*\*Updated:\*\* (\d{4}-\d{2}-\d{2})$/m);
+  if (!authority || !status || !updated) {
+    throw new Error(
+      `${file}: plan metadata must declare Planning only authority, Status, and Updated date.`,
+    );
+  }
+  const trigger = source.match(/^\*\*Trigger:\*\* (.+)$/m)?.[1] ?? null;
+  const blocker = source.match(/^\*\*Blocker:\*\* (.+)$/m)?.[1] ?? null;
+  if (status[1] === "Trigger-deferred" && !trigger) {
+    throw new Error(`${file}: a Trigger-deferred plan must declare **Trigger:**.`);
+  }
+  if (status[1] === "Blocked" && !blocker) {
+    throw new Error(`${file}: a Blocked plan must declare **Blocker:**.`);
+  }
+  if (status[1] !== "Trigger-deferred" && trigger) {
+    throw new Error(`${file}: only a Trigger-deferred plan may declare **Trigger:**.`);
+  }
+  if (status[1] !== "Blocked" && blocker) {
+    throw new Error(`${file}: only a Blocked plan may declare **Blocker:**.`);
+  }
+  return { status: status[1], updated: updated[1], trigger, file };
+}
+
+/** Loads every current plan and rejects files without executable lifecycle metadata. */
+export async function loadPlans(root = ROOT) {
+  const directory = path.join(root, "docs", "05_plans");
+  const files = (await readdir(directory)).filter((file) => file.endsWith(".md"));
+  return Promise.all(
+    files.map(async (file) =>
+      parsePlanMetadata(await readFile(path.join(directory, file), "utf8"), file),
+    ),
+  );
+}
+
+/** Validates durable decision identifiers and open-versus-resolved routing fields. */
+export function validateDecisionRouting(decisions) {
+  const errors = [];
+  const routed = new Set();
+  const normativeAdrs = new Set();
+  for (const [index, entry] of decisions.entries()) {
+    if (entry.id !== `D${index + 1}`) {
+      errors.push(
+        `Decision routing must be contiguous; expected D${index + 1}, found ${entry.id}.`,
+      );
+    }
+    if (routed.has(entry.id)) errors.push(`${entry.id} appears more than once in decisions.json.`);
+    routed.add(entry.id);
+    if (entry.adr !== null) {
+      if ("next" in entry) {
+        errors.push(`${entry.id} is resolved and must remove its open-stub next step.`);
+      }
+      if (normativeAdrs.has(entry.adr)) {
+        errors.push(`ADR ${entry.adr} is routed from more than one durable decision.`);
+      }
+      normativeAdrs.add(entry.adr);
+    } else if (typeof entry.next !== "string" || entry.next.trim() === "") {
+      errors.push(`${entry.id} is open and must declare a non-empty next step.`);
+    }
+  }
+  return errors;
 }
 
 /** Loads every numbered ADR and rejects duplicate ADR numbers. */
@@ -106,21 +180,20 @@ export async function checkArchitectureDocs(root = ROOT) {
   const decisionMap = JSON.parse(await readFile(path.join(root, "docs", "decisions.json"), "utf8"));
   const adrs = await loadAdrs(root);
   const errors = [];
-  const routed = new Set();
-  const normativeAdrs = new Set();
-  for (const [index, entry] of decisionMap.decisions.entries()) {
-    if (entry.id !== `D${index + 1}`) {
-      errors.push(
-        `Decision routing must be contiguous; expected D${index + 1}, found ${entry.id}.`,
-      );
-    }
-    if (routed.has(entry.id)) errors.push(`${entry.id} appears more than once in decisions.json.`);
-    routed.add(entry.id);
-    if (entry.adr !== null) {
-      if (normativeAdrs.has(entry.adr)) {
-        errors.push(`ADR ${entry.adr} is routed from more than one durable decision.`);
+  try {
+    await loadPlans(root);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
+  errors.push(...validateDecisionRouting(decisionMap.decisions));
+  for (const adr of adrs.values()) {
+    if (adr.state === "Superseded") {
+      const replacement = adrs.get(adr.supersededBy);
+      if (!replacement) {
+        errors.push(`${adr.file} points to missing replacement ADR ${adr.supersededBy}.`);
+      } else if (replacement.number === adr.number) {
+        errors.push(`${adr.file} cannot supersede itself.`);
       }
-      normativeAdrs.add(entry.adr);
     }
   }
   for (const rule of decisionMap.mechanicalRules) {

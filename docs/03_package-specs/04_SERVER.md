@@ -1,6 +1,6 @@
 # 04 — `@fleet/server`
 
-- **Status:** partially implemented — framework-independent pieces only; no listener yet
+- **Status:** runnable live telemetry authority; history read and slow-client policy remain
 - **Package:** `packages/server`
 - **Governing documents:** ADR 2 (HTTP ingest, WS fan-out), ADR 3 (freshness is derived
   here), ADR 6 (bounded in-memory history, no database), ADR 8 (Hono + `ws`), ADR 9
@@ -77,10 +77,10 @@ src/
   index.ts
 ```
 
-`ingest/` and `http/` hold transport _rules_ and no transport. Each is a pure function over
-a route segment, a header or a byte count, decided before anything reads a body, so the
-ordering guarantees are properties of the signatures rather than rules a handler has to
-remember (ADR 8 § Observed consequences).
+`ingest/` keeps decoding and state-transition rules independently testable; `http/` mounts
+those rules on the Hono listener and the `/ws` upgrade. Preconditions such as vendor and
+body-size validation are decided before anything reads a body, so the ordering guarantees
+remain properties of the signatures rather than handler convention (ADR 8).
 
 Planned and not yet present: the history read for the sparkline.
 
@@ -89,7 +89,7 @@ Planned and not yet present: the history read for the sparkline.
 **Consumed:** the canonical envelope and `deriveFreshness` from `@fleet/contracts`; the
 adapter result union, vendor narrowing and unknown-field ledger from `@fleet/adapters`.
 
-**Owned — the HTTP and WebSocket surface** (planned, per ADR 2 and the package TODO):
+**Owned — the implemented HTTP and WebSocket surface** (ADR 2):
 
 | Endpoint                      | Purpose                                                                                             |
 | ----------------------------- | --------------------------------------------------------------------------------------------------- |
@@ -199,12 +199,10 @@ per-machine runtime values decoded by `loadRuntimeEndpoints()`, the package's on
 `process.env` read. Invalid present values stop startup with every offending key named;
 absent values use the fail-closed defaults `127.0.0.1`, `8080` and no allowed origins.
 
-The D13 implication is that the future composition root must load these values before
-starting background work and must not catch `ConfigValidationError` and continue.
-`FLEET_ALLOWED_ORIGINS` is currently validated but unenforced until ADR 8's CORS
-middleware exists. The decision's falsifier is a production deployment that serves the
-console from a different origin than the API: that deployment turns CORS from a non-issue
-into a required, tested path rather than an assumption inherited from the dev proxy.
+The composition root loads these values before starting background work and does not catch
+`ConfigValidationError` and continue. `FLEET_ALLOWED_ORIGINS` is enforced by the mounted
+origin policy. A production deployment serving console and API from different origins must
+configure and test that path rather than inherit an assumption from the dev proxy.
 
 **Receipt time** is stamped from the injected clock at the ingest boundary, before
 dispatch, and passed explicitly into the adapter. It is never substituted with the

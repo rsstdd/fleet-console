@@ -28,8 +28,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Generated decision routing, normative ADR metadata, stale resolved-decision
-      # language, historical/planning markers, and enforcement-file ADR citations.
+      # Generated decision routing, ADR supersession, executable plan lifecycle metadata,
+      # stale resolved-decision language, authority markers, and enforcement-file citations.
       - name: Architecture documentation is internally consistent
         run: pnpm check:architecture-docs
 

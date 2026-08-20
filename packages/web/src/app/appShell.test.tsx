@@ -99,9 +99,9 @@ describe("AppShell", () => {
   });
 
   it("publishes disconnected, not connected, when nothing supplies a state", () => {
-    // No transport client exists yet, so this is the state the console actually runs
-    // in today. An optimistic default would make every row assert a currency nothing
-    // is delivering, which is the defect ADR 23 replaced.
+    // Missing composition must still fail closed even though the production router now
+    // supplies a real transport state. An optimistic default would make every row assert
+    // a currency nothing is delivering, which is the defect ADR 23 replaced.
     renderShellWithoutState(<ConnectionProbe />);
 
     expect(screen.getByText("child sees: disconnected")).toBeInTheDocument();

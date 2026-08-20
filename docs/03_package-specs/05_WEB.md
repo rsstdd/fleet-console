@@ -1,6 +1,6 @@
 # 05 — `web`
 
-- **Status:** substantially implemented — fixture-backed; live transport not yet wired
+- **Status:** substantially implemented — live decoded transport; automatic recovery remains
 - **Package:** `packages/web`
 - **Governing documents:** ADR 1 (capability-driven rendering), ADR 3 (freshness is
   displayed, never derived), ADR 4 (feature-sliced structure), ADR 5 (MUI with tokens
@@ -46,8 +46,8 @@ import and the illegal production import have enforcement fixtures under
 ADR 12 ratifies this test-only dependency, and ADR 11 supplies its public
 `@fleet/adapters/testing` fixture surface. The subpath loads under jsdom and is covered by
 both a production-import rejection fixture and a legal test-import fixture. The joining
-test itself still waits on a vendor adapter and dispatch registry, so both ADRs remain
-Partial despite their packaging and enforcement being implemented.
+test exercises all three vendor adapters through the public dispatch and fixture surfaces;
+ADR 11 and ADR 12 are implemented.
 
 ## 3. Public API
 
@@ -275,7 +275,7 @@ The rules that matter most:
 | First-load bundle          | JS + CSS stay within 720 kB raw and 300 kB gzip (`pnpm check:bundle`)    |
 | Large lists                | Fleet table usable at several hundred robots                             |
 
-163 tests across 19 files. No snapshot tests — a snapshot asserts output did not change,
+265 tests across 29 files. No snapshot tests — a snapshot asserts output did not change,
 which is not the same as asserting it is correct.
 
 ADR 22 deliberately does not turn adapter coverage into a gate. CI reports it so a human
@@ -292,23 +292,23 @@ robot detail with capability panels and the persona toggle; all eight `shared/ui
 primitives with their specs; the robot and site entity layers with selectors and hooks; the
 full token layer; the boundary enforcement fixtures; and a development component gallery.
 
-**Not yet wired to live data.** `useFleetRobots` is backed by `buildFixtureRobots()`,
-because `@fleet/server` has no listener to fetch from or socket to subscribe to. The
-transport client in `shared/lib` and the WebSocket subscription are the remaining work, and
-they are blocked on the same critical path as everything else.
+**Wired to live data.** `useFleetRobots` subscribes to the decoded fleet store populated by
+the app-owned socket-first, snapshot-second transport. Robot detail fetches and decodes the
+single-robot and health endpoints. The running path has been observed rendering freshness
+transitions and suppressing row labels on stream loss; committed browser automation remains
+open decision D23.
 
-Consequently the load-bearing freshness demonstration — a row transitioning
-`live → stale → unreachable` from server deltas while unaffected rows stay `live` — cannot
-be run end to end yet. The selectors that render it are tested; the wire that drives it is
-not built.
+The transport connects on demand and exposes a manual retry, but it does not schedule
+automatic recovery. Retry policy and server-restart sequence reconciliation remain open
+decision D22.
 
 Virtualization of the fleet table is **deferred by decision**
 ([ADR 24](../00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md), register D14).
 The table renders one row per robot and is asserted correct at 500 rows in
 `features/fleet/fleetScale.test.tsx` — 500 rows, 500 activation links, fleet-wide counts, and a
 filter that still narrows to one. What is not claimed is a ceiling: the workload that decides
-whether windowing helps is delta churn at 500 robots, not a static render, and it cannot be
-measured until the server fans out. Nothing here should be read as an assumption that the table
+whether windowing helps is delta churn at 500 robots, not a static render, and has not yet been
+captured by committed browser automation. Nothing here should be read as an assumption that the table
 is windowed; a test fails if it becomes so without revisiting that ADR.
 
 The joining test in `entities/robot/fromEnvelope.test.ts` now makes the test-only

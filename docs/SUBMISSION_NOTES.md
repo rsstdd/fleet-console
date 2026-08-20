@@ -2,13 +2,14 @@
 
 **Authority:** None. Nothing here decides anything; the ADRs do.
 
-**Coverage: ADRs 1–6 only, of twenty-nine.** ADRs 7 and 9 are toolchain mechanics and carry
-no evaluation angle. **ADR 8 does** — it is the server transport, still `Not started`, and the
-one uncovered decision where the gap between what is recorded and what runs is the thing an
-evaluator would ask about. ADRs 10–29 were written after this file and have not been given
+**Coverage: ADRs 1–6 only, of thirty.** ADRs 7 and 9 are toolchain mechanics and carry
+no evaluation angle. ADR 8 now has a running listener, ingest/read routes, and WebSocket
+fan-out; its remaining partial status is about deferred transport policy and measurement,
+not a missing process. ADRs 10–30 were written after this file and have not been given
 entries; each already states its own falsifier and observed consequences, which is most of
 what these notes were doing by hand. Read the absence of a section here as "not yet written",
-never as "nothing to say about that decision".
+never as "nothing to say about that decision". The current project status belongs in the
+root README and TODO, not in these deliberately narrow evaluator notes.
 
 The ADRs under `docs/00_adr/` are engineering records. They are written for whoever maintains this code, and they should read that way whether or not an evaluation is attached to them.
 
