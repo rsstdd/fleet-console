@@ -46,11 +46,9 @@ export {
  * the constructor would hand it a second counting scope with nothing to attach it
  * to (ADR 1, ADR 15).
  */
-export {
-  type UnknownFieldScope,
-  type UnknownFieldSnapshot,
-  type UnknownFieldTally,
-} from "./core/unknownFields.ts";
+export { type UnknownFieldSnapshot } from "./core/unknownFields.ts";
+
+export type { UnknownFieldScope, UnknownFieldTally } from "@fleet/contracts";
 
 export { isSupportedVendor, SUPPORTED_VENDORS, type SupportedVendor } from "./core/vendor.ts";
 

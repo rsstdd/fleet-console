@@ -78,12 +78,29 @@ describe("vendor C adapter", () => {
   it("produces output the contract itself accepts", () => {
     for (const name of ["representative", "boundary-empty", "boundary-full"] as const) {
       const envelope = decoded(name);
-      // Capabilities encoded first: `parseAdapterEnvelope` validates the wire form
-      // while `AdapterEnvelope` is the runtime form (see vendor A's test, TODO FIXME).
       const wire = { ...envelope, capabilities: encodeCapabilities(envelope.capabilities) };
 
       expect(parseAdapterEnvelope(wire).ok).toBe(true);
     }
+  });
+
+  it("never emits freshness, which is the server's alone", () => {
+    // ADR 10: the type forbids it and the strict schema would reject it, but a
+    // missing key is the property a reader of this test needs stated. Vendors A and
+    // B carried this assertion and vendor C did not, which made ADR 10's required
+    // adapter evidence two-thirds present — and an absence is exactly the kind of
+    // gap that reads as deliberate until someone counts.
+    expect(decoded("representative")).not.toHaveProperty("freshness");
+  });
+
+  it("reports connectivity as unknown, because the dialect carries no link state", () => {
+    // Not an omission: `connectivitySchema` says a vendor reporting no link state
+    // maps to `unknown` rather than an optimistic `online`, and ADR 30 makes that
+    // the answer for all three dialects permanently as things stand. Asserted on its
+    // own here, not only inside the exact-output literal above, because ADR 30's
+    // claim is that this "reads as a decision" — a value buried in a twelve-field
+    // object does not.
+    expect(decoded("boundary-full").core.connectivity).toBe("unknown");
   });
 
   it("declares no lidarHealth, by key absence rather than a null payload", () => {

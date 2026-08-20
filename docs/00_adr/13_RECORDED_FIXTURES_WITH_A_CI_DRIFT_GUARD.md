@@ -73,7 +73,9 @@ The cost is a recorder to maintain, one CI step, and a formatting pin. All three
 
 - **Does the guard survive contact with a real dialect change?** It has been exercised synthetically — renaming a vendor B wire field produces the expected one-line diff — but not yet by an actual dialect edit in a pull request.
 - **What replaces the diff if the simulator stops being deterministic at a pinned seed?** That is the falsifier this decision rests on. If evolution or generation ever takes an ambient input, the diff becomes noise and the guard has to be replaced with a schema-shaped check that asserts the fixture's _shape_ against the dialect rather than its bytes. The lint bans in `packages/simulator/eslint.config.js` are what currently make that unlikely.
-- **Where do malformed fixtures live?** Named above as outside the guard, but the directory convention is not settled and does not need to be until **C1** lands.
+- ~~**Where do malformed fixtures live?**~~ **Closed 20 August 2026:** under each vendor's
+  `__malformed__/` directory, hand-authored and loaded through `loadMalformedPayload` rather
+  than the generated fixture registry. They remain inside ADR 27's reviewable diff.
 
 ## Observed consequences
 

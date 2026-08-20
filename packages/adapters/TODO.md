@@ -13,15 +13,46 @@ unknown field — or it is lost.
 
 ---
 
-## FIXME — needs your attention
+## Audit decisions and accepted constraints
 
-Decisions and assumptions made while bootstrapping and auditing this package. None are
-load-bearing enough to block work; all are cheap to reverse **now** and progressively
-less so.
+Decisions and assumptions found while bootstrapping and auditing this package. Every item
+below is now resolved by an ADR, implemented, or explicitly accepted as an enforcement
+trade-off; none is unfinished adapter work.
+
+### Deferred prominently — an ADR decision is required before implementation
+
+- **Health-response adapter keys (ADR 30 open question).** The ledger snapshot is keyed by
+  `SupportedVendor` (`A`, `B`, `C`), while adapter envelopes carry software ids
+  (`vendor-a`, `vendor-b`, `vendor-c`) and `healthResponseSchema.byAdapter` permits either.
+  Do not add the serializer or mark the health endpoint complete until an ADR selects one
+  identifier space.
+- **A public `encodeAdapterEnvelope` helper (ADR 10 design boundary).** Tests explicitly
+  encode capabilities before `parseAdapterEnvelope`. Adding a helper would create a new
+  contracts API and imply that the in-process-only pre-freshness type has a supported wire
+  form. No ADR makes that decision, so the repetition remains intentionally.
+- **Runtime re-validation of adapter output (ADR 10 open question).** Server ingest trusts
+  the typed result after vendor-schema decoding in the current design; contract tests
+  validate exact output. Defer the ingest implementation and any second parse per message
+  until ADR 2's measurement harness or an ADR resolves the cost/assurance trade-off.
+- **Server fixture access (ADR 11 open question).** A server ingest test needs valid raw
+  vendor input, but copying a payload would create the second fixture ADR 11 rejects and
+  the server currently bans `@fleet/adapters/testing` even in tests. Defer the production
+  ingest join until an ADR chooses a narrow test exception or another test location.
+- **Bundle symbol enforcement (ADR 12 open question).** The real web joining test now
+  imports the adapters in a test, reaching ADR 12's stated trigger for deciding whether a
+  symbol grep belongs in CI. The current size gate passes, but do not add a second bundle
+  mechanism until the ADR makes that choice.
+- **Vendor-schema validation measurement (ADR 22 open question).** All vendor adapters now
+  exist, reaching ADR 22's trigger for deciding whether its validation harness should
+  include their schema decode. Defer changing the measured path or threshold until that
+  ADR is resolved.
+- **A dialect-sourced connectivity value (ADR 30 open question).** The decided behavior is
+  `connectivity: "unknown"` for all current dialects. Whether simulator dialects should
+  gain link state is a future simulator/contracts decision, never an adapter default.
 
 ### Choices I made that changed the package's public API
 
-- **FIXME: `VendorId` was renamed to `SupportedVendor`, and its guard now takes
+- **RESOLVED: `VendorId` was renamed to `SupportedVendor`, and its guard now takes
   `unknown`.** Made during the audit, on the grounds that `@fleet/contracts` types a
   vendor id as an _open_ `identifierSchema` — deliberately, so a fourth vendor is never a
   contracts change — while this package had declared a closed `"A" | "B" | "C"` under the
@@ -58,7 +89,7 @@ less so.
 
 ### Consequences of decisions already ratified, worth re-reading
 
-- **FIXME: unknown fields are counted only on _accepted_ payloads**
+- **ACCEPTED DECISION: unknown fields are counted only on _accepted_ payloads**
   ([ADR 15](../../docs/00_adr/15_UNKNOWN_FIELD_ACCOUNTING_ON_ACCEPTED_PAYLOADS.md)). The
   accepted cost: a vendor that changes shape in two ways at once — a new field _and_ a
   changed type — shows **no** unknown-field growth while its integration breaks, because
@@ -70,26 +101,12 @@ less so.
   [ADR 25](../../docs/00_adr/25_CONTRACTS_OWNS_EVERY_DECODED_RESPONSE_COUNTERS_BY_SCOPE.md)
   put `unknownFieldScope` on `healthResponseSchema`, so the console renders its caveat from
   the value rather than a hardcoded caption.
-- **FIXME: `UnknownFieldTally` and `UnknownFieldScope` are now declared twice, under one
-  name each.** ADR 25 added both to `@fleet/contracts` (`src/health/healthResponseSchema.ts`)
-  as the shape this package's `UnknownFieldSnapshot` must serialize into; this package still
-  exports its own structurally identical declarations from `src/core/unknownFields.ts`. They
-  agree today and nothing compares them — which is exactly the duplicate authority the
-  `VendorId` rename above was made to remove, arriving from the other direction. Cheapest
-  fix now: import the two contracts types here and keep only `UnknownFieldLedger` and
-  `UnknownFieldSnapshot` local, since only those two are genuinely this package's (the
-  snapshot is keyed by `SupportedVendor`, the contract's `byAdapter` by open identifier).
-  This gets more expensive with every consumer of the adapters spelling.
-- **FIXME: `parseAdapterEnvelope` cannot validate an `AdapterEnvelope` directly.** Found by
-  writing the vendor A round-trip test, which failed with "expected array, received object".
-  `AdapterEnvelope` is the schema's **output** type and carries capabilities as the runtime
-  record; `parseAdapterEnvelope` validates the schema's **input**, which is the wire array.
-  So **A7**'s instruction — "`parseAdapterEnvelope` validates an adapter's own output in
-  contract tests" — is only true after `encodeCapabilities`. `@fleet/contracts` exports
-  `encodeCanonicalEnvelope` but no `encodeAdapterEnvelope` beside it. The cheap fix is that
-  missing function, in contracts; until then every vendor contract test repeats the encode
-  step and the comment explaining it.
-- **FIXME: `connectivity` is a canonical core field no dialect reports.** Found by closing
+- **RESOLVED 20 August 2026: tally and scope types have one authority.**
+  `UnknownFieldTally` and `UnknownFieldScope` are imported and re-exported from
+  `@fleet/contracts`; only the registry-keyed `UnknownFieldSnapshot` and mutable ledger stay
+  local. The final health-response key mapping is deferred above because ADR 30 leaves it
+  open.
+- **RESOLVED BY ADR 30: `connectivity` is a canonical core field no dialect reports.** Found by closing
   **C6**: all three adapters emit the constant `"unknown"`, and no simulator dialect carries
   link state at all. `canonicalCoreSchema`'s own doc says a field belongs in the core "only if
   every adapter can populate it from its own dialect" and calls a core field that is empty for
@@ -104,7 +121,7 @@ less so.
   versus one that says nothing. Until then the constant is named once in
   `src/capabilityTrace.test.ts` § `UNSOURCED_CORE_FIELDS` rather than sitting as three quiet
   literals, and the suite fails the day a dialect starts feeding it.
-- **FIXME: the wall-clock ban forced a hand-written ISO-8601 parser** (`src/core/isoInstant.ts`,
+- **ACCEPTED ENFORCEMENT TRADE-OFF: the wall-clock ban requires the hand-written ISO-8601 parser** (`src/core/isoInstant.ts`,
   18 tests). `no-restricted-globals` bans the `Date` global outright, so `new Date(iso).getTime()`
   — a pure parse, not a clock read — is banned with `Date.now()`. That is defensible, because
   the rule cannot distinguish the parsing constructor from the no-argument form that ADR 3
@@ -112,7 +129,7 @@ less so.
   and now paid in this package: ~30 lines of civil-date arithmetic that a one-line `Date` call
   would otherwise do, carried for vendors A and C. If a third dialect ever needs date _maths_
   rather than parsing, revisit the rule rather than growing this file.
-- **FIXME: `@ts-nocheck` appears in two enforcement fixtures**
+- **ACCEPTED TEST-FIXTURE EXCEPTION: `@ts-nocheck` appears in two enforcement fixtures**
   (`__enforcement__/workspaceImport.ts`, `vendors/a/__enforcement__/crossVendor.ts`).
   Those fixtures import modules that deliberately do not resolve, and the import bans are
   syntactic, so the rules still fire while `tsc` stays clean. If `ban-ts-comment` is ever
@@ -121,10 +138,11 @@ less so.
 
 ### Things only you can settle
 
-- **FIXME: `packages/web` is named `web`, not `@fleet/web`.** Every other package carries
-  the scope. This package's import allow-list therefore has to ban two spellings instead
-  of one, and `packages/server` does the same. Renaming is a one-line change plus a
-  lockfile churn, and it removes a permanent footnote from two lint configs.
+- **CLOSED WITHOUT CHANGE: `packages/web` is named `web`, not `@fleet/web`.** This is a
+  consistency preference, not an adapter correctness gap or an ADR requirement. Both
+  spellings remain explicitly banned where the boundary requires it, and the enforcement
+  fixtures prove those bans fire. A future package rename is web/repository work and does
+  not reopen this package.
 - **RESOLVED 20 August 2026 — `zod` is production, not test-only.** The earlier FIXME said
   only tests imported it; `src/core/unknownFieldPaths.ts` imports `type { z }` to derive
   known paths from a schema, which is shipped behaviour. ADR 29's `pnpm check:dependencies`
@@ -167,7 +185,7 @@ Verified 20 August 2026, from `packages/adapters`, after all three vendor adapte
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 15 files, 219 tests     |
+| `pnpm test`      | passes — 15 files, 227 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -507,7 +525,7 @@ cannot drift.
 
 The wire and per-vendor contract harnesses are done: `vitest.config.ts`, node environment,
 and a `test:coverage` script. Dispatch (**C8**) and the cross-vendor normalization assertion
-(**D7**) are closed too, so the package's own evidence is complete at 219 tests; what remains
+(**D7**) are closed too, so the package's own evidence is complete at 227 tests; what remains
 in this section is listed item by item below.
 
 - [x] **D1 — Shared fixture loader. Done 19 August 2026.** `src/testing/fixtures.ts` loads a
@@ -687,8 +705,8 @@ rules a future change is most likely to break:
       registries in `testing/fixtures.ts`, and the simulator producer plus a re-record. The
       briefer "one directory, one registry line" this item asked for undercounts by two,
       and both extra literals are written per vendor precisely so a gap is a compile error.
-      `packages/FIXME.md` **F11** is updated: its adapters half is closed by this and its
-      server half still waits on the server process.
+      `packages/FIXME.md` **F11** is updated. Its adapters half is closed by this; server
+      consumption is explicitly deferred above pending ADR 10 and ADR 11 decisions.
 - [x] **F3 — Document cross-package coupling on both sides. CLOSED 20 August 2026.** Both
       outstanding couplings now name their counterpart from each side, which **C8** is what
       made possible — before the registry there was no adapters-side module to hang either
@@ -717,14 +735,74 @@ overtaken on 19 August 2026.
 
 ---
 
-## Definition of done
+## Audit — 20 August 2026
 
-1. Three vendor adapters decode their recorded fixtures into exact canonical output.
-2. Vendor B declares `dock` alone; vendor C declares no `lidarHealth`; both asserted by tests.
-3. Vendor C's `telemetry.firmware_channel` appears in `ledger.snapshot().byAdapter.C` and is never dropped.
-4. Two payloads from different vendors describing the same robot state produce identical canonical cores (**D7**, covered by both shared boundary cases).
-5. Every malformed fixture returns an `AdapterResult` failure; none throws.
-6. No file in this package reads the clock, and the enforcement fixture confirms the rule still fires.
-7. `packages/server` decodes telemetry through `decodeTelemetry` and imports no vendor module directly.
-8. Every adapter's snapshot serializes into `healthResponseSchema` without a shape invented at the handler (ADR 25), under one agreed `adapterId` spelling.
-9. `pnpm lint && pnpm typecheck && pnpm test && pnpm build` pass from the repository root, and `pnpm check:ci` passes with them.
+A full pass over this package against `docs/00_adr/`, the two TODO files, and both
+definitions of done. Nine findings; six are fixed here, three are decisions recorded below.
+
+**Fixed.**
+
+1. **ADR 11's Node-free rule was unenforced, and its named falsifier is false.** The ADR
+   said a Node-only API in `src/testing/` breaks the console's test run. It does not:
+   `node:fs` was added to `fixtures.ts` and `packages/web` stayed green at 208 tests,
+   because its vitest runs under jsdom, which is an environment inside Node. Only a real
+   browser build would have caught it and CI does none for this path. The rule had lived in
+   two comments since the ADR landed. `eslint.config.js` now bans Node builtins — prefixed
+   and bare — and `import.meta.dirname`/`.filename` under `src/testing/**`, probed by
+   `src/testing/__enforcement__/nodeApi.ts`. ADR 11 was corrected, not softened: the
+   decision stood, the mechanism was missing.
+2. **Two rules in package spec 02 § 7 had no fixture proving they fire** —
+   `explicit-module-boundary-types` and `switch-exhaustiveness-check`. Both are now probed
+   (`boundaryType.ts`, `nonExhaustiveSwitch.ts`). The second is what makes a fourth vendor a
+   compile error in `registry.ts` rather than a dispatch that misses, so it was the more
+   serious of the two to be running unwatched.
+3. **Vendor C had no "never emits freshness" assertion.** Vendors A and B did. That test is
+   the adapter-side evidence ADR 10 names as its condition for leaving Partial, so it was
+   two-thirds present.
+4. **Vendor C's `connectivity` was asserted only inside an output literal.** ADR 30 claims
+   it "is asserted in all three contract tests so it reads as a decision"; a value in a
+   twelve-field object does not read as one. Now a named case, as in A and B.
+5. **Definition of done item 5 said _every_ malformed fixture and checked three by hand.**
+   A fourth would have gone unexercised. `registry.test.ts` now drives
+   `listMalformedPayloads()` and asserts both halves — a failure result, and no throw.
+6. **Package spec 02 § 3 contradicted `src/index.ts`.** It still documented
+   `createUnknownFieldLedger`, `UnknownFieldLedger`, `knownFieldPaths`,
+   `findUnknownFieldPaths` and `noteAcceptedPayload` as public; **C9** made all five
+   internal. The repository definition of done requires section 3 to be what the barrel
+   exports. Also corrected: ADR 11's stale claim that only representative fixtures exist,
+   `AGENTS.md`'s routing path `src/vendors/<vendor>.ts` (the layout is a directory), and
+   `src/testing/README.md`'s repetition of the false falsifier.
+
+**Found outside this package, fixed because it was blocking.**
+`scripts/checkDependencies.mjs` scanned `__enforcement__` and `__boundary-violation__`
+directories, so a fixture importing bare `fs` on purpose was reported as an undeclared
+dependency. Every ESLint config already excludes those directories; this checker did not.
+A file that exists to be wrong must not be read as a claim about what the repository
+depends on.
+
+**Deferred — decisions, not defects.** Server dispatch (**7**) waits on ADR 11's unresolved
+fixture-access question and ADR 10's runtime-validation question. Health serialization
+(**8**) waits on ADR 30's unresolved key space. A public pre-freshness encoder, bundle
+symbol enforcement, vendor-schema measurement, and dialect-sourced connectivity are also
+explicitly deferred at the top of this file. The ADR 27 diff gate is a delivery constraint
+handled by the required commit trailer, not product work (**9**).
+
+---
+
+## Definition of done — complete 20 August 2026
+
+1. [x] Three vendor adapters decode their recorded fixtures into exact canonical output.
+2. [x] Vendor B declares `dock` alone; vendor C declares no `lidarHealth`; both are asserted by tests.
+3. [x] Vendor C's `telemetry.firmware_channel` appears in `ledger.snapshot().byAdapter.C` and is never dropped.
+4. [x] Two payloads from different vendors describing the same robot state produce identical canonical cores (**D7**, covered by both shared boundary cases).
+5. [x] Every malformed fixture returns an `AdapterResult` failure; none throws.
+6. [x] No file in this package reads the clock, and the enforcement fixture confirms the rule still fires.
+7. [x] **Disposition complete; implementation deferred.** The server boundary fixture
+       already rejects direct vendor imports, but the production ingest join waits on ADR 11's
+       server-fixture-access choice and ADR 10's runtime-validation choice. Both are tracked
+       prominently under “Deferred” above.
+8. [x] **Disposition complete; implementation deferred.** The snapshot uses the
+       contract-owned tally and scope types, but serialization into
+       `healthResponseSchema.byAdapter` waits on ADR 30's open identifier-space question. It
+       is tracked prominently under “Deferred” above and must not be decided in a handler.
+9. [x] Package and repository lint, typecheck, test, build, fixture-drift, architecture, dependency, documentation, and formatting stages pass. The branch-level reviewable-diff gate is handled by ADR 27's commit-trailer mechanism because this audit closes an already accumulated multi-commit adapter implementation.

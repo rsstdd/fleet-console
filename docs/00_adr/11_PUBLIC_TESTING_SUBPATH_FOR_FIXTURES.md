@@ -1,7 +1,7 @@
 # ADR 11 — Recorded Vendor Fixtures Are Public Through a Test-Only `./testing` Subpath
 
 **Decision:** `packages/adapters` exposes its recorded vendor payloads through a second public export, `@fleet/adapters/testing`, which carries no production behaviour and which every consuming package bans in production code.
-**Status:** Decided · 2026-08-19 · Partial
+**Status:** Decided · 2026-08-19 · Implemented 2026-08-20
 **Group:** Data / integration (the packaging half of ADR 1's fixture evidence).
 
 ## Issue
@@ -21,7 +21,7 @@ The register recorded the question as **D2**. It had to be answered before fixtu
 
 ## Constraints
 
-- No Node-only APIs on this surface. `packages/web` runs its tests under jsdom through Vite; a `node:fs` read in the fixture loader would put a Node-only module on a path a browser-targeted package imports. This is the constraint that shapes the implementation, and adapters `TODO_E2E_JOIN.md` **A-2** named it as the falsifier before anything was written.
+- No Node-only APIs on this surface. `packages/web` runs its tests under jsdom through Vite; a `node:fs` read in the fixture loader would put a Node-only module on a path a browser-targeted package imports. This is the constraint that shapes the implementation, and adapters `TODO_E2E_JOIN.md` **A-2** named it as the falsifier before anything was written. **Corrected 20 August 2026: that falsifier does not fire, and the constraint is now enforced instead.** Adding `node:fs` to `src/testing/fixtures.ts` leaves `packages/web` green at 208 tests, because jsdom is an environment inside Node and the import resolves there — only a real browser build would break. The rule had lived in two comments and nothing else for a day. `packages/adapters/eslint.config.js` now bans Node builtins and `import.meta.dirname`/`.filename` under `src/testing/**`, and `src/testing/__enforcement__/nodeApi.ts` is the fixture proving it fires (Principle 15, ADR 7).
 - The production bundle must not grow. `packages/web` already proves adapters do not reach browser output (**W-2**); a public subpath must not quietly change that.
 - Deep imports stay blocked. Adding one public way in is only an improvement if the other ways stay shut.
 - Adapters must not depend on the simulator, in production or in tests (ADR 1, **A-3**). Whatever the fixtures are recorded from, the dependency arrow does not reverse.
@@ -71,19 +71,23 @@ The cost is one more public entry point on a package that had one, plus the `res
   that followed D4's current package position but did not close it because no drift guard
   existed. ADR 13 subsequently closed D4 by adding the deterministic recorder and CI
   re-record-and-diff check. The provenance claim is now enforced rather than procedural.
-- **One representative payload per vendor exists; the malformed and boundary cases do not.** `VendorFixtureName` has a single member and the registry's inner record is `Partial` for that reason — a fixture name is not guaranteed for every vendor, and never will be, since only vendor C has an undocumented field to record. Adapters `TODO.md` **C1** owns the rest.
+- **One representative payload per vendor exists; the malformed and boundary cases do not.** `VendorFixtureName` has a single member and the registry's inner record is `Partial` for that reason — a fixture name is not guaranteed for every vendor, and never will be, since only vendor C has an undocumented field to record. Adapters `TODO.md` **C1** owns the rest. _(Overtaken 20 August 2026: **C1** is closed. `VendorFixtureName` now has three members — `representative`, `boundary-empty`, `boundary-full` — recorded for all three vendors, and hand-authored malformed payloads live under a separate accessor in `__malformed__/` because the recorder cannot produce them. The `Partial` inner record survives, and now for the malformed registry rather than the recorded one.)_
 - **The public surface is pinned by name in a test.** Adding an export to `./testing` now requires editing that list, which is the point: a test-only surface that grows quietly stops being small enough to reason about.
 - **Production output is unchanged, and that is measured rather than assumed.** `packages/web`'s bundle is byte-identical after this change — same content hash, `567.36 kB` raw and `175.03 kB` gzip — and no fixture bytes appear in it. Re-measure when the joining test actually calls an adapter, because that is a different import graph.
-- **The joining test is unblocked on this axis only.** It still needs a vendor adapter and the dispatch registry (**A-6**). This ADR removes the reason it could not be written, not every reason.
+- **The joining test now consumes this surface.** `packages/web/src/entities/robot/fromEnvelope.test.ts`
+  loads all three representative fixtures through `@fleet/adapters/testing` and dispatches
+  them through the real registry. The public subpath therefore has a live consumer and the
+  decision is fully implemented.
 
 ## Open questions
 
 - **Does `packages/server` need the fixtures, and if so through a test-file exception or by moving the ingest test elsewhere?**
   _Current lean:_ a test-file exception mirroring `packages/web`'s, since an ingest test belongs next to the ingest handler.
   _Resolves on:_ the first server ingest test (`packages/server` TODO **L4**).
-- **Does the loader survive contact with the malformed fixtures?**
-  _Current lean:_ yes — a malformed payload is still JSON, and `payload: unknown` already refuses to describe it. A fixture that is not valid JSON at all could not be a static import, and would force position 2 for that case.
-  _Resolves on:_ adapters **C1** recording the malformed cases.
+- ~~**Does the loader survive contact with the malformed fixtures?**~~
+  **Closed 20 August 2026:** yes, through a separate static registry.
+  `loadMalformedPayload` returns valid JSON typed `unknown`; malformed means invalid for a
+  vendor schema, not invalid JSON. Non-JSON input would require a different test surface.
 - **Should `FIXTURE_RECORDING` grow per-fixture provenance rather than one shared record?**
   _Current lean:_ not yet. One recording run produced every current fixture. A second run at a different instant would make the shared record a lie, and that is the trigger to move provenance onto `VendorFixture`.
   _Resolves on:_ the first fixture recorded at different inputs.
@@ -113,5 +117,6 @@ The cost is one more public entry point on a package that had one, plus the `res
 
 ## Notes
 
-- 19 August 2026: **the short version of the implications.** Fixtures are reachable from any package through `@fleet/adapters/testing` and nowhere else. Production code may not import it — and because an exact-name ban misses subpaths, every package that bans `@fleet/adapters` must ban `@fleet/adapters/*` as well. Nothing Node-only may enter that directory, or the console's test run breaks. At the time this ADR landed, fixture provenance was documented but unenforced. ADR 13 later added the recorder and CI drift guard and closed D4. This ADR's status stays Partial until the joining test this surface exists for actually runs.
+- 19 August 2026: **the short version of the implications.** Fixtures are reachable from any package through `@fleet/adapters/testing` and nowhere else. Production code may not import it — and because an exact-name ban misses subpaths, every package that bans `@fleet/adapters` must ban `@fleet/adapters/*` as well. Nothing Node-only may enter that directory. _(The clause that followed — "or the console's test run breaks" — was disproved on 20 August 2026 and is corrected under Constraints; a lint rule and its enforcement fixture now carry this.)_ At the time this ADR landed, fixture provenance was documented but unenforced. ADR 13 later added the recorder and CI drift guard and closed D4. The joining test landed on 20 August 2026 and moved this ADR to Implemented.
+- 20 August 2026: an audit of `packages/adapters` found this ADR's Node-free rule unenforced and its named falsifier false — `node:fs` in the fixture loader left `packages/web` green. The decision stands unchanged; what was missing was the mechanism. A `no-restricted-imports` block over `src/testing/**` and a `no-restricted-syntax` selector for `import.meta.dirname`/`.filename` now carry it, with `src/testing/__enforcement__/nodeApi.ts` proving all four vectors fire. The stale fixture-count claim under Implications was corrected in the same pass.
 - 19 August 2026: position 2 (plain JSON, no loader) is the fallback and requires no other change to this design. It becomes correct the moment the loader needs an environment-specific API, or a fixture needs to be invalid JSON.

@@ -62,13 +62,6 @@ describe("vendor A adapter", () => {
     // The adapter builds the envelope by hand, so nothing but this proves the
     // result is a legal `AdapterEnvelope` rather than merely well-typed (A7).
     //
-    // Capabilities are encoded first, and that step is load-bearing rather than
-    // ceremony: `AdapterEnvelope` is the schema's *output* type, carrying the
-    // runtime record, while `parseAdapterEnvelope` validates the schema's *input*,
-    // which is the wire array. Passing the envelope straight in fails with
-    // "expected array, received object" — a decode error about the validator's
-    // direction, not about the adapter. There is no `encodeAdapterEnvelope` in
-    // `@fleet/contracts` beside `encodeCanonicalEnvelope`; see TODO § FIXME.
     for (const name of ["representative", "boundary-empty", "boundary-full"] as const) {
       const envelope = decoded(name);
       const wire = { ...envelope, capabilities: encodeCapabilities(envelope.capabilities) };

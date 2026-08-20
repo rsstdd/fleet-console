@@ -4,9 +4,10 @@
 
 **Created:** 19 August 2026 · **Audited:** 20 August 2026
 **Owner:** the session implementing the end-to-end contract path (`packages/contracts/TODO.md` § 10, last item).
-**Status:** A-1 settled (ADR 10, and the signature is now stated in
+**Status:** Complete 20 August 2026. A-1 settled (ADR 10, and the signature is now stated in
 `docs/03_package-specs/02_ADAPTERS.md` § 1), A-2 done (ADR 11), A-3 done and enforced
-(ADR 13), A-4 verified, and A-5 settled (ADR 25). A-6 remains the sequencing constraint. `TODO.md` here plans the vendor work
+(ADR 13), A-4 verified, A-5 settled (ADR 25), and A-6 satisfied by the browser joining
+test. `TODO.md` here plans the vendor work
 as **B1–B4**, **C1–C9**, **D1–D8**; nothing below replaces those items — these are the
 additional constraints the _joining test_ puts on them, which that checklist does not
 cover because it was written before the client half existed.
@@ -54,14 +55,14 @@ uses. Three ways to get them, one acceptable:
   dialect drift the first time either side is edited, and the drift is silent
   because both tests still pass.
 
-**Falsified if:** the fixture loader turns out to need Node's filesystem, which
-would put a Node-only module on a path a browser-targeted package imports even in
-tests. Then the fixtures must be plain JSON imported directly, and the export map
-exposes the directory rather than a loader.
+**Environment constraint:** the fixture surface must remain free of Node-only APIs.
+The original falsifier said a Node API would break web's jsdom tests; the 20 August audit
+disproved that because jsdom runs inside Node. ADR 11 now records the correction, and the
+adapter lint configuration enforces the constraint with a deliberate fixture.
 
-**Landed, and the falsifier held.** The loader is static JSON imports with no
-Node API, and `packages/web/src/entities/robot/adapterFixtureAccess.test.ts`
-proves it loads under jsdom. One consequence worth carrying forward: the exact-name
+**Landed and mechanically enforced.** The loader uses static JSON imports with no Node
+API, while `packages/web/src/entities/robot/adapterFixtureAccess.test.ts` proves the public
+subpath resolves. One consequence worth carrying forward: the exact-name
 `no-restricted-imports` entry in `packages/web` did **not** cover the new subpath,
 so a `patterns` entry was added and asserted by a boundary fixture. Any future
 subpath on any workspace package inherits that gap.
@@ -134,8 +135,11 @@ on the health response rather than from a hardcoded caption, so "neither side ma
 precision" is carried in the data. What the joining test must still not do is sum this
 against `malformedIngest`.
 
-## A-6 — SEQUENCING: nothing on the web side can start until one vendor adapter and the registry exist
+## A-6 — SATISFIED: the registry and all three vendor adapters exist
 
 The joining test needs **C2** (or **C3**/**C4**), **C8** dispatch, **C9**/**A-2**
 exports, and **D1** fixtures. Phase order is: contracts **C-1** → any one vendor →
-the join. The join is then repeated per vendor at the cost of three lines each.
+the join. All three adapters and the registry now exist, and the browser joining test runs
+all three representative fixtures. The production server join is separately deferred in
+`TODO.md` because ADR 10 and ADR 11 still contain unresolved implementation choices; this
+sequencing constraint creates no remaining adapter work.

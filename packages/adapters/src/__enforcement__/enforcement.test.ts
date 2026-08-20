@@ -11,8 +11,11 @@ const FIXTURES = [
   "src/__enforcement__/wallClock.ts",
   "src/__enforcement__/unsafeAssertion.ts",
   "src/__enforcement__/workspaceImport.ts",
+  "src/__enforcement__/boundaryType.ts",
+  "src/__enforcement__/nonExhaustiveSwitch.ts",
   "src/__enforcement__/legal.ts",
   "src/vendors/a/__enforcement__/crossVendor.ts",
+  "src/testing/__enforcement__/nodeApi.ts",
 ];
 
 /**
@@ -118,6 +121,36 @@ describe("lint enforcement", () => {
     const ruleIds = ruleIdsFor("src/vendors/a/__enforcement__/crossVendor.ts");
 
     expect(ruleIds).toContain("no-restricted-imports");
+  });
+
+  it("rejects an export whose boundary type is inferred", () => {
+    // Listed in package spec 02 § 7 and proven by nothing until this fixture. An
+    // inferred boundary type is how a package's public shape changes without anyone
+    // editing a signature.
+    const ruleIds = ruleIdsFor("src/__enforcement__/boundaryType.ts");
+
+    expect(ruleIds).toContain("@typescript-eslint/explicit-module-boundary-types");
+  });
+
+  it("rejects a switch that does not cover its union (the registry's guarantee)", () => {
+    // This is what makes a fourth `SupportedVendor` a compile error in
+    // `src/registry.ts` rather than dispatch that silently misses (C8). The fixture
+    // uses a local union, so it keeps failing on the day a real vendor is added.
+    const ruleIds = ruleIdsFor("src/__enforcement__/nonExhaustiveSwitch.ts");
+
+    expect(ruleIds).toContain("@typescript-eslint/switch-exhaustiveness-check");
+  });
+
+  it("rejects a Node-only API in the browser-facing fixture subpath (ADR 11)", () => {
+    // ADR 11 named "the console's test run breaks" as this rule's falsifier. It does
+    // not: web's vitest runs in Node with jsdom, so `node:fs` resolves there and every
+    // test stays green. The rule was two comments and no mechanism; this is the
+    // mechanism. All four vectors are covered — prefixed and bare builtin imports,
+    // and `import.meta.dirname` / `.filename`, which are not imports at all.
+    const ruleIds = ruleIdsFor("src/testing/__enforcement__/nodeApi.ts");
+
+    expect(ruleIds).toContain("no-restricted-imports");
+    expect(ruleIds).toContain("no-restricted-syntax");
   });
 
   // Without this, an inert rule set passes every assertion above by reporting

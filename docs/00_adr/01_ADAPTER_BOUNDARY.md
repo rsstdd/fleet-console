@@ -1,7 +1,7 @@
 # ADR 1 — Adapter Boundary With a Canonical Core Plus Declared Capabilities
 
 **Decision:** Each vendor dialect is translated by its own adapter module into one canonical envelope with a normalized core and a separate record of declared capabilities.
-**Status:** Decided · 2026-08-19 · Not started
+**Status:** Decided · 2026-08-19 · Implemented 2026-08-20
 **Group:** Data / integration (the seam between untrusted vendor-specific wire formats and the typed internal domain).
 
 ## Issue
@@ -55,13 +55,20 @@ Keeping a separate declared-capability record rather than relying on TypeScript 
 
 ## Open questions
 
-- **Does the declared-capability-record approach earn its complexity once written, or do TypeScript's discriminated unions make the distinction less load-bearing in practice than argued?**
-  _Current lean:_ None. The argument holds on paper and has not met code.
-  _Resolves on:_ Code written for `packages/contracts` and `packages/adapters`.
+- ~~**Does the declared-capability-record approach earn its complexity once written, or do TypeScript's discriminated unions make the distinction less load-bearing in practice than argued?**~~
+  **Closed 20 August 2026: yes.** The capability trace and browser joining tests prove
+  that key presence preserves A/B/C's genuine differences without vendor branches
+  downstream; the explicit record earns its mapping cost.
 - ~~**Are `degraded` and `critical` sufficient health severities, or should `fault` status always imply `critical` health severity as a derived invariant rather than two independently-settable fields?**~~
   **Closed 19 August 2026: they stay independent, and no cross-field rule is added.** See Observed consequences.
 
 ## Observed consequences
+
+- **20 August 2026 — implemented across the full contract join.** All three recorded
+  dialects decode through one exhaustive registry, cross-vendor boundary fixtures produce
+  identical canonical cores, non-core fields trace to declared capabilities, and the web
+  joining test carries each representative payload through canonical wire encoding into
+  the browser read model. Unknown fields remain adapter-scoped and accepted-only per ADR 15.
 
 - **19 August 2026 — `packages/contracts` implemented; the field-level shapes this ADR left open are now decided.** The ADR settled the architecture and left the shapes to implementation. Recorded here rather than in a new ADR, because none of them changes a decision above.
   - **Vendor is an open identifier, not an enum.** `vendorId` validates as an identifier string. A `z.enum(["A","B","C"])` would have made "adding a fourth vendor never means editing the canonical envelope" false in the first file that implements it. `packages/web`'s local `Vendor` union stays closed because it is a read model for three known fixtures, not the contract.

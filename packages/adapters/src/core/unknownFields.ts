@@ -21,19 +21,10 @@
  * rename across the server's health endpoint and the console's diagnostics.
  */
 
+import type { UnknownFieldScope, UnknownFieldTally } from "@fleet/contracts";
+
 import { findUnknownFieldPaths } from "./unknownFieldPaths.ts";
 import { SUPPORTED_VENDORS, type SupportedVendor } from "./vendor.ts";
-
-/** What one adapter has seen and not recognized, by dotted field path. */
-export interface UnknownFieldTally {
-  /** Total unrecognized field occurrences observed by this adapter. */
-  readonly total: number;
-  /** Occurrence count per dotted field path, in first-seen order. */
-  readonly fields: Readonly<Record<string, number>>;
-}
-
-/** The population a tally covers. Only accepted payloads are counted today (ADR 15). */
-export type UnknownFieldScope = "accepted";
 
 /** The unknown-field counts for every vendor dialect, with the population they cover. */
 export interface UnknownFieldSnapshot {

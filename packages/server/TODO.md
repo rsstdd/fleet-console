@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 15 files, 97 tests      |
+| `pnpm test`      | passes — 15 files, 98 tests      |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -93,13 +93,14 @@ consequences records the repository already making that mistake once.
       transform.** These now ship from the contracts public entry point.
 - [x] **A3 — [contracts] The pure freshness function.** `deriveFreshness` now remains in
       contracts while this package owns only the recurring caller.
-- [ ] **A4 — [adapters] Vendor adapters and the dispatch registry.** `packages/adapters`
-      is bootstrapped but has no vendor modules yet; its `TODO.md` § C8 owns the
-      registry. The server imports the registry through the package's public entry
-      point and adds no vendor-specific parsing of its own — enforced by lint (§ 10).
-- [ ] **A5 — [adapters] The unknown-field ledger is already built** (`createUnknownFieldLedger`).
-      This package owns one instance for the process and exposes `snapshot()` on
-      `GET /api/health`, labelled per-adapter. See **G3**.
+- [x] **A4 — [adapters] Vendor adapters and the dispatch registry. Done 20 August 2026.**
+      The public registry exists and the deep-import ban remains enforced by lint (§ 10).
+      Server consumption is deferred until ADR 10 and ADR 11's open questions are resolved;
+      do not copy a vendor fixture locally to make the ingest test possible.
+- [x] **A5 — [adapters] The registry-owned unknown-field ledger exists.** The registry
+      owns one process tally. Health serialization remains deferred under **G3** because
+      ADR 30 has not selected `SupportedVendor` versus software `adapterId` as the response
+      key.
 
 ---
 
@@ -518,7 +519,7 @@ rule nobody has watched fail is indistinguishable from a rule that does nothing:
 
 ## Section 12 — Tests
 
-Wired and passing: **97 tests over 15 files** — ring buffer, current-state store,
+Wired and passing: **98 tests over 15 files** — ring buffer, current-state store,
 coalescer, clock, freshness sweep, health metrics, vendor selection, the two ingest
 guards, all four configuration loaders, and the boundary-violation probes.
 `vitest.config.ts` pre-arms fake timers for `setTimeout`, `setInterval` and `Date`. What

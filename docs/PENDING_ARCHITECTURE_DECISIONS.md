@@ -9,8 +9,8 @@ This file is intentionally short: resolved entries are tombstones linking to the
 | ID  | Status      | Normative record                                                                  | Question                                                                         |
 | --- | ----------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | D1  | Partial     | [ADR 10](./00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)                           | Adapter output before freshness                                                  |
-| D2  | Partial     | [ADR 11](./00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)                      | Public access to adapter fixtures                                                |
-| D3  | Partial     | [ADR 12](./00_adr/12_TEST_ONLY_ADAPTER_DEPENDENCY_IN_WEB.md)                      | Test-only adapter dependency in web                                              |
+| D2  | Implemented | [ADR 11](./00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)                      | Public access to adapter fixtures                                                |
+| D3  | Implemented | [ADR 12](./00_adr/12_TEST_ONLY_ADAPTER_DEPENDENCY_IN_WEB.md)                      | Test-only adapter dependency in web                                              |
 | D4  | Implemented | [ADR 13](./00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md)                  | Fixture ownership and provenance                                                 |
 | D5  | Partial     | [ADR 15](./00_adr/15_UNKNOWN_FIELD_ACCOUNTING_ON_ACCEPTED_PAYLOADS.md)            | Unknown fields on rejected payloads                                              |
 | D6  | Implemented | [ADR 14](./00_adr/14_SHARED_FLEET_ROSTER_PARITY.md)                               | Shared fleet-roster parity                                                       |

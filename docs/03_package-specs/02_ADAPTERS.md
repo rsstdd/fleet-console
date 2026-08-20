@@ -50,7 +50,7 @@ Tests may additionally import recorded payloads from the public
 `FIXTURE_RECORDING`; payloads remain `unknown`, and no adapter or schema behaviour belongs
 on this surface. Production consumers must ban both `@fleet/adapters` and its subpaths.
 
-**Dispatch** — `createAdapterRegistry`. Individual vendor factories and schemas are
+**Dispatch** — `createAdapterRegistry`, and the `AdapterRegistry` type it returns. Individual vendor factories and schemas are
 private; tests colocated with a vendor may import its factory internally, while production
 consumers receive only the exhaustive registry and cannot bypass its shared ledger.
 
@@ -79,19 +79,23 @@ value, so an error can be logged or serialized without leaking telemetry (Princi
 The one way to break that is interpolating a payload value into a custom schema message,
 which is why the rule is written on `issuesForKind` as well as here.
 
-**Unknown-field ledger** — `createUnknownFieldLedger`. Types: `UnknownFieldLedger`,
-`UnknownFieldSnapshot`, `UnknownFieldTally`.
+**Unknown-field tallies** — types only: `UnknownFieldSnapshot`, `UnknownFieldTally`,
+`UnknownFieldScope`. `AdapterRegistry.unknownFields()` is how a consumer reads them, and
+`UnknownFieldSnapshot` is the shape ADR 25's health response serves.
 
-**Unknown-field detection** — `knownFieldPaths`, `findUnknownFieldPaths`, and
-`noteAcceptedPayload`. Vendor schemas use passthrough semantics, derive their declared
-dotted paths once, and compare accepted raw payloads against that set. The snapshot
-carries `scope: "accepted"`; rejected payloads belong only to the server's separate
-malformed-ingest counter (ADR 15).
+The ledger itself is not public. `createUnknownFieldLedger`, `noteAcceptedPayload`,
+`knownFieldPaths`, `findUnknownFieldPaths` and the `UnknownFieldLedger` and
+`AcceptedPayloadNote` types were exported until 20 August 2026 and are now internal
+(**C9**): each is what an adapter is written _with_ rather than what a consumer decodes
+_through_, and since the registry owns the one ledger a process may have, a consumer
+holding the constructor had nothing public to give it to. Vendor schemas use passthrough
+semantics, derive their declared dotted paths once, and compare accepted raw payloads
+against that set. The snapshot carries `scope: "accepted"`; rejected payloads belong only
+to the server's separate malformed-ingest counter (ADR 15).
 
-`noteAccepted(vendor, paths)` records dotted paths; `snapshot()` returns a per-vendor
-tally and its `accepted` scope. The ledger is **per adapter, process-wide — never per
-robot.** ADR 1 § Implications requires the robot-detail diagnostics panel to label the
-number accordingly rather than implying a precision it does not have.
+The tally is **per adapter, process-wide — never per robot.** ADR 1 § Implications
+requires the robot-detail diagnostics panel to label the number accordingly rather than
+implying a precision it does not have.
 
 **Vendor identity** — `SUPPORTED_VENDORS`, `isSupportedVendor`. Type: `SupportedVendor`.
 
@@ -190,6 +194,7 @@ an explicit `unknown` — never a guess.
 | A payload cannot be asserted into shape       | Static    | `@typescript-eslint/no-unsafe-type-assertion` |
 | Every export has an explicit boundary type    | Static    | `explicit-module-boundary-types`              |
 | Dispatch is exhaustive over `SupportedVendor` | Types     | `switch-exhaustiveness-check`                 |
+| No Node-only API in the `./testing` subpath   | Static    | scoped `no-restricted-imports` / `-syntax`    |
 | **The rules above still fire**                | Test      | `src/__enforcement__/enforcement.test.ts`     |
 
 `no-unsafe-type-assertion` is on in this package specifically so a payload cannot be
@@ -197,7 +202,16 @@ asserted into canonical shape. If a schema seems to need an assertion, the schem
 wrong.
 
 `src/__enforcement__/` holds one deliberate violation per rule plus `legal.ts`, which
-violates nothing. The control matters as much as the violations: without it, a rule that
+violates nothing. Two rules are scoped to a path and are probed from sibling directories:
+`src/vendors/a/__enforcement__/` for the cross-vendor ban and
+`src/testing/__enforcement__/` for the Node-free rule. All three are linted in the suite's
+single pass.
+
+Three of these fixtures were added on 20 August 2026 after an audit found the table above
+listing rules nothing proved. `explicit-module-boundary-types` and
+`switch-exhaustiveness-check` were unprobed, and the Node-free rule had no mechanism at
+all — ADR 11 named "the console's test run breaks" as its falsifier, and that was tested
+and found false. The control matters as much as the violations: without it, a rule that
 reports nothing for any input passes every other assertion in the test. These files are
 excluded from the normal lint run and reached by constructing `ESLint` with
 `ignore: false`. `@ts-nocheck` appears where a fixture imports a module that deliberately
@@ -240,7 +254,7 @@ ADR 1 § Constraints is explicit that one fixture per vendor is a smoke test rat
 proof of the entire mapping, and asks for at least one boundary or malformed case per
 vendor where time allows.
 
-219 tests today, covering core behavior, fixtures, all three vendor contracts, cross-vendor
+227 tests today, covering core behavior, fixtures, all three vendor contracts, cross-vendor
 source tracing, registry dispatch, public-surface enforcement, and boundary enforcement.
 
 ## 11. Implementation status

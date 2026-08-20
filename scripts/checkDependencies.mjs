@@ -179,8 +179,24 @@ const ALLOWED = {
   "@types/react-dom": { kind: "types", why: "react-dom's declarations." },
 };
 
-/** Directories that hold no first-party source and are never scanned for imports. */
-const SKIP_DIRS = new Set(["node_modules", "dist", "coverage", ".git"]);
+/**
+ * Directories that hold no first-party source and are never scanned for imports.
+ *
+ * `__enforcement__` and `__boundary-violation__` hold deliberate rule violations, kept
+ * so a lint rule that stops firing fails a test instead of going quiet (Principle 15,
+ * ADR 7). Every ESLint config already excludes them; this checker did not, so on
+ * 20 August 2026 a fixture written to prove ADR 11's Node-free ban — it imports bare
+ * `fs` on purpose — was reported here as an undeclared dependency. A file that exists
+ * to be wrong must not be read as a claim about what this repository depends on.
+ */
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "coverage",
+  ".git",
+  "__enforcement__",
+  "__boundary-violation__",
+]);
 
 /** Extensions that can carry a module specifier this checker needs to see. */
 const SCANNED = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".css"]);

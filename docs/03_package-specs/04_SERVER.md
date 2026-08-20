@@ -236,7 +236,7 @@ per robot, malformed ingest and unsupported vendors process-wide.
 | Runtime endpoints      | Invalid env values fail together; absent values use safe defaults   |
 | Enforcement            | Every lint rule fires on its fixture                                |
 
-38 tests. The store, sweep, ring buffer, delta set, health metrics, clock and all three
+98 tests. The store, sweep, ring buffer, delta set, health metrics, clock and all three
 configuration loaders are covered.
 
 ## 11. Implementation status
@@ -245,11 +245,18 @@ configuration loaders are covered.
 validation, the current-state store with manifest seeding, the bounded ring buffer, the
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
-**Not built:** the HTTP listener, every route, the WebSocket server, the ingest handler,
-adapter registry dispatch, and the composition root that assembles them.
+**Not built:** the HTTP listener and route wrappers, adapter-registry ingest composition,
+health-response composition, the WebSocket server, and the runtime composition root.
 
-This is the second gap on the critical path, and it is coupled to the first: ingest cannot
-dispatch until `@fleet/adapters` has vendor adapters to dispatch to. Consequences today:
+Ingest composition is intentionally deferred: ADR 10 has not resolved runtime
+re-validation of adapter output, and ADR 11 has not decided how a server ingest test may
+access valid recorded vendor input without copying a fixture.
+
+Health composition is intentionally deferred: ADR 30 has not selected whether
+`healthResponseSchema.byAdapter` is keyed by `SupportedVendor` (`A`) or software
+`adapterId` (`vendor-a`). A handler must not decide that open question locally.
+
+This is the remaining gap on the critical path. Consequences today:
 
 - `@fleet/simulator` posts into a socket nothing is listening on, so its integration tests
   use their own in-process receiver;

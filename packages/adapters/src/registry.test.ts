@@ -15,7 +15,12 @@ import { describe, expect, it } from "vitest";
 
 import { createAdapterRegistry } from "./registry.ts";
 import { SUPPORTED_VENDORS, type SupportedVendor } from "./core/vendor.ts";
-import { FIXTURE_RECORDING, loadMalformedPayload, loadVendorFixture } from "./testing/index.ts";
+import {
+  FIXTURE_RECORDING,
+  listMalformedPayloads,
+  loadMalformedPayload,
+  loadVendorFixture,
+} from "./testing/index.ts";
 
 /** One instant after the pinned recording instant, matching the per-vendor suites. */
 const RECEIVED_AT = FIXTURE_RECORDING.instantMs + 250;
@@ -68,6 +73,29 @@ describe("adapter dispatch", () => {
 
     expect(result.ok).toBe(false);
   });
+
+  it.each(listMalformedPayloads())(
+    "refuses $vendor/$name with a result, never a throw",
+    ({ vendor, name, payload, reason }) => {
+      // The definition of done says *every* malformed fixture returns an
+      // `AdapterResult` failure and none throws. That was three hand-written tests
+      // that happened to cover the three fixtures, so a fourth would have been
+      // silently unexercised. Driving the list makes the claim universal: adding a
+      // fixture adds a case here whether or not anyone remembers to.
+      //
+      // "Never a throw" is the load-bearing half. A vendor payload reaching the
+      // ingest handler as an exception rather than a value is how a decode failure
+      // becomes a 500 instead of the 400 ADR 20 specifies.
+      const decode = () => createAdapterRegistry().decodeTelemetry(vendor, payload, RECEIVED_AT);
+
+      expect(decode).not.toThrow();
+      const result = decode();
+
+      expect(result.ok, `${vendor}/${name} was accepted; it ${reason}`).toBe(false);
+      expect(!result.ok && result.error.vendor).toBe(vendor);
+      expect(!result.ok && result.error.issues.length).toBeGreaterThan(0);
+    },
+  );
 
   it("passes the caller's receipt instant through untouched", () => {
     // ADR 3: the server owns the only clock this package may trust. A registry

@@ -74,8 +74,6 @@ describe("vendor B adapter", () => {
   it("produces output the contract itself accepts", () => {
     // The adapter builds the envelope by hand, so nothing but this proves the
     // result is a legal `AdapterEnvelope` rather than merely well-typed (A7).
-    // Capabilities are encoded first because `parseAdapterEnvelope` validates the
-    // schema's *input* — the wire array — while `AdapterEnvelope` is its output.
     for (const name of ["representative", "boundary-empty", "boundary-full"] as const) {
       const envelope = decoded(name);
       const wire = { ...envelope, capabilities: encodeCapabilities(envelope.capabilities) };

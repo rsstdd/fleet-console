@@ -62,7 +62,11 @@ The accepted cost is stated plainly: a second schema and a conversion function t
 - **A per-message runtime cost is now possible but not mandated.** If the server calls `parseAdapterEnvelope` on every reading, that is a second full schema validation per message, inside the budget ADR 2 committed to measuring at 2,500 messages per second. See Open questions — the current lean is that adapters validate their output in contract tests, not on every message.
 - **`packages/contracts`' public surface grew by three exports** (`adapterEnvelopeSchema`, `AdapterEnvelope`, `parseAdapterEnvelope`), each pinned by name in `src/index.test.ts`. That pin means the barrel cannot grow by accident, and it also means every future export is a deliberate edit to a test.
 - **The sweep is unaffected.** Widening `withFreshness` preserved reference identity for an unchanged canonical envelope, which ADR 2's coalescer depends on to skip robots without deep comparison. A future change to this function must re-check that property; the test that pins it says why.
-- **Two pieces of the register's required evidence remain unwritable.** An adapter contract test proving an adapter cannot assert freshness, and a server ingest test proving the server produces a canonical envelope without bypassing schema validation, both need packages that do not exist yet. The contracts half is done and tested; the status of this ADR is Partial for exactly that reason, and it must not be marked Implemented until both consumer tests exist.
+- **The adapter evidence exists; the server evidence remains deferred.** Every vendor
+  contract suite asserts that freshness is absent. A server ingest test must still prove
+  registry output is completed only through `withFreshness`, but ADR 10's runtime
+  re-validation question and ADR 11's server-fixture-access question are unresolved. The
+  status remains Partial until those decisions permit that consumer evidence.
 - **`packages/web` is untouched and must stay that way.** The console consumes `CanonicalEnvelope` and has no business knowing that a pre-freshness form exists; if `AdapterEnvelope` ever appears in the web package, the boundary this ADR draws has been crossed.
 
 ## Open questions
@@ -78,6 +82,10 @@ The accepted cost is stated plainly: a second schema and a conversion function t
   _Resolves on:_ the first proposal for such a field.
 
 ## Observed consequences
+
+- 20 August 2026: all three adapter suites now assert absence of freshness. The server
+  half remains deferred and is flagged prominently in `packages/adapters/TODO.md`; no
+  implementation chooses the open runtime-validation or server-fixture-access questions.
 
 - 19 August 2026: implemented in `packages/contracts` and green across the workspace — `adapterEnvelopeSchema`, `AdapterEnvelope` and `parseAdapterEnvelope` exported; `withFreshness` widened; 103 contracts tests passing, and `packages/adapters`, `packages/server`, `packages/simulator` and `packages/web` all typecheck and test unchanged against the widened signature. The widening was source-compatible: no existing caller changed.
 - 19 August 2026: measured against contracts `TODO_E2E_JOIN.md` **C-5**, the console's bundle moved from 567.32 kB raw / 175.01 kB gzip to **567.36 kB / 175.03 kB** — 40 bytes raw, 20 gzip. The new schema is a spread of shapes already in the bundle, and `packages/web` never references it, so the residue is barrel plumbing rather than the schema itself. Recorded because C-5 asked for the number to be re-measured rather than assumed, not because the delta is interesting.
@@ -99,5 +107,5 @@ The accepted cost is stated plainly: a second schema and a conversion function t
 
 ## Notes
 
-- 19 August 2026: **the short version of the implications, for anyone who reads only this section.** An adapter can no longer produce a canonical envelope, by construction. Adapters must be written against `AdapterEnvelope`; the server must complete every envelope through `withFreshness`; and a canonical field added later belongs in `preFreshnessShape`, which both shapes derive from. The type is in-process only and must never appear on the wire or in `packages/web`. This ADR stays **Partial** until an adapter contract test and a server ingest test exist — the contracts side is proved, the two consumers are not.
+- 19 August 2026: **the short version of the implications, for anyone who reads only this section.** An adapter can no longer produce a canonical envelope, by construction. Adapters must be written against `AdapterEnvelope`; the server must complete every envelope through `withFreshness`; and a canonical field added later belongs in `preFreshnessShape`, which both shapes derive from. The type is in-process only and must never appear on the wire or in `packages/web`. This ADR stays **Partial** until the server ingest evidence exists; the adapter half is proved.
 - 19 August 2026: position 2 was not rejected on merit and is the fallback if the ingest handler turns out to assemble the envelope from parts. Check the assumption before writing that handler, not after.

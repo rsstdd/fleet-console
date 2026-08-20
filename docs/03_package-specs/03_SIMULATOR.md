@@ -304,14 +304,15 @@ disagree. The endpoint is credential-stripped before it is logged.
 | `--drop` (3 of 50) | exactly those three silent; other 47 at full rate; process healthy                                                                        |
 | Root `pnpm dev`    | starts the simulator alongside `web`, non-interactively                                                                                   |
 
-**Blocked, not skipped:**
+**Remaining integration work:**
 
-- **Adapter contract tests** — no vendor schemas exist in `@fleet/adapters`. The dialect
-  tests assert exact wire shape instead, which is the half checkable from this side.
-  Copying schemas in would create the second definition Principle 1 forbids.
-- **Server integration and the freshness E2E** — `POST /api/telemetry/:vendor` does not
-  exist. The fast integration test against an in-process receiver is done; there is no
-  sweep to observe.
+- **Adapter contract tests are now built in `@fleet/adapters`.** The simulator keeps its
+  independent exact-wire tests and fixture recorder rather than importing production
+  adapter schemas, which would create the second definition Principle 1 forbids.
+- **Server transport and the freshness E2E** — the framework-independent registry ingest
+  path exists, but `POST /api/telemetry/:vendor` still has no HTTP wrapper. The fast
+  integration test against an in-process receiver is done; there is no live socket to
+  observe.
 - **Load measurement of the server** — the numbers above describe _the simulator_,
   measured against a trivial receiver. Server ingest throughput and ingest-to-fan-out
   latency must come from the complete harness (Principle 12), which is why the root

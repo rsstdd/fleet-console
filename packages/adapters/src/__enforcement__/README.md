@@ -6,7 +6,12 @@ nothing for the deliberate fixture and nothing for any probe, and silence was
 indistinguishable from a passing check.
 
 Every file here is a deliberate violation of one rule in `../../eslint.config.js`, plus
-one file (`legal.ts`) that violates nothing. The control matters as much as the
+one file (`legal.ts`) that violates nothing.
+
+Two sibling directories hold fixtures for rules that are scoped to a path and cannot be
+probed from here: `../vendors/a/__enforcement__/` for the one-vendor-never-imports-another
+ban, and `../testing/__enforcement__/` for ADR 11's Node-free rule over the public fixture
+subpath. `enforcement.test.ts` lints all three directories in its single pass. The control matters as much as the
 violations: without it, a rule that reports nothing for any input passes every other
 assertion in `enforcement.test.ts`.
 

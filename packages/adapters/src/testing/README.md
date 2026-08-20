@@ -38,8 +38,14 @@ cheapest thing that prevents both.
   each half.
 - **No Node-only APIs here.** The fixtures are static JSON imports rather than
   filesystem reads, so a browser-targeted consumer loads them exactly as a Node
-  one does. Adding `node:fs` to this directory breaks `packages/web`'s test run
-  and is the falsifier ADR 11 names.
+  one does. This is enforced: `eslint.config.js` bans Node builtins — prefixed and
+  bare — and `import.meta.dirname`/`.filename` under `src/testing/**`, and
+  `__enforcement__/nodeApi.ts` is the fixture proving the ban fires.
+  It reads as belt and braces and is not. ADR 11 originally named "the console's
+  test run breaks" as the falsifier; on 20 August 2026 that was tested and found
+  false — `packages/web` runs vitest under jsdom, which is an environment inside
+  Node, so `node:fs` resolves there and all 208 tests stay green. Only a real
+  browser build would have caught it, and nothing in CI does one for this path.
 - **Payloads stay `unknown`.** A typed fixture lets a test pass while the schema
   it exercises is wrong.
 
