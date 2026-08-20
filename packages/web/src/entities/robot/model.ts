@@ -171,8 +171,13 @@ export interface RobotDiagnostics {
    * Per-adapter and fleet-wide, not per-robot. The label at the render site
    * must say so rather than implying a precision this count does not have
    * (ADR 1, Implications).
+   *
+   * Null when `GET /api/health` could not be read, which is a different fact
+   * from a count of zero: zero is a measurement, and claiming one nobody took
+   * is the failure Principle 4 names. Health is a second request and fails
+   * independently of the robot's own data (**W-8**).
    */
-  readonly unknownFieldCount: number;
+  readonly unknownFieldCount: number | null;
 }
 
 /**

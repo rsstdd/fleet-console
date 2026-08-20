@@ -40,7 +40,8 @@ import type { Robot, RobotDetail } from "./model";
  * whole of that decision; do not add a per-robot field back to this interface.
  */
 export interface AdapterHealthCounters {
-  readonly unknownFieldCount: number;
+  /** Null when the health response could not be read; never zero as a stand-in. */
+  readonly unknownFieldCount: number | null;
 }
 
 /** Epoch milliseconds to the ISO string the console formats and displays. */

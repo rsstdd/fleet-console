@@ -12,45 +12,42 @@ agent working in this directory finds it without reading 400 lines first.
 
 ---
 
-## Still fixture-backed after the fleet's store swap — 20 August 2026
+## The detail view reads the server — 20 August 2026
 
-`useRobotDetail` is now the **last** hook in the console reading invented data.
-`useFleetRobots` moved to the live store on 20 August 2026, and `buildFixtureRobots` stayed
-in `useFleetRobots.ts` only because this hook still imports it; the two should move
-together with the fetch that replaces them.
+`useRobotDetail` fetches `GET /api/robots/:id` and `GET /api/health` in parallel and decodes
+both at the boundary. **No hook in the console renders invented data any more.**
 
-What that fetch is, is already built and unread: `GET /api/robots/:id` serves the canonical
-robot plus `sequenceHealth` and the retained raw payload, and `toRobotDetail` /
-`toRegisteredRobotDetail` in `entities/robot/fromEnvelope.ts` already map both populations.
-The request itself landed on 20 August 2026: `fetchRobotDetail` and `fetchHealth` in
-`shared/lib/transportDecoding.ts`, both tested. `fetchRobotDetail` tries the diagnostic
-schema first and the registered schema second — the two-population union has no single
-parser, flagged in `packages/server/TODO.md` **G2** as a `@fleet/contracts` change — and
-reports the _diagnostic_ schema's issues when a body satisfies neither, because that is the
-strictly larger shape and the narrower one's complaints would point a reader at the wrong
-thing. A 404 is its own outcome rather than an error, since an unknown id is a wrong link.
-`fetchHealth` fails shapelessly on purpose: health decorates one technician field, and
-blocking the page on it would let a diagnostics surface take the operator's view down.
+Decisions taken while doing it, each of which could reasonably have gone the other way:
 
-**What remains is the hook swap, and it is larger than it looks.** Two findings from
-attempting it on 20 August 2026, reverted rather than rushed:
+- **Two requests, failing independently.** The robot is the page; health decorates one
+  technician field with a fleet-wide unknown-field total no envelope carries and none
+  should (ADR 15, **W-8**). A failed health read leaves that field "Not reported" and the
+  page still renders. That forced `RobotDiagnostics.unknownFieldCount` to `number | null`:
+  zero is a measurement, and falling back to it claims one nobody took (Principle 4).
+- **`apiBaseUrl` is a parameter, not a `TENANT` read.** `entities` may not import `config`
+  (ADR 4), and lint said so. The address is deployment configuration and the page — a
+  feature — is the layer allowed to know it.
+- **Loading is derived, not written.** The hook holds the loaded value _and the id it
+  describes_; switching robots shows `loading` because the ids differ, rather than through
+  a `setState` in an effect. React's lint rule rejects the latter as a cascading render,
+  and it would also flash the previous robot's data under the new robot's heading.
+- **Cancellation is an `AbortController`, not a captured boolean.** The compiler cannot see
+  a cleanup closure flip a `let` across an `await`, so it narrows the flag to `true` and the
+  guard reads as dead code. `signal.aborted` is honest to the reader and the analyzer.
 
-- **`RobotDiagnostics.unknownFieldCount` is `number` and needs to be `number | null`.** The
-  count comes from `GET /api/health`, a _separate_ request that can fail while the robot's
-  own data is fine. Zero is a measurement, so falling back to it claims one nobody took
-  (Principle 4); the field, the mapper's `AdapterHealthCounters` and the panel's copy all
-  change together, and the panel needs a "Not reported" string.
-- **`robotDetailPage.test.tsx` renders the real page against the fixture hook**, so the
-  swap breaks 23 tests that are otherwise good — they exercise the true decode-and-map path
-  through capability panels, sequence health and the raw payload. The fix is to move the
-  fixture _wire responses_ out of `useRobotDetail.ts` into a test helper and stub the fetch,
-  which keeps that path covered. Mocking the hook instead would delete the coverage rather
-  than move it, and is the tempting wrong answer.
+**The fixture responses moved rather than being deleted**, into
+`features/robot/robotDetailFixtures.ts`, and the page suites now stub `fetch` with them.
+That keeps the coverage those suites exist for — the true path from wire bytes through the
+contract's parser and `fromEnvelope` to the panels. Mocking the hook would have deleted it
+and left assertions about a value the test constructed.
 
-**Do not resolve this by pointing the detail view at the fleet store.** The store carries
-`Robot`, not `RobotDetail`; the diagnostics and the raw payload exist only on the
-single-robot response, and synthesising them from a fleet row would invent the technician
-data this endpoint exists to serve.
+**Deferred, decision not made — test files are classified as their layer.**
+`features/robot/robotDetailPage.test.tsx` matches the `feature` element pattern in
+`eslint.config.js`, so it may not import the `test` layer, which is why the fixtures sit
+beside the page instead of under `src/test/**` where this package intends fixture material
+to live. Adding `**/*.test.{ts,tsx}` to the `test` pattern would fix the classification and
+would also relax every other boundary for test files — which may be right, and is a
+mechanical-rule change registered in `docs/decisions.json`, not a config tidy-up.
 
 ## R1. Per-robot freshness is not suppressed while the stream is down — **CLOSED 19 August 2026**
 

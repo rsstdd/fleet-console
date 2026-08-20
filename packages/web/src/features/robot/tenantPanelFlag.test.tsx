@@ -1,8 +1,24 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitForElementToBeRemoved, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as TenantModule from "@/config/tenant";
+import { createFixtureFetch } from "./robotDetailFixtures";
+
+/**
+ * The page fetches; these tests stub `fetch` rather than the hook.
+ *
+ * Stubbing the hook would delete the coverage this suite exists for — the true path
+ * from wire bytes through the contract's parser and `fromEnvelope` to the panels — and
+ * leave assertions about a value the test itself constructed.
+ */
+beforeEach(() => {
+  vi.stubGlobal("fetch", createFixtureFetch());
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 /**
  * The second tenant profile, proved on the page rather than in configuration.
@@ -24,7 +40,13 @@ vi.mock("@/config/tenant", async (importOriginal) => {
 
 const { RobotDetailPage } = await import("./robotDetailPage");
 
-function renderRobot(id: string): void {
+/**
+ * Renders and waits for the fetch to settle.
+ *
+ * The page loads asynchronously now, so a synchronous assertion would see the
+ * loading state and report a missing element rather than a slow one.
+ */
+async function renderRobot(id: string): Promise<void> {
   render(
     <MemoryRouter initialEntries={[`/robots/${id}`]}>
       <Routes>
@@ -32,6 +54,9 @@ function renderRobot(id: string): void {
       </Routes>
     </MemoryRouter>,
   );
+
+  // The skeleton's own text, because it is the one thing every terminal state removes.
+  await waitForElementToBeRemoved(() => screen.queryByText("Loading robot…"));
 }
 
 describe("a tenant that disables a panel", () => {
@@ -39,21 +64,21 @@ describe("a tenant that disables a panel", () => {
     vi.clearAllMocks();
   });
 
-  it("hides the lidar panel for a robot that declares lidar health", () => {
+  it("hides the lidar panel for a robot that declares lidar health", async () => {
     // R-055 declares dock and lidar health. Under tenant A both panels render;
     // under tenant B the capability is still declared and the panel is still
     // absent, which is the whole distinction ADR 17 draws.
-    renderRobot("R-055");
+    await renderRobot("R-055");
 
     const section = screen.getByRole("region", { name: "Capabilities" });
     expect(within(section).getByRole("heading", { name: "Dock" })).toBeInTheDocument();
     expect(within(section).queryByRole("heading", { name: "Lidar" })).toBeNull();
   });
 
-  it("leaves every other declared panel alone", () => {
+  it("leaves every other declared panel alone", async () => {
     // A disabled flag turns off one panel, not the section. R-301 declares
     // water level, which this tenant does not disable.
-    renderRobot("R-301");
+    await renderRobot("R-301");
 
     const section = screen.getByRole("region", { name: "Capabilities" });
     expect(within(section).getByRole("heading", { name: "Water level" })).toBeInTheDocument();
