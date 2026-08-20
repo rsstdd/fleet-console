@@ -65,6 +65,9 @@ src/
   http/originPolicy         the cross-origin grant ADR 21 configured and nothing consumed
   http/createApp            the Hono router, with that policy mounted ahead of every route
   http/listener             HTTP and /ws on one port, closed in the order ADR 8 requires
+  observability/logger      one JSON object per line, injected sink
+  runServer.ts              decoded configuration in, a running server out
+  main.ts                   the process: real environment, real paths, real signals
   __boundary-violation__/   deliberate lint violations that prove the rules fire
   index.ts
 ```
@@ -75,8 +78,7 @@ ordering guarantees are properties of the signatures rather than rules a handler
 remember (ADR 8 § Observed consequences).
 
 Planned and not yet present: every route, the ingest handler, the adapter registry
-dispatch, the fan-out that writes to a connected stream, and the composition root that
-loads configuration and wires the listener to a process lifecycle.
+dispatch, and the fan-out that writes to a connected stream.
 
 ## 5. Contracts owned and consumed
 
@@ -255,11 +257,12 @@ validation, the current-state store with manifest seeding, the bounded ring buff
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
 **Not built:** every route wrapper, adapter-registry ingest composition, health-response
-composition, delta fan-out onto a connected stream, and the runtime composition root. The
-router exists (`http/createApp`) with the cross-origin policy mounted and the `not_found`
-and `internal` envelopes it owns, and `http/listener` binds it — with `/ws` — to a real
-port with an ordered shutdown. Nothing composes those into a process, so `pnpm dev` still
-starts no server.
+composition, and delta fan-out onto a connected stream. The server now **runs**:
+`http/createApp` routes with the cross-origin policy mounted, `http/listener` binds it and
+`/ws` to one port with an ordered shutdown, and `main.ts` composes them from repository-root
+configuration under `pnpm dev`/`pnpm start`. Because no route is mounted, every request is
+the canonical `not_found` envelope — the server is reachable and empty, which is a different
+state from absent and is why the startup record reports `routes: 0`.
 
 Ingest composition is intentionally deferred: ADR 10 has not resolved runtime
 re-validation of adapter output, and ADR 11 has not decided how a server ingest test may

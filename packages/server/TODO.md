@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 18 files, 120 tests     |
+| `pnpm test`      | passes — 19 files, 124 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -48,18 +48,20 @@ packages/server/
     ├── http/originPolicy.ts        the cross-origin grant ADR 21 configured (B1d)
     ├── http/createApp.ts           the Hono router, policy mounted ahead of it (B1a)
     ├── http/listener.ts            one port for HTTP and /ws, ordered shutdown (B1a)
+    ├── observability/logger.ts     one JSON object per line on stdout (I1, part)
+    ├── runServer.ts                decoded configuration in, a running server out
+    ├── main.ts                     the process: real env, real paths, real signals
     ├── config/freshnessPolicy.ts   validated sweep thresholds (ADR 3, Principle 13)
     ├── config/fleetManifest.ts     strict roster loader (ADR 14)
     ├── config/runtimeEndpoints.ts  host/port/origins from the environment (ADR 21)
     └── config/serverConfiguration.ts  the two files loaded together, strictly
 ```
 
-**This binds a port; nothing composes it into a process.** The framework-independent
-modules are unchanged, `http/createApp.ts` routes, and `http/listener.ts` serves that
-router and `/ws` on one socket with an ordered shutdown. What does not exist is the
-composition root that loads configuration and wires them to a process lifecycle, and no
-route is mounted on the app — every request is the router's 404. Sections 4, 7 and 8 are
-that work.
+**This listens.** `pnpm --filter @fleet/server start` reads the repository-root
+configuration, binds loopback, announces the freshness policy and roster size it is
+actually running, answers, and shuts down on a signal — verified by running it, not only
+by unit test. What does not exist is any **route**: every request is the router's 404, so
+the server is reachable and empty. Sections 4, 7 and 8 are that work.
 
 On the four earliest pieces, whose reasoning is worth keeping:
 
@@ -79,11 +81,10 @@ On the four earliest pieces, whose reasoning is worth keeping:
   fallback default. A server that silently runs a policy nobody deployed is the failure
   Principle 13 names.
 
-Deliberately **not** added: no `dev` script. All three ADR 8 dependencies are now declared
-and vetted, each landing with the code that imports it. The `dev` script waits on a
-`src/main.ts` to run — root `pnpm dev` is `pnpm -r --parallel dev`, so a script pointing at
-a file that does not exist breaks the one-command start for every package at once
-(**B1c**).
+`dev` and `start` now exist and run `src/main.ts` under `tsx` (ADR 9), so root `pnpm dev`
+starts the server alongside the simulator and Vite for the first time. The simulator's
+ingest posts still 404 — no route is mounted — but they now reach a process rather than a
+closed port.
 
 ---
 
@@ -124,40 +125,39 @@ now decides what implements them. The listener is unblocked.
       `@fleet/contracts` schema decodes them, and a second validation layer would be a
       second decode authority (Principles 1 and 2). `node:http` alone was the runner-up
       and remains the fallback if the route count shrinks or the `ws` upgrade path breaks.
-- [ ] **B1a — Add the transport dependencies and write the listener. Router landed 20
-      August 2026; the listener has not.** `hono` is declared, vetted in
-      `scripts/checkDependencies.mjs` (ADR 29) and consumed by `createHttpApp` in
-      `src/http/createApp.ts`, which mounts the **B1d** origin policy ahead of every route
-      and owns the two responses no route produces: the canonical `not_found` envelope and
-      an `internal` envelope that reads nothing off the thrown error (**G6**). Hono's
-      validators and RPC client stay unused (ADR 8). The app is built from a configuration
-      value rather than reading one, so `app.request()` drives it against a real `Request`
-      with no port to pick — which is where the mounted half of **L8** now comes from.
-      **Listener landed 20 August 2026.** `@hono/node-server` and `ws` (with `@types/ws`)
-      are now declared and vetted, each having arrived with the code that imports it.
-      `startListener` in `src/http/listener.ts` serves the router and upgrades `/ws` on one
-      port, and its `close()` closes stream clients, then the socket server, then the HTTP
-      server — the order ADR 8 § Implications requires, asserted by rebinding the same port
-      afterwards rather than by inspection. Upgrades use `noServer: true` with an explicit
-      path check, so a handshake on any other path is destroyed instead of opening a stream
-      nothing reads. Still open: the **composition root** (`src/main.ts`) that calls
-      `loadRuntimeEndpoints()` and passes what it returns to `startListener` — never a
-      literal, and never `0.0.0.0` by default, because the loopback default is what keeps
-      an unauthenticated ingest endpoint serving raw vendor payloads off every interface
-      (**D18**) — plus signal handling and startup reporting. The listener accepts port `0`
-      although the configuration refuses it; that is deliberate, documented at
-      `ListenerOptions.port`, and what lets the tests bind without picking a number.
+- [x] **B1a — Done 20 August 2026: dependencies, router, listener, composition root.**
+      `hono`, `@hono/node-server` and `ws` (with `@types/ws`) are declared and vetted in
+      `scripts/checkDependencies.mjs` (ADR 29), each having arrived with the code that
+      imports it. `createHttpApp` mounts the **B1d** origin policy ahead of every route and
+      owns the two responses no route produces; `startListener` serves it and upgrades
+      `/ws` on one port, closing stream clients, then the socket server, then the HTTP
+      server on shutdown — the order ADR 8 § Implications requires, asserted by rebinding
+      the same port rather than by inspection. Upgrades use `noServer: true` with an
+      explicit path check, so a handshake elsewhere is destroyed instead of opening a
+      stream nothing reads. `startServer` in `src/runServer.ts` composes decoded
+      configuration into a running server, and `src/main.ts` is the process around it: it
+      resolves the repository-root `config/` from the module rather than the working
+      directory (root `pnpm dev` runs each package in its own), binds what
+      `loadRuntimeEndpoints()` returns rather than a literal, refuses to continue past a
+      `ConfigValidationError` (**C6**), and stops once on `SIGINT` or `SIGTERM`. The
+      listener accepts port `0` although the configuration refuses it; that is deliberate,
+      documented at `ListenerOptions.port`, and what lets the tests bind without picking a
+      number. **Verified by running it, not only by unit test:** a real start logs one
+      `server.listening` record naming the shipped policy and all fifty committed robots;
+      `GET /api/fleet` returns the canonical `not_found` envelope; an allowed origin is
+      echoed and a disallowed one is not; a preflight returns 204 with the method list; an
+      out-of-range port exits 1 naming the key and the accepted range on stderr without
+      ever binding; and `SIGTERM` produces `server.stopped`.
 - [x] **B1b — `tsx` is the runtime**, recorded in
       [ADR 9](../../docs/00_adr/09_WORKSPACE_SOURCE_EXPORTS_AND_TSX_RUNTIME.md). Already
       a devDependency here. Plain `node src/main.ts` does **not** work for this package:
       `@fleet/contracts` exports source whose internal imports carry `.js` extensions
       that nothing emits, so Node fails with `ERR_MODULE_NOT_FOUND` while `tsc`, Vitest
       and Vite all resolve it. `pnpm dev` and `pnpm start` are the supported entry points.
-- [ ] **B1c — Add the `dev` and `start` scripts with the listener, not before.**
-      `"dev": "tsx watch src/main.ts"` and `"start": "tsx src/main.ts"`. They are
-      deliberately absent today: root `pnpm dev` is `pnpm -r --parallel dev`, so a script
-      pointing at a `src/main.ts` that does not exist breaks the one-command start for
-      every package at once.
+- [x] **B1c — Done 20 August 2026, with the listener.** `"dev": "tsx watch src/main.ts"`
+      and `"start": "tsx src/main.ts"`. They were absent until `src/main.ts` existed
+      because root `pnpm dev` is `pnpm -r --parallel dev`, where a script pointing at a
+      missing file breaks the one-command start for every package at once.
 - [x] **B2 — Do not add a database, broker, or queue.** ADR 6 decided against a database
       and ADR 2 against a broker; both name the conditions for revisiting. Lint blocks
       the common packages by name with the ADR reference in the failure message (§ 10).
@@ -451,9 +451,21 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
 
 ## Section 9 — Observability and measurement (Principle 12, ADR 2)
 
-- [ ] **I1 — Structured events with stable names and correlation identifiers** where a
-      request crosses stages. `no-console` is enforced, so the logger is a real module
-      with a real shape, decided rather than accreted.
+- [ ] **I1 — Structured events with stable names and correlation identifiers. Logger
+      landed 20 August 2026; the correlation half has not.** `src/observability/logger.ts`
+      writes one JSON object per line with an injected sink, and `server.listening`,
+      `server.stopping`, `server.stopped` and `server.stop_failed` are its first stable
+      names — `event` is a name and `fields` is everything that varies, because a name that
+      changes with its data cannot be counted. Still owed: an identifier that follows one
+      request across ingest, state and fan-out, which needs those stages to exist.
+      **Deferred, decision not made — whether two JSON-line loggers should stay two.**
+      `packages/simulator/src/observability/logger.ts` decided this shape first and this is
+      a second implementation of it, because the server may not import the simulator and
+      the workspace has no shared Node library to hold it. The duplication is real, and the
+      two must agree on the record shape or one stream cannot be read with the other. The
+      fix — a fifth workspace package — changes the shape of the repository and needs an
+      ADR, so it is named here rather than taken quietly. Each side names the other in a
+      `Coupling:` comment until then.
 - [ ] **I2 — Build the measurement harness ADR 2 commits to**: throughput and latency at
       **50 and 500 robots**, and it must **distinguish per-request HTTP overhead from
       schema-validation cost**. ADR 2's own estimate is that validation costs tens of

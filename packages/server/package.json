@@ -9,6 +9,8 @@
   },
   "scripts": {
     "build": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "pnpm lint:js && pnpm typecheck",
     "lint:js": "eslint .",
