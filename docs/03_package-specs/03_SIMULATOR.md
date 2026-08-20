@@ -160,16 +160,14 @@ change together.
 | Determinism actually holds                                | Test      | same seed → byte-identical run                                          |
 | The executable stays alive                                | Test      | subprocess integration test                                             |
 | Generated roster equals the server's committed input      | Test      | `src/fleet/manifestParity.test.ts` (ADR 14)                             |
-| Vendor set agrees with the adapter set                    | —         | **Not enforced.** See below                                             |
+| Vendor set agrees with the adapter set                    | Test      | `src/fleet/vendorId.test.ts` (ADR 16)                                   |
 
-**The vendor-set guard does not exist.** `VENDOR_IDS` here and `SUPPORTED_VENDORS` in
-`@fleet/adapters` are identical literals maintained independently, deliberately, so this
-package carries no production dependency on adapters. Nothing checks that they agree, so a
-fourth vendor added to one and not the other would be caught by no test — the simulator
-would emit a dialect no adapter can decode, and the failure would surface as ingest
-rejections at demo time. Closing it means choosing between a test-only adapters dependency
-and an integration fixture test, which is decision **D7** in
-`docs/PENDING_ARCHITECTURE_DECISIONS.md`.
+`VENDOR_IDS` here and `SUPPORTED_VENDORS` in `@fleet/adapters` are identical literals
+maintained independently so this package carries no production dependency on adapters.
+ADR 16 resolved D7 with a test-only adapters dependency: `src/fleet/vendorId.test.ts`
+checks both directions and fleet allocation, while `no-restricted-imports` bans the
+dependency from production code. `src/__enforcement__/enforcement.test.ts` proves both
+the production ban and test exception remain active.
 
 The determinism ban is lifted in exactly one directory. `src/runtime/` adapts the ambient
 platform — real clock, real randomness — into the injectable interfaces every other module
@@ -306,14 +304,15 @@ disagree. The endpoint is credential-stripped before it is logged.
 | `--drop` (3 of 50) | exactly those three silent; other 47 at full rate; process healthy                                                                        |
 | Root `pnpm dev`    | starts the simulator alongside `web`, non-interactively                                                                                   |
 
-**Blocked, not skipped:**
+**Remaining integration work:**
 
-- **Adapter contract tests** — no vendor schemas exist in `@fleet/adapters`. The dialect
-  tests assert exact wire shape instead, which is the half checkable from this side.
-  Copying schemas in would create the second definition Principle 1 forbids.
-- **Server integration and the freshness E2E** — `POST /api/telemetry/:vendor` does not
-  exist. The fast integration test against an in-process receiver is done; there is no
-  sweep to observe.
+- **Adapter contract tests are now built in `@fleet/adapters`.** The simulator keeps its
+  independent exact-wire tests and fixture recorder rather than importing production
+  adapter schemas, which would create the second definition Principle 1 forbids.
+- **Server transport and the freshness E2E** — the framework-independent registry ingest
+  path exists, but `POST /api/telemetry/:vendor` still has no HTTP wrapper. The fast
+  integration test against an in-process receiver is done; there is no live socket to
+  observe.
 - **Load measurement of the server** — the numbers above describe _the simulator_,
   measured against a trivial receiver. Server ingest throughput and ingest-to-fan-out
   latency must come from the complete harness (Principle 12), which is why the root

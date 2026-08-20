@@ -63,7 +63,7 @@ kind vocabulary the adapter and the wire share (ADR 20).
 `registeredRobotStateSchema`, `robotDiagnosticEnvelopeSchema`, `telemetryBatchSchema`,
 `parseCanonicalEnvelope`, `parseRegisteredRobotState`, `parseRobotDiagnosticEnvelope`,
 `parseTelemetryBatch`, `encodeCanonicalEnvelope`, `withFreshness`. Types:
-`CanonicalCore`, `CanonicalEnvelope`, `CanonicalEnvelopeWire`, `RegisteredRobotState`,
+`AdapterEnvelope`, `CanonicalCore`, `CanonicalEnvelope`, `CanonicalEnvelopeWire`, `RegisteredRobotState`,
 `RobotDiagnosticEnvelope`, `TelemetryBatch`.
 
 **Freshness** — `deriveFreshness`, `DEFAULT_FRESHNESS_POLICY`, `freshnessPolicySchema`,
@@ -252,8 +252,9 @@ Rejected: whitespace-padded identifiers (trimming silently merges `"R-204 "` int
 
 **Decision consequence.** Contracts exposes a strict pre-freshness `AdapterEnvelope`,
 derives it and `CanonicalEnvelope` from one field list, and permits only `withFreshness`
-to complete it; the type is in-process and never reaches web. Consumer-side evidence
-remains pending until adapters and ingest exist ([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)).
+to complete it; the type is in-process and never reaches web. Adapter and browser joining
+evidence exists; server ingest evidence remains deferred on ADR 10 and ADR 11's open
+questions ([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)).
 
 ADR 1's two open questions are answered in its `Observed consequences`: the capability
 record earns its complexity, and `fault ⇒ critical` is **not** added as a contract-layer

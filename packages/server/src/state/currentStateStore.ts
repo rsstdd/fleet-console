@@ -104,7 +104,18 @@ export class CurrentStateStore {
     return this.list().filter(isObserved);
   }
 
-  /** Applies newer telemetry and rejects duplicate or regressive reliable sequences. */
+  /**
+   * Applies newer telemetry and rejects duplicate or regressive reliable sequences.
+   *
+   * Coupling: `sequence` is `capabilities.sequence?.value ?? null` from the envelope
+   * `@fleet/adapters` returned — vendors A and C declare that capability and vendor B
+   * does not. `null` therefore means "this dialect has no counter", not "no reading
+   * yet", and it disables the ordering check rather than defaulting it: a vendor whose
+   * only ordering evidence is a timestamp cannot separate a duplicate delivery from two
+   * events in the same millisecond, so a synthesized counter would let this method drop
+   * a real reading. The same absence is what makes a robot's `sequenceHealth`
+   * `{ evaluated: false }` on the diagnostic envelope (ADR 25).
+   */
   upsert(
     envelope: CanonicalEnvelope,
     rawPayload: Readonly<Record<string, unknown>> | null,

@@ -9,6 +9,7 @@
     "node": ">=24.15.0",
     "pnpm": ">=11.20.0"
   },
+  "_test": "The `test` script runs packages one at a time. The boundary-enforcement suites in adapters, server, simulator and web lint files on disk, so a parallel workspace run writes the tree underneath them; that produced five transient failures in one day (packages/FIXME.md F14). Serialising cost three to five seconds across the whole workspace when measured, which is not enough to buy a flake in the one guard that proves the boundaries fire.",
   "scripts": {
     "build": "pnpm --recursive build",
     "check:architecture-docs": "node --test scripts/architectureDocs.test.mjs && node scripts/architectureDocs.mjs --check",
@@ -25,7 +26,7 @@
     "format:check": "prettier --check .",
     "lint": "pnpm --recursive lint && pnpm format:check",
     "record:fixtures": "pnpm --filter @fleet/simulator record:fixtures && prettier --write --log-level warn \"packages/adapters/src/vendors/*/__fixtures__/*.json\"",
-    "test": "pnpm --recursive test",
+    "test": "pnpm --recursive --workspace-concurrency=1 test",
     "typecheck": "pnpm --recursive typecheck"
   },
   "devDependencies": {

@@ -178,19 +178,18 @@ A package matches its specification when:
 - `pnpm lint`, `pnpm test`, `pnpm typecheck` and `pnpm build` pass in that package;
 - the package's `AGENTS.md` and this specification do not contradict each other.
 
-## 8. Current state — 19 August 2026
+## 8. Current state — 20 August 2026
 
-| Package   | Tests | Lint | Typecheck | Runtime status                                     |
-| --------- | ----- | ---- | --------- | -------------------------------------------------- |
-| contracts | 96    | pass | pass      | Complete                                           |
-| adapters  | 14    | pass | pass      | Core primitives only; no vendor adapters yet       |
-| simulator | 182   | pass | pass      | Complete and runnable                              |
-| server    | 38    | pass | pass      | Framework-independent pieces only; no listener yet |
-| web       | 135   | pass | pass      | Substantially built                                |
+| Package   | Tests | Lint | Typecheck | Runtime status                                    |
+| --------- | ----- | ---- | --------- | ------------------------------------------------- |
+| contracts | 150   | pass | pass      | Complete                                          |
+| adapters  | 227   | pass | pass      | Complete, including dispatch and joining evidence |
+| simulator | 211   | pass | pass      | Complete and runnable                             |
+| server    | 98    | pass | pass      | Framework pieces only; no ingest/listener yet     |
+| web       | 209   | pass | pass      | Substantially built                               |
 
-465 tests across five packages. The two gaps — vendor adapters and the server listener —
-are the critical path; every other package is waiting on one or both to be verified
-end to end.
+895 tests across five packages. The server ingest/listener and live client transport remain the
+critical path; vendor normalization and the cross-package contract join are verified.
 
 Four cross-package decisions remain open in
 `docs/PENDING_ARCHITECTURE_DECISIONS.md`. **D17 is resolved by ADR 22 as Option 3:** gate

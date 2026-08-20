@@ -8,14 +8,20 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { RECORDING_INSTANT_MS, buildRecordedFixtures, serializeFixture } from "./fixtureSet.ts";
+import {
+  RECORDED_CASE_NAMES,
+  RECORDING_INSTANT_MS,
+  buildRecordedFixtures,
+  serializeFixture,
+  type RecordedCaseName,
+} from "./fixtureSet.ts";
 
 const fixtures = buildRecordedFixtures();
 
-function forVendor(vendor: string) {
-  const found = fixtures.find((fixture) => fixture.vendor === vendor);
+function forVendor(vendor: string, name: RecordedCaseName = "representative") {
+  const found = fixtures.find((fixture) => fixture.vendor === vendor && fixture.name === name);
   if (found === undefined) {
-    throw new Error(`No fixture recorded for vendor ${vendor}.`);
+    throw new Error(`No ${name} fixture recorded for vendor ${vendor}.`);
   }
   return found;
 }
@@ -28,15 +34,55 @@ describe("recorded fixture set", () => {
     expect(second).toEqual(first);
   });
 
-  it("records every vendor, so no dialect ships without evidence", () => {
-    expect(fixtures.map((fixture) => fixture.vendor)).toEqual(["A", "B", "C"]);
+  it("records every case for every vendor, so no dialect ships without evidence", () => {
+    expect(fixtures.map((fixture) => `${fixture.vendor}/${fixture.name}`)).toEqual(
+      ["A", "B", "C"].flatMap((vendor) => RECORDED_CASE_NAMES.map((name) => `${vendor}/${name}`)),
+    );
   });
 
   it("pins the robot ids that `FIXTURE_RECORDING` names to consumers", () => {
     // packages/adapters/src/testing/fixtures.ts hard-codes these in its registry.
     // If the fleet's vendor allocation changes, this fails here rather than
     // leaving that package describing a robot the payload did not come from.
-    expect(fixtures.map((fixture) => fixture.robotId)).toEqual(["R-001", "R-002", "R-003"]);
+    expect(fixtures.filter((f) => f.name === "representative").map((f) => f.robotId)).toEqual([
+      "R-001",
+      "R-002",
+      "R-003",
+    ]);
+  });
+
+  it("puts battery at both ends, which no seed of the fleet can reach", () => {
+    // `initialState` draws battery from [0.35, 1), so these two payloads are the
+    // only evidence an adapter's conversion is right at the ends of its range.
+    expect(forVendor("A", "boundary-empty").payload).toMatchObject({
+      telemetry: { battery: { level: 0 } },
+    });
+    expect(forVendor("A", "boundary-full").payload).toMatchObject({
+      telemetry: { battery: { level: 1 } },
+    });
+    // Vendor B rounds to integer percent, so the ends are 0 and 100 rather than
+    // 0 and 1 — the conversion the joining test asserts across dialects.
+    expect(forVendor("B", "boundary-empty").payload).toMatchObject({ batt_pct: 0 });
+    expect(forVendor("B", "boundary-full").payload).toMatchObject({ batt_pct: 100 });
+  });
+
+  it("records a docked robot, so `dock_id` is a string somewhere in the set", () => {
+    // Every representative payload is undocked and carries `dock_id: null`. A
+    // schema that typed it as `null` rather than `string | null` would pass the
+    // whole representative set.
+    expect(forVendor("A", "boundary-empty").payload).toMatchObject({
+      telemetry: { dock: { docked: true, dock_id: "SITE-NORTH-DOCK-01" } },
+    });
+  });
+
+  it("records vendor B's non-zero status, health and dock codes", () => {
+    // All three are 0 in every representative payload, so a numeric-code mapping
+    // that ignored its input would decode the entire representative set correctly.
+    expect(forVendor("B", "boundary-empty").payload).toMatchObject({
+      status_code: 2,
+      health_code: 1,
+      dock_state: 1,
+    });
   });
 
   it("stamps every payload with the pinned instant, in each dialect's encoding", () => {

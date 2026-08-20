@@ -9,13 +9,13 @@ belongs at a boundary, not in the UI.** Vendor disagreement is absorbed by
 and filter vendor identity, but rendering behavior comes from declared
 capabilities and never branches on a vendor name.
 
-| Package                    | Owns                                                               | Status                                   |
-| -------------------------- | ------------------------------------------------------------------ | ---------------------------------------- |
-| [`contracts`](./contracts) | Canonical envelope, capabilities, wire schemas, freshness function | Landed                                   |
-| [`adapters`](./adapters)   | Vendor dialect decoding, unknown-field accounting                  | Partial — core landed, no vendor modules |
-| [`simulator`](./simulator) | Deterministic vendor telemetry, fault injection                    | Landed                                   |
-| [`server`](./server)       | Ingest, state, freshness sweep, fan-out, health                    | Partial — pieces landed, no process yet  |
-| [`web`](./web)             | The operations console                                             | Partial — UI built, data is fixtures     |
+| Package                    | Owns                                                               | Status                                    |
+| -------------------------- | ------------------------------------------------------------------ | ----------------------------------------- |
+| [`contracts`](./contracts) | Canonical envelope, capabilities, wire schemas, freshness function | Landed                                    |
+| [`adapters`](./adapters)   | Vendor dialect decoding, unknown-field accounting                  | Landed — three vendors, dispatch registry |
+| [`simulator`](./simulator) | Deterministic vendor telemetry, fault injection                    | Landed                                    |
+| [`server`](./server)       | Ingest, state, freshness sweep, fan-out, health                    | Partial — pieces landed, no process yet   |
+| [`web`](./web)             | The operations console                                             | Partial — UI built, data is fixtures      |
 
 A **canonical envelope** is the shared robot record every vendor is translated
 into. A **capability** is an optional payload a vendor may or may not send;
@@ -49,22 +49,21 @@ identifiers locally, in `src/fleet/simulatedRobot.ts`, and
 `SUPPORTED_VENDORS` agree — in both directions, so neither a vendor without an
 adapter nor an adapter without a producer gets through (ADR 16).
 
-That test is the only file in `simulator` allowed to import `@fleet/adapters`,
-which is a dev dependency there: lint bans the specifier in production code, and
-`src/__enforcement__/` probes both directions of the ban so it cannot go inert.
+That test is the intended use of `@fleet/adapters` in `simulator`, where it is a dev
+dependency: lint bans the specifier in production code and lifts the ban for
+`**/*.test.ts`, and `src/__enforcement__/` probes both directions — including a
+test-file fixture that must report nothing — so the rule cannot go inert.
 
-Three arrows above are drawn ahead of the code:
+Two arrows above are drawn ahead of the code:
 
-- `adapters ──▶ contracts` does not exist yet, because no vendor module has
-  landed.
 - `server ──WebSocket──▶ web` does not exist at either end. No server process
   opens a socket, and `web/src/shared/lib` holds no client.
 - `simulator ──HTTP──▶ server` exists only on the producing side. The simulator
   has an ingest client and POSTs; nothing is listening.
 
-The three edges that do exist are `web ──▶ contracts`, `server ──▶ contracts`,
-and `server ──▶ adapters` — the last being only the supported-vendor list the
-fleet manifest is validated against.
+The four edges that do exist are `web ──▶ contracts`, `adapters ──▶ contracts`,
+`server ──▶ contracts`, and `server ──▶ adapters` — the last being only the
+supported-vendor list the fleet manifest is validated against.
 
 If you go looking for edges, you will also find `@fleet/server` imported inside
 `adapters`, and a `__boundary-violation__` directory in `server`. Those are
@@ -115,15 +114,19 @@ dispatch its exhaustiveness check, and the unknown-field ledger.
 **Does not own:** the canonical model. Adding a fourth vendor is one module plus
 fixtures here. It is never an edit to `contracts`.
 
-When the vendor modules land, unknown fields a vendor sends are **counted, not
-silently dropped**. Vendor C's undocumented field must increment a per-adapter
-tally surfaced on the future health endpoint. The ledger exists; neither the
-Vendor C adapter nor the endpoint does yet.
+Unknown fields a vendor sends are **counted, not silently dropped**. Vendor C's
+undocumented field increments the per-adapter tally at
+`telemetry.firmware_channel`; the future health endpoint still needs to expose it.
 
-**Landed:** the result type, the unknown-field ledger, the vendor union, and the
-boundary-enforcement fixtures.
+**Landed:** the result type, accepted-payload unknown-field ledger and path discovery,
+the supported-vendor set and parity guard, the complete fixture matrix, all three
+schemas/adapters and their exact contract tests, and the boundary-enforcement fixtures.
 
-**Not yet:** the A, B, and C adapter modules and their recorded fixtures.
+**Not yet:** the integrated joining path. `createAdapterRegistry()` is the public dispatch
+boundary and owns one accumulated unknown-field ledger. Each vendor has
+representative, empty-boundary, and full-boundary recorded fixtures plus one separately
+hand-authored malformed payload, published through `@fleet/adapters/testing`; the nine
+generated fixtures are drift-gated in CI (ADR 13).
 
 ---
 

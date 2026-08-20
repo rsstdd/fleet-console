@@ -311,9 +311,9 @@ whether windowing helps is delta churn at 500 robots, not a static render, and i
 measured until the server fans out. Nothing here should be read as an assumption that the table
 is windowed; a test fails if it becomes so without revisiting that ADR.
 
-The joining test that would make the test-only `@fleet/adapters` dependency earn its keep
-is still not built (D3). Tenant feature flags and validated build-time selection are
-implemented (ADR 17).
+The joining test in `entities/robot/fromEnvelope.test.ts` now makes the test-only
+`@fleet/adapters` dependency earn its keep for all three dialects (ADR 12). Tenant feature
+flags and validated build-time selection are implemented (ADR 17).
 
 ## 12. Change rules
 

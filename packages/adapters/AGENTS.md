@@ -10,7 +10,7 @@ The repository-level [`AGENTS.md`](../../AGENTS.md), [`PRINCIPLES.md`](../../PRI
 - Normalize genuinely shared meaning into the canonical core: identity, connectivity, battery, position, status, health, `reportedAt`, and `receivedAt`.
 - Preserve genuine vendor differences through the canonical declared-capability record. Never add vendor-only fields to the canonical core or push vendor conditionals downstream (Principle 3, ADR 1).
 - Count unrecognized input fields per adapter so `packages/server` can expose those counts on its health endpoint. Do not silently discard them.
-- Retain the raw payload for technician diagnosis, but do not place it in the fleet read model or WebSocket delta stream.
+- Leave raw-payload retention to `packages/server`, which retains the accepted request body for technician diagnosis without placing it in the fleet read model or WebSocket delta stream (ADR 26).
 
 This package does not own transport, storage, freshness derivation, UI behavior, or the canonical contract. Those belong to `packages/server`, `packages/contracts`, and `packages/web` respectively.
 
@@ -21,6 +21,7 @@ This package does not own transport, storage, freshness derivation, UI behavior,
 - Add a new vendor by adding a module, fixtures, and contract tests here. Do not change the canonical model merely to accommodate a vendor.
 - Import canonical types and schemas from `packages/contracts`; do not duplicate them locally.
 - Export package consumers through the package's public entry point rather than requiring deep imports.
+- Dispatch through `createAdapterRegistry()` in `src/registry.ts`. A consumer never imports a vendor module: the registry's `switch` over `SupportedVendor` is the only place vendor identity selects code, and it owns the one unknown-field ledger the process is allowed (ADR 1, ADR 15).
 
 ## Adapter contract
 
@@ -64,13 +65,13 @@ Run the narrow adapter contract tests first, then the package typecheck and lint
 Read one matching row, then its narrow follow-up; do not preload sibling packages or all
 adapter ADRs.
 
-| Task                                           | Start here                             | Then narrow to                                                                                |
-| ---------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Public exports or package status               | `packages/adapters/src/index.ts`       | `docs/03_package-specs/02_ADAPTERS.md`                                                        |
-| Implement the first or a later vendor dialect  | `docs/03_package-specs/02_ADAPTERS.md` | Confirm current status, then `src/vendors/<vendor>.ts`, its fixture, and contract test; ADR 1 |
-| Adapter success/failure result shape           | `src/core/result.ts`                   | Colocated test; contracts error schema if the public shape changes                            |
-| Unknown-field path discovery or accounting     | `src/core/unknownFieldPaths.ts`        | `unknownFields.ts`, their tests, and D5 mapping in `docs/decisions.json`                      |
-| Supported vendor set                           | `src/core/vendor.ts`                   | Colocated test; simulator parity test named in D7                                             |
-| Recorded fixture access and provenance         | `src/testing/index.ts`                 | `fixtures.ts`; D2/D4 mappings                                                                 |
-| Canonical output type or payload schema        | `packages/contracts/src/index.ts`      | One matching contracts schema, never the whole package                                        |
-| Dependency, clock, or unsafe-input enforcement | `eslint.config.js`                     | `src/__enforcement__/enforcement.test.ts`                                                     |
+| Task                                           | Start here                             | Then narrow to                                                                                                 |
+| ---------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Public exports or package status               | `packages/adapters/src/index.ts`       | `docs/03_package-specs/02_ADAPTERS.md`                                                                         |
+| Implement the first or a later vendor dialect  | `docs/03_package-specs/02_ADAPTERS.md` | Confirm current status, then `src/vendors/<vendor>/adapter.ts`, its schema, fixtures, and contract test; ADR 1 |
+| Adapter success/failure result shape           | `src/core/result.ts`                   | Colocated test; contracts error schema if the public shape changes                                             |
+| Unknown-field path discovery or accounting     | `src/core/unknownFieldPaths.ts`        | `unknownFields.ts`, their tests, and D5 mapping in `docs/decisions.json`                                       |
+| Supported vendor set                           | `src/core/vendor.ts`                   | Colocated test; simulator parity test named in D7                                                              |
+| Recorded fixture access and provenance         | `src/testing/index.ts`                 | `fixtures.ts`; D2/D4 mappings                                                                                  |
+| Canonical output type or payload schema        | `packages/contracts/src/index.ts`      | One matching contracts schema, never the whole package                                                         |
+| Dependency, clock, or unsafe-input enforcement | `eslint.config.js`                     | `src/__enforcement__/enforcement.test.ts`                                                                      |

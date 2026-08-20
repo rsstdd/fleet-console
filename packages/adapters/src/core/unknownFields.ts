@@ -21,19 +21,10 @@
  * rename across the server's health endpoint and the console's diagnostics.
  */
 
+import type { UnknownFieldScope, UnknownFieldTally } from "@fleet/contracts";
+
 import { findUnknownFieldPaths } from "./unknownFieldPaths.ts";
 import { SUPPORTED_VENDORS, type SupportedVendor } from "./vendor.ts";
-
-/** What one adapter has seen and not recognized, by dotted field path. */
-export interface UnknownFieldTally {
-  /** Total unrecognized field occurrences observed by this adapter. */
-  readonly total: number;
-  /** Occurrence count per dotted field path, in first-seen order. */
-  readonly fields: Readonly<Record<string, number>>;
-}
-
-/** The population a tally covers. Only accepted payloads are counted today (ADR 15). */
-export type UnknownFieldScope = "accepted";
 
 /** The unknown-field counts for every vendor dialect, with the population they cover. */
 export interface UnknownFieldSnapshot {
@@ -102,6 +93,13 @@ export interface AcceptedPayloadNote {
    * An argument rather than a convention: ADR 15 counts unknown fields only on
    * accepted payloads, and three vendor adapters each remembering to check
    * first is three chances to get the ordering wrong.
+   *
+   * **The schema's verdict, not the adapter's.** A payload the schema accepted and
+   * a mapping step then rejected is still counted, because a value with no
+   * canonical mapping is dialect change and that is what this ledger is for
+   * (ADR 15 § Behaviour, amended 20 August 2026). Call this immediately after the
+   * parse; deferring it until after the mapping narrows the population without
+   * renaming the metric.
    */
   readonly accepted: boolean;
   /** The raw payload, walked as received — before parsing applied any default. */

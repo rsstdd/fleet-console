@@ -20,7 +20,21 @@ import { FIXTURE_RECORDING, listVendorFixtures, loadVendorFixture } from "@fleet
 
 describe("@fleet/adapters/testing from the console package", () => {
   it("loads a recorded payload for every vendor", () => {
-    expect(listVendorFixtures().map((fixture) => fixture.vendor)).toEqual(["A", "B", "C"]);
+    expect([...new Set(listVendorFixtures().map((fixture) => fixture.vendor))]).toEqual([
+      "A",
+      "B",
+      "C",
+    ]);
+  });
+
+  it("reaches the boundary cases too, not only the representative one", () => {
+    // The joining test needs the extremes: a fraction of 0 and of 1 both have to
+    // arrive as a percentage, and only these payloads carry them (adapters C1).
+    expect(loadVendorFixture("A", "boundary-empty").payload).toHaveProperty(
+      "telemetry.battery.level",
+      0,
+    );
+    expect(loadVendorFixture("B", "boundary-full").payload).toHaveProperty("batt_pct", 100);
   });
 
   it("carries the pinned recording instant, so a joining test needs no clock", () => {

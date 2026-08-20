@@ -23,6 +23,40 @@ const CLOCK_MESSAGE =
   "and `reportedAt` comes from the vendor payload (ADR 3, AGENTS.md § Adapter contract).";
 
 /**
+ * ADR 11: `@fleet/adapters/testing` is imported by `packages/web`, which targets a
+ * browser. A Node-only API in that directory breaks the console the moment its build
+ * is not running under Node.
+ *
+ * The ADR named "the console's test run breaks" as the falsifier for this rule. It
+ * does not: web's vitest runs in Node with a jsdom environment, so `node:fs` resolves
+ * there and 208 tests stay green. The rule was documented in two comments and enforced
+ * by nothing, which is the ADR 7 failure mode — silence indistinguishable from a pass.
+ * This is the mechanism that was missing; `src/testing/__enforcement__/` is the proof
+ * it fires.
+ */
+const NODE_FREE_MESSAGE =
+  "The ./testing subpath is consumed by browser-targeted packages. It must stay free of " +
+  "Node-only APIs; fixtures are static JSON imports, not filesystem reads (ADR 11).";
+
+/** Node builtins, with and without the `node:` prefix, since either import resolves. */
+const NODE_BUILTIN_PATTERNS = [
+  "node:*",
+  "assert",
+  "buffer",
+  "child_process",
+  "crypto",
+  "fs",
+  "fs/promises",
+  "module",
+  "os",
+  "path",
+  "process",
+  "stream",
+  "url",
+  "util",
+];
+
+/**
  * Workspace imports, expressed as an allow-list rather than a deny-list.
  *
  * `@fleet/contracts` is the one workspace package this one may import. Naming the
@@ -129,6 +163,35 @@ export default tseslint.config(
     files: ["**/__fixtures__/**/*.ts"],
     rules: {
       "@typescript-eslint/explicit-module-boundary-types": "off",
+    },
+  },
+
+  // ADR 11: nothing Node-only in the public fixture subpath. Applies to the test
+  // files in that directory too — a Node API reached for in a test there is the same
+  // module a browser consumer would resolve.
+  {
+    files: ["src/testing/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            ...FORBIDDEN_PACKAGES,
+            { group: NODE_BUILTIN_PATTERNS, message: NODE_FREE_MESSAGE },
+          ],
+        },
+      ],
+      // `import.meta.dirname` and `.filename` are Node-only and are not imports, so
+      // the ban above cannot see them. `fixtures.ts` names both in its own comment as
+      // the things it must not reach for.
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "MemberExpression[object.type='MetaProperty'][property.name=/^(dirname|filename)$/]",
+          message: NODE_FREE_MESSAGE,
+        },
+      ],
     },
   },
 

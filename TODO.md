@@ -2,7 +2,7 @@
 
 **Authority:** Planning only. This file tracks work; ADRs and package specifications override it when they disagree.
 
-**Audited:** 19 August 2026
+**Audited:** 20 August 2026
 
 This is the repository-level index of unfinished work. It records only work observable
 in the current tree; completed bootstrap history belongs in Git, ADRs, or package
@@ -11,13 +11,13 @@ component specs, design system, wireframes, manifests, package TODOs, and source
 
 ## Current implementation baseline
 
-| Area      | Current state                                                                                                                                                                                                                           |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contracts | Canonical schemas, capability codecs, freshness derivation, and tests are built.                                                                                                                                                        |
-| Adapters  | Boundary, result/error primitives, vendor parsing, unknown-field ledger, one recorded fixture per vendor (drift-gated, ADR 13) and a public `testing` subpath (ADR 11) are built. Vendor A/B/C schemas, adapters, and registry are not. |
-| Simulator | Deterministic payload generation, CLI/config, fault injection, bounded scheduling/transport, metrics, lifecycle, and tests are built. Downstream E2E and measured results remain.                                                       |
-| Server    | Validated config, manifest-seeded state, bounded history, freshness sweep, delta coalescing, health metrics, and tests are built. There is no HTTP/WebSocket process.                                                                   |
-| Web       | Shell, router, fixture-backed fleet/detail views, all eight shared UI components, gallery, contract decoding, and tests are built. There is no live store.                                                                              |
+| Area      | Current state                                                                                                                                                                     |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contracts | Canonical schemas, capability codecs, freshness derivation, and tests are built.                                                                                                  |
+| Adapters  | Complete locally: primitives, fixtures, three adapters, exhaustive dispatch, and the browser join are built; undecided server joins are prominently deferred.                     |
+| Simulator | Deterministic payload generation, CLI/config, fault injection, bounded scheduling/transport, metrics, lifecycle, and tests are built. Downstream E2E and measured results remain. |
+| Server    | Validated config, manifest-seeded state, bounded history, freshness sweep, delta coalescing, health metrics, and tests are built. There is no HTTP/WebSocket process.             |
+| Web       | Shell, router, fixture-backed fleet/detail views, all eight shared UI components, gallery, contract decoding, and tests are built. There is no live store.                        |
 
 ## Priority 0 — correct statements that overclaim reality
 
@@ -39,6 +39,9 @@ packages exposing `dev`.
 
 Several scoped TODOs describe implemented code as absent:
 
+- `packages/adapters/TODO.md` and `TODO_E2E_JOIN.md` were reconciled on 20 August 2026;
+  their remaining open items match the current adapter source and ADRs 1, 10–16, 19,
+  20, 22, 25–29.
 - `packages/simulator/TODO.md` leaves most implemented and tested bootstrap work open.
 - `packages/server/TODO.md` has stale counts and open items for state, sweep, health,
   and enforcement work that landed.
@@ -96,17 +99,33 @@ calling the baseline maintainable.
 
 Owner: `packages/adapters`.
 
-- Declare and consume `@fleet/contracts` with `workspace:*`.
-- Add recorded fixtures and strict schemas for Vendors A, B, and C.
-- Normalize units, timestamps, statuses, and capabilities with injected `receivedAt`.
-- Retain raw payload only for single-robot diagnosis; exclude it from fleet state,
-  history, and deltas.
-- Count unknown fields per adapter, including Vendor C's intentional extra field.
-- Add the registry and exact contract tests for malformed input, conversions,
-  capability absence, Vendor B ordering, and JSON round trips.
-- Join simulator output to the contracts/web decode path in an E2E contract test.
+- ~~Declare and consume `@fleet/contracts` with `workspace:*`.~~ Done 19 August 2026.
+- ~~Record deterministic representative, boundary-empty, and boundary-full fixtures per
+  vendor, plus one hand-authored malformed payload per vendor.~~ Done 20 August 2026. The
+  nine valid fixtures are simulator-recorded and drift-gated in CI (ADR 13); malformed
+  payloads have separate provenance outside the generated path.
+- ~~Add loose schemas and adapters for Vendors A, B, and C.~~ Done 20 August 2026,
+  including exact canonical-output, malformed-input, boundary, capability, and
+  unknown-field tests (loose, not strict: ADR 15).
+- ~~Normalize units, timestamps, statuses, and capabilities with injected `receivedAt`.~~
+  Done 20 August 2026, including D7's cross-vendor equality assertion over both shared
+  boundary states.
+- ~~Settle the four canonical fields no dialect sources — `adapterId`, `adapterVersion`,
+  `position.frame`, `connectivity`.~~ Done by ADR 30 and asserted across all vendors.
+- ~~Count unknown fields per adapter, including Vendor C's
+  `telemetry.firmware_channel`.~~ Done and asserted at its dotted path.
+- ~~Add the exhaustive dispatch registry with one process-owned unknown-field ledger.~~
+  Done 20 August 2026; server deep imports are rejected by a tested lint boundary.
+- ~~Add the cross-vendor normalization test.~~ Done 20 August 2026; both shared boundary
+  states normalize to identical canonical cores across A, B, and C.
+- ~~Join recorded simulator output to the contracts/web decode path in an E2E contract
+  test.~~ Done 20 August 2026 for A, B, and C in `fromEnvelope.test.ts`.
 
-Detailed source: `packages/adapters/TODO.md`, after **P0.2** removes stale items.
+Raw-payload retention has moved off this item: ADR 26 put it wholly in `packages/server`,
+which retains the accepted request body and serves it from the single-robot endpoint. No
+adapter holds it.
+
+Detailed source: `packages/adapters/TODO.md`, audited against ADRs 10-29 on 20 August 2026.
 
 ### P1.2 Build server transport and the composition root
 
@@ -114,9 +133,9 @@ ADR 8 selects Hono, `@hono/node-server`, and `ws`; the dependencies and listener
 not present.
 
 - Add validated host, port, and origin configuration.
-- Implement `POST /api/telemetry/:vendor`: validate the route, treat the body as
-  `unknown`, stamp receipt time, dispatch through adapters, reject invalid input, and
-  apply idempotent ordering.
+- Implement `POST /api/telemetry/:vendor` after resolving ADR 10's runtime-validation and
+  ADR 11's server-fixture-access questions; do not copy a vendor payload into server tests
+  to work around them.
 - Implement `GET /api/fleet`, `GET /api/robots/:id`, a history endpoint, and
   `GET /api/health`. Raw payload is permitted only in single-robot diagnostics.
 - Add late-sweep detection to health.

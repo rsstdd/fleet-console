@@ -1,7 +1,7 @@
 # ADR 12 — The Console Depends on the Adapters in Tests Only
 
 **Decision:** `packages/web` declares `@fleet/adapters` as a dev dependency, bans the specifier package-wide in production code, and lifts the ban only for test files, so the end-to-end contract path can join a recorded vendor payload to the browser read model without vendor decoding reaching the bundle.
-**Status:** Decided · 2026-08-19 · Partial
+**Status:** Decided · 2026-08-19 · Implemented 2026-08-20
 **Group:** Structure / enforcement (the console-side half of ADR 1's adapter boundary, enforced in the build rather than asserted in prose).
 
 ## Issue
@@ -61,7 +61,11 @@ The cost is accepted and stated: a second enforcement mechanism in a package tha
 - **The exception is keyed to a filename, so test helpers are banned.** A shared helper at `src/test/adapterFixtures.ts` importing `@fleet/adapters` is rejected, because it is not `*.test.*`. If the joining test grows beyond one file, either the helper is itself a `*.test.ts` module or this ADR is amended. It must not be fixed by widening the glob quietly.
 - **A second server-only package extends a list, not a mechanism.** `@fleet/server` or any future server-side package is added to the `paths` array in the same rule with the same override. Nothing about this decision is specific to adapters except the name.
 - **The bundle claim must be re-measured when the joining test actually imports an adapter.** Today the import exists only in lint fixtures. A test-only import should still tree-shake, but "should" is not a measurement, and this is the single number that would falsify the decision.
-- **The joining test is the reason this exists, and it does not exist yet.** Status is Partial for that reason. ADR 11 shipped the fixture export that resolved register **D2**, and ADR 13 subsequently closed **D4** with a deterministic recorder and CI drift guard; the remaining blockers are a vendor module and dispatch. This ADR must not be marked Implemented on the strength of the fixtures and provenance guard alone.
+- **The joining test is the reason this exists, and it now lives in
+  `src/entities/robot/fromEnvelope.test.ts`.** It runs each recorded representative
+  payload through the exhaustive registry, canonical wire encoding and decoding, and the
+  browser read-model mapper. Status is Implemented because the exception now buys the
+  evidence it was created for, not merely because its fixtures exist.
 - **The fixtures are load-bearing and look like dead code.** Both files under `src/entities/robot/__boundary-violation__/` import a package the console does not use and export a value nobody reads. A tidy-up that deletes them removes the only proof the rule is live, and the `__boundary-violation__` convention plus the comment in each file is what stands between them and that tidy-up.
 - **`vite.config.ts` now has an exclude that must survive.** If `*.fixture.test.ts` is collected by vitest again, the suite fails on a fixture that contains no tests, and the likely "fix" is deleting the fixture.
 - **CI must install dev dependencies for `packages/web`.** Already true, and now load-bearing: without them the lint fixtures cannot resolve, and `checkUnknownLocals` (ADR 7) turns an unresolvable import into an error rather than a skip.
@@ -75,6 +79,12 @@ The cost is accepted and stated: a second enforcement mechanism in a package tha
   _Resolves on:_ the first real adapter import in a test.
 
 ## Observed consequences
+
+- **20 August 2026 — the joining test landed for all three dialects.** It proves battery
+  and position normalization, the shared instant, B's absent sequence, A/C capability
+  differences, C's unknown-field tally, unsourced connectivity, and declared-but-dropped
+  heading through the browser read model. The production build remains checked separately
+  by the bundle gate; the import is confined to the test override described above.
 
 - **19 August 2026 — the plan's own mechanism was wrong, and the enforcement caught it before the code did.** This decision was first written as "add `@fleet/adapters` to the entity layer's external `disallow` list, where the `test` element type keeps test files legal." That element is the setup directory, so the ban would have hit `entities/robot/fromEnvelope.test.ts` — the one file the exception exists for. The error surfaced while reading the config rather than after writing the joining test, which is the argument for enforcement-before-consumer stated in TODO **T1**.
 - **19 August 2026 — both directions observed firing.** `adapterImport.ts` produces exactly one `no-restricted-imports` error; `adapterImport.fixture.test.ts` produces none. The negative assertion was probed for vacuity: with a `console.log` appended, the fixture reports `no-console`, proving the file is fully linted and only the one rule is lifted rather than the file being skipped.

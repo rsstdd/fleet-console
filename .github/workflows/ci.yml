@@ -119,8 +119,9 @@ jobs:
       # a reported number that can redden the build is a gate with extra steps.
       # The suite itself is already gated by the `pnpm test` step above.
       #
-      # The longer timeout is for the lint-enforcement tests, which run ESLint
-      # programmatically and take several seconds each under v8 instrumentation.
+      # The longer timeout is margin for v8 instrumentation generally. The
+      # lint-enforcement suite's ESLint run moved into a `beforeAll` with its own
+      # budget, so `--testTimeout` no longer covers it (packages/FIXME.md F14).
       - name: Adapter coverage (reported, not gated)
         continue-on-error: true
         run: |

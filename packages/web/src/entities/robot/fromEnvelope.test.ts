@@ -1,8 +1,11 @@
+import { createAdapterRegistry } from "@fleet/adapters";
+import { FIXTURE_RECORDING, loadVendorFixture } from "@fleet/adapters/testing";
 import {
   SCHEMA_VERSION,
   encodeCanonicalEnvelope,
   parseCanonicalEnvelope,
   parseRobotDiagnosticEnvelope,
+  withFreshness,
   type CanonicalEnvelope,
   type RegisteredRobotState,
   type RobotDiagnosticEnvelope,
@@ -210,16 +213,58 @@ describe("toRobotDetail", () => {
  * The client-side half of the end-to-end contract path: canonical envelope →
  * wire encoding → JSON round trip → boundary decode → read model.
  *
- * TODO(e2e-join): the vendor half — raw vendor fixture → adapter → canonical
- * envelope — attaches at the top of this suite. It is blocked on three things,
- * in order: the pre-freshness envelope type in `@fleet/contracts`
- * (packages/contracts/TODO_E2E_JOIN.md C-1), one vendor adapter plus dispatch
- * and the `./testing` fixture export (packages/adapters/TODO_E2E_JOIN.md), and
- * the lint rule confining `@fleet/adapters` to test files here
- * (ADR 12, which permits this file alone to import an adapter). What it must
- * assert, per vendor, is listed in adapters TODO_E2E_JOIN.md A-4.
+ * The vendor half is joined below through the test-only adapter dependency ADR 12
+ * permits in this file. Production web code still sees canonical envelopes only.
  */
 describe("wire round trip", () => {
+  it("joins every recorded vendor dialect to the browser read model", () => {
+    const registry = createAdapterRegistry();
+    const details = (["A", "B", "C"] as const).map((vendor) => {
+      const fixture = loadVendorFixture(vendor);
+      const adapted = registry.decodeTelemetry(vendor, fixture.payload, fixture.recordedAt + 250);
+      expect(adapted.ok).toBe(true);
+      if (!adapted.ok) throw new Error(`Vendor ${vendor} rejected its representative fixture.`);
+
+      const canonical = withFreshness(adapted.value, "live");
+      const decoded = parseCanonicalEnvelope(
+        JSON.parse(JSON.stringify(encodeCanonicalEnvelope(canonical))),
+      );
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) throw new Error(`Vendor ${vendor}'s canonical wire form was rejected.`);
+
+      return toRobotDetail(
+        {
+          ...decoded.value,
+          sequenceHealth:
+            decoded.value.capabilities.sequence === undefined
+              ? { evaluated: false }
+              : { evaluated: true, gaps: 0, duplicates: 0 },
+          rawPayload: null,
+        },
+        { unknownFieldCount: registry.unknownFields().byAdapter[vendor].total },
+      );
+    });
+
+    expect(details.map((detail) => detail.batteryPercent)).toEqual([96.61, 75, 38.46]);
+    expect(details.map((detail) => detail.lastSeenAt)).toEqual([
+      new Date(FIXTURE_RECORDING.instantMs).toISOString(),
+      new Date(FIXTURE_RECORDING.instantMs).toISOString(),
+      new Date(FIXTURE_RECORDING.instantMs).toISOString(),
+    ]);
+    expect(details[1]?.position).toEqual({ frame: "SITE-NORTH", x: -20.77, y: 10.26 });
+    expect(details[1]?.diagnostics?.sequence).toBeNull();
+    expect(details[1]?.diagnostics?.sequenceHealth).toEqual({ evaluated: false });
+    expect(details[0]?.capabilities.lidarHealth).toEqual({ severity: "nominal", rpm: 600 });
+    expect(details[0]?.capabilities).not.toHaveProperty("waterLevel");
+    expect(details[2]?.capabilities.waterLevel).toEqual({ percent: 60 });
+    expect(details[2]?.capabilities).not.toHaveProperty("lidarHealth");
+    expect(details.map((detail) => detail.connectivity)).toEqual(["unknown", "unknown", "unknown"]);
+    expect(details.map((detail) => detail.position)).not.toContainEqual(
+      expect.objectContaining({ heading: expect.anything() }),
+    );
+    expect(details[2]?.diagnostics?.unknownFieldCount).toBe(1);
+  });
+
   it("survives JSON and decodes to the same read model", () => {
     const original = envelope();
     const json = JSON.stringify(encodeCanonicalEnvelope(original));

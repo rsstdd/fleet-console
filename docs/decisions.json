@@ -99,6 +99,11 @@
       "id": "D20",
       "question": "Admission of third-party packages",
       "adr": 29
+    },
+    {
+      "id": "D21",
+      "question": "Canonical fields with no vendor source, and vendor fields with no canonical home",
+      "adr": 30
     }
   ],
   "mechanicalRules": [
@@ -165,6 +170,10 @@
     {
       "path": "scripts/checkDependencies.mjs",
       "adr": 29
+    },
+    {
+      "path": "packages/adapters/src/capabilityTrace.test.ts",
+      "adr": 30
     }
   ],
   "authorityMarkers": {
