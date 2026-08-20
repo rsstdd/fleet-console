@@ -1,7 +1,7 @@
 # ADR 2 — Transport: HTTP POST Ingest, WebSocket Fan-Out
 
 **Decision:** Ingest is HTTP POST one request per telemetry reading, validated and normalized at the boundary; fan-out is WebSocket carrying coalesced deltas; no MQTT or broker is introduced.
-**Status:** Decided · 2026-08-19 · Not started
+**Status:** Decided · 2026-08-19 · Partial 2026-08-20
 **Group:** Integration / transport.
 
 ## Issue
@@ -69,6 +69,11 @@ Worker-thread validation requires transferring the payload across a structured-c
 
 ## Observed consequences
 
+- **20 August 2026 — under concurrency the server clears its own design scale, and the sequential number was not a capacity figure.** `packages/server/src/freshness/sweepUnderLoad.test.ts` drives concurrent ingest at 500 robots: 1,264 req/s at concurrency 1, 4,786 at 16, and 5,971 at 128 — roughly **2.4× the 2,500 msg/s** this ADR designs for. The 892 µs sequential cost recorded above is round-trip latency on one connection and implies nothing about throughput; publishing it without this run beside it invited exactly the wrong conclusion, and both numbers are now stated together. No degradation point was found on this machine, which is a statement about the run rather than about the ceiling.
+- **20 August 2026 — the cost question this ADR raised is answered, and this ADR was right.** `packages/server/src/ingest/validationCost.test.ts` now measures both halves. A strict canonical decode costs **5.8 µs** per message; a whole request through the listening server — route selection, size cap, `JSON.parse`, vendor decode, idempotent upsert — costs **892 µs at 50 robots and 926 µs at 500**. Transport dominates validation by roughly 150×, so the staged mitigation in § Argument should begin with batch ingest and **not** with worker-pooled validation, which would optimise 0.7% of the cost.
+- **20 August 2026 — per-request cost is flat across the scale range.** 892 µs to 926 µs from 50 to 500 robots is 3.8%, which is the map-keyed store behaving as ADR 6 assumed rather than a result worth celebrating. It does mean fleet size is not the axis to worry about.
+- **20 August 2026 — what the number is not.** It is a sequential round trip over loopback including the client's own `fetch`, so it bounds server-side per-request work from above rather than isolating it. This harness measures the cost of one request on purpose; a concurrent flood measures the event loop's response to offered load, which is a different question and is server TODO **I4**. Whether 2,500 msg/s is sustained therefore remains unmeasured, and the README's load tables stay empty rather than being filled from this run.
+- **20 August 2026 — the HTTP half of the cold start exists.** `GET /api/fleet` serves `fleetSnapshotSchema` with every manifest robot, which is the initial-state choice this ADR was amended to (M5): the socket keeps one message shape for its lifetime and pays for it with `flushSequence`. That counter is `0` on every snapshot today because nothing flushes, so a joining client discards nothing — correct, and the reason it is safe to ship the read before the socket. The ordering the client must follow is unchanged and untested until fan-out lands: open the socket, buffer, _then_ fetch (server TODO **H3b**).
 - 19 August 2026: the flush sequence this ADR's initial-state contract requires landed in
   `packages/contracts`, decided as [ADR 18](./18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md)
   (register D10). `telemetryBatchSchema` gained a required `flushSequence`; the fleet

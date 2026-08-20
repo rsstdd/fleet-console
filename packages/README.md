@@ -54,16 +54,17 @@ dependency: lint bans the specifier in production code and lifts the ban for
 `**/*.test.ts`, and `src/__enforcement__/` probes both directions — including a
 test-file fixture that must report nothing — so the rule cannot go inert.
 
-Two arrows above are drawn ahead of the code:
+**Every arrow above now exists at both ends** (20 August 2026). `simulator ──HTTP──▶
+server` was verified by a `pnpm dev` run in which 1,993 readings were sent and 1,993
+accepted; `server ──WebSocket──▶ web` by a subscriber that received one robot as `live`
+and then as `stale`, the second frame produced by the freshness sweep alone with no
+telemetry behind it.
 
-- `server ──WebSocket──▶ web` does not exist at either end. No server process
-  opens a socket, and `web/src/shared/lib` holds no client.
-- `simulator ──HTTP──▶ server` exists only on the producing side. The simulator
-  has an ingest client and POSTs; nothing is listening.
-
-The four edges that do exist are `web ──▶ contracts`, `adapters ──▶ contracts`,
-`server ──▶ contracts`, and `server ──▶ adapters` — the last being only the
-supported-vendor list the fleet manifest is validated against.
+`server ──▶ adapters` is no longer only the supported-vendor list: every reading is
+dispatched through the registry's `decodeTelemetry`, and the vendor modules stay
+unreachable from a handler because lint bans the deep import in production **and** in
+tests, admitting only `@fleet/adapters/testing` for the ingest test's recorded bytes
+(ADR 11, amended 20 August 2026).
 
 If you go looking for edges, you will also find `@fleet/server` imported inside
 `adapters`, and a `__boundary-violation__` directory in `server`. Those are
@@ -122,8 +123,8 @@ undocumented field increments the per-adapter tally at
 the supported-vendor set and parity guard, the complete fixture matrix, all three
 schemas/adapters and their exact contract tests, and the boundary-enforcement fixtures.
 
-**Not yet:** the integrated joining path. `createAdapterRegistry()` is the public dispatch
-boundary and owns one accumulated unknown-field ledger. Each vendor has
+`createAdapterRegistry()` is the public dispatch boundary and owns one accumulated
+unknown-field ledger, which `packages/server` now consumes on `GET /api/health`. Each vendor has
 representative, empty-boundary, and full-boundary recorded fixtures plus one separately
 hand-authored malformed payload, published through `@fleet/adapters/testing`; the nine
 generated fixtures are drift-gated in CI (ADR 13).
@@ -176,13 +177,17 @@ Configuration now has two sources with different lifetimes: the committed
 once by `loadRuntimeEndpoints()` — the only `process.env` read in the package (ADR
 21). Both raise the same `ConfigValidationError`.
 
-**Not yet:** the composition root. Nothing listens on a port or opens a socket,
-so there is no ingest and no fan-out. The address it would bind is now decided
-rather than guessed, but `FLEET_ALLOWED_ORIGINS` is validated and **not enforced**
-— the CORS middleware belongs with the listener, so setting that variable today
-has no effect (`FIXME.md` **F13**). The ingest size cap is in the same state:
-`src/ingest/requestSizeLimit.ts` is built and tested, and nothing calls it yet
-(ADR 26, server TODO **D0**).
+**Landed 20 August 2026:** the composition root. `pnpm --filter @fleet/server start` binds
+what `loadRuntimeEndpoints()` returns, serves `POST /api/telemetry/:vendor` and the three
+reads, runs the ADR 3 sweep, fans coalesced deltas out on `/ws`, and refuses to continue
+past a `ConfigValidationError`. `FLEET_ALLOWED_ORIGINS` is now enforced ahead of every
+route, and the ingest size cap runs before `JSON.parse` rather than after it — both were
+configuration with no consumer, and `FIXME.md` **F13** closed with them.
+
+**Not yet:** backpressure on a console that stops reading, and the history read for the
+sparkline. The first is deferred on ADR 8's undecided question of whether the connection
+cap is configuration or a constant; the second on ADR 6's ring-buffer capacity, which
+resolves from the sparkline's real point count and not from a round number.
 
 **Retention is decided.** One raw payload per robot, replaced not accumulated,
 kept verbatim with no redaction, bounded at 64 KiB per request — 31.25 MiB across
@@ -238,9 +243,15 @@ a defect, not a shortcut.
 **Landed:** the shell, the shared primitives, the fleet page, robot detail, and
 the entity layer that maps a canonical envelope into the read model.
 
-**Not yet:** the transport. `useFleetRobots` returns a fixture set and
-`shared/lib` holds no client, so the console is real but the data is not. It is
-waiting on the server's composition root.
+**Landed 20 August 2026:** the transport. `shared/lib` holds the cold-start ordering, the
+stream lifecycle, the one decode boundary and the client that sequences them; `app` owns
+the socket and publishes connection state; `useFleetRobots` reads a keyed store and
+`useRobotDetail` fetches `GET /api/robots/:id`. No hook renders invented data.
+
+**Not yet:** proof in a browser, and automatic reconnection. The console has been verified
+at the wire — snapshot, deltas, a freshness-only transition — but not watched rendering
+them; and `connect()` after a close is the caller's call, because an attempt limit and a
+backoff schedule are unchosen (fleet TODO **A3**).
 
 ---
 

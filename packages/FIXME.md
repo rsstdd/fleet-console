@@ -11,7 +11,36 @@ decisions that are simply incomplete. Package TODOs remain the detailed implemen
 plans; this file is the cross-package reconciliation list.
 
 **Re-audit outcome.** F1–F12 were each re-verified against source. F1–F11 remain open; **F12 was closed on 19 August 2026** by ADR 16. **F13, F14 and F15 were added on 19 August 2026** — by ADR 21, ADR 25 and ADR 26 respectively — and are the newer kind of finding this file should expect more of: not contradictions, but decisions that landed correctly ahead of the code that will consume them.
-**F14 was closed on 20 August 2026**, by the work its own entry prescribed. No other finding was closed in the 20 August re-audit. The re-audit corrected statements in
+**F14 was closed on 20 August 2026**, by the work its own entry prescribed.
+
+**Fourth pass, 20 August 2026 — the last sweep.** **F7** and **F11** closed, **F8** down to
+its one un-automatable bullet, and **F17** raised and fixed in the same pass. Four findings
+remain open and **none of them is a contradiction between documents and code**: **F9** and
+**F16** are real work behind named ADR questions, **F10** is a retained caution rather than
+a defect, and **F15** is a decided product cut that is a release blocker by design. Three
+assessment lines that still read "open" over struck-through bullets were corrected here;
+that drift is the same shape as **F3** and is worth re-checking whenever a finding closes.
+
+**Third pass, 20 August 2026 — the fixture fictions and the stale metadata.** **F1**
+(vendor B declaring a capability no vendor B payload produces) and **F4** (connectivity
+derived from freshness) are closed, both by checking the console's fixtures against what the
+real adapters actually return rather than against an ADR — which is only possible now that
+the adapters exist. **F2** and **F3** are closed too: two of F2's three bullets were retired
+by the server gaining an executable process, and F3's stale ADR statuses were corrected with
+dates. Six of fifteen findings remain open; none of the remaining six is a contradiction
+between documents and code.
+
+**Second pass, earlier on 20 August 2026 — the critical path closed, and with it four
+findings.** **F5** (adapter boundary incomplete), **F6** (transport not implemented
+server-side, except backpressure), **F13** (endpoint configuration with no reader) and the
+composition-wiring bullet of **F7** are closed by the server's listener, ingest, sweep and
+fan-out, and by the console's transport. **F9** is half closed: the no-leak property is
+proved against a running server, while the history read and the restart story remain — both
+blocked on named ADR questions rather than unwritten. Every closure in this pass was
+checked against a running process, not against the diff; where only a unit test exists, the
+entry says so.
+
+The earlier re-audit corrected statements in
 [`README.md`](./README.md) that the code contradicts: a test that does not exist, an
 undercount of the dependency arrows drawn ahead of the code, a health endpoint the
 server does not serve, a dependency rule attributed to the build rather than to lint,
@@ -21,14 +50,26 @@ library.
 
 ## Confirmed conflicts
 
-### F1. Vendor B's web fixture violates ADR 1's resolved capability profile
+### F1. Vendor B's web fixture violates ADR 1's resolved capability profile — **CLOSED 20 August 2026**
 
-**Assessment: incorrect implementation; open.**
+**Assessment: was an incorrect implementation; fixed, and now checkable against the real adapter.**
 
 ADR 1's observed consequence resolves Vendor B to `dock` and nothing else, explicitly
 stating that its payload carries no lidar source data. The simulator follows that
 decision. `packages/web/src/entities/robot/useRobotDetail.ts`, however, declares both
 `dock` and `lidarHealth` for Vendor B, and its comment repeats the obsolete profile.
+
+**Fixed 20 August 2026.** The fixture declares `dock` alone for vendor B, and the tests
+moved with it: the "renders a panel only for a declared capability" case now uses R-118
+(vendor A, which does declare lidar), a new case asserts B's narrower profile directly, and
+`tenantPanelFlag.test.tsx` moved to R-118 too — it was hiding a lidar panel for a robot that
+should never have had one, so it had been passing for the wrong reason.
+
+What makes this different from a fixture edit is that the answer is no longer a matter of
+reading an ADR. Decoding the recorded payloads through the real registry gives
+`A: dock+lidarHealth+sequence`, `B: dock`, `C: dock+sequence+waterLevel`, so the console's
+fixtures can be checked against the system rather than against a document. The original
+instruction follows.
 
 Fix the fixture and its capability-absence tests so all packages demonstrate the same
 profile:
@@ -42,9 +83,25 @@ profile:
 This is not permission to branch on vendor identity in rendering. The fixture chooses
 wire input by vendor; the page must continue to render only from decoded capabilities.
 
-### F2. ADR 9's runtime decision, implications, and package scripts disagree
+### F2. ADR 9's runtime decision, implications, and package scripts disagree — **CLOSED 20 August 2026**
 
-**Assessment: internally contradictory ADR plus mismatched manifests; open.**
+**Assessment: two bullets closed by the server landing; the third rests on a reading of ADR 9 the current text does not support.**
+
+- _"server declares `tsx` but has no `dev` or `start` script and no executable process"_ —
+  no longer true. Both scripts exist and run `src/main.ts`, which binds a port.
+- _"`pnpm-workspace.yaml` approves `esbuild` … although no current script invokes it"_ —
+  no longer true, and this was the bullet with teeth: an approved postinstall justified by
+  behaviour that did not exist. `tsx watch src/main.ts` invokes it now.
+- _"internally contradictory ADR"_ — the current text is not. ADR 9 § Decision reads
+  "Packages that execute — `packages/server` now, `packages/simulator` **when it gains a
+  workspace import** — run through `tsx`", stating the carve-out in the Decision itself
+  rather than only in the Implications. The simulator still imports no workspace package in
+  production (its adapters dependency is test-only, ADR 16), so `node --watch src/index.ts`
+  remains correct under that sentence, and ADR 9's own open question — whether to move it
+  early anyway — is the right home for what is left.
+
+No ADR change was needed, which is worth recording: the finding prescribed narrowing a
+decision that had already been written narrowly. The original text follows.
 
 ADR 9's Decision says executable workspace packages run through `tsx`, not plain
 `node`. Its Implications then carve out the simulator to keep `node` until it imports a
@@ -62,9 +119,26 @@ workspace comment, and package README say the same thing. Do not leave an approv
 native build script and unused `tsx` dependency justified by behavior that does not
 exist.
 
-### F3. ADR implementation statuses and artifact notes are stale
+### F3. ADR implementation statuses and artifact notes are stale — **CLOSED 20 August 2026**
 
-**Assessment: incorrect ADR metadata/prose; open.**
+**Assessment: was incorrect ADR metadata; corrected.**
+
+ADR 1 had already moved to Implemented. ADR 2, ADR 3 and ADR 6 were still saying "Not
+started" while their mechanisms ran in production — the worst version of stale metadata,
+since a reader checking whether the transport exists would have been told no by the document
+that decided it.
+
+- **ADR 2 → Partial.** HTTP ingest and WebSocket fan-out are built and measured; batch
+  ingest and backpressure are not.
+- **ADR 3 → Implemented.** The sweep runs from the composition root, freshness travels as a
+  field, and per-robot suppression on stream loss was observed in a browser.
+- **ADR 6 → Partial.** Manifest-seeded state and the bounded ring buffer are in use; the
+  history read is unmounted and the ring capacity is still unchosen (**M4**).
+
+Each status now carries the date it changed, so a later reader can tell a decision that was
+reviewed from one never revisited. The stale artifact prose this entry names went in the
+same pass: ADR 1's three "(not yet implemented)" artifact lines and ADR 3's "will contain
+the sweep" all described a repository that no longer exists. The original text follows.
 
 The code implements meaningful portions of decisions whose ADR headers still say “Not
 started”:
@@ -85,15 +159,31 @@ ADR 1 and ADR 3 also retain “not yet implemented” artifact/Notes prose after
 implemented consequences. Update each ADR atomically so its header, artifacts, notes,
 and observed consequences describe the same repository (Principle 14).
 
-### F4. The fixture detail model derives robot connectivity from freshness
+### F4. The fixture detail model derives robot connectivity from freshness — **CLOSED 20 August 2026, and its remedy corrected**
 
-**Assessment: fixture-only ADR conflict; open.**
+**Assessment: was a fixture-only ADR conflict; the inference is gone, and the fix it asked for turned out to be unconstructible.**
 
 `packages/web/src/entities/robot/useRobotDetail.ts` currently returns `unknown`
 connectivity only for an unreachable robot and `online` otherwise. ADR 1 explicitly
 defines reported robot connectivity, server-derived freshness, and console socket state
 as three disjoint facts. Inferring one from another creates false telemetry even in a
 fixture.
+
+**Fixed 20 August 2026.** `fixtureConnectivity` is deleted and the fixture reports a
+constant `unknown`. The real mapper still copies `core.connectivity` unchanged, as this
+entry required.
+
+**The remedy this entry prescribed cannot be carried out, and that is a finding rather than
+a shortfall.** It asked for "at least one case that proves connectivity and freshness can
+disagree". No such case can be built: decoding all nine recorded payloads through the real
+registry gives `connectivity: "unknown"` for every one, because **no vendor dialect reports
+a link state at all** (ADR 30 § Implications). A fixture showing `online` would be the same
+invention this entry objected to, wearing the other label. The disagreement case becomes
+constructible only if ADR 30's open question — should the dialects report a link state? —
+is answered yes, and it should be written then.
+
+The original instruction follows, kept because its reasoning about the three disjoint facts
+is why the inference was wrong in the first place.
 
 Give each fixture an explicit reported connectivity value, including at least one case
 that proves connectivity and freshness can disagree. The real mapper already copies
@@ -107,42 +197,72 @@ other correct.
 These are legitimate unfinished work, not contradictions. Keep them visible in package
 TODOs and the root TODO; do not “fix” them by weakening the ADR.
 
-### F5. ADR 1 adapter boundary is incomplete
+### F5. ADR 1 adapter boundary is incomplete — **CLOSED 20 August 2026**
 
-**Assessment: accurate plan, incomplete implementation; open.**
+**Assessment: closed. The boundary is complete and consumed.**
 
 `packages/adapters` now depends on `@fleet/contracts`, publishes one representative
 recorded representative and boundary fixtures per vendor, publishes one separately
 hand-authored malformed payload per vendor, and implements the accepted-only unknown-field
 ledger and path discovery. All three vendors now have loose schemas, adapters, and exact
 contract tests; the exhaustive dispatch registry owns their shared process tally. The
-cross-vendor normalization assertion and server ingest integration remain. Therefore
-end-to-end dispatch evidence and HTTP health reporting do not yet exist. The simulator intentionally has
-no production dependency on contracts/adapters; its test-only adapters dependency guards
-the supported-vendor list (ADR 16).
+cross-vendor normalization assertion now exists, and `packages/server` dispatches every
+reading through the registry: `POST /api/telemetry/:vendor` decodes with the adapter the
+route segment selects, and `GET /api/health` serves the ledger per adapter with its scope
+carried as data. Measured on one `pnpm dev` run, vendor C's `telemetry.firmware_channel`
+reached 235 while A and B stayed at zero — the end-to-end dispatch evidence this finding
+was waiting for. The simulator intentionally has no production dependency on
+contracts/adapters; its test-only adapters dependency guards the supported-vendor list
+(ADR 16).
 
-### F6. ADR 2 and ADR 8 transport are not implemented server-side
+### F6. ADR 2 and ADR 8 transport are not implemented server-side — **CLOSED 20 August 2026, with one part deliberately still absent**
 
-**Assessment: accurate plan, incomplete implementation; open.**
+**Assessment: closed for transport; backpressure remains open under a named ADR question.**
 
-The simulator emits one HTTP POST per reading and the server has a delta coalescer, but
-the server does not declare Hono, `@hono/node-server`, or `ws`; has no listener; and
-implements no HTTP routes, WebSocket scheduler, connection limits, backpressure, or
-shutdown. `packages/README.md` now describes these as planned rather than present.
+The server now declares `hono`, `@hono/node-server` and `ws`, each vetted in the ADR 29
+allow-list and each landing with the code that imports it. It binds one port for HTTP and
+`/ws`, serves the ingest route plus three reads, runs the fan-out scheduler at up to 10 Hz
+on its own interval, and closes stream clients before the HTTP server on shutdown as ADR 8
+§ Implications requires — asserted by rebinding the same port afterwards rather than by
+inspection.
 
-### F7. ADR 3 is not complete end to end
+**Connection limits and backpressure are still absent**, and that is the one part of this
+finding that survives: `DeltaFanOut` flushes to every console with a pending set and never
+skips or drops one. Correct at ADR 2's stated scale of single-digit consoles, wrong the
+moment a console stops reading. ADR 8 § Open questions asks whether the connection cap is
+configuration or a constant and leans configuration "alongside the freshness policy" — but
+`freshnessPolicySchema` is strict and ADR 3 § Constraints fixes its keys, so that means a
+fourth key with an ADR 3 amendment or a new configuration surface. Tracked as server TODO
+**H6b**; decide the surface before putting a number in the fan-out.
 
-**Assessment: accurate plan, incomplete integration; open.**
+### F7. ADR 3 is not complete end to end — **CLOSED 20 August 2026**
+
+**Assessment: was an accurate plan with incomplete integration; every bullet is now closed.**
+
+The last one to fall was the browser proof, which ADR 23 could not reach because there was
+no transport to kill. Headless Chrome against the running stack showed `{Live: 46, Stale: 4}`
+under a connected banner, `{Unreachable: 50}` after the simulator stopped — banner still
+connected — and, with the server stopped, every row retained with **no** per-robot freshness
+label under a `Stream reconnecting` banner. That is the whole of ADR 3's guarantee, observed
+rather than injected.
 
 Contracts and server primitives agree with the ADR: derivation is pure, uses
 `receivedAt`, runs in the server sweep, and marks freshness-only changes. Missing:
 
-- composition wiring from the sweep's late-tick callback into `HealthMetrics`. Both
-  halves exist and neither is connected: `FreshnessSweep` takes an `onLateTick`
-  option and `HealthMetrics.noteLateFreshnessTick` consumes exactly that shape, but
-  `packages/server/src/index.ts` only re-exports the pieces and composes nothing;
-- health HTTP exposure;
-- WebSocket delivery of freshness-only deltas;
+- ~~composition wiring from the sweep's late-tick callback into `HealthMetrics`~~
+  **closed 20 August 2026.** `startServer` in `packages/server/src/runServer.ts` builds
+  the store, the delta set, the counters and the sweep together, routes `onLateTick`
+  into `HealthMetrics.noteLateFreshnessTick`, and also emits a `freshness.tick_late`
+  warning — because the counter alone is unreadable until the health endpoint exists,
+  and ADR 3's stated failure is that a sweep which silently stops looks identical to a
+  healthy fleet. The sweep starts after the listener binds and stops before it closes;
+- ~~health HTTP exposure~~ **closed 20 August 2026.** `GET /api/health` serves
+  `lateFreshnessTicks` alongside the per-adapter counters, and the sweep also emits a
+  `freshness.tick_late` structured warning — because a counter no route could read was
+  itself the silence ADR 3 § Implications names as the failure;
+- ~~WebSocket delivery of freshness-only deltas~~ **closed 20 August 2026.** A console
+  connected to `/ws` receives a coalesced frame carrying the aged robot and nothing else;
+  verified against a running server, not only in a unit test;
 - a real console connection state. The console side is **now complete** (ADR 23):
   `ConnectionContext` in `shared/lib` carries the state from `app` to both features,
   and the default on both the context and `AppShell`'s prop is `disconnected` rather
@@ -160,30 +280,79 @@ Contracts and server primitives agree with the ADR: derivation is pure, uses
 The `Date.now()` calls used to construct web fixtures do not derive freshness and are
 not themselves an ADR 3 violation; adding a client freshness timer would be.
 
-### F8. ADR 5 remains partially implemented
+### F8. ADR 5 remains partially implemented — **three of four bullets closed 20 August 2026**
 
-**Assessment: accurate Partial status, incomplete alignment/evidence; open.**
+**Assessment: alignment done; forced-colors evidence is the one bullet left, and it cannot be automated.**
 
 The web uses MUI and CSS custom-property tokens and has no competing CSS framework.
 Remaining alignment work is concrete:
 
-- `FreshnessLabel` duplicates class styling with inline style objects and stale CSS;
-- JavaScript `TENANT_PALETTE` duplicates values in `tokens.css`;
-- the stylelint selector rule rejects spec-required BEM element names, requiring local
-  suppressions;
-- contrast/forced-colors evidence is not recorded.
+- ~~`FreshnessLabel` duplicates class styling with inline style objects and stale CSS~~ —
+  **closed 20 August 2026, with one residual named below.** The inline style objects are
+  gone and the component renders classes only; `global.css` now styles the class names it
+  actually renders. The stylesheet's old rules were worse than duplicated — they were
+  **dead and contradictory**, targeting `.state` and `.age` (never rendered) and colouring
+  freshness from the status palette, three lines under a comment saying freshness "does not
+  share the status palette. It is carried by emphasis". The inline styles followed the
+  comment; the CSS did not, and nothing failed because nothing matched.
+
+  _Residual:_ one test got weaker. `freshnessLabel.test.tsx` asserted
+  `text-decoration: underline dotted` on a stale timestamp, which it could only do because
+  the component set it inline. jsdom loads no external stylesheet, so with the rule in CSS
+  the test now asserts the modifier class instead, and **nothing checks that the stylesheet
+  still carries the rule**. That is a real trade — duplicated-and-overriding styling for one
+  unasserted CSS rule — and it is named here rather than glossed;
+
+- ~~JavaScript `TENANT_PALETTE` duplicates values in `tokens.css`~~ — **closed 20 August 2026.** The duplication is unavoidable without a build step (CSS custom properties are
+  the design source; MUI needs JavaScript values), so it is pinned instead:
+  `scripts/checkTokens.mjs` fails CI if any of the nine colours disagrees between the two
+  files, and fails if a new palette key is added that the check does not cover;
+- ~~the stylelint selector rule rejects spec-required BEM element names, requiring local
+  suppressions~~ — **closed 20 August 2026.** `selector-class-pattern` admitted
+  `block` and `block--modifier` but not `block__element`, while
+  `docs/02_component-specs/02_FRESHNESS_LABEL.md` writes the markup the stylesheet has to
+  match and uses `__` throughout. Widened once, centrally, with the reason in the rule's own
+  message — the alternative was a suppression on every rule that styles an element, which is
+  the workaround this bullet objected to;
+- ~~contrast/forced-colors evidence is not recorded~~ — **contrast closed 20 August 2026;
+  forced-colors open.** The same script computes every WCAG ratio and gates on them: 4.5:1
+  for text tokens on both backgrounds, 3:1 for status colours as non-text UI (1.4.11). It
+  prints all eighteen ratios whether or not anything fails, so the evidence is in the run
+  rather than in a document that rots (ADR 22's report-as-well-as-gate).
+
+  **It found a real failure on its first run.** `--status-neutral` measured **2.84:1** in
+  the dark theme, below the 3:1 non-text threshold, on a token used for a freshness dot and
+  a chip. Lightened to `#767068` (3.34:1 on `--surface`, 3.66:1 on `--bg`) with the
+  reasoning recorded beside it in `tokens.css`. Every other token already cleared.
+
+  Forced-colors mode is still unrecorded and still needs a person.
 
 Resolve these through the token/MUI boundary; do not introduce another styling system.
 
 ### F9. ADR 6 read transport and restart behavior remain unproved
 
-**Assessment: compliant primitives, incomplete transport proof; open.**
+**Assessment: half proved 20 August 2026; the history read and the restart story are still open.**
 
 The state and bounded-history structures comply: canonical envelopes enter the ring
 buffer, raw payload is held separately, capacity is bounded at 60, and no database or
-broker dependency exists. The future API must preserve those properties, return history
-without raw payload, and describe restart loss honestly. Integration tests must prove
-the transport does not leak diagnostic payloads into fleet, history, or deltas.
+broker dependency exists.
+
+**The no-leak property is now proved rather than owed.** The raw payload is served only by
+`GET /api/robots/:id`, the types carry the exclusion rather than a rule each response has
+to remember, and a running server was checked for `rawPayload` in the fleet response and in
+a delta frame — neither carries it. The composition reads it through `store.diagnostic()`
+rather than around it, which is what makes the outbound deep copy real (ADR 26).
+
+**Still open, and both are decisions rather than omissions.** The history read is not
+mounted, because ADR 6 ties the ring-buffer capacity to the sparkline's real decimated
+point count and the sparkline is not built — picking a round number now is what that ADR
+exists to prevent (server TODO **G4**, **M4**). Restart loss is still undescribed anywhere
+a reader would find it: a restarted server begins at flush sequence zero and a client
+holding a higher snapshot sequence discards everything until it catches up (ADR 18 § Open
+questions). That is a real client-visible behaviour with no test and no documentation, and
+as of 20 August 2026 it is owned: `packages/server/TODO.md` **H3c** carries it with three
+candidate answers, because an ADR's open-questions section is not somewhere a client
+implementer looks.
 
 ### F10. ADR 4 and ADR 7 enforcement is web-specific by decision
 
@@ -226,9 +395,9 @@ What closed it:
 Both drift directions were exercised before landing: a fourth vendor in `VENDOR_IDS`
 alone fails two assertions, and one in `SUPPORTED_VENDORS` alone fails three.
 
-### F13. ADR 21's endpoint configuration is decoded everywhere and consumed nowhere
+### F13. ADR 21's endpoint configuration is decoded everywhere and consumed nowhere — **CLOSED 20 August 2026**
 
-**Assessment: accurate plan, incomplete integration; open.**
+**Assessment: closed. Both halves now have readers.**
 
 [ADR 21](../docs/00_adr/21_ENDPOINTS_FROM_THE_ENVIRONMENT_WITH_A_DEV_PROXY.md) closed
 register **D13** and ended the state where three packages guessed at one address. What it
@@ -237,16 +406,18 @@ them do not exist. Both halves are configuration that validates correctly and ch
 nothing:
 
 - **`FLEET_ALLOWED_ORIGINS` is validated and unenforced.** `parseRuntimeEndpoints` decodes
-  it into `RuntimeEndpoints.allowedOrigins`, rejecting a wildcard, a trailing slash and a
-  path — and nothing reads the result. An operator who sets it today gets a startup check
-  and no CORS policy. The middleware is server TODO **B1d** and its test is **L8**; both
-  wait on the listener (**B1a**), which is ADR 8's and still Not started. This is the one
-  piece of ADR 21's required evidence that was scoped forward rather than satisfied.
+  it into `RuntimeEndpoints.allowedOrigins` — and, at the time of writing, nothing read the
+  result. **Closed 20 August 2026:** `evaluateOriginPolicy` consumes the list, the listener
+  mounts it ahead of every route (**B1d**), and **L8** asserts the grant and the decline
+  through a bound socket.
 - **`TENANT.endpoints` has no reader.** Both tenant profiles carry
   `{ apiBaseUrl: "/api", streamUrl: "/ws" }`, validated at module load and pinned by a
-  test, and `packages/web/src/shared/lib` still contains only `time.ts`. The transport
-  client that would consume them is fleet TODO **A3**. Confirmed by inspecting a
-  production build: neither path appears in the bundle, because nothing imports the field.
+  test, and `packages/web/src/shared/lib` contained only `time.ts` at the time of writing.
+  **Closed 20 August 2026:** `app/useFleetTransport.ts` builds the snapshot URL from
+  `apiBaseUrl` and the socket URL from `streamUrl` plus the **page's** origin — never from
+  configuration, since a console that knew the server's real address would stop being
+  same-origin. Verified live through the dev proxy: `/api/fleet` returns the committed
+  roster and `/ws` answers `101 Switching Protocols`.
 
 **Why this is not a defect in ADR 21.** The alternative was to leave the addresses
 hardcoded until their consumers arrived, which is precisely the state D13 recorded — a
@@ -364,7 +535,57 @@ and the panel's notice is retained as the reason.
 
 ## Package README follow-ups
 
-### F11. Add focused READMEs where package behavior becomes consumable
+### F17. The 500-robot scale test was failing on a timeout it refuses to assert — **CLOSED 20 August 2026**
+
+**Assessment: fixed 20 August 2026; recorded because the shape recurs.**
+
+`fleetScale.test.tsx` renders 500 rows and its own header says it "does not assert a
+duration, and does not publish one as a ceiling" — jsdom has no layout, paint or
+compositor, so a millisecond figure from it would be a measurement against a fixture.
+
+It was nonetheless failing on one. Two cases cost 3–4 s unloaded and crossed Vitest's **5 s
+default** whenever the rest of the suite competed for the machine: green in isolation, red
+in a full run, reproducibly. The file that refuses to assert a duration was gated by an
+undeclared one.
+
+**F14 warns against widening a timeout to make a transient failure go away, and this is not
+that.** The cause is known and measured, and the number being replaced is a framework
+default nobody derived — the thing ADR 22 objects to. The explicit 30 s is roughly eight
+times the unloaded cost, chosen to be unreachable by scheduling noise and therefore never a
+performance gate. If these tests ever approach it, the answer is to investigate the render.
+
+**The shape to watch for:** a test whose stated philosophy is "no timing assertions" still
+inherits one from its runner. Any expensive test in this repository has the same exposure.
+
+### F16. Site labels are the console's last invented data
+
+**Assessment: real gap with no source; open. Added 20 August 2026.**
+
+Every other hook in the console reads the server. `entities/site/model.ts` still does not,
+and it cannot: the committed fleet manifest carries a `siteId` per robot and **no label for
+it**, so `SITES` is a hand-written list of four display names and `selectSiteLabel` matches
+against it.
+
+The consequence is visible rather than theoretical. The shipped manifest uses ids like
+`SITE-NORTH`, which appear in no fixture, so the fleet table renders the raw identifier
+through the fallback — correct behaviour (an identifier beats a blank), but it means the
+label mechanism is dead code against real data while looking alive against fixtures.
+
+Two ways to close it, and the choice is a decision rather than a cleanup:
+
+- **Add a label to the manifest schema** (`config/fleet-manifest.json`, ADR 14). Site names
+  become deployment configuration, which is where tenant-visible strings belong
+  (Principle 13) — but it widens a schema two packages validate and ADR 14 makes the roster
+  a parity join, so the simulator's generator changes with it.
+- **Keep ids on screen and delete the label layer.** Honest, smaller, and defensible for an
+  operations console where the id is what an operator says out loud. It contradicts
+  `docs/01_page-specs/02_FLEET.md`, which specifies a site label column.
+
+Until one is taken, do not "fix" this by extending the fixture list to match the shipped
+manifest: that hides the gap behind data that agrees by hand, which is the class of error
+**F1** and **F4** both were.
+
+### F11. Add focused READMEs where package behavior becomes consumable — **CLOSED 20 August 2026**
 
 **Assessment: documentation gap/recommendation; open.**
 
@@ -373,7 +594,18 @@ only scoped guides/TODOs, which is acceptable while their public runtime behavio
 incomplete. Add their READMEs when the adapter registry and server process land,
 covering public API, boundary behavior, commands, configuration, and failure modes.
 
-**The adapters half is closed (20 August 2026).** The registry landed (adapters TODO
+**CLOSED 20 August 2026.** All four packages that needed one now have a README written
+against what they actually do. `packages/server/README.md` landed once its precondition did
+— its public runtime behaviour is a process rather than a set of pieces — and covers the
+start commands, the two configuration files and three environment variables, the five
+routes, the ingest ordering and _why it is an ordering_, a table of every failure mode with
+what each is counted as, the five things the package refuses to do, and the measured costs.
+`packages/web/README.md` replaced the Vite template verbatim-in-place: layers and the one
+dependency rule that explains two otherwise-ornate designs, how data arrives and why the
+order matters, the two failures the UI keeps apart, and the rendering rules worth knowing
+before editing.
+
+**The adapters half was closed earlier the same day.** The registry landed (adapters TODO
 **C8**), which is what this finding was waiting for, and `packages/adapters/README.md`
 now covers the dialect differences, `createAdapterRegistry` as the one public way in,
 the two rejection kinds, and the measured cost of adding a fourth vendor. `server` is

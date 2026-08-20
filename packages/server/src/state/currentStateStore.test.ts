@@ -1,4 +1,4 @@
-import type { CanonicalEnvelope } from "@fleet/contracts";
+import { type CanonicalEnvelope, SCHEMA_VERSION } from "@fleet/contracts";
 import { describe, expect, it } from "vitest";
 
 import { CurrentStateStore, type ManifestRobot } from "./currentStateStore.ts";
@@ -146,5 +146,91 @@ describe("CurrentStateStore", () => {
     store.upsert(envelope(1), null, 1);
 
     expect(store.diagnostic(ROBOT.robotId)?.rawPayload).toBeNull();
+  });
+});
+
+/**
+ * Per-robot sequence continuity (**D6a**), tracked where the previous accepted sequence
+ * already lives so there is no second copy of that number to drift.
+ */
+describe("CurrentStateStore sequence continuity", () => {
+  const MANIFEST: ManifestRobot[] = [
+    { robotId: "rbt-1", siteId: "site-a", vendorId: "A", model: "m" },
+    { robotId: "rbt-2", siteId: "site-a", vendorId: "B", model: "m" },
+  ];
+
+  function reading(robotId: string, vendorId: string, adapterId: string): CanonicalEnvelope {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      robotId,
+      siteId: "site-a",
+      vendorId,
+      model: "m",
+      adapterId,
+      adapterVersion: "1.0.0",
+      reportedAt: 1_755_600_000_000,
+      receivedAt: 1_755_600_000_100,
+      freshness: "live",
+      core: {
+        connectivity: "unknown",
+        batteryPercent: 50,
+        position: null,
+        status: "idle",
+        health: { severity: "nominal" },
+      },
+      capabilities: {},
+    };
+  }
+
+  it("counts readings missing rather than gap events", () => {
+    // The contract's own field comment says "readings missing from the sequence", and it
+    // is the number an operator can act on: one jump of five is five lost readings.
+    const store = new CurrentStateStore(MANIFEST);
+    store.upsert(reading("rbt-1", "A", "vendor-a"), null, 1);
+    store.upsert(reading("rbt-1", "A", "vendor-a"), null, 6);
+
+    expect(store.sequenceHealth("rbt-1")).toStrictEqual({
+      evaluated: true,
+      gaps: 4,
+      duplicates: 0,
+    });
+  });
+
+  it("counts a duplicate without letting it regress state", () => {
+    const store = new CurrentStateStore(MANIFEST);
+    store.upsert(reading("rbt-1", "A", "vendor-a"), null, 3);
+
+    expect(store.upsert(reading("rbt-1", "A", "vendor-a"), null, 3).kind).toBe("duplicate");
+    expect(store.sequenceHealth("rbt-1")).toStrictEqual({
+      evaluated: true,
+      gaps: 0,
+      duplicates: 1,
+    });
+  });
+
+  it("reports a counterless dialect as not evaluated, never as zero gaps", () => {
+    // Vendor B. "0 gaps" here is a false statement to an operator (ADR 1, **D6**).
+    const store = new CurrentStateStore(MANIFEST);
+    store.upsert(reading("rbt-2", "B", "vendor-b"), null, null);
+
+    expect(store.sequenceHealth("rbt-2")).toStrictEqual({ evaluated: false });
+  });
+
+  it("is null before a robot has reported, which is not the same as unevaluated", () => {
+    expect(new CurrentStateStore(MANIFEST).sequenceHealth("rbt-1")).toBeNull();
+  });
+
+  it("folds the per-robot values into one entry per vendor dialect", () => {
+    // ADR 25: the rollup answers "is this dialect ordered at all", a different question
+    // from "did this robot miss readings", and neither substitutes for the other.
+    const store = new CurrentStateStore(MANIFEST);
+    store.upsert(reading("rbt-1", "A", "vendor-a"), null, 1);
+    store.upsert(reading("rbt-1", "A", "vendor-a"), null, 3);
+    store.upsert(reading("rbt-2", "B", "vendor-b"), null, null);
+
+    expect(store.sequenceByVendor()).toStrictEqual({
+      A: { evaluated: true, gaps: 1, duplicates: 0 },
+      B: { evaluated: false },
+    });
   });
 });

@@ -31,8 +31,8 @@ boundary, and the simulator may not import server internals or write to server s
 
 ## 3. Public API
 
-The runtime composition root does not exist yet. `src/index.ts` currently exports the
-framework-independent pieces it will be assembled from, kept separately testable:
+`src/runServer.ts` is the runtime composition root. `src/index.ts` exports the
+framework-independent pieces it assembles, kept separately testable:
 
 **Configuration** — `parseFreshnessPolicy`, `freshnessPolicySchema`,
 `ADR3_BASELINE_FRESHNESS_POLICY`, `parseFleetManifest`, `fleetManifestSchema`,
@@ -60,14 +60,29 @@ src/
   state/                    currentStateStore, ringBuffer
   freshness/freshnessSweep  the recurring interval that calls contracts
   fanout/pendingDeltas      coalescing keyed by robot id
+  fanout/deltaFanOut        one coalescing set per console, flushed at a bounded rate
   health/healthMetrics      counters at their true scope
+  ingest/                   selectVendor, errorResponse, requestSizeLimit — all pre-body
+  http/originPolicy         the cross-origin grant ADR 21 configured and nothing consumed
+  http/createApp            the Hono router, with that policy mounted ahead of every route
+  http/listener             HTTP and /ws on one port, closed in the order ADR 8 requires
+  observability/logger      one JSON object per line, injected sink
+  http/fleetResponse        server state translated into the wire snapshot (not serialized)
+  ingest/ingestTelemetry    one reading, untrusted bytes to fleet state
+  http/robotResponse        one robot plus the raw payload only this route serves
+  http/healthResponse       three counting scopes joined without being blurred
+  runServer.ts              decoded configuration in, a running server out
+  main.ts                   the process: real environment, real paths, real signals
   __boundary-violation__/   deliberate lint violations that prove the rules fire
   index.ts
 ```
 
-Planned and not yet present: the HTTP layer (Hono on `node:http`), the WebSocket server
-(`ws` attached to the same listener), the ingest handler, the adapter registry dispatch,
-and the composition root.
+`ingest/` and `http/` hold transport _rules_ and no transport. Each is a pure function over
+a route segment, a header or a byte count, decided before anything reads a body, so the
+ordering guarantees are properties of the signatures rather than rules a handler has to
+remember (ADR 8 § Observed consequences).
+
+Planned and not yet present: the history read for the sparkline.
 
 ## 5. Contracts owned and consumed
 
@@ -245,24 +260,43 @@ configuration loaders are covered.
 validation, the current-state store with manifest seeding, the bounded ring buffer, the
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
-**Not built:** the HTTP listener and route wrappers, adapter-registry ingest composition,
-health-response composition, the WebSocket server, and the runtime composition root.
+**Not built:** the history read for the sparkline, whose shape is undecided, and
+backpressure on a console that stops reading. The server **runs, sweeps, ingests, serves
+the fleet read and fans deltas out over `/ws`**:
+`http/createApp` routes with the cross-origin policy mounted, `http/listener` binds it and
+`/ws` to one port with an ordered shutdown, `main.ts` composes them from repository-root
+configuration under `pnpm dev`/`pnpm start`, `POST /api/telemetry/:vendor` decodes one
+reading per request through the adapter registry, and `GET /api/fleet` returns every
+manifest robot. Anything else is the canonical `not_found` envelope, and the startup
+record's `routes` count says how many are mounted so a deliberate 404 is distinguishable
+from a broken one.
 
-Ingest composition is intentionally deferred: ADR 10 has not resolved runtime
-re-validation of adapter output, and ADR 11 has not decided how a server ingest test may
-access valid recorded vendor input without copying a fixture.
+The ADR 3 sweep runs from the composition root, feeding `HealthMetrics.lateFreshnessTicks`
+and a `freshness.tick_late` structured warning; freshness-only transitions reach a
+connected console as a coalesced frame, verified against a running server. One flush
+counter serves both the snapshot and every frame (ADR 18). The health counters reach
+`GET /api/health` through the contract-owned response shape.
 
-Health composition is intentionally deferred: ADR 30 has not selected whether
-`healthResponseSchema.byAdapter` is keyed by `SupportedVendor` (`A`) or software
-`adapterId` (`vendor-a`). A handler must not decide that open question locally.
+Server state is a superset of the wire contract, so responses are **translated** rather
+than serialized: `http/fleetResponse` drops the manifest-only `model` and encodes
+capabilities into their wire array. A test round-trips its output through
+`parseFleetSnapshot`, because `JSON.stringify` accepts both leaks.
 
-This is the remaining gap on the critical path. Consequences today:
+Ingest composition is unblocked as of 20 August 2026. ADR 10 resolved runtime
+re-validation — the server trusts the adapter's decoded output and does not parse it a
+second time — and ADR 11 resolved fixture access through a test-file exception admitting
+`@fleet/adapters/testing` alone, enforced in `packages/server/eslint.config.js` and probed
+by `src/__boundary-violation__/adapterTestingSubpath.ts`.
 
-- `@fleet/simulator` posts into a socket nothing is listening on, so its integration tests
-  use their own in-process receiver;
-- the freshness end-to-end demonstration — the load-bearing proof of ADR 3 — cannot run;
-- the README's measurement table cannot be filled, because server throughput must be
-  measured through the complete harness rather than inferred (Principle 12).
+Health composition landed 20 August 2026. ADR 30's identifier-space question is closed:
+`healthResponseSchema.byAdapter` is keyed by vendor id (`A`), because the registry's ledger
+already is and because the column answers questions about a dialect rather than about the
+software that decodes it.
+
+The transport critical path is closed: the simulator posts to the live ingest route, the
+freshness demonstration observes sweep transitions over the socket, and ADR 2 records the
+complete-harness throughput measurement. History reads and slow-consumer backpressure
+remain separate server work.
 
 **Decision consequences.** Ingest completes `AdapterEnvelope` only through
 `withFreshness` ([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)); health keeps

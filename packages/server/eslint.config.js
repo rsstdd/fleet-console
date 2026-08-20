@@ -36,6 +36,21 @@ const STORAGE_AND_BROKER = [
   "kafkajs",
 ];
 
+/** Groups naming the console, which the server never imports. */
+// `packages/web` is currently named `web`, not `@fleet/web`; both are banned so the
+// rule survives the rename tracked in TODO.md § H4.
+const WEB_IMPORT_GROUP = ["@fleet/web", "@fleet/web/*", "web", "web/*"];
+
+const WEB_MESSAGE =
+  "The server never imports the console or reproduces its presentation logic " +
+  "(AGENTS.md § Dependency and ownership boundaries).";
+
+const ADAPTER_DEEP_IMPORT_MESSAGE =
+  "Dispatch through the adapters package's public entry point. A deep import into a " +
+  "vendor module is vendor-specific knowledge in a server handler (AGENTS.md § Ingest boundary). " +
+  "This ban covers test files too: the ADR 11 test-file exception admits @fleet/adapters/testing " +
+  "and nothing else.";
+
 const STORAGE_MESSAGE =
   "ADR 6 decides there is no database in this package, and ADR 2 decides no broker is " +
   "introduced at this scale. Both name the conditions for revisiting. Amend the ADR first; " +
@@ -85,22 +100,13 @@ export default tseslint.config(
         "error",
         {
           patterns: [
-            {
-              // `packages/web` is currently named `web`, not `@fleet/web`; both are
-              // banned so the rule survives the rename tracked in TODO.md § H4.
-              group: ["@fleet/web", "@fleet/web/*", "web", "web/*"],
-              message:
-                "The server never imports the console or reproduces its presentation logic " +
-                "(AGENTS.md § Dependency and ownership boundaries).",
-            },
+            { group: WEB_IMPORT_GROUP, message: WEB_MESSAGE },
             {
               group: ["@fleet/adapters/*", "**/packages/adapters/src/**"],
               message:
-                "Dispatch through the adapters package's public entry point. A deep import into a " +
-                "vendor module is vendor-specific knowledge in a server handler (AGENTS.md § Ingest boundary), " +
-                "and @fleet/adapters/testing is recorded fixtures for tests, not runtime behaviour (ADR 11). " +
-                "This ban covers test files too: an ingest test that wants those fixtures needs an explicit " +
-                "test-file exception first, the way packages/web has one.",
+                ADAPTER_DEEP_IMPORT_MESSAGE +
+                " In production code the ban is total: @fleet/adapters/testing is recorded " +
+                "fixtures for tests, never runtime behaviour (ADR 11).",
             },
             ...STORAGE_AND_BROKER.map((name) => ({
               group: [name, `${name}/*`],
@@ -154,6 +160,29 @@ export default tseslint.config(
       "@typescript-eslint/no-non-null-assertion": "off",
       "no-restricted-globals": "off",
       "no-restricted-properties": "off",
+      // ADR 11 (amended 20 August 2026): an ingest test needs the *same bytes* the
+      // adapter contract tests use, and it belongs next to the ingest handler. The
+      // rule is re-stated rather than switched off, with `@fleet/adapters/testing`
+      // alone removed — `packages/web` turns it off wholesale, and the server is the
+      // one package with a legitimate reason to reach for a vendor module, so a ban
+      // that lifts in exactly the files most likely to violate it is not a ban.
+      // Widening this to another subpath is an ADR amendment.
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: WEB_IMPORT_GROUP, message: WEB_MESSAGE },
+            {
+              group: ["@fleet/adapters/vendors/*", "**/packages/adapters/src/**"],
+              message: ADAPTER_DEEP_IMPORT_MESSAGE,
+            },
+            ...STORAGE_AND_BROKER.map((name) => ({
+              group: [name, `${name}/*`],
+              message: STORAGE_MESSAGE,
+            })),
+          ],
+        },
+      ],
     },
   },
 

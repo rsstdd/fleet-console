@@ -77,9 +77,100 @@ validation in the table; that would be a second decode authority (Principle 1).
       supplies a state yet, so the Freshness column is empty today. That is correct; do
       not restore an optimistic default.
 
-- [ ] **A3 — Wire the delta stream.** `shared/lib` has no transport client at all
-      (`time.ts` is the only file). Deltas apply keyed by `robotId` on a scheduled frame,
-      never synchronously per message (spec § 6, ADR 2, Principle 12).
+- [ ] **A3 — Wire the delta stream. Cold-start ordering landed 20 August 2026; the
+      transport itself has not.** `shared/lib/coldStart.ts` is the joining sequence —
+      buffer while the snapshot is in flight, then discard what the snapshot already
+      covers with `isDeltaCoveredBySnapshot` from `@fleet/contracts` rather than a
+      comparison written again here, then replay the rest oldest first. It exists as its
+      own module because the failure it prevents is invisible: fetching before opening
+      loses every delta emitted in the gap, and the symptom is a row that quietly stops
+      updating rather than an error (server TODO **H3b**). Six tests, including the cold
+      server at sequence zero discarding nothing.
+      `shared/lib/streamLifecycle.ts` is the other half: the complete state matrix
+      Principle 5 requires to exist **before** the transport does, as a pure reducer over
+      `idle | connecting | connected | reconnecting | failed`, plus the projection onto the
+      three values ADR 23 publishes. A failed first attempt stays `connecting` rather than
+      becoming `reconnecting`, because telling an operator the connection was lost when it
+      never existed sends them looking for a fault that is not there; `attempt` resets on a
+      successful open, so the banner's retry control never describes work that finished.
+      Nine tests, including a sweep asserting `isStreamConnected` is true for exactly one
+      phase — being wrong in the permissive direction is what makes a console assert
+      currency it cannot support (ADR 3).
+      `entities/robot/fleetStore.ts` is the third piece: robots keyed by id, **replaced
+      whole rather than merged**, because ADR 18 keeps delta granularity at the robot level
+      and a field-level patch would make this a merge engine with partial application as a
+      possible state. A snapshot replaces everything, so a robot that left the manifest
+      cannot survive as a stale row. Notification is what is scheduled — application stays
+      synchronous, since holding state the console has already received would be a second
+      coalescing layer on top of the server's 10 Hz cap and would make the store lie about
+      what it knows. `getRobots()` returns a cached array by reference, because
+      `useSyncExternalStore` compares by identity and a fresh array per call is an infinite
+      render loop rather than a performance note. Eight tests.
+      `shared/lib/fleetTransport.ts` composes all four: open the socket, buffer, fetch the
+      snapshot, reconcile, replay. It adds only the sequencing, because that is the part
+      with no pure test — everything testable without a socket was tested before it was
+      written. Two orderings it gets right and nothing else would catch: a snapshot that
+      lands **after** its own socket closed is dropped by a generation counter, or a stale
+      fleet overwrites the one the new connection just fetched; and an `unreachable`
+      snapshot leaves the socket open and the state unchanged, because reporting a
+      connection failure for a failed HTTP read blames the wrong transport while the stream
+      may still be delivering. It emits decoded values and never touches a store —
+      `shared` may not import `entities` (ADR 4) — so the caller wires the callbacks to
+      `createFleetStore`. Nine tests.
+      `app/useFleetTransport.ts` owns the console's one socket and `AppRouter` holds it, so
+      it opens once for the session rather than once per page (ADR 23 puts transport
+      lifecycle in `app`). The banner is now driven by a real connection: `connectionState`,
+      `lastEventAt`, `attempt` and `onRetry` all come from the transport instead of the
+      optimistic literal the shell used to default to. `resolveStreamUrl` builds the socket
+      URL from `TENANT.endpoints.streamUrl` and the **page's** origin — never from
+      configuration, because a console that knew the server's real address would stop being
+      same-origin (ADR 21). That gives `TENANT.endpoints` its first reader and closes
+      `packages/FIXME.md` **F13**. The hook holds one `StreamState` rather than separate
+      published/attempt values, because two views of one fact held separately is how they
+      come to disagree.
+      `useFleetRobots` now reads that store through `entities/robot/fleetStoreContext.ts`,
+      which `AppRouter` provides — the same shape ADR 23 used for connection state, applied
+      to the other half of what the transport produces, and for the same reason: `features`
+      may not import `app`. The exported signature did not change, which was the point of
+      writing the fixture version that way; no component was touched. Its default is an
+      **empty** store, not a fixture set, because a fixture default makes a missing provider
+      invisible while emptiness shows on the screen. The fleet table and the banner now
+      describe the same connection.
+      **Verified in a running browser, 20 August 2026.** Headless Chrome against the running
+      stack rendered 50 rows from the live server with all three dialects normalised, showed
+      freshness degrading to `Unreachable` while the banner stayed `Stream connected`, and —
+      with the server stopped — retained every row while suppressing every per-robot
+      freshness label under a `Stream reconnecting` banner. That is ADR 3's suppression rule
+      and ADR 23's default, observed rather than injected. It is not automated: see decision
+      **D23**.
+      The earlier note stands for the transport itself: the proxy path was checked live end to end
+      — Vite serves the app, `/api/fleet` proxies to the server and returns the committed
+      roster, and `/ws` answers `101 Switching Protocols` through the proxy — and the
+      transport's sequencing is unit-tested. What has **not** been observed is the console
+      itself rendering against a live socket, which AGENTS.md requires for a user-facing
+      change (Principle 10). It is owed before this item is called done.
+      **Deferred, and now registered as decision D22** — see
+      [`docs/PENDING_ARCHITECTURE_DECISIONS.md`](../../../../../docs/PENDING_ARCHITECTURE_DECISIONS.md).
+      Nothing reconnects: `connect()` after a close is the caller's call, because the wait
+      schedule, the stopping rule and whether a refused upgrade differs from a dropped
+      connection have to be decided together. The banner ships an `onRetry` control, so a
+      manual path exists and is honest; an automatic one that guessed a schedule would not
+      be. It blocks README demo step 6 and server TODO **H6c**. **Deferred, decision not made — the published vocabulary is narrower than the
+      transport's, and two distinctions are dropped at the projection.** `idle` and
+      `failed` both publish as `disconnected`, and `connecting` and `reconnecting` both
+      publish as `reconnecting`. So the banner cannot say "connecting for the first time"
+      rather than "reconnecting", and cannot say "stopped trying" rather than "retrying" —
+      and the banner's own source calls a retry control that does nothing observable "the
+      class of lie this project exists to argue against". Widening it is **three** changes,
+      not one: `StreamConnectionState` in `shared/lib`, the structurally identical union in
+      `shared/ui/connectionBanner.tsx` that cannot import it (ADR 23), and new operator copy
+      in `docs/02_component-specs`. Keeping it narrow is defensible — every non-connected
+      state suppresses freshness identically, which is all ADR 3 requires — so this is a
+      product question about banner copy, not a correctness gap. Decide it before writing
+      the socket, or the socket will decide it by accident. **Deferred, decision not made — when to give up.** `give-up` is an event the caller
+      raises, not a cap this reducer counts, because an attempt limit, a backoff schedule
+      and how a refused upgrade differs from a dropped connection are all unchosen. A
+      machine that invented a cap would make that decision silently.
       _Where to connect is already decided and configured_
       ([ADR 21](../../../../../docs/00_adr/21_ENDPOINTS_FROM_THE_ENVIRONMENT_WITH_A_DEV_PROXY.md)):
       read `TENANT.endpoints.streamUrl` and `TENANT.endpoints.apiBaseUrl` from
@@ -92,9 +183,32 @@ validation in the table; that would be a second decode authority (Principle 1).
       recorded in [`packages/FIXME.md`](../../../../FIXME.md) **F13**, and the one thing
       about ADR 21 that is configured rather than working.
 
-- [ ] **A4 — Decode at the boundary.** Validate envelopes with the `@fleet/contracts`
-      schemas in the transport client, skip malformed rows, and count the rejections.
-      The count belongs on a diagnostics surface, not on the fleet table.
+- [x] **A4 — Decode at the boundary. Done 20 August 2026.**
+      `shared/lib/transportDecoding.ts` is the console's one decode: `fetchFleetSnapshot`
+      and `decodeFrame`/`decodeFrameText`, with `fetch` injected so the boundary is
+      testable without a network or a global. Everything downstream takes a decoded value,
+      so no component reaches into a response (Principle 2).
+      **A failed request and a failed decode are separate outcomes**, and merging them is
+      the failure worth naming: a `unreachable` outcome is retryable — including a 500,
+      because the server failing to produce a body is not the same event as producing one
+      this console cannot read — while a `contract` outcome is terminal, since the server
+      did not stumble and retrying returns the same bytes (**W-6**). A console that merged
+      them would retry forever against a contract mismatch, showing a spinner where it owes
+      an error naming the field. The `ContractIssue[]` travels with the terminal outcome
+      rather than being flattened, so a diagnostics surface can say which field disagreed
+      without a vendor payload reaching an operator's screen (ADR 20).
+      **The scope of "skip malformed rows" changed, and this item is the record.** It is
+      per _frame_, not per row: `fleetSnapshotSchema.robots` is a strict array, so a client
+      that salvaged surviving rows would need a looser top-level shape and would be
+      re-deriving the response — a second decode authority (Principle 1, ADR 25). A
+      snapshot is therefore all-or-nothing and terminal; a frame is dropped and counted,
+      because a stream is many messages and the next may be fine. The cost is a missed
+      update for the robots that frame named, which the next flush or freshness sweep
+      corrects. **Deferred, decision not made — whether a run of frame failures should
+      escalate to terminal.** Dropping one frame is cheap; dropping every frame is a broken
+      contract with a console degrading silently, and there is no threshold, no counter
+      exposure and no surface for it yet. The count belongs on a diagnostics surface, not
+      on the fleet table.
 
 - [ ] **A5 — Render the states in `fleetPage.tsx`.** Only after A1–A4. Skeleton for
       `loading`; `isRefreshing` leaves rows untouched; `error` renders `EmptyState` with

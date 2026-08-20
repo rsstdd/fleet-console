@@ -140,6 +140,7 @@ against `malformedIngest`.
 The joining test needs **C2** (or **C3**/**C4**), **C8** dispatch, **C9**/**A-2**
 exports, and **D1** fixtures. Phase order is: contracts **C-1** → any one vendor →
 the join. All three adapters and the registry now exist, and the browser joining test runs
-all three representative fixtures. The production server join is separately deferred in
-`TODO.md` because ADR 10 and ADR 11 still contain unresolved implementation choices; this
-sequencing constraint creates no remaining adapter work.
+all three representative fixtures. The production server join also exists: ADR 10 records
+the decision not to re-validate typed adapter output per message, and ADR 11 permits the
+server ingest test to use `@fleet/adapters/testing` through a narrow test-only exception.
+This sequencing constraint creates no remaining adapter work.

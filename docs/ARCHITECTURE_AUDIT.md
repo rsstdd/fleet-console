@@ -11,6 +11,15 @@ then checked each claim against the code rather than against the documentation d
 Scale figures in § 5 are **estimates, not measurements**. No harness exists yet; ADR 2
 commits to building one, and these numbers should be replaced by its output.
 
+> **Forward note, 20 August 2026 — not a revision.** This document is historical by its own
+> Authority marker and is left as written; its value is the evidence, not its status
+> claims. One update is worth carrying to a reader arriving here for orientation: the
+> critical-path gap § 2 identifies — no server process, a simulator emitting into a closed
+> port, a fixture-backed console — is closed. The server listens, ingests through the
+> adapter registry, sweeps, and fans deltas out; the console reads all of it. The scale
+> figures in § 5 are still estimates, and § 7's raw-payload access rule is still absent by
+> decision. See `README.md` and the package specifications for current status.
+
 Every finding below was verified against the working tree on 19 August 2026. Several
 packages are under active construction, so re-verify before acting on an old finding.
 

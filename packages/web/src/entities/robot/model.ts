@@ -127,8 +127,15 @@ export interface Robot {
   readonly health: RobotHealth | null;
   readonly freshness: Freshness;
   /**
-   * Null whenever freshness is not live — the last reading is not a current
-   * reading, and a number would imply otherwise (fleet page spec §6).
+   * The last reported charge, or null when the vendor reported none and for a
+   * robot that has never reported at all.
+   *
+   * Carried whatever the freshness, and **suppressed at presentation**:
+   * `formatBattery` in `selectors.ts` refuses to render a number for a robot
+   * that is not live, because the last reading is not a current reading (fleet
+   * page spec §6). The value survives so the detail view can show a last-known
+   * figure with its age beside it; nulling it here would destroy that and put
+   * a display rule in the read model.
    */
   readonly batteryPercent: number | null;
   /**
@@ -164,8 +171,13 @@ export interface RobotDiagnostics {
    * Per-adapter and fleet-wide, not per-robot. The label at the render site
    * must say so rather than implying a precision this count does not have
    * (ADR 1, Implications).
+   *
+   * Null when `GET /api/health` could not be read, which is a different fact
+   * from a count of zero: zero is a measurement, and claiming one nobody took
+   * is the failure Principle 4 names. Health is a second request and fails
+   * independently of the robot's own data (**W-8**).
    */
-  readonly unknownFieldCount: number;
+  readonly unknownFieldCount: number | null;
 }
 
 /**

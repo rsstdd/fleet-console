@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 15 files, 98 tests      |
+| `pnpm test`      | passes — 24 files, 158 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -40,21 +40,37 @@ packages/server/
     ├── state/ringBuffer.ts         bounded per-robot history (ADR 6)
     ├── state/currentStateStore.ts  manifest-seeded state, idempotent upsert (ADR 6)
     ├── fanout/pendingDeltas.ts     per-robot delta coalescing (ADR 2)
+    ├── fanout/deltaFanOut.ts       one coalescing set per console, bounded flush (H1-H6a)
     ├── freshness/freshnessSweep.ts recurring sweep + late-tick detection (ADR 3)
     ├── health/healthMetrics.ts     counters by scope (ADR 25)
     ├── ingest/selectVendor.ts      route segment → adapter, before the body (ADR 8)
     ├── ingest/errorResponse.ts     the one HTTP error body, in ContractIssue (ADR 20)
     ├── ingest/requestSizeLimit.ts  byte cap ahead of JSON.parse (ADR 26)
+    ├── http/originPolicy.ts        the cross-origin grant ADR 21 configured (B1d)
+    ├── http/createApp.ts           the Hono router, policy mounted ahead of it (B1a)
+    ├── http/listener.ts            one port for HTTP and /ws, ordered shutdown (B1a)
+    ├── observability/logger.ts     one JSON object per line on stdout (I1, part)
+    ├── http/fleetResponse.ts       server state translated into the wire snapshot (G1)
+    ├── http/robotResponse.ts       one robot plus the raw payload only this route serves (G2)
+    ├── http/healthResponse.ts      three scopes joined without being blurred (G3)
+    ├── ingest/ingestTelemetry.ts   one reading, untrusted bytes to fleet state (D0-D9)
+    ├── runServer.ts                decoded configuration in, a running server out
+    ├── main.ts                     the process: real env, real paths, real signals
     ├── config/freshnessPolicy.ts   validated sweep thresholds (ADR 3, Principle 13)
     ├── config/fleetManifest.ts     strict roster loader (ADR 14)
     ├── config/runtimeEndpoints.ts  host/port/origins from the environment (ADR 21)
     └── config/serverConfiguration.ts  the two files loaded together, strictly
 ```
 
-**None of this listens.** Every module above is framework-independent by design —
-required by an accepted ADR, testable without a socket, and correct without an HTTP
-library. What does not exist is the process that composes them: no listener, no route, no
-socket, no `dev` script. Sections 4, 7 and 8 are that work.
+**This listens, and serves one route.** `pnpm --filter @fleet/server start` reads the
+repository-root configuration, binds loopback, announces the policy and roster it is
+actually running, serves `GET /api/fleet` with all fifty manifest robots as UNKNOWN, and
+shuts down on a signal, runs the ADR 3 freshness sweep on its own interval, and **accepts
+telemetry** at `POST /api/telemetry/:vendor`, **serves one robot with its raw payload** at
+`GET /api/robots/:id`, **reports operational health** at `GET /api/health`, and **fans
+coalesced deltas out over `/ws`** — verified by running it: a live console received
+`R-001:live` then `R-001:stale`, the second from the sweep alone. Only the history read for
+the sparkline (**G4**) is unmounted, and its shape is undecided.
 
 On the four earliest pieces, whose reasoning is worth keeping:
 
@@ -74,9 +90,10 @@ On the four earliest pieces, whose reasoning is worth keeping:
   fallback default. A server that silently runs a policy nobody deployed is the failure
   Principle 13 names.
 
-Deliberately **not** added: no HTTP framework, no WebSocket library, no `dev` script.
-The first two need an ADR (**B1**); the third would break the root `pnpm dev` fan-out
-until there is something to run.
+`dev` and `start` now exist and run `src/main.ts` under `tsx` (ADR 9), so root `pnpm dev`
+starts the server alongside the simulator and Vite for the first time. The simulator's
+ingest posts still 404 — no route is mounted — but they now reach a process rather than a
+closed port.
 
 ---
 
@@ -93,14 +110,31 @@ consequences records the repository already making that mistake once.
       transform.** These now ship from the contracts public entry point.
 - [x] **A3 — [contracts] The pure freshness function.** `deriveFreshness` now remains in
       contracts while this package owns only the recurring caller.
-- [x] **A4 — [adapters] Vendor adapters and the dispatch registry. Done 20 August 2026.**
-      The public registry exists and the deep-import ban remains enforced by lint (§ 10).
-      Server consumption is deferred until ADR 10 and ADR 11's open questions are resolved;
-      do not copy a vendor fixture locally to make the ingest test possible.
-- [x] **A5 — [adapters] The registry-owned unknown-field ledger exists.** The registry
-      owns one process tally. Health serialization remains deferred under **G3** because
-      ADR 30 has not selected `SupportedVendor` versus software `adapterId` as the response
-      key.
+- [x] **A4 — [adapters] Vendor adapters and the dispatch registry. Done 20 August 2026;
+      server consumption unblocked the same day.** The public registry exists and the
+      deep-import ban remains enforced by lint (§ 10). The two questions that were holding
+      ingest are now closed as amendments, each ratifying the lean its own ADR stated and
+      each on the event that ADR named as the resolver: **ADR 10** — the server does not
+      re-validate adapter output at runtime, because the payload is decoded once by the
+      adapter's schema and a second parse per reading doubles the cost ADR 2 measures;
+      **ADR 11** — a server ingest test reaches recorded fixtures through
+      `@fleet/adapters/testing` under a test-file exception, never a local copy. The
+      exception is narrower than the one `packages/web` has: the rule is re-stated with
+      that one subpath removed rather than switched off, so a vendor deep import is still
+      rejected in a test file. Both amendments are cheap to reverse — one ADR edit each —
+      and ADR 10 names the measurement that would reverse it. **One half of the exception
+      is not yet mechanically watched.** All three cases were probed by hand when the rule
+      landed — the subpath rejected in production, admitted in a test, and a vendor deep
+      import still rejected in a test — but only the production rejection has a committed
+      fixture, because ESLint's project service refuses a virtual path and a `.test.ts`
+      fixture under `src/` would be collected by Vitest as an empty suite. The permission
+      half is proven the moment the first server ingest test imports the subpath (**L4**):
+      if the exception were wrong, that test would fail to lint. Until then it is an
+      unwatched rule, which ADR 7 says is indistinguishable from no rule.
+- [x] **A5 — [adapters] The registry-owned unknown-field ledger exists, and is now
+      served.** The registry owns one process tally. ADR 30's identifier-space question is
+      closed as of 20 August 2026 — `byAdapter` is keyed by vendor id — and the health
+      route serves the ledger with its scope carried as data (**G3**).
 
 ---
 
@@ -117,38 +151,62 @@ now decides what implements them. The listener is unblocked.
       `@fleet/contracts` schema decodes them, and a second validation layer would be a
       second decode authority (Principles 1 and 2). `node:http` alone was the runner-up
       and remains the fallback if the route count shrinks or the `ws` upgrade path breaks.
-- [ ] **B1a — Add the transport dependencies and write the listener.** `hono`,
-      `@hono/node-server`, `ws` as dependencies; `@types/ws` as a devDependency. Close
-      socket clients before closing the HTTP server on shutdown, or in-flight frames are
-      dropped on a listener that no longer exists (ADR 8 § Implications). Bind
-      host and port from `loadRuntimeEndpoints()` (**C5**, ADR 21) — never a literal, and
-      never `0.0.0.0` by default: the loopback default is what keeps an unauthenticated
-      ingest endpoint serving raw vendor payloads off every interface (**D18**).
-- [ ] **B1d — Enforce the origin allow-list the configuration already validates.** ADR 21
-      decodes `FLEET_ALLOWED_ORIGINS` into `RuntimeEndpoints.allowedOrigins` and **nothing
-      reads it**, so an operator who sets it today gets validation and no effect. The
-      middleware belongs here, with the listener, and has three cases to get right:
-      an allowed origin is echoed back in `Access-Control-Allow-Origin` rather than
-      answered with `*`; a disallowed origin is refused; and a request carrying **no**
-      `Origin` header at all — same-origin browsers, the simulator, curl — is not
-      cross-origin and must pass. Empty `allowedOrigins` means "refuse every cross-origin
-      request", not "allow everything". Credentials are not involved while authentication
-      is cut (**K1**–**K3**), and this must not become the thing that quietly introduces
-      them. Test with **L8**.
+- [x] **B1a — Done 20 August 2026: dependencies, router, listener, composition root.**
+      `hono`, `@hono/node-server` and `ws` (with `@types/ws`) are declared and vetted in
+      `scripts/checkDependencies.mjs` (ADR 29), each having arrived with the code that
+      imports it. `createHttpApp` mounts the **B1d** origin policy ahead of every route and
+      owns the two responses no route produces; `startListener` serves it and upgrades
+      `/ws` on one port, closing stream clients, then the socket server, then the HTTP
+      server on shutdown — the order ADR 8 § Implications requires, asserted by rebinding
+      the same port rather than by inspection. Upgrades use `noServer: true` with an
+      explicit path check, so a handshake elsewhere is destroyed instead of opening a
+      stream nothing reads. `startServer` in `src/runServer.ts` composes decoded
+      configuration into a running server, and `src/main.ts` is the process around it: it
+      resolves the repository-root `config/` from the module rather than the working
+      directory (root `pnpm dev` runs each package in its own), binds what
+      `loadRuntimeEndpoints()` returns rather than a literal, refuses to continue past a
+      `ConfigValidationError` (**C6**), and stops once on `SIGINT` or `SIGTERM`. The
+      listener accepts port `0` although the configuration refuses it; that is deliberate,
+      documented at `ListenerOptions.port`, and what lets the tests bind without picking a
+      number. **Verified by running it, not only by unit test:** a real start logs one
+      `server.listening` record naming the shipped policy and all fifty committed robots;
+      `GET /api/fleet` returns the canonical `not_found` envelope; an allowed origin is
+      echoed and a disallowed one is not; a preflight returns 204 with the method list; an
+      out-of-range port exits 1 naming the key and the accepted range on stderr without
+      ever binding; and `SIGTERM` produces `server.stopped`.
 - [x] **B1b — `tsx` is the runtime**, recorded in
       [ADR 9](../../docs/00_adr/09_WORKSPACE_SOURCE_EXPORTS_AND_TSX_RUNTIME.md). Already
       a devDependency here. Plain `node src/main.ts` does **not** work for this package:
       `@fleet/contracts` exports source whose internal imports carry `.js` extensions
       that nothing emits, so Node fails with `ERR_MODULE_NOT_FOUND` while `tsc`, Vitest
       and Vite all resolve it. `pnpm dev` and `pnpm start` are the supported entry points.
-- [ ] **B1c — Add the `dev` and `start` scripts with the listener, not before.**
-      `"dev": "tsx watch src/main.ts"` and `"start": "tsx src/main.ts"`. They are
-      deliberately absent today: root `pnpm dev` is `pnpm -r --parallel dev`, so a script
-      pointing at a `src/main.ts` that does not exist breaks the one-command start for
-      every package at once.
+- [x] **B1c — Done 20 August 2026, with the listener.** `"dev": "tsx watch src/main.ts"`
+      and `"start": "tsx src/main.ts"`. They were absent until `src/main.ts` existed
+      because root `pnpm dev` is `pnpm -r --parallel dev`, where a script pointing at a
+      missing file breaks the one-command start for every package at once.
 - [x] **B2 — Do not add a database, broker, or queue.** ADR 6 decided against a database
       and ADR 2 against a broker; both name the conditions for revisiting. Lint blocks
       the common packages by name with the ADR reference in the failure message (§ 10).
+
+### Deferred prominently — decisions required before **B1d** is finished
+
+- **What a declined cross-origin request is answered with.** Today it is served without
+  the grant, which is what makes a browser block it. The plan text said "refused", and an
+  explicit 403 would be stronger against a non-browser caller — but `@fleet/contracts` has
+  no `ErrorKind` for it (`ERROR_KINDS` is malformed / unmappable / unsupported-dialect /
+  unsupported-vendor / not-found / too-large / internal) and `ErrorStatus` has no 403, so
+  inventing either in a handler would make the server a second authority over a vocabulary
+  ADR 20 puts in contracts. It would also present as authorization the server does not
+  perform: `Origin` is caller-supplied, exactly like the vendor route segment ADR 8 §
+  Implications accepts a caller can lie about. **Reversing this is a contracts change
+  first (ADR 20), then this module.** Do not decide it in the middleware.
+
+- **Whether the same allow-list governs the WebSocket stream.** CORS does not apply to a
+  WebSocket upgrade and `ws` checks no origin of its own, so mounting this policy on the
+  HTTP routes alone leaves `/ws` reachable from any origin while `/api` is not.
+  `evaluateOriginPolicy` can decide an upgrade request unchanged — the gap is that nobody
+  has decided whether it should. That is an ADR 8 or ADR 21 question. Settle it with
+  **H1**, not with a line in the upgrade handler.
 
 ---
 
@@ -197,60 +255,82 @@ now decides what implements them. The listener is unblocked.
 
 ## Section 4 — Ingest boundary (ADR 1, ADR 2, Principle 2)
 
-- [ ] **D0 — Apply the ingest size cap first, before anything reads the body.** Built and
-      tested as `src/ingest/requestSizeLimit.ts`
-      ([ADR 26](../../docs/00_adr/26_RAW_PAYLOAD_BOUNDED_VERBATIM_AND_UNPROTECTED_BY_DECISION.md));
-      what remains is calling it in the right place. **Order is the whole point** — a cap
-      applied after `JSON.parse` or after adapter dispatch protects only the store, which
-      was never the expensive part.
-      Both guards, not one: `checkDeclaredSize(contentLength)` rejects before a byte is
-      read, and `createByteBudget()` counts chunks as the body streams. The header is
-      caller-supplied, so a client that under-declares or omits it walks past the first
-      guard — **do not delete the budget as redundant.** Answer a rejection through
-      `errorResponse("payload_too_large")`, which is a 413.
-- [ ] **D1 — `POST /api/telemetry`, one reading per request** (ADR 2). Body, route
-      params and headers are `unknown` until decoded. No casts — lint blocks them.
-- [ ] **D2 — Stamp `receivedAt` from the injected `Clock` at the boundary**, before
-      dispatch, and pass it explicitly into the adapter. Never substitute the vendor's
-      `reportedAt`. These two values have different owners and different jobs: the sweep
-      reads `receivedAt`, the operator-facing "last seen" displays `reportedAt`, and
-      ADR 3 § Decision calls their independence a stated invariant of the system.
-- [ ] **D3 — Vendor identity is selected through the adapter registry**, keyed by
-      supported vendor. An unknown vendor is a defined rejection plus a metric, never a
-      guess and never a fallback adapter.
-- [ ] **D4 — Malformed payloads are rejected and counted, not coerced** (ADR 2 §
-      Decision). **The error shape is now decided and built**: answer through
-      `src/ingest/errorResponse.ts`, which is the only place an error body may be
-      constructed. It returns the contract's `errorEnvelopeSchema` body — a `kind`, a fixed
-      summary and the adapter's own `ContractIssue[]`, copied rather than re-derived — and
-      the HTTP status for that kind
-      ([ADR 20](../../docs/00_adr/20_ONE_ISSUE_VOCABULARY_END_TO_END.md), register **D16**).
-      What is left here is the counting and the handler that calls it.
-- [ ] **D5 — Idempotent upsert.** Duplicate or out-of-order input must not roll observed
-      state backward or append misleading history. Compare against the current stored
-      sequence for that robot only — no sequence log, per ADR 6.
-- [ ] **D6 — Represent "sequence not evaluated" distinctly from "zero gaps."** Vendor B
-      has no sequence; its adapter synthesizes ordering from timestamps, which cannot
-      distinguish a duplicate from two events in the same millisecond. Showing "0 gaps"
-      for such a robot is a false statement to an operator (ADR 1 § Implications,
-      README § 4). The health payload and the robot-detail diagnostics field must carry
-      a not-evaluated state, not a zero.
-      **The representation is now decided and is not this package's to choose**
-      ([ADR 25](../../docs/00_adr/25_CONTRACTS_OWNS_EVERY_DECODED_RESPONSE_COUNTERS_BY_SCOPE.md)):
-      `SequenceHealth` from `@fleet/contracts`, which `HealthMetrics` already imports
-      rather than declaring its own twin. Do not add a second shape at the handler.
-- [ ] **D6a — Track sequence continuity per robot, not only per adapter.** Work ADR 25
-      created and named rather than left latent. `HealthMetrics` keys `#sequence` by
-      **adapter id**, but `robotDiagnosticEnvelopeSchema.sequenceHealth` is **per robot**,
-      because an adapter rollup cannot answer "did this robot miss readings" — which is
-      the question the robot-detail page asks. Both scopes are wanted and neither
-      substitutes for the other: the per-adapter rollup stays on `GET /api/health` and
-      answers "is this dialect ordered at all".
-      Two things to decide while building it: whether the rollup is derived from the
-      per-robot map or accumulated separately, and what a per-robot map costs at 500
-      robots (ADR 6 bounds memory, and this is a new per-robot allocation). Until it
-      exists the server cannot populate a field the contract requires, so the diagnostic
-      endpoint cannot be served at all.
+- [x] **D0-D5, D8, D9 — the ingest boundary. Done 20 August 2026.** `ingestTelemetry` in
+      `src/ingest/ingestTelemetry.ts` is the transition and `POST /api/telemetry/:vendor`
+      in `createApp.ts` is the transport around it (**D9**): the handler decides nothing
+      about what a reading means. The ordering is the contract and none of it produces a
+      type error if reversed, so each step names what it protects and the tests assert the
+      order rather than only the outcomes — selector before any body byte (**D3**, ADR 8),
+      then `checkDeclaredSize` on the caller's header, then `createByteBudget` on the bytes
+      actually read, both **before** `JSON.parse` (**D0**, ADR 26; the header guard is a
+      cheap early exit and the budget is what holds), then `receivedAt` from the injected
+      clock passed explicitly into the registry (**D2**), then `withFreshness` completing
+      the pre-freshness envelope with `now = receivedAt` so a reading is never born a
+      microsecond stale (ADR 10), then the idempotent upsert (**D5**) which also retains
+      the raw payload for the technician endpoint alone (**D7**, ADR 26). A malformed
+      payload is counted and answered through `errorResponse` with the adapter's own
+      issues copied rather than re-derived (**D4**, ADR 20). Unknown fields need no step:
+      the registry owns one process ledger and counts as it decodes (**D8**, ADR 15) —
+      asserted by vendor C's `telemetry.firmware_channel` moving `byAdapter.C` while
+      `byAdapter.A` stays at zero. Only an accepted reading is marked for fan-out; a
+      duplicate left stored state alone and would flush a frame that says nothing.
+      Answering is **204** rather than 202, because the transition already happened
+      synchronously — and with no body, because no contract describes an ingest response.
+      If a caller ever needs the disposition back, that shape is a `@fleet/contracts`
+      decision first (ADR 25). The test reaches the recorded fixtures through
+      `@fleet/adapters/testing` under the ADR 11 exception, which is also the standing
+      proof that exception is configured — the half that had no fixture when the rule
+      landed. It derives its manifest by decoding the fixtures rather than restating their
+      ids, because ADR 14 makes roster and payloads two views of one seeded fleet and a
+      hardcoded id would drift the next time fixtures are re-recorded (ADR 13).
+      **Verified by running it:** a valid vendor A payload returns 204 and appears in
+      `GET /api/fleet` with server receipt time; `/api/telemetry/Z` returns the
+      `unsupported_vendor` envelope and `/api/telemetry/a` a 404, because ADR 8 makes the
+      segment case-sensitive; a non-JSON body is a counted 400; a 70 KB body is a 413; and
+      an ingested robot was watched going **live to stale** on the sweep, which is the ADR
+      3 guarantee working end to end for the first time.
+- [x] **D6 — Represent "sequence not evaluated" distinctly from "zero gaps." Done for the
+      case that matters.** A dialect with no counter — vendor B — records
+      `noteSequence(adapterId, "not-evaluated")`, so it is never shown as zero gaps. The
+      representation is `SequenceHealth` from `@fleet/contracts` (ADR 25) and no second
+      shape was added at the handler. Everything else about continuity is **D6a**, and
+      three sharper problems were found while building this rather than left latent:
+      (1) `SequenceObservation` is `"gap" | "duplicate" | "not-evaluated"` with **no
+      in-order value**, so an adapter delivering perfectly ordered readings never enters
+      the snapshot at all and is indistinguishable from one never observed; (2) an
+      **out-of-order** arrival has no term in that vocabulary, and `UpsertResult`
+      distinguishes it from a duplicate while `HealthMetrics` cannot; (3) a **gap** cannot
+      be detected from what ingest can see, because it needs the previous sequence, which
+      `CurrentStateStore` holds. **D6a** moved continuity there and resolved (1) and (3);
+      (2) is still open and is deferred under **D6a**.
+- [x] **D6a — Track sequence continuity per robot, not only per adapter. Done 20 August 2026.** Both sub-decisions this item said to make while building it are made, and
+      both went the same way for the same reason. **Where it lives:** `CurrentStateStore`,
+      because gaps can only be counted where the previous accepted sequence already is —
+      anywhere else means a second copy of that number, which is the drift Principle 1
+      forbids. **How the rollup is produced:** folded from the per-robot values on demand
+      (`sequenceByAdapter()`), not accumulated alongside them, because a second accumulator
+      is a second authority that can disagree while both look plausible; the fold is over
+      the fleet, on a health request nothing calls in a loop. **What it costs:** one small
+      object per robot — `{ evaluated: false }` or three numbers — so five hundred robots
+      is tens of kilobytes against the 31.25 MiB raw-payload budget ADR 26 already
+      computed. Not a number worth a decision.
+      Consequences worth carrying. `HealthMetrics.noteSequence` and
+      `HealthSnapshot.sequence` are **removed**: they were the second copy, and leaving
+      them fed from the store would have kept two spellings of one fact alive. `gaps`
+      counts **readings missing**, not gap events — the contract's own field comment says
+      so, and it is the number an operator can act on, since reporting a jump of five as
+      `1` understates the loss by the amount that matters. Null, not `{ evaluated: false }`,
+      before a robot has ever reported: that value claims "this dialect has no counter",
+      which is a statement about vendor B and not about silence. An adapter's rollup is
+      `{ evaluated: false }` if any of its robots is, because one unordered robot means the
+      dialect's ordering cannot answer the rollup's question. **Deferred, decision not made — a regressive arrival is counted as nothing.**
+      `SequenceHealth` has `gaps` and `duplicates` and no term for a reading whose sequence
+      went _backwards_, which `UpsertResult` distinguishes from a duplicate and the store
+      therefore knows about and cannot report. Stored state is still protected — the upsert
+      returns without writing — so what is missing is the reporting, not the guard. Adding
+      a third counter is a `@fleet/contracts` change under ADR 25, then this module and the
+      health response; it must not be smuggled in as a `gaps` increment, which would report
+      a lost reading that never existed.
 - [ ] **D7 — Retain the raw payload for technician diagnosis only.** Excluded from the
       fleet read model, from history, and from every delta; served only as a separate
       field on `GET /api/robots/:id` (ADR 1, robot-detail spec § 2). Assert this in a
@@ -310,17 +390,22 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
 - [x] **F4 — A freshness-only transition is a real change** and must enter the pending
       delta set without touching observed telemetry or `reportedAt`
       (`PendingDeltaSet.mark` is built for exactly this).
-- [ ] **F5 — Record sweep lateness and expose it. Half landed; the half that matters is
-      the composition.** `FreshnessSweep` measures the gap against
-      `policy.lateTickToleranceMs` and calls `onLateTick(latenessMs)`, and
-      `HealthMetrics.noteLateFreshnessTick` consumes exactly that shape into
-      `lateFreshnessTicks`. Both are tested. **Nothing connects them** — `src/index.ts`
-      re-exports the pieces and composes nothing — and there is no health endpoint to read
-      the counter (**G3**). ADR 3 § Implications is explicit about why this cannot stay
-      half-built: under ingest saturation the sweep stops firing, the console freezes
-      robots at their last computed state instead of degrading them, and that is precisely
-      the failure the mechanism exists to prevent. A sweep that silently stops looks
-      identical to a healthy fleet. Recorded as `packages/FIXME.md` **F7**, first bullet.
+- [x] **F5 — Record sweep lateness and expose it. Composed 20 August 2026; the HTTP
+      surface is still deferred.** `startServer` builds the store, the delta set, the
+      counters and the sweep together and routes `onLateTick` into
+      `HealthMetrics.noteLateFreshnessTick`, closing the first bullet of
+      `packages/FIXME.md` **F7**. The callback also emits a `freshness.tick_late` warning
+      through the structured logger, which is the part that matters before **G3** exists:
+      a counter nobody can read is not exposure, and ADR 3 § Implications names the failure
+      precisely — under ingest saturation the sweep stops firing, the console freezes
+      robots at their last computed state instead of degrading them, and a sweep that
+      silently stops looks identical to a healthy fleet. A real six-second run emitted the
+      startup line and nothing else, so the warning is a signal rather than noise. The
+      sweep starts after the listener binds, so it never runs against a server that failed
+      to bind and left nothing to stop it, and stops before the listener closes (**F6**).
+      **Still deferred: `GET /api/health`.** `lateFreshnessTicks` reaches no HTTP response
+      because **G3** waits on ADR 30's unresolved `byAdapter` key space, and that must not
+      be decided in a handler.
 - [x] **F6 — Explicit timer lifecycle.** `start()` / `stop()`, with tests and the
       shutdown path both stopping intervals and closing sockets. A leaked interval turns
       a test suite green and a process unkillable.
@@ -329,45 +414,126 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
 
 ## Section 7 — HTTP read endpoints
 
-- [ ] **G1 — `GET /api/fleet`** — canonical read model for every registered robot. No raw
-      payloads. Fields per `docs/01_page-specs/02_FLEET.md` § 6.
-- [ ] **G2 — `GET /api/robots/:id`** — the same canonical robot plus the retained raw
-      payload as a separate field, plus the diagnostics the robot-detail spec § 6 lists:
-      adapter id/version, sequence, sequence gaps (total since start, or not-evaluated),
-      vendor ts, received ts, clock delta, schema version, unknown-field count.
-- [ ] **G3 — `GET /api/health`** — malformed-ingest count, unsupported-vendor count,
-      adapter failures, per-adapter unknown fields, WebSocket connection and flush
-      health, late freshness ticks. Label the unknown-field count per-adapter; presenting
-      a per-adapter counter as a per-robot fact is called out in both ADR 1 and AGENTS.md.
+- [x] **G1 — `GET /api/fleet`. Done 20 August 2026.** `encodeFleetSnapshot` in
+      `src/http/fleetResponse.ts` translates `CurrentStateStore.list()` into the
+      contract-owned `fleetSnapshotSchema` shape, and the route is `c.json` over it. The
+      store is seeded from the manifest in `startServer`, so a robot that has never
+      reported is a row rather than an absence (ADR 3, ADR 14) — fifty of them against the
+      committed roster, confirmed by running it. `flushSequence` is zero until fan-out owns
+      the counter (**H3a**); a cold snapshot discards nothing, which is what zero means.
+      The translation is not a serialization, and that is the finding worth carrying:
+      server state is a **superset** of the wire contract in two places that
+      `JSON.stringify` accepts and `parseFleetSnapshot` rejects — an observed robot's
+      capabilities are the runtime record rather than the wire array, and an unobserved
+      robot carries the manifest's `model`, which `registeredRobotStateSchema` is strict
+      against and no fleet row uses. A test round-trips the encoder through the contract's
+      own decoder rather than asserting a shape by eye, because a body only
+      `JSON.stringify` accepts reaches the console as a parse failure that reads like a
+      network problem. **Ordering constraint this creates — do not land ingest without the
+      sweep.** Every robot is `unknown` today because nothing reports, so the snapshot
+      cannot be stale. The moment **D1** stores an observed envelope, `freshness` on it is
+      whatever the upsert wrote, and a read hours later would serve that value as current,
+      which is the exact failure Principle 4 forbids. **F1**-**F5** must land before or
+      with Section 4, never after.
+- [x] **G2 — `GET /api/robots/:id`. Done 20 August 2026.** `encodeRobotDetail` in
+      `src/http/robotResponse.ts` serves the canonical robot plus the retained raw payload
+      and `sequenceHealth`, which **D6a** made available. This is the only route that
+      serves a raw payload (ADR 1), and the composition reads it through
+      `store.diagnostic()` rather than around it, because that method is what makes the
+      outbound deep copy real (ADR 26). The remaining robot-detail diagnostics the spec § 6
+      lists — adapter id and version, both timestamps, schema version — are already fields
+      on the envelope; clock delta is `receivedAt - reportedAt`, which the console computes
+      rather than the server duplicating, and the unknown-field count is fleet-wide and
+      belongs to **G3**. **G5** and **G7** land with it: an unknown id is an explicit 404
+      carrying the canonical envelope, never a 200 with nothing in it, and the response is
+      built from `@fleet/contracts` types throughout. **Verified by running it:** an
+      unknown id returns 404, a registered robot returns its registration data, vendor C's
+      recorded payload comes back verbatim under `rawPayload` with `sequenceHealth`
+      alongside, and `GET /api/fleet` contains no `rawPayload` at all (**G6**).
+      **Deferred, decision not made — there is no contract for this endpoint's union.**
+      The route serves two populations: `robotDiagnosticEnvelopeSchema` for a robot that
+      has reported, and `registeredRobotStateSchema` for one the manifest registered and
+      nothing has been heard from. Both shapes are contract-owned, so nothing was invented
+      here — but `@fleet/contracts` exports no union schema or parser for the pair, the way
+      `fleetSnapshotRobotSchema` does for the same two populations inside the snapshot. A
+      client therefore has to try both parsers and infer the discriminator itself. Serving
+      a 404 for the unobserved case would have avoided the gap and is **wrong**:
+      `docs/01_page-specs/03_ROBOT_DETAIL.md` requires a known-but-unseen robot to render
+      registration data, and a 404 there contradicts the fleet page already listing it. The
+      fix is a `robotDetailResponseSchema` union plus its parser in contracts under ADR 25,
+      mirroring `fleetSnapshotRobotSchema`; it is a contracts change first, not a handler
+      change.
+
+- [x] **G5 — Validate identifiers and return explicit not-found. Done with G2.** An
+      unknown robot id is a 404 carrying the canonical error envelope.
+- [x] **G7 — Read models are canonical types. Done with G2** — both branches of the
+      response are `@fleet/contracts` shapes, and no adapter type is reachable from a
+      handler (lint enforces the second half).
+- [x] **G3 — `GET /api/health`. Done 20 August 2026, and ADR 30's key space is settled.**
+      `encodeHealthResponse` in `src/http/healthResponse.ts` joins three counters kept at
+      three scopes by three components: process-scope `malformedIngest` and
+      `unsupportedVendors` from `HealthMetrics`, the per-adapter unknown-field ledger from
+      the registry, and per-dialect continuity folded by the store (**D6a**). `byAdapter` is
+      keyed by **vendor id** (`A`), ratifying ADR 30's stated lean on the event that ADR
+      named as its resolver; `CurrentStateStore.sequenceByAdapter` was renamed
+      `sequenceByVendor` and rekeyed in the same change, so the join has one identifier
+      space throughout rather than a re-key in the middle of it. Every supported vendor
+      appears even before it has reported, because an absent key reads as "no such adapter"
+      rather than "nothing yet". A vendor with no readings is `{ evaluated: false }`, never
+      `{ evaluated: true, gaps: 0 }`, which would assert a measurement nobody made. The
+      unknown-field scope travels as data, so the console renders its caveat from the value
+      (**A5**, ADR 25). **Verified by running it:** after one accepted vendor C payload,
+      one rejected vendor A payload and one unsupported-vendor request, the response showed
+      `malformedIngest: 1`, `unsupportedVendors: 1`, vendor A with `failures: 1` and a flat
+      ledger, and vendor C with `telemetry.firmware_channel: 1` and no failures — the exact
+      pairing ADR 15 says a total would erase, now observable rather than argued.
 - [ ] **G4 — History endpoint for the sparkline.** Decide whether history rides on
       `GET /api/robots/:id` or a separate `GET /api/robots/:id/history`.
       _Recommendation:_ separate — the detail view's freshness and summary update on the
       delta stream, while history is a fetch-once-per-visit read, and mixing the two
       lifetimes into one payload means refetching history to refresh a battery number.
-- [ ] **G5 — Validate identifiers and return explicit not-found.** An unknown robot id
-      is a 404, never a 200 with an empty body (AGENTS.md § HTTP and WebSocket transport).
 - [ ] **G6 — Leak nothing.** No stack traces, no secrets, no raw payloads outside **G2**,
       no unbounded diagnostic data in any error or health response. For error bodies this is
       structural rather than a filter: a `ContractIssue` carries a path, a category and a
       schema-derived message and never a rejected value, and `errorResponse`'s summaries are
       constants (ADR 20). `errorResponse.test.ts` asserts it against a payload whose values
       are distinctive; keep that test when the handler lands.
-- [ ] **G7 — Read models are canonical types**, never an adapter's internal types.
 
 ---
 
 ## Section 8 — WebSocket fan-out (ADR 2)
 
-- [ ] **H1 — One connection per console; changed robots only.** Never a full snapshot on
-      every flush (ADR 2 Position 3).
-- [ ] **H2 — Coalesce between flushes and flush at no more than 10 Hz**, on a scheduler
-      independent of the 500 ms sweep. `PendingDeltaSet` is the coalescing half; the
-      scheduler is not written.
+- [x] **H1, H2, H5, H6, H6a — the fan-out unit. Done 20 August 2026; not yet attached to a
+      socket.** `DeltaFanOut` in `src/fanout/deltaFanOut.ts` holds one `PendingDeltaSet`
+      per console (**H6**), marks every set on a change, and flushes on its own interval
+      floored at 100 ms — independent of the 500 ms sweep, because ADR 3 states that
+      conflating them makes the two impossible to tune separately (**H2**). A frame carries
+      changed robots only (**H1**), encoded so the capability record becomes the wire array
+      JSON preserves (**H5**), and a test parses a real frame with the contract's own
+      `parseTelemetryBatch` rather than eyeballing its shape. A console that joins after a
+      change gets nothing: its picture is the `GET /api/fleet` snapshot, so the socket
+      carries one message shape for its whole lifetime (**H3**). It owns no socket —
+      clients arrive as a `send`/`close` pair — so the whole of fan-out is testable without
+      a port, as every other unit in this package is. **Composed 20 August 2026.** The
+      listener turns a `/ws` upgrade into a `send`/`close` pair and hands it to
+      `streams.open`, the composition root registers it with the fan-out, and the sweep and
+      ingest now take a `DeltaSink` — the write half of a coalescing set — so neither can
+      drain a set it does not own and fan-out can substitute a broadcaster that is not a
+      set at all. Fan-out stops before the listener closes, because ADR 8 § Implications
+      requires consoles to close before the HTTP server goes away.
 - [x] **H3 — Decided 19 August 2026: `GET /api/fleet` first, socket for deltas only.**
       Recorded by amending [ADR 2 § Decision](../../docs/00_adr/02_TRANSPORT_HTTP_INGEST_WS_FANOUT.md),
       which had been silent on it. The socket carries one message shape for its whole
       lifetime, and cold start and reconnect are the same code path.
-- [ ] **H3a — Produce the server-wide flush sequence. Contracts half done ([ADR 18](../../docs/00_adr/18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md), register D10).**
+- [x] **H3a — Produce the server-wide flush sequence. Done 20 August 2026.** `createFlushSequence()` is the one monotonic
+      source, and `DeltaFanOut` advances it **only on a flush that sends something** — a
+      counter climbing on empty ticks would describe no state, and a client reconciling a
+      delta against its snapshot would discard readings it needed. Every frame in one flush
+      carries that number, which is also the maximum any of them contains, satisfying
+      **H6a** by construction rather than by a separate step. `GET /api/fleet` now reads
+      the same counter rather than a hardcoded zero, so there is one source and the
+      client's comparison is meaningful — the two-sources defect ADR 18 exists to prevent
+      would have left both halves looking plausible. Original item follows. ([ADR 18](../../docs/00_adr/18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md), register D10.)
       `packages/contracts` now carries `flushSequenceSchema`, a required `flushSequence`
       on `telemetryBatchSchema`, the `fleetSnapshotSchema` that did not previously exist,
       and `isDeltaCoveredBySnapshot` — the reconciliation rule itself, so the client and
@@ -381,12 +547,16 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       never-observed robot; and the sequence currently has no restart story — a restarted
       server begins at zero and a client holding a higher snapshot sequence discards
       everything until it catches up (ADR 18 § Open questions).
-- [ ] **H3b — Get the client's cold-start order right, and test it.** Socket open →
-      buffer → fetch → reconcile → apply, where reconcile is
-      `isDeltaCoveredBySnapshot` from `@fleet/contracts` (ADR 18) rather than a
-      comparison written again here. Fetching before opening loses every delta
-      emitted in the gap, and the symptom is a row that quietly stops updating rather
-      than an error. That is worth an explicit test, because nothing else will catch it.
+- [ ] **H3b — Get the client's cold-start order right, and test it. Ordering unit landed
+      20 August 2026 in `packages/web`; the transport around it has not.**
+      `packages/web/src/shared/lib/coldStart.ts` implements buffer → settle → replay and
+      reconciles with `isDeltaCoveredBySnapshot` from `@fleet/contracts` (ADR 18) rather
+      than a comparison written again there. It is a module rather than a comment because
+      fetching before opening loses every delta emitted in the gap, and the symptom is a
+      row that quietly stops updating rather than an error — nothing else catches that.
+      What remains is the socket and snapshot fetch that call it, which is fleet TODO
+      **A3**, and the running-browser evidence that the order is what the console actually
+      performs.
 - [ ] **H4 — [web] There is no transport client yet.** `packages/web/src/shared/lib`
       contains only `time.ts`, and `packages/web/src/entities/robot/useFleetRobots.ts`
       returns hardcoded fixtures. The wire format decided here has no consumer until that
@@ -402,26 +572,79 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       is bounded by fleet size rather than by how far behind it is, and it receives
       current state less often but never stale state. The class this package already has
       is the right shape — fan-out just owns one per client instead of one in total.
-- [ ] **H6a — Carry the highest flush sequence in a coalesced frame.** A frame assembled
-      across flushes 41–44 states 44. The client only uses it to reconcile against its
-      cold-start snapshot (**H3a**), so the maximum is the correct value.
-- [ ] **H6b — Close a connection that never drains, on a timeout.** A bounded set is
-      still a set held for a client that will never read it. This is the only place
-      fan-out discards a client; count it on `/api/health`.
-- [ ] **H6c — Define the remaining connection states.** Reconnect and orderly shutdown
-      still need defining; ADR 8 § Implications requires socket clients to close before
-      the HTTP server does, or in-flight frames land on a dead listener.
-- [ ] **H7 — Every asynchronous surface defines its complete state** (Principle 5). For
-      the stream that means: connecting, connected, degraded, disconnected, reconnecting,
-      terminal failure — and the console's connection banner is the consumer of it.
+- [x] **H6a — Carry the highest flush sequence in a coalesced frame. Done 20 August 2026
+      by construction.** Every frame carries the sequence of the flush that sent it, and a
+      set that coalesced across earlier flushes is sent in the later one, so the value is
+      the maximum it contains without a separate maximum being computed.
+- [ ] **H3c — Decide and describe what a restart does to a connected client.** Raised 20
+      August 2026, from `packages/FIXME.md` **F9**, because it had been living only as an
+      ADR 18 open question and nothing owned it. The flush sequence starts at zero on every
+      process start, so a console holding a snapshot at sequence 40 across a server restart
+      discards every delta until the new process passes 40 — and `isDeltaCoveredBySnapshot`
+      is doing exactly what it was designed to do while the rows silently stop updating.
+      **E5** already says a restart loses _state_ and is marked done; this is the separate
+      claim that a restart also invalidates a client's _reconciliation baseline_, which no
+      document states and no test covers.
+      Three candidate answers, and the choice is a decision rather than a fix: a process
+      identity on the snapshot and every frame, so a client can tell "sequence 3 from a new
+      process" from "sequence 3 I already have"; a monotonic counter persisted across
+      restarts, which ADR 6 forbids without a store; or accepting the behaviour and having
+      the client re-fetch its snapshot on any sequence regression. The last is cheapest and
+      is probably right — but it is unwritten either way, and a client cannot implement it
+      from an ADR's open-questions section. Settle it with **D22**, which is already
+      deciding what the client does when a connection comes back.
+- [ ] **H6b — Close a connection that never drains, on a timeout. Deferred; the decision it
+      needs is not made.** A bounded set is still a set held for a client that will never
+      read it. This is the only place fan-out discards a client, and it must be counted on
+      `/api/health`. **What blocks it:** ADR 8 § Open questions asks whether the connection
+      cap and maximum frame size are configuration or constants, leans configuration
+      "alongside the freshness policy in `config/`", and names _this_ work as the resolver.
+      That is not a free choice — `freshnessPolicySchema` is strict and ADR 3 § Constraints
+      fixes its keys, so it means either a fourth key with an ADR 3 amendment or a new
+      configuration surface, and both are bigger than a threshold constant. `DeltaFanOut`
+      therefore has **no backpressure signal at all** today: it flushes to every console
+      with a pending set and never skips or drops one. That is correct at ADR 2's stated
+      scale of single-digit consoles and wrong at any scale where a console stops reading.
+      Decide the configuration surface first; do not put a number in the fan-out.
+- [ ] **H6c — Define the remaining connection states. Orderly shutdown done 20 August
+      2026; reconnect is registered as decision D22.** Fan-out stops and closes every
+      console before the listener closes, which is what ADR 8 § Implications requires, and
+      the test asserts it by rebinding the same port afterwards rather than by inspection.
+      Reconnect is not a server-side gap at all — the client decides when to come back —
+      and it is now a registered open decision rather than a note here; see
+      [`docs/PENDING_ARCHITECTURE_DECISIONS.md`](../../docs/PENDING_ARCHITECTURE_DECISIONS.md)
+      **D22**.
+- [x] **H7 — Every asynchronous surface defines its complete state. Defined 20 August
+      2026 in `packages/web`; the consumer is still fixture-backed.**
+      `shared/lib/streamLifecycle.ts` is the matrix as a pure reducer —
+      `idle | connecting | connected | reconnecting | failed` — with the transitions tested
+      rather than described (Principle 5). `degraded` was **not** adopted: nothing in this
+      design produces a partly-working stream, and a state with no producer is a state the
+      banner would never show. Two questions the definition surfaced are deferred and
+      flagged in `packages/web/src/features/fleet/TODO.md` **A3**: the published vocabulary
+      is narrower than the transport's, so the banner cannot distinguish a first connection
+      from a reconnection or a stopped client from a retrying one; and when to give up is
+      an event the caller raises rather than a cap the reducer invents.
 
 ---
 
 ## Section 9 — Observability and measurement (Principle 12, ADR 2)
 
-- [ ] **I1 — Structured events with stable names and correlation identifiers** where a
-      request crosses stages. `no-console` is enforced, so the logger is a real module
-      with a real shape, decided rather than accreted.
+- [ ] **I1 — Structured events with stable names and correlation identifiers. Logger
+      landed 20 August 2026; the correlation half has not.** `src/observability/logger.ts`
+      writes one JSON object per line with an injected sink, and `server.listening`,
+      `server.stopping`, `server.stopped` and `server.stop_failed` are its first stable
+      names — `event` is a name and `fields` is everything that varies, because a name that
+      changes with its data cannot be counted. Still owed: an identifier that follows one
+      request across ingest, state and fan-out, which needs those stages to exist.
+      **Deferred, decision not made — whether two JSON-line loggers should stay two.**
+      `packages/simulator/src/observability/logger.ts` decided this shape first and this is
+      a second implementation of it, because the server may not import the simulator and
+      the workspace has no shared Node library to hold it. The duplication is real, and the
+      two must agree on the record shape or one stream cannot be read with the other. The
+      fix — a fifth workspace package — changes the shape of the repository and needs an
+      ADR, so it is named here rather than taken quietly. Each side names the other in a
+      `Coupling:` comment until then.
 - [ ] **I2 — Build the measurement harness ADR 2 commits to**: throughput and latency at
       **50 and 500 robots**, and it must **distinguish per-request HTTP overhead from
       schema-validation cost**. ADR 2's own estimate is that validation costs tens of
@@ -438,18 +661,47 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       decode once adapters exist. Extend that test rather than starting a second harness;
       the threshold must stay 400 µs, because a tightened falsifier is the undefended
       threshold ADR 22 refused to ship.
+      **Transport half done 20 August 2026, in that same file as instructed.** A whole
+      request costs **892 µs at 50 robots and 926 µs at 500** — route, size cap,
+      `JSON.parse`, vendor decode, upsert — against **5.8 µs** for the decode alone.
+      Transport dominates validation by roughly 150×, so ADR 2's estimate is confirmed and
+      its staged mitigation should start with batch ingest rather than worker-pooled
+      validation. The transport half is **report-only**: ADR 2 states a falsifier for
+      validation and none for transport, and inventing one to make the harness look
+      symmetrical is exactly the undefended threshold ADR 22 refused. Published in
+      `README.md` § 10 and ADR 2 § Observed consequences (**I3**).
+      **Still owed, and each is a different question:** throughput and latency under
+      concurrent load — this harness measures one sequential request on purpose, because a
+      flood measures queueing rather than per-request cost (**I4**) — and the two console
+      numbers below.
       **This harness also owes the console a number.**
       [ADR 24](../../docs/00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md)
       (register D14) defers fleet-table virtualization until delta-apply cost at 500 robots
       is measured **under a live stream**, and register D10's deferred half wants one
       mass-transition flush measured at the same scale. Three decisions are waiting on this
       one run; produce all its numbers together rather than one at a time.
-- [ ] **I3 — Report the degradation point, not only a favourable number.** Publish it in
-      the README measurements section and add the outcome to **ADR 2 § Observed
-      consequences**, which is currently empty.
-- [ ] **I4 — Treat event-loop saturation as a freshness-correctness bug**, not a latency
-      nit: it delays the sweep, and a delayed sweep reports stale robots as LIVE
-      (ADR 3, ADR 6 § Implications).
+- [ ] **I3 — Report the degradation point, not only a favourable number. Half done 20
+      August 2026.** ADR 2 § Observed consequences is no longer empty and the README
+      carries both tables. The unfavourable reading published first — 892 µs sequential is
+      ~1,100 req/s on one connection, below ADR 2's design scale — turned out to be an
+      artefact of measuring one connection, and the concurrent run corrected it to ~2.4×
+      above. **The correction is left visible rather than tidied away**, because a
+      measurement published and then revised is the more useful record. What is still owed
+      is the degradation _point_ itself: no saturation was reached on this machine, so no
+      point exists to report. "Not found" is a statement about this run, not about the
+      ceiling, and the README says so rather than claiming headroom nobody measured.
+- [x] **I4 — Treat event-loop saturation as a freshness-correctness bug. Done 20 August 2026.** `src/freshness/sweepUnderLoad.test.ts` measures the right thing: not
+      throughput, but whether the sweep keeps firing while ingest competes for the loop. A
+      delayed sweep reports stale robots as LIVE (ADR 3, ADR 6 § Implications), so the
+      assertion is about the **detector** — whatever load this machine reaches, a tick that
+      ran late must be counted, and `lastLatenessMs` staying null while `count` climbed
+      would be the silence ADR 3 names as the failure. Concurrency 1, 16 and 128 all
+      produced zero late ticks, and the interval was still running afterwards. Two honest
+      caveats, both recorded in ADR 3 § Observed consequences: "no saturation found" is
+      about this machine and this offered load, not a proof the interval cannot be starved;
+      and because nothing ran late, this run left the detector **unexercised** — it is
+      watched instead by the manual-clock case in `runServer.test.ts`, which forces a late
+      tick and asserts both the counter and the warning (ADR 7).
 
 ---
 
@@ -549,14 +801,21 @@ is missing is everything that needs a socket.
       it; a leaked interval passes every other test.
 - [ ] **L7 — Keep performance tests reproducible** and report degradation rather than
       asserting only a favourable scale point (AGENTS.md § Tests).
-- [ ] **L8 — Cross-origin:** the third piece of ADR 21's required evidence, which could
-      not be written when that ADR landed because **B1d** does not exist. A request from an
-      origin in `FLEET_ALLOWED_ORIGINS` is allowed and the header echoes that exact origin;
-      a request from an origin outside it is refused; a request with no `Origin` header is
-      unaffected; and with an empty allow-list every cross-origin request is refused while
-      same-origin traffic still works. Assert the refusal, not only the success — an
-      allow-list nothing rejects is indistinguishable from no allow-list, which is ADR 7's
-      recorded failure mode.
+- [x] **L8 — Cross-origin, against a real request. Done 20 August 2026.**
+      `src/http/createApp.test.ts` drives all four claims through `app.request()`: an origin
+      in `FLEET_ALLOWED_ORIGINS` gets that exact origin echoed, an origin outside it gets no
+      grant, a request with no `Origin` header is unaffected, and an empty allow-list grants
+      nobody — each asserted on the 404 path, so the grant is shown to survive a response
+      the router synthesized rather than only one a handler returned. The decline is
+      asserted, not only the success: an allow-list nothing rejects is indistinguishable
+      from no allow-list, which is ADR 7's recorded failure mode. What remains is the same
+      evidence through a **bound socket** rather than an in-process `Request`, which is the
+      only form that also proves `loadRuntimeEndpoints()` reached the app. It lands with
+      **B1a**'s listener — and now does: `src/http/listener.test.ts` repeats the grant and
+      the decline through a bound socket with `fetch`, which is the only form that also
+      shows the app the listener actually serves is the one the policy is mounted on. What
+      is not yet proven end to end is that `loadRuntimeEndpoints()` supplies those origins,
+      because no composition root reads it yet (**B1a**).
 
 ---
 
@@ -612,13 +871,13 @@ is missing is everything that needs a socket.
 
 1. A new ADR records the HTTP and WebSocket implementation choice, and the server listens.
 2. `config/freshness.json` and `config/fleet-manifest.json` exist, are strictly validated at startup, and an invalid file stops the process with a message naming the field. The same holds for the environment: `FLEET_SERVER_HOST`, `FLEET_SERVER_PORT` and `FLEET_ALLOWED_ORIGINS` are decoded once by `loadRuntimeEndpoints()`, an invalid value stops the process naming the key (done, ADR 21), and the listener binds what it returns rather than a literal (**B1a**).
-3. Ingest stamps `receivedAt` from the injected clock, dispatches through the adapter registry, and rejects malformed input with a counted, defined error.
-4. Current state is seeded from the manifest, so a robot that has never reported reads UNKNOWN rather than being absent.
-5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta.
-6. Late ticks, malformed ingest, unsupported vendors and per-adapter unknown fields are all visible on `GET /api/health`, each at its true scope.
-7. No raw vendor payload appears in a fleet response, a delta, or history — asserted by a test, not by inspection.
-8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps.
+3. Ingest stamps `receivedAt` from the injected clock, dispatches through the adapter registry, and rejects malformed input with a counted, defined error. **Done 20 August 2026** (**D0**-**D5**, **D8**, **D9**), verified against a running process for the valid, unsupported-vendor, non-JSON and oversized cases.
+4. Current state is seeded from the manifest, so a robot that has never reported reads UNKNOWN rather than being absent. **Done 20 August 2026** — `startServer` builds the store from `configuration.manifest.robots`, and `GET /api/fleet` serves all fifty committed robots as UNKNOWN.
+5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta. **Done 20 August 2026, verified against a live socket:** a console connected to `/ws` received frame 1 with `R-001:live` after ingest and frame 2 with `R-001:stale` from the sweep alone, and `GET /api/fleet` then reported flush sequence 2 from the same counter.
+6. Late ticks, malformed ingest, unsupported vendors and per-adapter unknown fields are all visible on `GET /api/health`, each at its true scope. **Done 20 August 2026** (**G3**), verified against a running process.
+7. No raw vendor payload appears in a fleet response, a delta, or history — asserted by a test, not by inspection. **Done 20 August 2026** — the types carry the exclusion, `GET /api/robots/:id` is the only route that reads it, and a running server was checked for `rawPayload` in the fleet response.
+8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps. **Done 20 August 2026** (**D6**, **D6a**) — the store refuses both, counts readings missing and duplicates per robot, folds the per-adapter rollup from those, and reports a counterless dialect as not-evaluated. One reporting gap remains and is deferred under **D6a**: a regressive arrival has no term in `SequenceHealth`.
 9. The demo script's steps 4 and 5 are both reproducible: three `--drop` robots degrade while the rest stay LIVE, and killing the stream produces a connection-level state rather than per-robot degradation.
 10. Throughput and latency are measured at 50 and 500 robots, the bottleneck is attributed to HTTP overhead or validation cost, and the number is published in the README and in ADR 2 § Observed consequences.
-11. The origin allow-list is enforced rather than merely validated: a disallowed origin is refused by a test, and a request with no `Origin` header still succeeds (**B1d**, **L8**). Until this holds, `FLEET_ALLOWED_ORIGINS` is configuration with no consumer.
+11. The origin allow-list is enforced rather than merely validated: a disallowed origin is granted nothing and a request with no `Origin` header still succeeds, both against a **real request** (**L8**). The policy itself is decided and unit-tested (**B1d**); until a listener mounts it, `FLEET_ALLOWED_ORIGINS` still has no runtime consumer, and what a declined request is _answered with_ is deferred under **B1d** as a contracts decision.
 12. `pnpm lint && pnpm typecheck && pnpm test && pnpm build` pass from the repository root.

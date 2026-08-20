@@ -21,6 +21,16 @@
 // makes the row-count assertion below fail, which forces whoever does it to come
 // back and restate the claim in the same commit rather than leaving the docs
 // describing a table that no longer exists.
+//
+// THE TIMEOUT IS DELIBERATELY LOOSE, AND THAT IS THE POINT. Rendering 500 rows in
+// jsdom costs 3–4 s unloaded here and crosses Vitest's 5 s default when the rest of
+// the suite is competing for the machine — so this file, which refuses to assert a
+// duration, was failing on an undeclared one. `packages/FIXME.md` F14 warns against
+// widening a timeout to make a transient failure go away, and this is not that: the
+// cause is known and measured, and the 5 s being replaced is Vitest's default, a
+// number nobody derived. 30 s is roughly eight times the unloaded cost, chosen to be
+// unreachable by scheduling noise and therefore never a performance gate. If these
+// tests ever approach it, the answer is to investigate the render, not to raise it.
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
@@ -68,58 +78,80 @@ function renderFleet(size: number): void {
   );
 }
 
+/**
+ * Eight times the unloaded cost of the slowest case. Not a performance budget — see the
+ * file comment; it exists so that Vitest's undeclared 5 s default cannot become one.
+ */
+const RENDER_TIMEOUT_MS = 30_000;
+
 describe(`fleet table at ${String(FLEET_SIZE)} robots`, () => {
-  it("renders one row per robot — the table is not windowed, and that is the claim", () => {
-    renderFleet(FLEET_SIZE);
+  it(
+    "renders one row per robot — the table is not windowed, and that is the claim",
+    () => {
+      renderFleet(FLEET_SIZE);
 
-    const rows = within(screen.getByRole("table", { name: "Fleet" })).getAllByRole("row");
+      const rows = within(screen.getByRole("table", { name: "Fleet" })).getAllByRole("row");
 
-    // Header row plus one body row per robot. If this fails because the number
-    // dropped to roughly a screenful, the table has been virtualized: that is a
-    // decision, not a refactor, and it changes ADR 24, PRINCIPLES.md § 12 and
-    // README § 10 along with this line.
-    expect(rows).toHaveLength(FLEET_SIZE + 1);
-  });
+      // Header row plus one body row per robot. If this fails because the number
+      // dropped to roughly a screenful, the table has been virtualized: that is a
+      // decision, not a refactor, and it changes ADR 24, PRINCIPLES.md § 12 and
+      // README § 10 along with this line.
+      expect(rows).toHaveLength(FLEET_SIZE + 1);
+    },
+    RENDER_TIMEOUT_MS,
+  );
 
-  it("keeps exactly one activation path per row at that size", () => {
-    renderFleet(FLEET_SIZE);
+  it(
+    "keeps exactly one activation path per row at that size",
+    () => {
+      renderFleet(FLEET_SIZE);
 
-    // Page spec §2: the robot id link is the only way into a robot, and a row is
-    // neither clickable nor focusable. At ten rows that is easy to hold; at 500
-    // it is the difference between a keyboard user tabbing 500 times and 1,000.
-    const links = within(screen.getByRole("table", { name: "Fleet" })).getAllByRole("link");
+      // Page spec §2: the robot id link is the only way into a robot, and a row is
+      // neither clickable nor focusable. At ten rows that is easy to hold; at 500
+      // it is the difference between a keyboard user tabbing 500 times and 1,000.
+      const links = within(screen.getByRole("table", { name: "Fleet" })).getAllByRole("link");
 
-    expect(links).toHaveLength(FLEET_SIZE);
-  });
+      expect(links).toHaveLength(FLEET_SIZE);
+    },
+    RENDER_TIMEOUT_MS,
+  );
 
-  it("summarises the whole fleet correctly at that size", () => {
-    renderFleet(FLEET_SIZE);
+  it(
+    "summarises the whole fleet correctly at that size",
+    () => {
+      renderFleet(FLEET_SIZE);
 
-    // 500 robots, four states, every fourth robot: 125 each. Read through the
-    // documented `stat__*` selectors, as `fleetPage.test.tsx` does — "Live" is
-    // both a summary label and a freshness label on every row, so a text query
-    // finds 126 of them.
-    const stats = [...document.querySelectorAll<HTMLElement>(".stat")];
-    const counts = Object.fromEntries(
-      stats.map((stat) => [
-        stat.querySelector(".stat__label")?.textContent ?? "",
-        Number(stat.querySelector(".stat__value")?.textContent ?? "0"),
-      ]),
-    );
+      // 500 robots, four states, every fourth robot: 125 each. Read through the
+      // documented `stat__*` selectors, as `fleetPage.test.tsx` does — "Live" is
+      // both a summary label and a freshness label on every row, so a text query
+      // finds 126 of them.
+      const stats = [...document.querySelectorAll<HTMLElement>(".stat")];
+      const counts = Object.fromEntries(
+        stats.map((stat) => [
+          stat.querySelector(".stat__label")?.textContent ?? "",
+          Number(stat.querySelector(".stat__value")?.textContent ?? "0"),
+        ]),
+      );
 
-    expect(counts).toEqual({ Live: 125, Stale: 125, Unreachable: 125, Unknown: 125 });
-    expect(screen.getByText(`of ${String(FLEET_SIZE)}`)).toBeInTheDocument();
-  });
+      expect(counts).toEqual({ Live: 125, Stale: 125, Unreachable: 125, Unknown: 125 });
+      expect(screen.getByText(`of ${String(FLEET_SIZE)}`)).toBeInTheDocument();
+    },
+    RENDER_TIMEOUT_MS,
+  );
 
-  it("still narrows to a single robot through the search filter", async () => {
-    const user = userEvent.setup();
-    renderFleet(FLEET_SIZE);
+  it(
+    "still narrows to a single robot through the search filter",
+    async () => {
+      const user = userEvent.setup();
+      renderFleet(FLEET_SIZE);
 
-    await user.type(screen.getByLabelText("Search"), "R-0499");
+      await user.type(screen.getByLabelText("Search"), "R-0499");
 
-    const rows = within(screen.getByRole("table", { name: "Fleet" })).getAllByRole("row");
+      const rows = within(screen.getByRole("table", { name: "Fleet" })).getAllByRole("row");
 
-    expect(rows).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "R-0499" })).toBeInTheDocument();
-  });
+      expect(rows).toHaveLength(2);
+      expect(screen.getByRole("link", { name: "R-0499" })).toBeInTheDocument();
+    },
+    RENDER_TIMEOUT_MS,
+  );
 });

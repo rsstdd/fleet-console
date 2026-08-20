@@ -8,7 +8,7 @@ This file is intentionally short: resolved entries are tombstones linking to the
 
 | ID  | Status      | Normative record                                                                  | Question                                                                         |
 | --- | ----------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| D1  | Partial     | [ADR 10](./00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)                           | Adapter output before freshness                                                  |
+| D1  | Implemented | [ADR 10](./00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)                           | Adapter output before freshness                                                  |
 | D2  | Implemented | [ADR 11](./00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)                      | Public access to adapter fixtures                                                |
 | D3  | Implemented | [ADR 12](./00_adr/12_TEST_ONLY_ADAPTER_DEPENDENCY_IN_WEB.md)                      | Test-only adapter dependency in web                                              |
 | D4  | Implemented | [ADR 13](./00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md)                  | Fixture ownership and provenance                                                 |
@@ -16,7 +16,7 @@ This file is intentionally short: resolved entries are tombstones linking to the
 | D6  | Implemented | [ADR 14](./00_adr/14_SHARED_FLEET_ROSTER_PARITY.md)                               | Shared fleet-roster parity                                                       |
 | D7  | Implemented | [ADR 16](./00_adr/16_TEST_ONLY_ADAPTERS_DEPENDENCY_FOR_VENDOR_PARITY.md)          | Supported-vendor authority and drift guard                                       |
 | D8  | Implemented | [ADR 17](./00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md)                          | Tenant configuration and feature flags                                           |
-| D9  | Not started | [ADR 8](./00_adr/08_SERVER_TRANSPORT_IMPLEMENTATION.md)                           | Vendor identity on ingest                                                        |
+| D9  | Partial     | [ADR 8](./00_adr/08_SERVER_TRANSPORT_IMPLEMENTATION.md)                           | Vendor identity on ingest                                                        |
 | D10 | Partial     | [ADR 18](./00_adr/18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md)       | Delta granularity and flush sequence                                             |
 | D11 | Implemented | [ADR 19](./00_adr/19_CAPABILITY_KIND_SPLITS_THE_NAME_SET_IN_CONTRACTS.md)         | Capability classification                                                        |
 | D12 | Partial     | [ADR 25](./00_adr/25_CONTRACTS_OWNS_EVERY_DECODED_RESPONSE_COUNTERS_BY_SCOPE.md)  | Ownership of fleet, health, and diagnostic response schemas                      |
@@ -29,7 +29,33 @@ This file is intentionally short: resolved entries are tombstones linking to the
 | D19 | Implemented | [ADR 27](./00_adr/27_CAP_THE_REVIEWABLE_DIFF_WITH_A_NAMED_OVERRIDE.md)            | Pull-request size limit and its exception                                        |
 | D20 | Implemented | [ADR 29](./00_adr/29_VETTED_DEPENDENCY_ALLOW_LIST_AND_RELEASE_AGE_QUARANTINE.md)  | Admission of third-party packages                                                |
 | D21 | Implemented | [ADR 30](./00_adr/30_FIELDS_WITH_NO_COUNTERPART_ACROSS_THE_ADAPTER_BOUNDARY.md)   | Canonical fields with no vendor source, and vendor fields with no canonical home |
+| D22 | Open        | —                                                                                 | Stream reconnection policy for the console                                       |
+| D23 | Open        | —                                                                                 | Browser-driven end-to-end testing: framework, or none                            |
 
 ## Open stubs
 
-None. Every stub D1–D21 routes to a numbered ADR; see the table above for each one's implementation status.
+### D22 — Stream reconnection policy for the console
+
+**Undecided, and it now blocks a demo step rather than a nicety.** The console's transport connects once and does not retry: `createFleetTransport().connect()` after a close is the caller's call, and `streamLifecycle`'s `give-up` is an event the caller raises rather than a cap the reducer counts. The banner ships a manual retry control and an attempt counter, so the path exists and is honest — but README demo step 6 ("restore stream, labels return without reload") cannot pass, and `packages/server` TODO **H6c** still lists reconnect among the undefined connection states.
+
+Three things have to be decided together, which is why none of them was taken piecemeal: **how long to wait** between attempts (a fixed interval is predictable and hammers a server that is down; exponential backoff is kinder and makes recovery time unpredictable to an operator watching the banner); **when to stop**, if ever (a cap turns a transient outage into a console that has silently given up, while never stopping means a tab left open overnight retries forever); and **whether a refused upgrade differs from a dropped connection** — a 404 or a rejected origin will not fix itself, and retrying it is the console lying to its own operator about what is happening.
+
+_Recommendation:_ bounded exponential backoff with a ceiling and no cap on attempts, and treat a handshake that never opened as distinct from a connection that dropped — the first has already failed once for a reason retrying will not change, and `streamLifecycle` already distinguishes `connecting` from `reconnecting` for exactly that reason. That is a recommendation, not a decision.
+
+_Also owns:_ what a **server restart** does to a connected client. The flush sequence restarts at zero, so a console holding a higher snapshot sequence discards every delta until the new process catches up — `isDeltaCoveredBySnapshot` behaving exactly as designed while rows silently stop updating. `packages/server/TODO.md` **H3c** carries the three candidate answers; it belongs with this decision because both are about what the client does when a connection comes back.
+
+_Resolves on:_ an ADR, then `packages/web/src/shared/lib/streamLifecycle.ts` gaining the schedule and `fleetTransport` calling it. It also decides whether `StreamConnectionState` must widen: the published vocabulary cannot currently distinguish a console that is retrying from one that has stopped, and a retry control that does nothing observable is the class of lie `connectionBanner.tsx` says this project exists to argue against.
+
+### D23 — Browser-driven end-to-end testing: framework, or none
+
+**The behaviour is verified; the automation is not.** On 20 August 2026 the console was driven in headless Chrome over the DevTools Protocol using only Node built-ins, and the whole vertical path was observed rendering: 50 rows from the live server with all three vendor dialects normalised, freshness degrading `Live` → `Stale` → `Unreachable` while the banner stayed `Stream connected`, and — on stream loss — the banner changing to `Stream reconnecting` with rows retained and every per-robot freshness label suppressed. That is README demo steps 4 and 5 and root `TODO.md` **P1.4**, observed rather than inferred.
+
+None of it is committed, because it was a throwaway script rather than a test, and turning it into one is a decision this repository has rules about. ADR 6 § Constraints forbids a dependency without an ADR and ADR 29 requires an allow-list entry with a reason; a browser-driving framework is among the larger dependencies a repository adopts, and it brings a second test runner, a second CI job, and a class of test known for flaking — which `packages/FIXME.md` **F14** has already been burned by once here.
+
+_Options:_ **Playwright** (installed on the development machine already, one dependency, own runner and CI action); **a hand-rolled CDP harness** inside the existing Vitest run (no dependency, and the script above shows it is perhaps forty lines — but it is a browser driver this repository would then own and maintain); or **none**, keeping browser verification a documented manual step and accepting that P1.4 never becomes automated.
+
+_Recommendation:_ the hand-rolled CDP harness, scoped to the two claims that cannot be made any other way — freshness suppression on stream loss, and a delta arriving as a rendered row. It adds no dependency, runs in the existing runner, and its cost is bounded by refusing to grow into a general browser-testing layer. Playwright is the right answer if browser coverage is ever meant to be broad. That is a recommendation, not a decision.
+
+_Recorded in the packages that wait on it:_ `packages/web/UI_PLAN.md` § 9.2 and root `TODO.md` **P1.4** and **P3.2**.
+
+_Also blocked on this:_ ADR 24's deferred virtualization question and register **D10**'s deferred delta-granularity half both want delta-apply cost measured at 500 robots under a live stream, which is a browser measurement and not a server one.

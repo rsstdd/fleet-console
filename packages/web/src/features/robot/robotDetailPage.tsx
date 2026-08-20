@@ -277,7 +277,11 @@ function DiagnosticsSection({ robot }: { readonly robot: RobotDetail }): ReactNo
           */}
           <Field
             label="Unknown fields (adapter, fleet-wide)"
-            value={String(diagnostics.unknownFieldCount)}
+            value={
+              diagnostics.unknownFieldCount === null
+                ? "Not reported"
+                : String(diagnostics.unknownFieldCount)
+            }
           />
         </Stack>
       </Paper>
@@ -409,7 +413,11 @@ function DetailSkeleton(): ReactNode {
  */
 export function RobotDetailPage(): ReactNode {
   const { id } = useParams<{ id: string }>();
-  const state: RobotDetailState = useRobotDetail(id);
+  // The address is deployment configuration; this layer may read it and the entity may
+  // not (ADR 4, ADR 21).
+  const state: RobotDetailState = useRobotDetail(id, {
+    apiBaseUrl: TENANT.endpoints.apiBaseUrl,
+  });
 
   return (
     <Box>

@@ -221,9 +221,10 @@ does not resolve — the import bans are syntactic, so the rule still fires.
 
 ## 8. State, lifecycle and configuration
 
-Adapters are stateless pure functions. The one stateful object is the unknown-field
-ledger, and it is created and owned by the caller — `packages/server` holds one for the
-process and exposes `snapshot()` on `GET /api/health`. Nothing here reads configuration.
+Adapters are stateless functions over their arguments. The registry owns the one
+process-wide unknown-field ledger and exposes a read-only snapshot through
+`unknownFields()`; `packages/server` serializes that snapshot on `GET /api/health`.
+Nothing here reads configuration.
 
 ## 9. Failure behaviour
 
@@ -231,11 +232,11 @@ Every adapter returns `AdapterResult`, never throws. Malformed payloads are **re
 counted, never coerced** (ADR 2 § Decision). An unknown vendor is a defined rejection plus
 a metric — never a guess and never a fallback adapter.
 
-Unknown fields on an otherwise **accepted** payload are counted, not rejected. This is why
-acceptance and accounting are separate mechanisms: `z.object().strict()` rejects, which is
-the wrong behaviour for ADR 1's requirement that unknown fields be counted on a payload
-that still normalizes. The planned approach is passthrough plus a key-diff walk against
-the schema's known dotted paths.
+Unknown fields on a payload the vendor schema **accepted** are counted, not rejected. This
+is why acceptance and accounting are separate mechanisms: strict vendor schemas would
+reject the input ADR 1 requires the ledger to observe. Each loose schema derives its known
+dotted paths once, and the adapter records the key-difference walk immediately after
+schema acceptance (ADR 15).
 
 ## 10. Verification matrix
 

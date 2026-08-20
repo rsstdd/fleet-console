@@ -1,34 +1,32 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+import type { ContractIssue } from "@fleet/contracts";
 
 import {
-  SCHEMA_VERSION,
-  parseRegisteredRobotState,
-  parseRobotDiagnosticEnvelope,
-  type CapabilityWireEntry,
-  type ContractIssue,
-} from "@fleet/contracts";
+  fetchHealth,
+  fetchRobotDetail,
+  type FetchLike,
+  type RobotDetailFailure,
+  type RobotDetailResponse,
+} from "@/shared/lib/transportDecoding";
 
-import { toRegisteredRobotDetail, toRobotDetail, type AdapterHealthCounters } from "./fromEnvelope";
-import type { SequenceHealth } from "./model";
-import type { HealthSeverity, Robot, RobotDetail } from "./model";
-import { buildFixtureRobots } from "./useFleetRobots";
+import { toRegisteredRobotDetail, toRobotDetail } from "./fromEnvelope";
+import type { RobotDetail } from "./model";
 
 /**
- * TEMPORARY in its data source, not in its shape: `packages/server` serves no
- * `GET /api/robots/:id` yet, so the response is built here. Everything after
- * that point is the real path — the fixture is serialized to JSON, decoded by
- * `parseRobotDiagnosticEnvelope` as untrusted input, and mapped by
- * `fromEnvelope.ts`. Nothing in this package constructs a `RobotDetail`
- * directly, so when the fetch replaces `buildWireResponse` the mapping and the
- * decode are already the ones in use (Principle 2).
+ * One robot, fetched from `GET /api/robots/:id` and decoded at the boundary.
  *
- * When the server exists, replace `buildWireResponse` with the fetch and keep
- * everything below it. The exported signature — a discriminated state union —
- * is written for that transport: `loading` and the two error variants exist
- * because a real fetch produces them.
+ * The state union below was written for this transport before it existed and did not
+ * change when it landed: `loading` and the two error variants are here because a real
+ * fetch produces them (Principle 5). What changed is only where the bytes come from.
  *
- * No freshness timer, here or in the replacement. Freshness arrives as a field
- * the server's sweep set (ADR 3).
+ * **Two requests, not one, and they fail differently.** The robot is the page; the health
+ * counters decorate one technician field with a fleet-wide unknown-field total that no
+ * envelope carries and none should (ADR 15, **W-8**). A failed health read leaves that one
+ * field unreported and the page still renders; a failed robot read is the page's failure.
+ *
+ * No freshness timer, here or anywhere. Freshness arrives as a field the server sweep set
+ * (ADR 3).
  */
 
 /**
@@ -60,181 +58,6 @@ export type RobotDetailState =
       readonly robot: null;
     };
 
-/** The per-vendor half of a fixture response: what the dialect declares. */
-interface VendorFixture {
-  readonly model: string;
-  readonly adapterId: string;
-  readonly adapterVersion: string;
-  readonly position: { readonly frame: string; readonly x: number; readonly y: number } | null;
-  readonly capabilities: readonly CapabilityWireEntry[];
-  readonly counters: AdapterHealthCounters;
-  /**
-   * This robot's sequence continuity as the server would report it on the wire
-   * (ADR 25). On the fixture rather than in `counters` because it is per-robot and
-   * travels on the envelope; `counters` is what genuinely is not.
-   */
-  readonly sequenceHealth: SequenceHealth;
-  readonly rawPayload: Readonly<Record<string, unknown>>;
-}
-
-/**
- * ADR 1's three dialects, as capability declarations: A and B declare dock and
- * lidarHealth, C declares dock and waterLevel and omits lidarHealth, and B
- * alone is sequence-less. C reports an undocumented field its adapter counted
- * rather than dropped. Capabilities are in wire form — an array of entries —
- * because that is what JSON carries; the schema decodes them to the record
- * (ADR 1).
- *
- * Nothing downstream branches on vendor. The differences reach the console
- * only as which capabilities exist (Principle 3).
- */
-const FIXTURE_BY_VENDOR: Readonly<Record<string, VendorFixture>> = {
-  A: {
-    model: "Courier 4",
-    adapterId: "vendor-a",
-    adapterVersion: "1.4.0",
-    position: { frame: "site-map", x: 41.2, y: 18.7 },
-    capabilities: [
-      { name: "dock", payload: { docked: false, dockId: "dock-a3" } },
-      { name: "lidarHealth", payload: { severity: "nominal", rpm: 600 } },
-      { name: "sequence", payload: { value: 88_412 } },
-    ],
-    counters: { unknownFieldCount: 0 },
-    sequenceHealth: { evaluated: true, gaps: 0, duplicates: 0 },
-    rawPayload: {
-      robot: { state: "MOVING" },
-      battery: { fraction: 0.91 },
-      pose: { frame: "site-map", x: 41.2, y: 18.7 },
-    },
-  },
-  B: {
-    model: "Hauler S",
-    adapterId: "vendor-b",
-    adapterVersion: "0.9.2",
-    position: { frame: "site-map", x: 7.4, y: 62.1 },
-    capabilities: [
-      { name: "dock", payload: { docked: true, dockId: "dock-a3" } },
-      { name: "lidarHealth", payload: { severity: "nominal", rpm: 480 } },
-    ],
-    counters: { unknownFieldCount: 0 },
-    // No sequence declared, so there is nothing to count gaps in. "Not
-    // evaluated" and "no gaps observed" are different statements (ADR 1), and
-    // the discriminated shape is what makes the second unrepresentable here.
-    sequenceHealth: { evaluated: false },
-    rawPayload: { state: "charging", battery_pct: 34, x_cm: 740, y_cm: 6210 },
-  },
-  C: {
-    model: "Scrubber 2",
-    adapterId: "vendor-c",
-    adapterVersion: "1.1.7",
-    position: { frame: "level-2", x: 12.9, y: 3.4 },
-    capabilities: [
-      { name: "dock", payload: { docked: false, dockId: null } },
-      { name: "waterLevel", payload: { percent: 62 } },
-      { name: "sequence", payload: { value: 5_140 } },
-    ],
-    counters: { unknownFieldCount: 2 },
-    sequenceHealth: { evaluated: true, gaps: 3, duplicates: 1 },
-    rawPayload: {
-      robot: { state: "FAULT" },
-      battery: { fraction: 0.12 },
-      water_level_pct: 62,
-      undocumented_field: "counted, not dropped",
-    },
-  },
-};
-
-/**
- * Vendor-supplied health prose, which arrives only when there is something to
- * say. A nominal robot has no description, which is why the contract makes the
- * field optional rather than an empty string.
- */
-const HEALTH_DESCRIPTION: Partial<Record<HealthSeverity, string>> = {
-  degraded: "Drive current above nominal",
-  critical: "Obstacle sensor unresponsive",
-};
-
-/** Transport delay between the vendor's instant and the server's receipt. */
-const FIXTURE_RECEIPT_DELAY_MS = 120;
-
-/** Stamps the robot's own id into a payload shaped like its vendor's dialect. */
-function withRobotId(
-  payload: Readonly<Record<string, unknown>>,
-  id: string,
-): Readonly<Record<string, unknown>> {
-  const nested = payload.robot;
-  if (typeof nested === "object" && nested !== null) {
-    return { ...payload, robot: { ...nested, id } };
-  }
-  return { ...payload, id };
-}
-
-/**
- * Connectivity is the robot's own link state, not the console's socket and not
- * freshness (ADR 1). The fixture reports `unknown` for a robot the server has
- * stopped hearing from, because at that point the link state is exactly what
- * nobody knows.
- *
- * FIXME(fixture-only): this rule is invented here because a fixture has to
- * choose something. The real endpoint reports connectivity, at which point this
- * function is deleted rather than kept as a fallback — a plausible stand-in
- * that outlives its fixture becomes an undocumented product rule
- * (src/entities/robot/TODO.md W-7).
- */
-function fixtureConnectivity(robot: Robot): "online" | "unknown" {
-  return robot.freshness === "unreachable" ? "unknown" : "online";
-}
-
-/**
- * Builds the JSON body `GET /api/robots/:id` will serve, for a robot that has
- * reported at least once. Returns `unknown` deliberately: the value crosses the
- * decode boundary like any other response and gets no type until the schema
- * gives it one.
- */
-function buildWireResponse(robot: Robot, fixture: VendorFixture, reportedAt: number): unknown {
-  const description = robot.health === null ? undefined : HEALTH_DESCRIPTION[robot.health.severity];
-
-  return {
-    schemaVersion: SCHEMA_VERSION,
-    robotId: robot.id,
-    siteId: robot.siteId,
-    vendorId: robot.vendor,
-    model: fixture.model,
-    adapterId: fixture.adapterId,
-    adapterVersion: fixture.adapterVersion,
-    reportedAt,
-    receivedAt: reportedAt + FIXTURE_RECEIPT_DELAY_MS,
-    core: {
-      connectivity: fixtureConnectivity(robot),
-      batteryPercent: robot.batteryPercent,
-      position: fixture.position,
-      status: robot.status,
-      health:
-        robot.health === null
-          ? { severity: "nominal" }
-          : {
-              severity: robot.health.severity,
-              ...(description === undefined ? {} : { description }),
-            },
-    },
-    freshness: robot.freshness,
-    capabilities: fixture.capabilities,
-    sequenceHealth: fixture.sequenceHealth,
-    rawPayload: withRobotId(fixture.rawPayload, robot.id),
-  };
-}
-
-/** The manifest entry for a robot that is registered and has never reported. */
-function buildRegisteredResponse(robot: Robot): unknown {
-  return {
-    schemaVersion: SCHEMA_VERSION,
-    robotId: robot.id,
-    siteId: robot.siteId,
-    vendorId: robot.vendor,
-    freshness: "unknown",
-  };
-}
-
 /**
  * One line naming what failed to decode, for the terminal error state.
  *
@@ -249,55 +72,116 @@ function describeIssues(issues: readonly ContractIssue[]): string {
   return `The robot response did not match the canonical contract (${summary}).`;
 }
 
-/**
- * Serializes, decodes and maps one fixture response — the same three steps the
- * transport will perform, minus the network.
- */
-function loadFixtureDetail(id: string): RobotDetailState {
-  const robot = buildFixtureRobots().find((candidate) => candidate.id === id);
-  if (robot === undefined) {
-    return { status: "not-found", id };
+/** Maps one decoded response onto the detail read model. */
+function toDetail(response: RobotDetailResponse, unknownFieldCount: number | null): RobotDetail {
+  return response.observed
+    ? toRobotDetail(response.envelope, { unknownFieldCount })
+    : toRegisteredRobotDetail(response.registered);
+}
+
+/** Maps one fetch failure onto the state the page renders for it. */
+function failureState(
+  failure: RobotDetailFailure,
+  id: string,
+  retry: () => void,
+): RobotDetailState {
+  switch (failure.kind) {
+    case "not-found":
+      // A wrong link, not a fault: the page offers a way back to Fleet (spec §10).
+      return { status: "not-found", id };
+    case "unreachable":
+      return {
+        status: "error",
+        recoverable: true,
+        message: "The robot could not be loaded. The server did not answer.",
+        robot: null,
+        retry,
+      };
+    case "contract":
+      // Terminal: the server did not stumble, it sent bytes this console cannot read, and
+      // retrying returns the same bytes (**W-6**).
+      return {
+        status: "error",
+        recoverable: false,
+        message: describeIssues(failure.issues),
+        robot: null,
+      };
   }
-
-  const fixture = FIXTURE_BY_VENDOR[robot.vendor];
-  const reportedAt = robot.lastSeenAt === null ? null : Date.parse(robot.lastSeenAt);
-
-  // A robot that has never reported is a different contract, not an envelope
-  // full of nulls: it has no telemetry instant and no core (ADR 1).
-  if (reportedAt === null || fixture === undefined) {
-    const registered = parseRegisteredRobotState(
-      JSON.parse(JSON.stringify(buildRegisteredResponse(robot))),
-    );
-    return registered.ok
-      ? { status: "ready", robot: toRegisteredRobotDetail(registered.value) }
-      : {
-          status: "error",
-          recoverable: false,
-          message: describeIssues(registered.issues),
-          robot: null,
-        };
-  }
-
-  const wire: unknown = JSON.parse(JSON.stringify(buildWireResponse(robot, fixture, reportedAt)));
-  const decoded = parseRobotDiagnosticEnvelope(wire);
-
-  // A response that fails the contract is terminal rather than retryable: the
-  // server did not stumble, it sent something this console cannot read, and
-  // retrying returns the same bytes (Principle 2).
-  return decoded.ok
-    ? { status: "ready", robot: toRobotDetail(decoded.value, fixture.counters) }
-    : { status: "error", recoverable: false, message: describeIssues(decoded.issues), robot: null };
 }
 
 /**
- * Returns every user-visible state of one robot, keyed by route id.
- * Fixture-backed — see the file comment.
+ * Loads one robot, re-loading when the id changes and offering a retry when it fails.
+ *
+ * `apiBaseUrl` is a parameter rather than a `TENANT` read because `entities` may not import
+ * `config` (ADR 4) — the address is deployment configuration and belongs to a layer that is
+ * allowed to know it. `fetchLike` is injectable so a test can assert which outcome maps to
+ * which state without a network; the default is the platform `fetch`.
  */
-export function useRobotDetail(id: string | undefined): RobotDetailState {
-  return useMemo<RobotDetailState>(() => {
-    if (id === undefined || id === "") {
-      return { status: "not-found", id: "" };
-    }
-    return loadFixtureDetail(id);
-  }, [id]);
+export function useRobotDetail(
+  id: string | undefined,
+  ports: { readonly apiBaseUrl: string; readonly fetchLike?: FetchLike },
+): RobotDetailState {
+  /**
+   * The loaded state **and the id it describes**, together.
+   *
+   * Two fields rather than one, so switching robots shows `loading` by derivation instead
+   * of by a `setState` inside the effect — which React's own lint rule rejects as a
+   * cascading render, and which would also flash the previous robot's data under the new
+   * robot's heading for one frame.
+   */
+  const [loaded, setLoaded] = useState<{ forId: string; value: RobotDetailState } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const { apiBaseUrl, fetchLike } = ports;
+
+  const retry = useCallback(() => {
+    setAttempt((count) => count + 1);
+  }, []);
+
+  useEffect(() => {
+    if (id === undefined || id === "") return;
+
+    const request: FetchLike = fetchLike ?? ((url) => fetch(url));
+    // An `AbortController` rather than a captured boolean: the compiler cannot see that a
+    // cleanup closure flips a `let` across an await, so it narrows the flag to `true` and
+    // the guard reads as dead code. `signal.aborted` is honest to both the reader and the
+    // analyzer, and it is the handle a cancelling `fetch` would want anyway.
+    const cancellation = new AbortController();
+
+    void (async () => {
+      const [robot, health] = await Promise.all([
+        fetchRobotDetail(request, `${apiBaseUrl}/robots/${encodeURIComponent(id)}`),
+        fetchHealth(request, `${apiBaseUrl}/health`),
+      ]);
+      // The id changed or the page unmounted while these were in flight, so this describes
+      // a robot nobody is looking at any more.
+      if (cancellation.signal.aborted) return;
+
+      if (robot.ok) {
+        const vendorId = robot.robot.observed
+          ? robot.robot.envelope.vendorId
+          : robot.robot.registered.vendorId;
+        // Null rather than zero when health could not be read: zero is a measurement, and
+        // claiming one nobody took is the failure Principle 4 names.
+        const unknownFieldCount = health.ok
+          ? (health.health.byAdapter[vendorId]?.unknownFields.total ?? null)
+          : null;
+        setLoaded({
+          forId: id,
+          value: { status: "ready", robot: toDetail(robot.robot, unknownFieldCount) },
+        });
+        return;
+      }
+
+      setLoaded({ forId: id, value: failureState(robot.failure, id, retry) });
+    })();
+
+    return () => {
+      cancellation.abort();
+    };
+  }, [id, attempt, apiBaseUrl, fetchLike, retry]);
+
+  // An absent id never had a robot to fetch, and a result for a different robot is not
+  // this robot's answer — both are derived rather than written.
+  if (id === undefined || id === "") return { status: "not-found", id: "" };
+  return loaded !== null && loaded.forId === id ? loaded.value : { status: "loading" };
 }

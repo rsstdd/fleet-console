@@ -96,6 +96,22 @@ options from the fleet and both can go.
 
 ## Decisions taken, recorded so they can be challenged
 
+### W-10 — `Robot.batteryPercent` is carried at every freshness and suppressed at presentation
+
+Recorded 20 August 2026, because the doc comment on the field said the opposite of what
+the code does and either could have been read as the rule. `toRobot` copies
+`core.batteryPercent` whatever the freshness; `formatBattery` in `selectors.ts` refuses to
+render a number for a robot that is not live (fleet page spec § 6).
+
+Carrying it is the right half to keep. The detail view can legitimately show a last-known
+figure with its age beside it, which a nulled model would make impossible, and nulling in
+the mapper would put a display rule in the read model. The comment was corrected to say
+so and to name where the suppression lives, so the two statements of one rule cannot be
+read as disagreeing (Principle 1).
+
+**Challenge it if** a surface ever needs the raw value _and_ must not show it — at which
+point the suppression belongs in a type, not a formatter.
+
 ### W-4 — Contract types are imported, never redeclared; the read model is what remains
 
 `model.ts` imports `RobotStatus`, `HealthSeverity`, `FreshnessState`, `Health`,
@@ -120,12 +136,23 @@ returns the same bytes. The message carries `issue.path` and `issue.code` from t
 contract's stable failure shape (coupling recorded in
 `packages/contracts/TODO_E2E_JOIN.md` **C-4**).
 
-### W-7 — ASSUMPTION, fixture-only: connectivity is `unknown` when freshness is `unreachable`
+### W-7 — RESOLVED 20 August 2026: connectivity is `unknown`, and not because of freshness
 
-`fixtureConnectivity` in `useRobotDetail.ts` invents this, because connectivity is
-the robot's own link state and the fixture has to choose one. It is a plausible
-stand-in, not a rule: when the real endpoint lands, the server reports connectivity
-and this function goes away. It must not outlive the fixture.
+The assumption is gone and so is the function. `fixtureConnectivity` derived the value from
+freshness — `online` unless unreachable — which ADR 1 forbids: reported link state,
+server-derived freshness and the console's socket state are three disjoint facts, and
+deriving one from another manufactures telemetry (`packages/FIXME.md` **F4**).
+
+It was also false, which is what settled it. Decoding all nine recorded payloads through
+the real registry gives `connectivity: "unknown"` for every one, because **no vendor dialect
+reports a link state at all** (ADR 30 § Implications). The fixture is now a constant
+matching what the system produces, so there is no stand-in left to outlive anything.
+
+**What could not be done, and why it is not a gap here.** F4 asked for a fixture case
+proving connectivity and freshness can disagree. That case cannot be constructed from
+anything this system produces: with no dialect reporting connectivity, every robot is
+`unknown` regardless of freshness. It becomes constructible only if ADR 30's open question
+— should the dialects report a link state? — is answered yes.
 
 ### W-8 — Counters are injected because no envelope carries them — **half closed 19 August 2026**
 

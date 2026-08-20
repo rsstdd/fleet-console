@@ -1,23 +1,48 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitForElementToBeRemoved, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConnectionContext, type StreamConnectionState } from "@/shared/lib/connectionContext";
 
 import { RobotDetailPage } from "./robotDetailPage";
+import { createFixtureFetch } from "./robotDetailFixtures";
+
+/**
+ * The page fetches; these tests stub `fetch` rather than the hook.
+ *
+ * Stubbing the hook would delete the coverage this suite exists for — the true path
+ * from wire bytes through the contract's parser and `fromEnvelope` to the panels — and
+ * leave assertions about a value the test itself constructed.
+ */
+beforeEach(() => {
+  vi.stubGlobal("fetch", createFixtureFetch());
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 /**
  * Verification table from docs/01_page-specs/03_ROBOT_DETAIL.md §11.
  *
  * Fixture ids come from `entities/robot` and are chosen for what they declare:
- * R-118 (vendor A) and R-055 (vendor B) declare dock + lidar, R-301 (vendor C)
- * declares dock + water level and omits lidar, R-055 alone is sequence-less,
+ * R-118 (vendor A) declares dock + lidar, R-301 (vendor C) declares dock + water level
+ * and omits lidar, R-055 (vendor B) declares dock alone and is sequence-less,
  * and R-233 has never reported. That contrast is the point of the surface — a
  * panel exists because a robot declared the capability, never because of the
  * vendor's name.
  */
-function renderRobot(id: string, connection: StreamConnectionState = "connected"): void {
+/**
+ * Renders and waits for the fetch to settle.
+ *
+ * The page loads asynchronously now, so a synchronous assertion would see the
+ * loading state and report a missing element rather than a slow one.
+ */
+async function renderRobot(
+  id: string,
+  connection: StreamConnectionState = "connected",
+): Promise<void> {
   render(
     <ConnectionContext.Provider value={connection}>
       <MemoryRouter initialEntries={[`/robots/${id}`]}>
@@ -27,6 +52,10 @@ function renderRobot(id: string, connection: StreamConnectionState = "connected"
       </MemoryRouter>
     </ConnectionContext.Provider>,
   );
+
+  // The skeleton's own text, because it is the one thing every terminal state removes —
+  // ready, not-found and both errors. Waiting on an h1 would hang on not-found.
+  await waitForElementToBeRemoved(() => screen.queryByText("Loading robot…"));
 }
 
 async function showTechnicianView(): Promise<void> {
@@ -38,8 +67,8 @@ function capabilitiesSection(): HTMLElement {
 }
 
 describe("RobotDetailPage", () => {
-  it("names the robot in a single h1 and offers the route back to fleet", () => {
-    renderRobot("R-118");
+  it("names the robot in a single h1 and offers the route back to fleet", async () => {
+    await renderRobot("R-118");
 
     const headings = screen.getAllByRole("heading", { level: 1 });
     expect(headings).toHaveLength(1);
@@ -47,8 +76,8 @@ describe("RobotDetailPage", () => {
     expect(screen.getByRole("link", { name: /fleet/i })).toHaveAttribute("href", "/");
   });
 
-  it("shows status and freshness in the header (Principle 4)", () => {
-    renderRobot("R-118");
+  it("shows status and freshness in the header (Principle 4)", async () => {
+    await renderRobot("R-118");
 
     const header = screen.getByRole("heading", { level: 1 }).parentElement;
     expect(header).not.toBeNull();
@@ -56,12 +85,12 @@ describe("RobotDetailPage", () => {
     expect(within(header as HTMLElement).getByText("Live")).toBeInTheDocument();
   });
 
-  it("suppresses the freshness label while the stream is down (ADR 3)", () => {
+  it("suppresses the freshness label while the stream is down (ADR 3)", async () => {
     // The summary values below freeze at last known — the spec says so. What is
     // withdrawn is only the claim about how current they are, and nothing is put in
     // its place: no "unreachable", no em dash. Substituting a per-robot state would
     // attribute the console's own dead socket to the machine.
-    renderRobot("R-118", "disconnected");
+    await renderRobot("R-118", "disconnected");
 
     const header = screen.getByRole("heading", { level: 1 }).parentElement;
     expect(header).not.toBeNull();
@@ -70,25 +99,25 @@ describe("RobotDetailPage", () => {
     expect(within(header as HTMLElement).queryByText("Unreachable")).toBeNull();
   });
 
-  it("suppresses it while reconnecting too", () => {
-    renderRobot("R-118", "reconnecting");
+  it("suppresses it while reconnecting too", async () => {
+    await renderRobot("R-118", "reconnecting");
 
     const header = screen.getByRole("heading", { level: 1 }).parentElement;
     expect(within(header as HTMLElement).queryByText("Live")).toBeNull();
   });
 
-  it("keeps the frozen values visible while the label is suppressed", () => {
+  it("keeps the frozen values visible while the label is suppressed", async () => {
     // Suppression is not a blank page. The operator still needs the last known
     // reading; what they must not get is a currency claim about it.
-    renderRobot("R-118", "disconnected");
+    await renderRobot("R-118", "disconnected");
 
     const summary = screen.getByRole("region", { name: "Summary" });
     expect(within(summary).getByText("Last seen")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("R-118");
   });
 
-  it("renders a panel only for a declared capability", () => {
-    renderRobot("R-055");
+  it("renders a panel only for a declared capability", async () => {
+    await renderRobot("R-118");
 
     const section = capabilitiesSection();
     expect(within(section).getByRole("heading", { name: "Dock" })).toBeInTheDocument();
@@ -97,16 +126,28 @@ describe("RobotDetailPage", () => {
     expect(within(section).queryByRole("heading", { name: "Water level" })).toBeNull();
   });
 
-  it("renders the vendor's own capability set without a vendor branch", () => {
-    renderRobot("R-301");
+  it("gives vendor B a dock panel and nothing else, as its dialect declares", async () => {
+    // The narrowest profile of the three, and the one that proves absence is the
+    // interface: B's payload carries no lidar source data at all (ADR 1 § Observed
+    // consequences), so there is no panel rather than an empty one.
+    await renderRobot("R-055");
+
+    const section = capabilitiesSection();
+    expect(within(section).getByRole("heading", { name: "Dock" })).toBeInTheDocument();
+    expect(within(section).queryByRole("heading", { name: "Lidar" })).toBeNull();
+    expect(within(section).queryByRole("heading", { name: "Water level" })).toBeNull();
+  });
+
+  it("renders the vendor's own capability set without a vendor branch", async () => {
+    await renderRobot("R-301");
 
     const section = capabilitiesSection();
     expect(within(section).getByRole("heading", { name: "Water level" })).toBeInTheDocument();
     expect(within(section).queryByRole("heading", { name: "Lidar" })).toBeNull();
   });
 
-  it("keeps core fields out of the capabilities section (spec §6)", () => {
-    renderRobot("R-118");
+  it("keeps core fields out of the capabilities section (spec §6)", async () => {
+    await renderRobot("R-118");
 
     const section = capabilitiesSection();
     for (const coreField of ["Battery", "Position", "Status", "Health", "Last seen"]) {
@@ -121,7 +162,7 @@ describe("RobotDetailPage", () => {
 
   it("gives sequence no panel, because it is diagnostic rather than operational", async () => {
     // R-118 declares `sequence`; it must not become a panel (spec §6).
-    renderRobot("R-118");
+    await renderRobot("R-118");
     expect(within(capabilitiesSection()).queryByRole("heading", { name: /sequence/i })).toBeNull();
 
     await showTechnicianView();
@@ -129,8 +170,8 @@ describe("RobotDetailPage", () => {
     expect(within(diagnostics).getByText("Sequence")).toBeInTheDocument();
   });
 
-  it("renders health as its own field, not appended to status text", () => {
-    renderRobot("R-301");
+  it("renders health as its own field, not appended to status text", async () => {
+    await renderRobot("R-301");
 
     const summary = screen.getByRole("region", { name: "Summary" });
     const health = within(summary).getByText("Health").parentElement;
@@ -143,15 +184,15 @@ describe("RobotDetailPage", () => {
   });
 
   it("stamps the retained payload with the robot it belongs to", async () => {
-    renderRobot("R-301");
+    await renderRobot("R-301");
     await showTechnicianView();
 
     const raw = screen.getByRole("region", { name: "Raw payload" });
     expect(raw).toHaveTextContent('"id": "R-301"');
   });
 
-  it("defaults to operator and hides technician sections", () => {
-    renderRobot("R-118");
+  it("defaults to operator and hides technician sections", async () => {
+    await renderRobot("R-118");
 
     expect(screen.getByRole("button", { name: "Operator" })).toHaveAttribute(
       "aria-pressed",
@@ -162,7 +203,7 @@ describe("RobotDetailPage", () => {
   });
 
   it("adds diagnostics and raw payload for the technician", async () => {
-    renderRobot("R-118");
+    await renderRobot("R-118");
     await showTechnicianView();
 
     expect(screen.getByRole("region", { name: "Diagnostics" })).toBeInTheDocument();
@@ -172,7 +213,7 @@ describe("RobotDetailPage", () => {
   });
 
   it("labels the unknown-field count as per-adapter, not per-robot", async () => {
-    renderRobot("R-118");
+    await renderRobot("R-118");
     await showTechnicianView();
 
     expect(screen.getByText("Unknown fields (adapter, fleet-wide)")).toBeInTheDocument();
@@ -180,7 +221,7 @@ describe("RobotDetailPage", () => {
 
   it("distinguishes gaps not evaluated from no gaps observed", async () => {
     // Vendor B sends no sequence, so gaps cannot be counted for it.
-    renderRobot("R-055");
+    await renderRobot("R-055");
     await showTechnicianView();
 
     const diagnostics = screen.getByRole("region", { name: "Diagnostics" });
@@ -195,7 +236,7 @@ describe("RobotDetailPage", () => {
   it("shows counts, not 'not evaluated', for a robot whose sequence is counted", async () => {
     // The complementary case. Without it, "Not evaluated" everywhere would pass
     // the assertion above for the wrong reason.
-    renderRobot("R-301");
+    await renderRobot("R-301");
     await showTechnicianView();
 
     const diagnostics = screen.getByRole("region", { name: "Diagnostics" });
@@ -208,7 +249,7 @@ describe("RobotDetailPage", () => {
     // The notice is the honest half of a decision to ship unredacted vendor content
     // with no access rule. It must be visible wherever the payload is, including when
     // there is no payload to show — the endpoint is equally unprotected either way.
-    renderRobot("R-118");
+    await renderRobot("R-118");
     await showTechnicianView();
 
     const notice = screen.getByTestId("raw-payload-exposure");
@@ -217,24 +258,24 @@ describe("RobotDetailPage", () => {
   });
 
   it("keeps the exposure notice for a robot with no retained payload", async () => {
-    renderRobot("R-233");
+    await renderRobot("R-233");
     await showTechnicianView();
 
     expect(screen.getByTestId("raw-payload-exposure")).toBeInTheDocument();
     expect(screen.getByText("No payload was retained for this robot.")).toBeInTheDocument();
   });
 
-  it("hides the raw payload and its notice from the operator view", () => {
+  it("hides the raw payload and its notice from the operator view", async () => {
     // Presentation only — the toggle is not a permission and the ADR says so. What
     // this asserts is that the default view does not surface it, not that it is
     // protected.
-    renderRobot("R-118");
+    await renderRobot("R-118");
 
     expect(screen.queryByTestId("raw-payload-exposure")).toBeNull();
   });
 
   it("fabricates nothing for a robot that has never reported", async () => {
-    renderRobot("R-233");
+    await renderRobot("R-233");
 
     const summary = screen.getByRole("region", { name: "Summary" });
     // Freshness state word, no date, no zeroes standing in for readings.
@@ -248,7 +289,7 @@ describe("RobotDetailPage", () => {
   });
 
   it("keeps the heading outline unbroken (Principle 6)", async () => {
-    renderRobot("R-118");
+    await renderRobot("R-118");
     await showTechnicianView();
 
     const levels = screen
@@ -267,8 +308,8 @@ describe("RobotDetailPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("answers an unknown id with an empty state, not an error banner", () => {
-    renderRobot("R-999");
+  it("answers an unknown id with an empty state, not an error banner", async () => {
+    await renderRobot("R-999");
 
     expect(screen.getByText("Robot not found")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();

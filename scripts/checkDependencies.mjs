@@ -92,6 +92,19 @@ const ALLOWED = {
     kind: "import",
     why: "Self-hosted numeric/monospace face for data plates (docs/DESIGN_SYSTEM.md).",
   },
+  hono: {
+    kind: "import",
+    why: "Router only for the server's five routes (ADR 8); its validators and RPC client are deliberately unused, because a second decode authority would violate Principle 1.",
+  },
+  "@hono/node-server": {
+    kind: "import",
+    why: "Bridges Hono's Web-standard Request/Response onto Node's http.Server, and exposes that server so ws can attach to the same port (ADR 8).",
+  },
+  ws: {
+    kind: "import",
+    why: "Node 24 ships no WebSocket *server*; the global is a client only, so delta fan-out (ADR 2) has no platform alternative.",
+  },
+  "@types/ws": { kind: "types", why: "ws ships no types of its own." },
 
   // Toolchain invoked as a command
   typescript: { kind: "tool", why: "Invoked as `tsc` by every package's typecheck script." },

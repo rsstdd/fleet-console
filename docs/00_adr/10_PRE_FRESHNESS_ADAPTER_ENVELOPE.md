@@ -1,7 +1,7 @@
 # ADR 10 — Adapters Return a Validated Pre-Freshness Envelope
 
 **Decision:** A vendor adapter returns `AdapterEnvelope` — every canonical envelope field except `freshness` — and the server completes it into a `CanonicalEnvelope` through `withFreshness`, which remains the only place freshness is written.
-**Status:** Decided · 2026-08-19 · Partial
+**Status:** Decided · 2026-08-19 · Implemented 2026-08-20
 **Group:** Data / integration (the type-level half of ADR 1's boundary, carrying ADR 3's freshness authority into the type system).
 
 ## Issue
@@ -59,33 +59,37 @@ The accepted cost is stated plainly: a second schema and a conversion function t
 - **The server's ingest handler has exactly one way to finish an envelope.** It calls `withFreshness` with the receipt instant's derived state. There is no other constructor to reach for, and adding one would reopen contracts **C-2** and weaken ADR 3 from a guarantee to a convention.
 - **A new canonical field is now one edit, not two.** `preFreshnessShape` is the single field list; the canonical shape is derived from it. The compile-time assertion in `envelopeSchema.test.ts` is what makes that stay true, so it must survive refactoring — it looks like a redundant type test and is not.
 - **The pre-freshness type is in-process only.** It is exported from `@fleet/contracts` but never serialized. Putting `AdapterEnvelope` into an HTTP response or a WebSocket frame would be a different decision, not an application of this one.
-- **A per-message runtime cost is now possible but not mandated.** If the server calls `parseAdapterEnvelope` on every reading, that is a second full schema validation per message, inside the budget ADR 2 committed to measuring at 2,500 messages per second. See Open questions — the current lean is that adapters validate their output in contract tests, not on every message.
+- **A second per-message validation is available but not part of ingest.** The server does
+  not call `parseAdapterEnvelope` on every reading; adapters validate their output in
+  contract tests, and the typed registry result flows directly to `withFreshness`. The
+  closed question below records the assurance/performance trade-off and its reversal test.
 - **`packages/contracts`' public surface grew by three exports** (`adapterEnvelopeSchema`, `AdapterEnvelope`, `parseAdapterEnvelope`), each pinned by name in `src/index.test.ts`. That pin means the barrel cannot grow by accident, and it also means every future export is a deliberate edit to a test.
 - **The sweep is unaffected.** Widening `withFreshness` preserved reference identity for an unchanged canonical envelope, which ADR 2's coalescer depends on to skip robots without deep comparison. A future change to this function must re-check that property; the test that pins it says why.
-- **The adapter evidence exists; the server evidence remains deferred.** Every vendor
-  contract suite asserts that freshness is absent. A server ingest test must still prove
-  registry output is completed only through `withFreshness`, but ADR 10's runtime
-  re-validation question and ADR 11's server-fixture-access question are unresolved. The
-  status remains Partial until those decisions permit that consumer evidence.
+- **Both consumer sides now carry the evidence.** Every vendor contract suite asserts that
+  freshness is absent, and the server ingest test proves registry output is completed only
+  through `withFreshness`. ADR 11's narrow test-only fixture exception supplies the raw
+  vendor input without creating a second fixture authority.
 - **`packages/web` is untouched and must stay that way.** The console consumes `CanonicalEnvelope` and has no business knowing that a pre-freshness form exists; if `AdapterEnvelope` ever appears in the web package, the boundary this ADR draws has been crossed.
 
 ## Open questions
 
-- **Does the server re-validate the adapter's output at runtime, or trust the type and validate only in contract tests?**
-  _Current lean:_ contract tests only. The vendor payload was already decoded once by the adapter's own schema, and a second full parse per reading doubles the per-message validation cost ADR 2 is measuring. `parseAdapterEnvelope` exists for the tests and for any caller that wants it, not as a mandated ingest step.
-  _Resolves on:_ ADR 2's measurement harness, or the first ingest handler, whichever lands first.
-- **Does ingest receive a whole pre-freshness value, or assemble one from parts?**
-  _Current lean:_ a whole value, which is what this ADR assumes. Position 2 becomes correct if the handler ends up assembling.
-  _Resolves on:_ the ingest handler being written (`packages/server` TODO **D1**–**D2**).
+- ~~**Does the server re-validate the adapter's output at runtime, or trust the type and validate only in contract tests?**~~
+  **Closed 20 August 2026, ratifying the stated lean on the event this question named** (the ingest handler, which reached it before ADR 2's harness did). Contract tests only. The vendor payload is decoded once by the adapter's own schema, and a second full parse per reading doubles the per-message validation cost ADR 2 is measuring — against an input that is not untrusted by the time it arrives, because `packages/adapters` produced it. `parseAdapterEnvelope` stays exported for the tests and for any caller that wants it, and is **not** a mandated ingest step.
+  The limit of this, stated plainly: it trusts `packages/adapters` to be correct at runtime, so an adapter bug reaches fleet state as a well-typed wrong value rather than a rejection. That is accepted because the adapter's own contract tests assert exact output per vendor and the boundary this ADR protects — no adapter supplies `freshness` — is a compile error and a strict-schema rejection in the adapter's own tests, not something a re-parse at ingest would be the first to catch. **Reverse it by measurement:** if ADR 2's harness shows validation is not the bottleneck, a `parseAdapterEnvelope` call at ingest is one line and buys a runtime guarantee.
+- ~~**Does ingest receive a whole pre-freshness value, or assemble one from parts?**~~
+  **Closed 20 August 2026:** the registry returns the whole `AdapterEnvelope`, and the
+  ingest handler passes it directly to `withFreshness`. It does not reconstruct canonical
+  fields from parts.
 - **Does a second server-owned envelope field ever appear?**
   _Current lean:_ no. If one does — a server-assigned ingest sequence is the plausible candidate — this pattern forces either another pre-shaped schema or a rethink of the whole approach, and position 2 should be re-read at that point.
   _Resolves on:_ the first proposal for such a field.
 
 ## Observed consequences
 
-- 20 August 2026: all three adapter suites now assert absence of freshness. The server
-  half remains deferred and is flagged prominently in `packages/adapters/TODO.md`; no
-  implementation chooses the open runtime-validation or server-fixture-access questions.
+- 20 August 2026: all three adapter suites assert absence of freshness, and
+  `packages/server/src/ingest/ingestTelemetry.test.ts` carries every recorded dialect
+  through the registry and `withFreshness`. The handler trusts the typed adapter result
+  without a second runtime parse, as decided above, so the ADR is fully implemented.
 
 - 19 August 2026: implemented in `packages/contracts` and green across the workspace — `adapterEnvelopeSchema`, `AdapterEnvelope` and `parseAdapterEnvelope` exported; `withFreshness` widened; 103 contracts tests passing, and `packages/adapters`, `packages/server`, `packages/simulator` and `packages/web` all typecheck and test unchanged against the widened signature. The widening was source-compatible: no existing caller changed.
 - 19 August 2026: measured against contracts `TODO_E2E_JOIN.md` **C-5**, the console's bundle moved from 567.32 kB raw / 175.01 kB gzip to **567.36 kB / 175.03 kB** — 40 bytes raw, 20 gzip. The new schema is a spread of shapes already in the bundle, and `packages/web` never references it, so the residue is barrel plumbing rather than the schema itself. Recorded because C-5 asked for the number to be re-measured rather than assumed, not because the delta is interesting.
@@ -107,5 +111,7 @@ The accepted cost is stated plainly: a second schema and a conversion function t
 
 ## Notes
 
-- 19 August 2026: **the short version of the implications, for anyone who reads only this section.** An adapter can no longer produce a canonical envelope, by construction. Adapters must be written against `AdapterEnvelope`; the server must complete every envelope through `withFreshness`; and a canonical field added later belongs in `preFreshnessShape`, which both shapes derive from. The type is in-process only and must never appear on the wire or in `packages/web`. This ADR stays **Partial** until the server ingest evidence exists; the adapter half is proved.
-- 19 August 2026: position 2 was not rejected on merit and is the fallback if the ingest handler turns out to assemble the envelope from parts. Check the assumption before writing that handler, not after.
+- 19 August 2026: **the short version of the implications, for anyone who reads only this section.** An adapter can no longer produce a canonical envelope, by construction. Adapters must be written against `AdapterEnvelope`; the server must complete every envelope through `withFreshness`; and a canonical field added later belongs in `preFreshnessShape`, which both shapes derive from. The type is in-process only and must never appear on the wire or in `packages/web`. The server ingest evidence landed on 20 August 2026, completing this ADR.
+- 19 August 2026: position 2 was not rejected on merit. The current ingest handler receives
+  a whole `AdapterEnvelope`; if a future handler starts assembling one from parts, position
+  2 is the fallback and this ADR must be revisited before that implementation changes.

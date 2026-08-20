@@ -271,7 +271,29 @@ No `RobotCard`, no `FleetTable`, no `CapabilityPanel` wrapper. Extract only afte
 
 Nothing outside this list until the vertical path holds: table, freshness, detail, connection integrity.
 
-**One thing gates the rest of this list, and it is not a component.** Every surface above renders from a fixture set rather than a transport; there is no HTTP snapshot client, no socket, and no store (root TODO **P1.3**). Until that lands the vertical path is proved against injected values, which is why ADR 23's suppression rule has four passing tests and still no running-browser evidence.
+**The vertical path holds as of 20 August 2026.** The gate this section used to name — no snapshot client, no socket, no store — is gone: `shared/lib` carries the cold-start ordering, the stream lifecycle, the decode boundary and the client that sequences them; `app` owns the socket; `useFleetRobots` reads a keyed store and `useRobotDetail` fetches `GET /api/robots/:id`. ADR 23's suppression rule now has running-browser evidence rather than injected states — headless Chrome showed every row retained with no per-robot freshness label under a `Stream reconnecting` banner once the server stopped.
+
+---
+
+## 9. What is left in this package
+
+Three items, none of them a component, and each recorded where the repository expects it rather than only here.
+
+### 9.1 Automatic reconnection — decision **D22**
+
+The banner's retry is manual. `connect()` after a close is the caller's call, because the wait schedule, the stopping rule and whether a refused upgrade differs from a dropped connection have to be decided together — and the last has a correctness edge, since a 404 or a rejected origin will not fix itself and retrying it lies to the operator. Resolving it also decides whether `StreamConnectionState` must widen: the published vocabulary cannot currently distinguish a console that is retrying from one that has stopped, and `connectionBanner.tsx` calls a retry control that does nothing observable "the class of lie this project exists to argue against". See [`docs/PENDING_ARCHITECTURE_DECISIONS.md`](../../docs/PENDING_ARCHITECTURE_DECISIONS.md).
+
+### 9.2 Browser-driven tests — decision **D23**
+
+The behaviour is verified and the automation is not. Every suite here runs under jsdom, which has no layout, paint or compositor, so the claims that only a browser can settle — freshness suppression on stream loss, a delta arriving as a rendered row, delta-apply cost at 500 robots — are covered by component tests against decoded values plus one throwaway CDP script. D23 carries the options and a recommendation. It also gates ADR 24's virtualization question and the client-side half of root TODO **P3.2**.
+
+### 9.3 Site labels — `packages/FIXME.md` **F16**
+
+`entities/site` is the only invented data left in the console, and it cannot read the server: the fleet manifest carries a `siteId` per robot and **no label for it**. The shipped manifest uses ids like `SITE-NORTH` that appear in no fixture, so the table renders the raw id through `selectSiteLabel`'s fallback — correct behaviour, but it means the label layer is dead against real data while looking alive against fixtures. Two closes, both decisions rather than cleanups: put labels in the manifest schema (widens a schema two packages validate, and ADR 14 makes the roster a parity join, so the simulator's generator changes with it), or drop the label layer and show ids, which contradicts `docs/01_page-specs/02_FLEET.md`. **Do not close it by extending the fixture list to match the shipped manifest** — that hides the gap behind data that agrees by hand, which is the class of error F1 and F4 both were.
+
+### 9.4 Forced-colors evidence — `packages/FIXME.md` **F8**, root TODO **P3.3**
+
+The one accessibility claim that cannot be computed. `scripts/checkTokens.mjs` gates every WCAG contrast ratio in both themes, but forced-colors mode replaces the tokens outright, so a ratio says nothing about it. `global.css` already carries a `@media (forced-colors: active)` block — the status chip's dashed border standing in for a dropped `box-shadow` — and it has never been looked at in that mode. It needs a person, not a script.
 
 ---
 

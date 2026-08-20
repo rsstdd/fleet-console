@@ -12,6 +12,43 @@ agent working in this directory finds it without reading 400 lines first.
 
 ---
 
+## The detail view reads the server — 20 August 2026
+
+`useRobotDetail` fetches `GET /api/robots/:id` and `GET /api/health` in parallel and decodes
+both at the boundary. **No hook in the console renders invented data any more.**
+
+Decisions taken while doing it, each of which could reasonably have gone the other way:
+
+- **Two requests, failing independently.** The robot is the page; health decorates one
+  technician field with a fleet-wide unknown-field total no envelope carries and none
+  should (ADR 15, **W-8**). A failed health read leaves that field "Not reported" and the
+  page still renders. That forced `RobotDiagnostics.unknownFieldCount` to `number | null`:
+  zero is a measurement, and falling back to it claims one nobody took (Principle 4).
+- **`apiBaseUrl` is a parameter, not a `TENANT` read.** `entities` may not import `config`
+  (ADR 4), and lint said so. The address is deployment configuration and the page — a
+  feature — is the layer allowed to know it.
+- **Loading is derived, not written.** The hook holds the loaded value _and the id it
+  describes_; switching robots shows `loading` because the ids differ, rather than through
+  a `setState` in an effect. React's lint rule rejects the latter as a cascading render,
+  and it would also flash the previous robot's data under the new robot's heading.
+- **Cancellation is an `AbortController`, not a captured boolean.** The compiler cannot see
+  a cleanup closure flip a `let` across an `await`, so it narrows the flag to `true` and the
+  guard reads as dead code. `signal.aborted` is honest to the reader and the analyzer.
+
+**The fixture responses moved rather than being deleted**, into
+`features/robot/robotDetailFixtures.ts`, and the page suites now stub `fetch` with them.
+That keeps the coverage those suites exist for — the true path from wire bytes through the
+contract's parser and `fromEnvelope` to the panels. Mocking the hook would have deleted it
+and left assertions about a value the test constructed.
+
+**Deferred, decision not made — test files are classified as their layer.**
+`features/robot/robotDetailPage.test.tsx` matches the `feature` element pattern in
+`eslint.config.js`, so it may not import the `test` layer, which is why the fixtures sit
+beside the page instead of under `src/test/**` where this package intends fixture material
+to live. Adding `**/*.test.{ts,tsx}` to the `test` pattern would fix the classification and
+would also relax every other boundary for test files — which may be right, and is a
+mechanical-rule change registered in `docs/decisions.json`, not a config tidy-up.
+
 ## R1. Per-robot freshness is not suppressed while the stream is down — **CLOSED 19 August 2026**
 
 **Closed by [ADR 23](../../../../../docs/00_adr/23_CONNECTION_STATE_TRAVELS_THROUGH_SHARED_LIB.md)** (register stub **D15**, option 1).

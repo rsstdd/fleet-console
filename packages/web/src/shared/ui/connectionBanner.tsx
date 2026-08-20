@@ -21,6 +21,13 @@ import type { ReactNode } from "react";
  */
 export type ConnectionState = "connected" | "reconnecting" | "disconnected";
 
+/**
+ * Display-only inputs for the banner.
+ *
+ * `state` is the one required field: ADR 23 makes the banner part of the freshness
+ * mechanism's correctness rather than decoration, so a caller cannot omit the fact it
+ * exists to carry.
+ */
 export interface ConnectionBannerProps {
   readonly state: ConnectionState;
   /** ISO 8601, or epoch ms. Last event actually received on the stream. */
@@ -163,5 +170,3 @@ function ConnectionMessage({
       return <>Stream disconnected · showing last known state (may be stale)</>;
   }
 }
-
-export default ConnectionBanner;

@@ -21,23 +21,18 @@ trade-off; none is unfinished adapter work.
 
 ### Deferred prominently — an ADR decision is required before implementation
 
-- **Health-response adapter keys (ADR 30 open question).** The ledger snapshot is keyed by
-  `SupportedVendor` (`A`, `B`, `C`), while adapter envelopes carry software ids
-  (`vendor-a`, `vendor-b`, `vendor-c`) and `healthResponseSchema.byAdapter` permits either.
-  Do not add the serializer or mark the health endpoint complete until an ADR selects one
-  identifier space.
 - **A public `encodeAdapterEnvelope` helper (ADR 10 design boundary).** Tests explicitly
   encode capabilities before `parseAdapterEnvelope`. Adding a helper would create a new
   contracts API and imply that the in-process-only pre-freshness type has a supported wire
   form. No ADR makes that decision, so the repetition remains intentionally.
-- **Runtime re-validation of adapter output (ADR 10 open question).** Server ingest trusts
-  the typed result after vendor-schema decoding in the current design; contract tests
-  validate exact output. Defer the ingest implementation and any second parse per message
-  until ADR 2's measurement harness or an ADR resolves the cost/assurance trade-off.
-- **Server fixture access (ADR 11 open question).** A server ingest test needs valid raw
-  vendor input, but copying a payload would create the second fixture ADR 11 rejects and
-  the server currently bans `@fleet/adapters/testing` even in tests. Defer the production
-  ingest join until an ADR chooses a narrow test exception or another test location.
+- **A second server-owned envelope field (ADR 10 open question).** The current split works
+  because freshness is the only field an adapter cannot supply. A proposal for another
+  server-owned field must reopen the pre-shaped schema approach before either package
+  adds it; do not grow a chain of intermediate envelope types by default.
+- **Per-fixture recording provenance (ADR 11 open question).** `FIXTURE_RECORDING` is one
+  shared record because every generated fixture came from the same run. If a later fixture
+  is recorded from different inputs or at a different instant, stop and decide whether
+  provenance moves onto each `VendorFixture`; do not let the shared record become false.
 - **Bundle symbol enforcement (ADR 12 open question).** The real web joining test now
   imports the adapters in a test, reaching ADR 12's stated trigger for deciding whether a
   symbol grep belongs in CI. The current size gate passes, but do not add a second bundle
@@ -46,9 +41,20 @@ trade-off; none is unfinished adapter work.
   exist, reaching ADR 22's trigger for deciding whether its validation harness should
   include their schema decode. Defer changing the measured path or threshold until that
   ADR is resolved.
+- **Unknown-field ledger scope and bounds (ADR 15 open questions).** Do not add a rejected
+  payload tally, cap distinct dotted paths, or invent an eviction policy without an ADR
+  amendment. The triggers are evidence that accepted-only plus malformed-ingest hides a
+  dialect change, or an observation of unbounded path growth.
+- **A non-object vendor schema (ADR 15 open question).** The known-path walk handles the
+  three current nested-object dialects. A future union, discriminated root, or dynamic-key
+  record needs a decided path convention such as `metrics.*` before its adapter lands.
 - **A dialect-sourced connectivity value (ADR 30 open question).** The decided behavior is
   `connectivity: "unknown"` for all current dialects. Whether simulator dialects should
   gain link state is a future simulator/contracts decision, never an adapter default.
+- **Automatic `adapterVersion` enforcement (ADR 30 open question).** The current rule is a
+  review rule: bump the version when output changes for unchanged input. Do not add a
+  mechanical source-diff check until the first missed bump proves the rule insufficient;
+  comments and tests make a naive file-change gate noisy.
 
 ### Choices I made that changed the package's public API
 
@@ -104,8 +110,8 @@ trade-off; none is unfinished adapter work.
 - **RESOLVED 20 August 2026: tally and scope types have one authority.**
   `UnknownFieldTally` and `UnknownFieldScope` are imported and re-exported from
   `@fleet/contracts`; only the registry-keyed `UnknownFieldSnapshot` and mutable ledger stay
-  local. The final health-response key mapping is deferred above because ADR 30 leaves it
-  open.
+  local. ADR 30 subsequently selected vendor ids (`A`, `B`, `C`) for the health-response
+  keys, matching the registry snapshot without a second mapping authority.
 - **RESOLVED BY ADR 30: `connectivity` is a canonical core field no dialect reports.** Found by closing
   **C6**: all three adapters emit the constant `"unknown"`, and no simulator dialect carries
   link state at all. `canonicalCoreSchema`'s own doc says a field belongs in the core "only if
@@ -780,12 +786,13 @@ dependency. Every ESLint config already excludes those directories; this checker
 A file that exists to be wrong must not be read as a claim about what the repository
 depends on.
 
-**Deferred — decisions, not defects.** Server dispatch (**7**) waits on ADR 11's unresolved
-fixture-access question and ADR 10's runtime-validation question. Health serialization
-(**8**) waits on ADR 30's unresolved key space. A public pre-freshness encoder, bundle
-symbol enforcement, vendor-schema measurement, and dialect-sourced connectivity are also
-explicitly deferred at the top of this file. The ADR 27 diff gate is a delivery constraint
-handled by the required commit trailer, not product work (**9**).
+**Deferred — decisions, not defects.** The unresolved and future-triggered adapter work is
+listed in one place at the top of this file: pre-freshness encoding and shape, fixture
+provenance, bundle-symbol enforcement, vendor-schema measurement, unknown-field scope/path
+handling, connectivity sourcing, and adapter-version enforcement. Server dispatch and health
+serialization are no longer in this set: ADRs 10, 11, and 30 closed their questions, and
+the server now consumes the registry through its public API. The ADR 27 diff gate is a
+delivery constraint handled by the required commit trailer, not product work (**9**).
 
 ---
 
@@ -797,12 +804,11 @@ handled by the required commit trailer, not product work (**9**).
 4. [x] Two payloads from different vendors describing the same robot state produce identical canonical cores (**D7**, covered by both shared boundary cases).
 5. [x] Every malformed fixture returns an `AdapterResult` failure; none throws.
 6. [x] No file in this package reads the clock, and the enforcement fixture confirms the rule still fires.
-7. [x] **Disposition complete; implementation deferred.** The server boundary fixture
-       already rejects direct vendor imports, but the production ingest join waits on ADR 11's
-       server-fixture-access choice and ADR 10's runtime-validation choice. Both are tracked
-       prominently under “Deferred” above.
-8. [x] **Disposition complete; implementation deferred.** The snapshot uses the
-       contract-owned tally and scope types, but serialization into
-       `healthResponseSchema.byAdapter` waits on ADR 30's open identifier-space question. It
-       is tracked prominently under “Deferred” above and must not be decided in a handler.
+7. [x] The server dispatches only through `createAdapterRegistry()`; its boundary fixtures
+       reject direct vendor imports, while its ingest test admits the public testing subpath
+       under ADR 11's narrow test-only exception. ADR 10 records the decision to trust the
+       typed adapter result rather than parse it a second time per message.
+8. [x] The registry snapshot uses contract-owned tally and scope types and is serialized
+       into `healthResponseSchema.byAdapter` under vendor ids (`A`, `B`, `C`), the identifier
+       space selected and recorded in ADR 30.
 9. [x] Package and repository lint, typecheck, test, build, fixture-drift, architecture, dependency, documentation, and formatting stages pass. The branch-level reviewable-diff gate is handled by ADR 27's commit-trailer mechanism because this audit closes an already accumulated multi-commit adapter implementation.

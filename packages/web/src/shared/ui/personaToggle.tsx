@@ -105,5 +105,3 @@ export function PersonaToggle({
     </ToggleButtonGroup>
   );
 }
-
-export default PersonaToggle;

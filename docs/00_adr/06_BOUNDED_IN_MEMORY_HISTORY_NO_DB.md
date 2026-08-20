@@ -1,7 +1,7 @@
 # ADR 6 — Bounded In-Memory History, No Database
 
 **Decision:** Current robot state and a small bounded ring buffer per robot for history live in memory; there is no database in the server package.
-**Status:** Decided · 2026-08-19 · Not started
+**Status:** Decided · 2026-08-19 · Partial 2026-08-20
 **Group:** Data / server-side state.
 
 ## Issue

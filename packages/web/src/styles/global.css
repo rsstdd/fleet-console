@@ -257,34 +257,64 @@ table {
 .freshness {
   display: inline-flex;
   align-items: baseline;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--ink);
   font-family: var(--font-mono);
   font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--leading-snug);
 }
 
-.freshness .state {
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+/* Emphasis, not hue: the state word carries the meaning and the weight of the ink carries
+   the degradation. The rules this replaced coloured the label from the status palette,
+   which the comment above forbids — and they were dead anyway, targeting `.state` and
+   `.age` class names the component does not render (`packages/FIXME.md` F8). */
+.freshness--stale {
+  color: var(--ink-soft);
 }
-
-.freshness .age {
+.freshness--unreachable,
+.freshness--unknown {
   color: var(--ink-muted);
 }
 
-.freshness--live .state {
-  color: var(--status-active);
+.freshness__dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  align-self: center;
+  background-color: var(--status-neutral);
 }
-.freshness--stale .state {
-  color: var(--status-degraded);
+
+.freshness--live .freshness__dot {
+  background-color: var(--status-active);
 }
-.freshness--stale .age {
+.freshness--stale .freshness__dot {
+  background-color: var(--ink-soft);
+}
+.freshness--unreachable .freshness__dot,
+.freshness--unknown .freshness__dot {
+  background-color: var(--ink-muted);
+}
+
+.freshness__asOf,
+.freshness__received {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Dotted underline on a stale timestamp: the one place freshness marks the *time* rather
+   than the word, because a stale reading's age is what must not be trusted. */
+.freshness--stale .freshness__asOf {
   text-decoration: underline dotted;
-}
-.freshness--unreachable .state {
-  color: var(--status-fault);
-}
-.freshness--unknown .state {
-  color: var(--ink-muted);
+  text-underline-offset: 2px;
 }
 
 /* A value carried over from a robot that has stopped reporting. */

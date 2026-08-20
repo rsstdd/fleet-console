@@ -21,7 +21,13 @@ component specs, design system, wireframes, manifests, package TODOs, and source
 
 ## Priority 0 — correct statements that overclaim reality
 
-### P0.1 Make the README describe what actually runs
+### P0.1 Make the README describe what actually runs — **DONE 20 August 2026**
+
+Rewritten against one `pnpm dev` run rather than against the diff: the status banner, the
+one-command section, five rows of the status table, the tree diagram and the adapter and
+unknown-field claims. The two things still unproven were **not** upgraded — the demo script
+stays `[PARTIAL]` and the E2E row stays `[NOT BUILT]`, each narrowed to what is actually
+missing. Original text follows.
 
 `README.md` says `pnpm dev` starts simulator, server, and console, but the server has no
 `dev` script or executable listener. The root recursive command currently starts only
@@ -35,7 +41,18 @@ packages exposing `dev`.
 - Keep simulator commands as implemented facts, but do not say their data reaches the
   console until the adapter/server/web path exists.
 
-### P0.2 Reconcile stale scoped planning documents
+### P0.2 Reconcile stale scoped planning documents — **DONE 20 August 2026, and worth repeating on a schedule**
+
+Two passes. The first corrected the documents that described a repository without a server:
+`README.md`, `packages/README.md`, both package specs, five ADR statuses, and the
+reconciliation list. The second — this one — closed the gap between _work that was finished_
+and _work still marked open_: three FIXME assessment lines reading "open" over
+struck-through bullets, and six P-items with no done-marker.
+
+**The lesson is that this drifts in both directions.** Documents overstate what exists while
+the code is behind, and understate it while the code races ahead; the second is harder to
+notice because nothing looks broken. Re-run this whenever a finding closes, not only when
+one is raised. Original text follows.
 
 Several scoped TODOs describe implemented code as absent:
 
@@ -54,7 +71,9 @@ Several scoped TODOs describe implemented code as absent:
 Audit each against its package, retain genuine work, and remove stale checklist
 history. Do not update prose ahead of code (Principle 14).
 
-### P0.3 Protect the current work in version control
+### P0.3 Protect the current work in version control — **DONE**
+
+The trees this item found untracked are committed. Original text follows.
 
 `git status --short` reports the entire `packages/` and `config/` trees as untracked,
 alongside ADR 7 and ADR 8; many tracked documents are modified. A clone therefore does
@@ -64,7 +83,11 @@ Review and commit intentionally. Keep implementation, documentation, and mechani
 formatting separate where practical. This is operational work, not authorization for a
 blind or destructive Git command.
 
-### P0.4 Refresh the five stale ADR statuses
+### P0.4 Refresh the five stale ADR statuses — **DONE 20 August 2026**
+
+All five now read accurately and carry the date they changed, so a later reader can tell a
+status that was reviewed from one never revisited: ADR 1 Implemented, ADR 2 Partial, ADR 3
+Implemented, ADR 6 Partial, ADR 8 Partial. Original text follows.
 
 ADR 1, 2, 3, 6 and 8 read **"Not started"** while substantially implemented — ADR 1's
 envelope and capability codec, ADR 3's `deriveFreshness` and the server sweep, ADR 6's
@@ -80,7 +103,11 @@ prose it sat in — re-filed here on 19 August 2026 rather than left only in
 Check the implementation state against the code before editing a header. Do not update
 prose ahead of code (Principle 14); an ADR that is genuinely `Not started` should stay so.
 
-### P0.5 Restore a green CI baseline
+### P0.5 Restore a green CI baseline — **DONE**
+
+The named `_omit` lint failure is gone and the full gate set — lint, typecheck, test, build,
+architecture-docs, dependencies, doc-comments, tokens, fixture-drift, bundle — runs green.
+Original text follows.
 
 A consistently failing gate is not a gate: it becomes background noise and encourages
 bypasses. Restore every required CI job to green before adding optional quality gates or
@@ -95,7 +122,10 @@ calling the baseline maintainable.
 
 ## Priority 1 — complete the live telemetry path
 
-### P1.1 Build the vendor adapters
+### P1.1 Build the vendor adapters — **DONE**
+
+Three vendor modules, per-vendor schemas, the dispatch registry, exact-output contract
+tests, and recorded fixtures drift-gated in CI. Original text follows.
 
 Owner: `packages/adapters`.
 
@@ -127,7 +157,13 @@ adapter holds it.
 
 Detailed source: `packages/adapters/TODO.md`, audited against ADRs 10-29 on 20 August 2026.
 
-### P1.2 Build server transport and the composition root
+### P1.2 Build server transport and the composition root — **DONE 20 August 2026**
+
+The server listens, ingests through the registry, sweeps, serves three reads and fans
+coalesced deltas out over `/ws`, composed from repository-root configuration under
+`pnpm dev`. What remains of Section 8's list is backpressure (**H6b**) and the history read
+(**G4**), both tracked in `packages/server/TODO.md` and both blocked on named ADR
+questions. Original text follows.
 
 ADR 8 selects Hono, `@hono/node-server`, and `ws`; the dependencies and listener are
 not present.
@@ -148,39 +184,72 @@ not present.
 
 Detailed source: `packages/server/TODO.md`, after **P0.2** reconciles completed items.
 
-### P1.3 Replace web fixtures with a decoded live store
+### P1.3 Replace web fixtures with a decoded live store — **DONE 20 August 2026**
 
 Owners: web `shared/lib`, `entities/robot`, and composing features.
 
-- Add an HTTP snapshot client and WebSocket state machine with boundary validation via
-  `@fleet/contracts`.
-- Store robots by id, coalesce deltas on scheduled frames, and expose field-scoped
-  subscriptions with `useSyncExternalStore` or an equivalently bounded design.
-- Preserve observed data during reconnect; do not collapse observed, requested,
-  workflow, or connection state.
-- Expose all specified async states: initial load, background refresh, empty/not-found,
-  partial, offline, recoverable error, and terminal error.
-- Route connection state to the shell banner. While disconnected, suppress every
-  per-robot `FreshnessLabel`; the banner is the sole freshness-integrity signal (ADR 3).
-- Decode retained diagnostics at their boundary and keep technician-only data out of
-  operator surfaces.
+- [x] HTTP snapshot client and WebSocket state machine with boundary validation via
+      `@fleet/contracts` — `shared/lib/{transportDecoding,streamLifecycle,coldStart,fleetTransport}.ts`.
+- [x] Robots stored by id and read with `useSyncExternalStore`. Deltas are applied
+      synchronously and **notification** is what is scheduled: holding state the console
+      already received would be a second coalescing layer on top of the server's 10 Hz cap
+      and would make the store lie about what it knows.
+- [x] Observed data is preserved across a reconnect — the store is never cleared by a
+      connection event, only replaced by a newer snapshot — and connection state lives in
+      its own context rather than on the robot read model (Principle 11, ADR 23).
+- [x] Async states: `loading`, `not-found`, recoverable error with retry, and terminal
+      error carrying `ContractIssue[]`. A failed request is recoverable; a body the contract
+      refuses is terminal, because retrying returns the same bytes (**W-6**).
+- [x] Connection state reaches the shell banner from a real socket, and per-robot labels
+      are suppressed while the stream is not delivering (ADR 3).
+- [x] Retained diagnostics are decoded at the boundary and stay behind the technician
+      toggle; the raw payload is served by one route and no other (ADR 1).
+
+**Not done, and deliberately:** nothing reconnects automatically, and it is now registered
+as decision **D22** in [`docs/PENDING_ARCHITECTURE_DECISIONS.md`](docs/PENDING_ARCHITECTURE_DECISIONS.md)
+rather than carried as a note in three TODO files. The wait schedule, the stopping rule and
+whether a refused upgrade differs from a dropped connection have to be decided together; the
+banner ships a manual retry control, so the path exists and is honest.
 
 Detailed sources: the two web feature TODOs after **P0.2** updates their references.
 
-### P1.4 Prove the integrated behavior in a running browser
+### P1.4 Prove the integrated behavior in a running browser — **behaviour observed 20 August 2026; automation is decision D23**
 
-- Vendor payload → adapter → ingest/state → HTTP/WebSocket → web model and row.
-- A targeted drop moves only those robots LIVE → STALE → UNREACHABLE.
-- Stream loss shows the banner, retains rows, and suppresses per-robot freshness;
-  reconnect restores labels without reload.
-- Malformed payloads are rejected and counted without crashing stream or list.
+Every hop below is built, and on 20 August 2026 the load-bearing ones were watched in
+headless Chrome rather than only at the wire. What remains is not evidence but
+**automation**: the run was a throwaway CDP script, and whether this repository adopts a
+browser-testing framework is registered as **D23**.
+
+- [x] **Done 20 August 2026, in a browser.** Vendor payload → adapter → ingest/state →
+      HTTP/WebSocket → web model and row. Headless Chrome rendered 50 rows from the live
+      server with all three dialects normalised into one table.
+- [x] **Done 20 August 2026.** A targeted drop moves only those robots
+      LIVE → STALE → UNREACHABLE; the whole-fleet version of the same transition was then
+      watched rendering in a browser (`{Live: 46, Stale: 4}` → `{Unreachable: 50}`, banner
+      staying `Stream connected` throughout — the distinction from stream loss, visible). Run on 20 August 2026: a normal simulator run, then a
+      `--drop R-007,R-023,R-041` run, produced `{live: 47, unreachable: 3}` with exactly
+      those three unreachable. Recovery came free with it — robots that had aged out while
+      the simulator was stopped returned to `LIVE` within seconds of it resuming.
+      One finding worth keeping: **a cold start with `--drop` shows `UNKNOWN`, not
+      `UNREACHABLE`**, because those robots never reported. Following the README's step 3
+      from a cold fleet is the one way to make this demo look broken while it is working,
+      and the step now says so.
+- [x] _the suppression half_ / [ ] _the reconnect half_ — Stream loss shows the banner,
+      retains rows, and suppresses per-robot freshness. **Observed in a browser**: with the
+      server stopped, all 50 rows remained and **no** per-robot freshness label rendered,
+      while the banner read `Stream reconnecting`. **Reconnect restores labels without
+      reload** still cannot pass, because automatic reconnection is decision **D22**.
+- [x] _at the wire_ / [ ] _in a browser_ — Malformed payloads are rejected and counted
+      without crashing stream or list. Verified against a running server: a non-JSON body
+      is a counted 400, a bad payload increments `malformedIngest`, and neither disturbs the
+      fleet response.
 - Recovery/shutdown leaves no timers, sockets, queues, or buffers unbounded.
 
 Unit tests alone do not close this item (Principle 10).
 
 ## Priority 2 — configuration and UI alignment
 
-### P2.1 Validate tenant configuration and define flags — DONE 19 August 2026
+### P2.1 Validate tenant configuration and define flags — **DONE 19 August 2026**
 
 Resolved as register **D8** and recorded in
 [ADR 17](docs/00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md): two profiles selected per
@@ -195,33 +264,74 @@ either place, deliberately.
 - `config/tenant.test.ts` asserts wordmark, theme and the flag differ together, and
   `features/robot/tenantPanelFlag.test.tsx` proves the panel is absent under Tenant B.
 
-### P2.2 Remove duplicate palette authority
+### P2.2 Remove duplicate palette authority — **PINNED INSTEAD, 20 August 2026**
 
 `tenantTheme.ts` repeats colors from `tokens.css`; MUI reads the JavaScript copy, so the
 two can drift. Make CSS tokens authoritative—read resolved tokens or use CSS variables
 where MUI accepts them—then remove `TENANT_PALETTE` without adding raw component colors.
 
-### P2.3 Consolidate `FreshnessLabel` styling
+**Resolved differently, and the difference is deliberate.** The prescription was to remove
+the duplicate. Both routes to that turn out to cost more than the drift does: reading
+resolved custom properties at runtime needs a live document, so `createTheme` cannot run
+before paint and the theme becomes async; handing MUI `var(--x)` strings breaks its own
+colour maths, which needs real values for alpha and contrast computation. Generating one
+file from the other needs a build step this workspace deliberately does not have (ADR 9:
+libraries export source and there is no emit).
+
+So the duplication stands and is **pinned** by `scripts/checkTokens.mjs`, which fails CI on
+any disagreement across the nine colours in both themes, and also fails if a palette key is
+added that the check does not cover — otherwise it would keep passing over a shrinking
+subset. That is ADR 21's pattern for an unavoidable restatement, applied here for a
+stronger reason: ADR 21's drift was loud (a 502), and this one is silent.
+
+**Reopen this if** a build step arrives for another reason, at which point generating the
+CSS from the palette is strictly better than checking them against each other.
+
+### P2.3 Consolidate `FreshnessLabel` styling — **DONE 20 August 2026**
+
+Done as prescribed: the classes are authoritative, the inline `CSSProperties` are gone, and
+the obsolete `.state`/`.age` rules are deleted. Worth recording what they were: not merely
+stale but **contradictory**, colouring freshness from the status palette three lines under
+a comment saying freshness "does not share the status palette. It is carried by emphasis."
+The inline styles followed that comment and the CSS did not, and nothing failed because
+nothing matched. One test got weaker in the move and the trade is named in
+`packages/FIXME.md` **F8**. Original text follows.
 
 The component uses inline `CSSProperties` while `global.css` contains a partially stale
 class implementation. Make the spec-mandated classes authoritative, delete obsolete
 `.freshness .state`/`.age` rules, align element names, and preserve muted
 unreachable/unknown treatment without tenant accent.
 
-### P2.4 Resolve the stylelint/BEM mismatch
+### P2.4 Resolve the stylelint/BEM mismatch — **DONE 20 August 2026**
 
-The selector pattern permits modifiers but rejects spec-required `__element` names;
-narrow disable comments bypass it. Extend the rule to the BEM form already used, test
-representative selectors if practical, and remove the suppressions.
+`selector-class-pattern` now admits `block__element`, widened once and centrally with the
+reason carried in the rule's own `message` so the next reader sees it at the point of
+failure. No suppressions remain. This was the same defect as **P2.3** from the other side:
+the rule rejected the markup `docs/02_component-specs` mandates, so consolidating the
+styling into classes was impossible without either widening the rule or scattering
+suppressions — which is what the bullet objected to.
 
-### P2.5 Reconcile shared-UI paths, exports, and documentation
+### P2.5 Reconcile shared-UI paths, exports, and documentation — **exports and comments done 20 August 2026; file naming left alone**
 
-- Specs name PascalCase files while the repository uses camelCase.
-- Shared UI mixes default/named exports and has no barrel despite older planning text.
-  Choose and document one convention; do not add a barrel if it hides dependencies.
-- Add missing one-sentence comments to every export. Confirmed examples include
-  `DataPlateProps`, `DataPlate`, `StatusChipSize`, `StatusChipProps`, `SITES`, and
-  `selectSiteLabel`; audit the complete export surface rather than stopping there.
+- **Exports: named only, no barrel.** Four components carried a redundant
+  `export default` beside their named export and four did not; nothing imported a default,
+  so the defaults are deleted rather than the convention being chosen by coin toss. No
+  barrel was added, as the item instructs — a barrel in `shared/ui` would let a feature
+  import the whole layer through one specifier and hide which primitives it actually
+  depends on, which is the boundary `eslint-plugin-boundaries` exists to make visible.
+- **Comments: the export surface was audited, not just the six named.** A script over every
+  `export` in `shared/ui` and `entities/site` found exactly the six the item listed, and all
+  six now carry a sentence that says something the signature does not (ADR 28).
+- **File naming: not changed, deliberately.** The specs write `FreshnessLabel.tsx` and the
+  repository uses `freshnessLabel.tsx`. Renaming eight files and every import to satisfy a
+  document is the larger and riskier half of this item, and the convention in the tree is
+  consistent — it is the specs that are the outlier. Whoever picks this up should change the
+  specs, not the files, unless there is a reason beyond symmetry.
+
+**One thing this audit turned up:** `entities/site` is now the **only** invented data left
+in the console, and it cannot read the server because the fleet manifest carries no site
+label to read. Recorded as `packages/FIXME.md` **F16** with the two ways to close it, both
+of which are decisions rather than cleanups.
 
 ### P2.6 Remove or configure inert Git-hook tooling — DONE 19 August 2026
 
@@ -271,14 +381,50 @@ from those results; until then it is a deferral, not a completed scale claim.
 **Partly done, 19 August 2026** ([ADR 22](docs/00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md),
 register D17): validation cost is measured and gated at ADR 2's own falsification
 threshold — 5.8–6.4 µs per message against 400 µs — and the console's first-load size is
-gated at 720 kB raw / 300 kB gzip. Everything else on this list needs a listening server
-and is unchanged. Adapter coverage was deliberately left ungated; do not add a threshold
-without a derivation.
+gated at 720 kB raw / 300 kB gzip. Adapter coverage was deliberately left ungated; do not
+add a threshold without a derivation.
 
-### P3.3 Record WCAG 2.2 AA contrast evidence
+**Server half done, 20 August 2026**, now that there is a listening server:
 
-Verify both themes for every pair in `DESIGN_SYSTEM.md` §6, all status tints, muted ink
-on surface, and forced-colors status/freshness. Record ratios/results in README.
+- **Per-request cost**, sequential: 892 µs at 50 robots, 926 µs at 500 — whole request,
+  route to upsert. Transport dominates validation ~150×, confirming ADR 2's estimate and
+  redirecting its staged mitigation to batch ingest rather than worker-pooled validation.
+- **Throughput**, concurrent at 500 robots: 1,264 req/s at concurrency 1, 4,786 at 16,
+  5,971 at 128 — about 2.4× ADR 2's 2,500 msg/s design scale.
+- **Sweep lateness**: zero late ticks at every level, interval still running afterwards.
+  This is the measurement that matters for correctness rather than speed, because ADR 3's
+  failure under saturation is a sweep that stops firing and leaves stale robots reported as
+  LIVE.
+- Published in `README.md` § 10, ADR 2 and ADR 3, with the caveat that no degradation point
+  was found — a statement about this machine and this offered load, not about the ceiling.
+
+**Still owed:** fan-out p50/p95, coalesced WebSocket rate, memory, client frame time and row
+count — all client-side or stream-side, and all needing the browser automation registered as
+decision **D23**. Virtualization stays deferred until delta-apply cost at 500 robots is
+measured under a live stream (ADR 24), which is the same blocker.
+
+### P3.3 Record WCAG 2.2 AA contrast evidence — **CONTRAST DONE 20 August 2026; forced-colors open**
+
+Computed and **gated** rather than recorded, which is the difference that matters: a ratio
+written into a document rots, and `scripts/checkTokens.mjs` fails CI instead. It checks text
+tokens at 4.5:1 on both backgrounds and all six status tints at 3:1 as non-text UI
+(WCAG 1.4.11), across both themes, and prints all eighteen ratios whether or not anything
+fails (ADR 22's report-as-well-as-gate).
+
+**It found a failure on its first run**: `--status-neutral` at 2.84:1 in dark, on a token
+used for a freshness dot and a status chip. Lightened to `#767068` — 3.34:1 on `--surface`,
+3.66:1 on `--bg` — with the reasoning beside it in `tokens.css`.
+
+**Still open: forced-colors.** It cannot be computed from tokens, because the whole point of
+forced-colors mode is that the system replaces them. It needs a person in Windows
+high-contrast or `forced-colors: active`, checking that the status chip's dashed border and
+the freshness state word still carry meaning once `box-shadow` and background colours are
+dropped — which `global.css` already anticipates in its `@media (forced-colors: active)`
+block, untested.
+
+Original text follows. Verify both themes for every pair in `DESIGN_SYSTEM.md` §6, all
+status tints, muted ink on surface, and forced-colors status/freshness. Record
+ratios/results in README.
 
 ### P3.4 Replace submission placeholders
 

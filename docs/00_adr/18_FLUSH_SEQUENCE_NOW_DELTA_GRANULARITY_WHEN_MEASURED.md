@@ -76,6 +76,7 @@ The counter-argument is that retrofitting option 2 after the fan-out exists is m
 
 ## Observed consequences
 
+- **20 August 2026 — one counter, and it advances only on a flush that sends something.** `createFlushSequence()` is the single source; `DeltaFanOut` advances it and `GET /api/fleet` reads it, so the comparison a client makes is between two views of one number rather than two numbers that both look plausible. The rule that a tick sending nothing does **not** advance it was not stated here and matters: a counter climbing on empty ticks describes no state, and a client reconciling against its snapshot would discard deltas it needed. Verified end to end — snapshot 0, then frames 1 and 2, then snapshot 2.
 - 19 August 2026: contracts half implemented. `flushSequenceSchema` and `FlushSequence` in `shared/primitives.ts`; `flushSequence` required on `telemetryBatchSchema`; `fleetSnapshotSchema`, `fleetSnapshotRobotSchema`, `parseFleetSnapshot` and `isDeltaCoveredBySnapshot` added; all exported and pinned in the public-surface test. Contracts at 115 tests, up from 103.
 - Making `flushSequence` required broke three existing batch tests and the pinned public-surface test, which is the wire-format change being noticed exactly where it should be. No other package broke, confirming the assumption that `telemetryBatchSchema` had no consumer.
 - The union's lack of a discriminator key is pinned by a test asserting a half-populated robot — registered fields plus `receivedAt` — is rejected by both variants rather than accepted by one.

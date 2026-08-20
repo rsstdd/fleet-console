@@ -9,16 +9,27 @@ Multi-vendor robot fleet telemetry console. Canonical contracts, vendor adapters
 
 Sections 2-3 cover freshness; 4 covers normalization; 7 covers scale.
 
-> **Implementation status — 19 August 2026.** This README describes the design in the
-> present tense throughout. Parts of it are not built yet, and where a section claims
-> behavior the tree does not have, it is now marked **[NOT BUILT]** or **[PARTIAL]**
-> inline rather than quietly left standing.
+> **Implementation status — 20 August 2026.** This README describes the design in the
+> present tense throughout. Where a section still claims behavior the tree does not have,
+> it is marked **[NOT BUILT]** or **[PARTIAL]** inline rather than quietly left standing.
 >
-> The short version: `contracts`, `simulator`, and the `web` console are built. There
-> is **no server process** — no HTTP listener, no WebSocket, no `/api/health` — and
-> **no vendor adapter modules**. The console runs on fixtures. Section 5 has the
-> per-item table; [`packages/FIXME.md`](packages/FIXME.md) has the cross-package
-> reconciliation list and [`TODO.md`](TODO.md) the work queue.
+> The short version: **the path runs end to end.** `pnpm dev` starts the server, the
+> simulator and the console together; the simulator's readings reach the server's ingest,
+> are decoded by the vendor adapters, enter fleet state, are aged by the freshness sweep,
+> and are fanned out over WebSocket to a console that renders them. All five packages are
+> built.
+>
+> Measured on one 40-second `pnpm dev` run: **1,993 readings sent, 1,993 accepted, zero
+> rejected and zero server failures**, at ~50 readings/second across 50 robots and three
+> vendor dialects. `GET /api/health` then reported vendor C's undocumented
+> `telemetry.firmware_channel` counted 235 times, vendor B's ordering as _not evaluated_
+> rather than as zero gaps, and no malformed payloads.
+>
+> What is **not** yet demonstrated: the console rendering against a live socket has not
+> been observed in a browser, and the fault-injection and load steps below have not been
+> re-run since the server landed. Section 5 has the per-item table;
+> [`packages/FIXME.md`](packages/FIXME.md) has the cross-package reconciliation list and
+> [`TODO.md`](TODO.md) the work queue.
 
 ---
 
@@ -98,43 +109,51 @@ so CORS is intentionally not exercised there. Serving the console from a differe
 than the API is the decision's falsifier: that deployment must configure the allow-list and
 add integration coverage for accepted and rejected cross-origin requests.
 
-**[PARTIAL] Starts the simulator and the console, not the server.** Root `dev` is
-`pnpm --recursive --parallel --stream dev`, and only `simulator` and `web` define a
-`dev` script — `server` defines neither `dev` nor `start` and has no executable
-entry point. The console comes up on `http://localhost:5173` (Vite's default;
-`packages/web/vite.config.ts` sets no `server.port`). The simulator comes up and POSTs
-at its default endpoint `http://127.0.0.1:8080`, where nothing is listening, so every
-reading fails to deliver.
-
-Until the server's composition root lands, the console renders a fixture set
-(`web/src/entities/robot/useFleetRobots.ts`) rather than simulator data, and the two
-processes `pnpm dev` starts are not connected to each other.
-
-**30-second observations** (against the fixture set today, the live fleet once the
-server lands):
+**Starts all three, connected.** Root `dev` is `pnpm --recursive --parallel --stream dev`,
+and `server`, `simulator` and `web` each define one. Verified on 20 August 2026: the server
+logs `server.listening` on `127.0.0.1:8080` with 4 routes and the shipped freshness policy,
+the console comes up on `http://localhost:5173` and proxies `/api` and `/ws` to the server,
+and the simulator POSTs into the real ingest — 1,993 readings sent and 1,993 accepted over
+40 seconds, with no rejections and no server failures.
 
 1. **Summary strip:** Counts freshness only (`LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN`). Mutually exclusive, totals fleet exactly. No status duplication.
-2. **Rows:** Show status + freshness. Non-`LIVE` rows use outline status chips (`(last known)`) and em-dash batteries (no stale numbers presented as current). **The freshness column is empty today**: no transport supplies a connection state, the default is `disconnected`, and ADR 3 suppresses per-robot labels while the stream is down. Seeing the labels requires the live path, not a config change.
+2. **Rows:** Show status + freshness. Non-`LIVE` rows use outline status chips (`(last known)`) and em-dash batteries (no stale numbers presented as current). The connection state is now supplied by a real socket, so the labels render while the stream is connected and are suppressed while it is not (ADR 3) — **this specific rendering has not been watched in a browser**, only the transport underneath it.
 3. **Vendor column:** Filter to Vendor C vs A. Capability panels differ because robots differ.
 
 ---
 
 ## 3. Demo script
 
-**[NOT BUILT] as an end-to-end sequence.** Every step below depends on the server
-process, which does not exist; steps 3-6 additionally depend on the vendor adapters.
-The simulator commands are real and run today — they just have no receiver. Kept in
-the present tense as the acceptance criteria for the transport work, not as a claim
-about the current tree.
+**Observed in a browser on 20 August 2026.** Headless Chrome against the running stack, at
+`http://127.0.0.1:5301`:
+
+| Moment                  | Rendered freshness         | Banner                |
+| ----------------------- | -------------------------- | --------------------- |
+| Simulator running       | `{Live: 46, Stale: 4}`     | `Stream connected`    |
+| Simulator stopped, +12s | `{Unreachable: 50}`        | `Stream connected`    |
+| Server stopped          | no per-robot labels at all | `Stream reconnecting` |
+
+Rows carried all three dialects normalised — `R-001 A … 93.46%`, `R-002 B … 72%`,
+`R-003 C … 35.53%` — from one table with no vendor branch.
+
+**That contrast is the demo.** Steps 4 and 5 are different failures on purpose, and the
+middle and bottom rows above are what tells them apart: a robot going silent degrades to
+`UNREACHABLE` **while the stream stays connected**, because the server still has a current
+answer about it; the console going blind suppresses every per-robot label and says so at
+the connection level instead. Deriving freshness server-side is what makes those two
+distinguishable at all.
+
+Still not automated: this was a throwaway CDP script, not a committed test. Choosing whether
+this repository takes on a browser-testing framework is registered as decision **D23**.
 
 Sequence to watch (Steps 2 & 4 are the submission):
 
 1. Open fleet (50 robots). All `LIVE`.
-2. Compare capability panels across all three vendors: A shows dock + lidar-health, B shows dock alone, C shows dock + water-level. **(The web fixture currently contradicts this: it gives Vendor B `lidarHealth` too, and the detail tests assert it. ADR 1 § Observed consequences resolves B to `dock` alone — see `packages/FIXME.md` F1.)** Three vendors, three distinct panel sections. Absence is the interface (no disabled placeholders). Cannot offer unsupported actions.
-3. Simulator `--drop` 3 robots (`R-007,R-023,R-041` — ids must exist in the 50-robot default fleet; an unknown id fails at startup rather than silently dropping nothing). No message sent to console.
-4. Watch 3 rows degrade on the server sweep (`STALE` → `UNREACHABLE`). Others stay `LIVE`. Status chips hollow, batteries em-dash. Caused by message absence.
+2. Compare capability panels across all three vendors: A shows dock + lidar-health, B shows dock alone, C shows dock + water-level. Confirmed against the real adapters on 20 August 2026 — decoding the recorded payloads yields `A: dock+lidarHealth+sequence`, `B: dock`, `C: dock+sequence+waterLevel` — and the console's fixtures were corrected to match, closing `packages/FIXME.md` **F1**. Three vendors, three distinct panel sections. Absence is the interface (no disabled placeholders). Cannot offer unsupported actions.
+3. Simulator `--drop` 3 robots (`R-007,R-023,R-041` — ids must exist in the 50-robot default fleet; an unknown id fails at startup rather than silently dropping nothing). No message sent to console. **Run the simulator once _without_ the flag first.** A cold start with `--drop` leaves those three at `UNKNOWN` rather than degrading them, because they never reported at all and `UNKNOWN` is the honest state for a robot nobody has heard from (ADR 3). The `LIVE → STALE → UNREACHABLE` transition needs them to have been live first, and following step 3 from a cold fleet is the one way to make this demo look broken when it is working.
+4. Watch 3 rows degrade on the server sweep (`STALE` → `UNREACHABLE`). Others stay `LIVE`. Status chips hollow, batteries em-dash. Caused by message absence. **Verified against a running stack on 20 August 2026**: after a normal run followed by a `--drop` run, `GET /api/fleet` reported `{live: 47, unreachable: 3}` with `R-007`, `R-023` and `R-041` the only unreachable robots. Watched through the API rather than in a browser — the row rendering itself is still unobserved.
 5. Kill stream. Connection banner appears, table retains last-known data, per-robot freshness labels are suppressed. **([PARTIAL] The suppression rule is built and tested — connection state travels through `ConnectionContext` in `shared/lib`, both pages render `FreshnessLabel` only while the stream is connected, and the default is `disconnected` rather than an optimistic `connected` ([ADR 23](docs/00_adr/23_CONNECTION_STATE_TRAVELS_THROUGH_SHARED_LIB.md)). What cannot be demonstrated is the step itself: with no transport there is no stream to kill, so the rule is proved against injected states rather than a real socket, and today the console reports itself disconnected and shows no freshness labels at all. That is the honest reading, not a bug.)** With no live connection the console has no current per-robot answer and says so at the connection level rather than guessing per row (ADR 3). No blank page or frozen lies (Principle 5).
-6. Restore stream. Labels return; rows resume degrading on the sweep (no reload).
+6. Restore stream. Labels return; rows resume degrading on the sweep (no reload). **The server half was observed on 20 August 2026**: robots that had aged to `UNREACHABLE` while the simulator was stopped returned to `LIVE` within seconds of it resuming, with no server restart. The console half — labels returning without a reload — depends on the automatic reconnection that is deliberately not built (root `TODO.md` **P1.3**), so today it needs the banner's manual retry.
 
 Steps 4 and 5 are different failures on purpose: 4 is a robot going silent, 5 is the console going blind. Deriving freshness server-side is what lets the console tell them apart.
 
@@ -176,10 +195,10 @@ Two corrections against ADR 1, which is the current authority: **sequence** is a
 **Consequences:**
 
 - **Capabilities drive UI, not vendor names.** `if (vendor === …)` in `features/` is a defect (Principle 3).
-- **Unknown fields counted.** Vendor C's undocumented field increments a per-adapter counter on `GET /api/health`. Quietly discarding data rots integrations. **([NOT BUILT] The ledger exists — `adapters/src/core/unknownFields.ts` — but there is no Vendor C adapter to feed it and no `/api/health` route to serve it.)**
+- **Unknown fields counted.** Vendor C's undocumented field increments a per-adapter counter on `GET /api/health`. Quietly discarding data rots integrations. Measured on a 40-second `pnpm dev` run: `telemetry.firmware_channel` counted **235** times under vendor C, with vendor A and B at zero — the count is per adapter and fleet-wide, and the response says so in `unknownFieldScope` rather than in a caption ([ADR 15](docs/00_adr/15_UNKNOWN_FIELD_ACCOUNTING_ON_ACCEPTED_PAYLOADS.md), [ADR 25](docs/00_adr/25_CONTRACTS_OWNS_EVERY_DECODED_RESPONSE_COUNTERS_BY_SCOPE.md)).
 - **Vendor B's synthesized sequence is weaker.** Timestamp ordering can not distinguish duplicates from same-ms events. Recorded as a known limitation.
 
-**[PARTIAL]** Adapter contract tests verify normalization: recorded vendor payload → exact canonical event (Principle 10). 3 fixtures, 3 assertions. **The fixtures exist and the assertions do not.** `pnpm record:fixtures` records one representative payload per vendor from the simulator into `packages/adapters/src/vendors/*/__fixtures__/`, and CI fails if the tree produces a different byte ([ADR 13](docs/00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md)); `packages/adapters` also ships the result type, the unknown-field ledger, the vendor union, a public `testing` subpath for the fixtures ([ADR 11](docs/00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)), and its boundary-enforcement fixtures. What does not exist is any vendor schema, adapter module, or registry — so nothing consumes a fixture yet. This remains the single largest gap between this document and the tree.
+Adapter contract tests verify normalization: recorded vendor payload → exact canonical event (Principle 10). `pnpm record:fixtures` records one representative payload per vendor from the simulator into `packages/adapters/src/vendors/*/__fixtures__/`, and CI fails if the tree produces a different byte ([ADR 13](docs/00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md)). Each vendor module decodes its own fixture to an exact canonical envelope, a cross-vendor test proves two dialects describing one state produce identical cores, and every malformed fixture returns a failure result rather than throwing. `packages/adapters` also ships the result type, the unknown-field ledger, the vendor union, the dispatch registry, and a public `testing` subpath ([ADR 11](docs/00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)) that `packages/server`'s ingest test consumes under a narrow lint exception.
 
 **Site hierarchy:** 1 level (robots → sites). Extends rather than changes shape for org → site → building → fleet → robot.
 
@@ -197,20 +216,20 @@ Unequal weighting: console is submission; simulator/server feed it.
 
 Budget: 10–11 hours / 3 days.
 
-Status as of 19 August 2026, verified against the tree. Cuts go in section 9.
+Status as of 20 August 2026, verified against the tree and against one `pnpm dev` run. Cuts go in section 9.
 
-| Built                                                         | Status                                                                                                                                                                                                                                                  |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Canonical envelope + capability model + freshness machine     | **Built.** Schemas, capability wire codec, `deriveFreshness`, tests.                                                                                                                                                                                    |
-| Three vendor adapters + recorded fixtures + contract tests    | **Partial.** One recorded fixture per vendor, drift-gated in CI (ADR 13), plus core primitives and a public `testing` subpath (ADR 11). No A/B/C module, no schema, no registry, no contract test.                                                      |
-| Simulator with vendor mix and fault-injection flags           | **Built.** Three dialects, `--drop`, seeded fleet, bounded transport, integration tests.                                                                                                                                                                |
-| Server: ingest, dispatch, idempotent upsert, health endpoint  | **Partial.** Store-level upsert rejects duplicate/out-of-order sequences and `HealthMetrics` counts; no HTTP, no dispatch, no endpoint.                                                                                                                 |
-| WebSocket fan-out with coalescing                             | **Partial.** `PendingDeltaSet` coalesces; nothing opens a socket.                                                                                                                                                                                       |
-| Fleet view: summary, filters, table                           | **Built**, fixture-backed. Freshness summary, site/vendor/freshness/search filters, table.                                                                                                                                                              |
-| Robot detail: capability panels, operator/technician personas | **Built**, fixture-backed.                                                                                                                                                                                                                              |
-| Connection-integrity handling                                 | **Partial.** `ConnectionBanner`, `ConnectionContext` and per-robot label suppression are built and tested (ADR 23), failing closed to `disconnected`. No transport supplies a real state, so it is proved against injected states rather than a socket. |
-| Tenant theming + one gated feature                            | **Built.** Build-time profiles are validated; Tenant B disables the lidar-health panel through `flags.lidarHealthPanel` (ADR 17).                                                                                                                       |
-| Enforced dependency boundaries in lint and CI                 | **Built.** `eslint-plugin-boundaries` + resolver, violation fixtures, `.github/workflows/ci.yml`.                                                                                                                                                       |
+| Built                                                         | Status                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Canonical envelope + capability model + freshness machine     | **Built.** Schemas, capability wire codec, `deriveFreshness`, tests.                                                                                                                                                                               |
+| Three vendor adapters + recorded fixtures + contract tests    | **Built.** A, B and C modules with per-vendor schemas, a dispatch registry, exact-output contract tests, and recorded fixtures drift-gated in CI (ADR 13) reachable through the public `testing` subpath (ADR 11).                                 |
+| Simulator with vendor mix and fault-injection flags           | **Built.** Three dialects, `--drop`, seeded fleet, bounded transport, integration tests.                                                                                                                                                           |
+| Server: ingest, dispatch, idempotent upsert, health endpoint  | **Built.** `POST /api/telemetry/:vendor` with the size cap ahead of the parse, registry dispatch, idempotent upsert, and `GET /api/fleet`, `/api/robots/:id` and `/api/health`. History for the sparkline is the one unmounted route (**G4**).     |
+| WebSocket fan-out with coalescing                             | **Built.** One coalescing set per console, flushed at up to 10 Hz on `/ws`, sharing the server's one flush counter with the snapshot (ADR 18). No backpressure yet — deferred on ADR 8's open configuration question (**H6b**).                    |
+| Fleet view: summary, filters, table                           | **Built**, reading the live store. Freshness summary, site/vendor/freshness/search filters, table.                                                                                                                                                 |
+| Robot detail: capability panels, operator/technician personas | **Built**, reading `GET /api/robots/:id` and `/api/health`.                                                                                                                                                                                        |
+| Connection-integrity handling                                 | **Partial.** The banner, `ConnectionContext` and label suppression are built and now driven by a real socket, failing closed to `disconnected` (ADR 23). Not yet watched in a browser, and nothing reconnects automatically — the retry is manual. |
+| Tenant theming + one gated feature                            | **Built.** Build-time profiles are validated; Tenant B disables the lidar-health panel through `flags.lidarHealthPanel` (ADR 17).                                                                                                                  |
+| Enforced dependency boundaries in lint and CI                 | **Built.** `eslint-plugin-boundaries` + resolver, violation fixtures, `.github/workflows/ci.yml`.                                                                                                                                                  |
 
 ---
 
@@ -241,7 +260,8 @@ Feature-sliced, not type-sliced (`components/`, `hooks/` smear code across featu
   /features   fleet · robot          (composition only)
   /entities   robot · site           (domain model, selectors — no JSX, no MUI)
   /shared     ui (pure, domain-free) · lib (formatting, time, transport)
-                                        [PARTIAL] lib holds time.ts only; no transport client
+                                        lib holds time, connection state, the stream
+                                        client and the one decode boundary
   /config     tenant themes, feature flags
                                         build-time selected, schema-validated profiles
 ```
@@ -297,14 +317,39 @@ Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing,
 
 ## 10. Measurements
 
-> **Two numbers are measured and gated; the load tables are not, and cannot be yet.**
-> The scale run has not been performed and cannot be until the server accepts ingest:
-> the simulator generates `--robots 500 --hz 5` today — 2,499 readings/s achieved
-> against 2,500 configured, measured against a trivial receiver — but there is no
-> receiver in this repository to measure the other end of. No number in the empty
-> tables should be cited until it comes from an actual run through the complete harness
-> (Principle 12); the simulator's own figure is not a substitute, because it measures
-> the producer.
+> **ADR 2's own question is now answered, and the answer is decisive.** ADR 2 estimated
+> that schema validation costs tens of microseconds and that per-request HTTP overhead was
+> the likelier first bottleneck, and committed to a harness that would confirm or falsify
+> it. Measured 20 August 2026 by `packages/server/src/ingest/validationCost.test.ts`:
+>
+> | Cost                                              | 50 robots | 500 robots |
+> | ------------------------------------------------- | --------- | ---------- |
+> | Strict canonical decode (`JSON.parse` + Zod)      | 5.8 µs    | 5.8 µs     |
+> | Whole request (route, cap, parse, decode, upsert) | 892 µs    | 926 µs     |
+>
+> **Transport dominates validation by roughly 150×**, so ADR 2's estimate holds and its
+> staged mitigation should start with batch ingest rather than with worker-pooled
+> validation. Per-request cost is essentially flat from 50 to 500 robots (+3.8%), which is
+> what the map-keyed store predicted.
+>
+> Read the 892 µs honestly: it is a **sequential round trip over loopback including the
+> client's own `fetch`**, so it bounds server-side per-request work from above rather than
+> isolating it — and it is emphatically **not** a capacity figure.
+>
+> **Under concurrency, measured 20 August 2026 by `src/freshness/sweepUnderLoad.test.ts`
+> at 500 robots:**
+>
+> | Offered concurrency | Accepted    | Sweep ticks late |
+> | ------------------- | ----------- | ---------------- |
+> | 1                   | 1,264 req/s | 0 of 4           |
+> | 16                  | 4,786 req/s | 0 of 4           |
+> | 128                 | 5,971 req/s | 0 of 4           |
+>
+> That is **~2.4× ADR 2's 2,500 msg/s design scale**, and the freshness sweep never ran
+> late at any level — which is the measurement that actually matters, because ADR 3's
+> failure under saturation is not slowness but a sweep that stops firing and leaves stale
+> robots reported as LIVE. No degradation point was found on this machine; the honest
+> statement is that saturation was not reached, not that it cannot be.
 >
 > The contrast table is blocked on nothing at all and is simply not yet done. It needs
 > a person reading ratios off both themes, and it is tracked as `packages/FIXME.md`
@@ -408,11 +453,14 @@ Deliberate scope (Principle 10). Built today:
 - Boundary lint (violation fails, legal passes) — `__boundary-violation__` / `__enforcement__` suites in `web`, `server`, `adapters`.
 - **No component snapshots** (asserts no-change, not correctness; trains blind diff acceptance). Verified: the repository contains no `.snap` files.
 
-Named in the scope and **[NOT BUILT]**:
+Named in the scope and now built:
 
-- Adapter contract tests (recorded fixture → exact output). The fixtures exist and are drift-gated (ADR 13); the assertions are blocked on the vendor adapters, which have nothing to decode a fixture with.
-- Idempotent ingest at the HTTP boundary. The store-level guarantee above exists; the ingest route it protects does not.
-- E2E (simulator → visibly stale row). Needs the server process and the console's live transport; no browser-driven test exists.
+- Adapter contract tests (recorded fixture → exact output), drift-gated in CI (ADR 13).
+- Idempotent ingest at the HTTP boundary, over the store-level guarantee above.
+
+Still **[NOT BUILT]**:
+
+- E2E (simulator → visibly stale row) **in a browser**. Every hop underneath it is covered — the adapter tests, the ingest test against recorded bytes, and a wire-level check that watched one robot go `live` then `stale` on a real socket — but no browser-driven test exists, so the last hop from delta to rendered row is asserted by component tests against decoded values rather than end to end.
 
 ## Licence
 
