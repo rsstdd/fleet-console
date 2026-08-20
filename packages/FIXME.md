@@ -11,7 +11,19 @@ decisions that are simply incomplete. Package TODOs remain the detailed implemen
 plans; this file is the cross-package reconciliation list.
 
 **Re-audit outcome.** F1–F12 were each re-verified against source. F1–F11 remain open; **F12 was closed on 19 August 2026** by ADR 16. **F13, F14 and F15 were added on 19 August 2026** — by ADR 21, ADR 25 and ADR 26 respectively — and are the newer kind of finding this file should expect more of: not contradictions, but decisions that landed correctly ahead of the code that will consume them.
-**F14 was closed on 20 August 2026**, by the work its own entry prescribed. No other finding was closed in the 20 August re-audit. The re-audit corrected statements in
+**F14 was closed on 20 August 2026**, by the work its own entry prescribed.
+
+**Second pass, later on 20 August 2026 — the critical path closed, and with it four
+findings.** **F5** (adapter boundary incomplete), **F6** (transport not implemented
+server-side, except backpressure), **F13** (endpoint configuration with no reader) and the
+composition-wiring bullet of **F7** are closed by the server's listener, ingest, sweep and
+fan-out, and by the console's transport. **F9** is half closed: the no-leak property is
+proved against a running server, while the history read and the restart story remain — both
+blocked on named ADR questions rather than unwritten. Every closure in this pass was
+checked against a running process, not against the diff; where only a unit test exists, the
+entry says so.
+
+The earlier re-audit corrected statements in
 [`README.md`](./README.md) that the code contradicts: a test that does not exist, an
 undercount of the dependency arrows drawn ahead of the code, a health endpoint the
 server does not serve, a dependency rule attributed to the build rather than to lint,
@@ -107,28 +119,43 @@ other correct.
 These are legitimate unfinished work, not contradictions. Keep them visible in package
 TODOs and the root TODO; do not “fix” them by weakening the ADR.
 
-### F5. ADR 1 adapter boundary is incomplete
+### F5. ADR 1 adapter boundary is incomplete — **CLOSED 20 August 2026**
 
-**Assessment: accurate plan, incomplete implementation; open.**
+**Assessment: closed. The boundary is complete and consumed.**
 
 `packages/adapters` now depends on `@fleet/contracts`, publishes one representative
 recorded representative and boundary fixtures per vendor, publishes one separately
 hand-authored malformed payload per vendor, and implements the accepted-only unknown-field
 ledger and path discovery. All three vendors now have loose schemas, adapters, and exact
 contract tests; the exhaustive dispatch registry owns their shared process tally. The
-cross-vendor normalization assertion and server ingest integration remain. Therefore
-end-to-end dispatch evidence and HTTP health reporting do not yet exist. The simulator intentionally has
-no production dependency on contracts/adapters; its test-only adapters dependency guards
-the supported-vendor list (ADR 16).
+cross-vendor normalization assertion now exists, and `packages/server` dispatches every
+reading through the registry: `POST /api/telemetry/:vendor` decodes with the adapter the
+route segment selects, and `GET /api/health` serves the ledger per adapter with its scope
+carried as data. Measured on one `pnpm dev` run, vendor C's `telemetry.firmware_channel`
+reached 235 while A and B stayed at zero — the end-to-end dispatch evidence this finding
+was waiting for. The simulator intentionally has no production dependency on
+contracts/adapters; its test-only adapters dependency guards the supported-vendor list
+(ADR 16).
 
-### F6. ADR 2 and ADR 8 transport are not implemented server-side
+### F6. ADR 2 and ADR 8 transport are not implemented server-side — **CLOSED 20 August 2026, with one part deliberately still absent**
 
-**Assessment: accurate plan, incomplete implementation; open.**
+**Assessment: closed for transport; backpressure remains open under a named ADR question.**
 
-The simulator emits one HTTP POST per reading and the server has a delta coalescer, but
-the server does not declare Hono, `@hono/node-server`, or `ws`; has no listener; and
-implements no HTTP routes, WebSocket scheduler, connection limits, backpressure, or
-shutdown. `packages/README.md` now describes these as planned rather than present.
+The server now declares `hono`, `@hono/node-server` and `ws`, each vetted in the ADR 29
+allow-list and each landing with the code that imports it. It binds one port for HTTP and
+`/ws`, serves the ingest route plus three reads, runs the fan-out scheduler at up to 10 Hz
+on its own interval, and closes stream clients before the HTTP server on shutdown as ADR 8
+§ Implications requires — asserted by rebinding the same port afterwards rather than by
+inspection.
+
+**Connection limits and backpressure are still absent**, and that is the one part of this
+finding that survives: `DeltaFanOut` flushes to every console with a pending set and never
+skips or drops one. Correct at ADR 2's stated scale of single-digit consoles, wrong the
+moment a console stops reading. ADR 8 § Open questions asks whether the connection cap is
+configuration or a constant and leans configuration "alongside the freshness policy" — but
+`freshnessPolicySchema` is strict and ADR 3 § Constraints fixes its keys, so that means a
+fourth key with an ADR 3 amendment or a new configuration surface. Tracked as server TODO
+**H6b**; decide the surface before putting a number in the fan-out.
 
 ### F7. ADR 3 is not complete end to end
 
@@ -144,7 +171,10 @@ Contracts and server primitives agree with the ADR: derivation is pure, uses
   warning — because the counter alone is unreadable until the health endpoint exists,
   and ADR 3's stated failure is that a sweep which silently stops looks identical to a
   healthy fleet. The sweep starts after the listener binds and stops before it closes;
-- health HTTP exposure;
+- ~~health HTTP exposure~~ **closed 20 August 2026.** `GET /api/health` serves
+  `lateFreshnessTicks` alongside the per-adapter counters, and the sweep also emits a
+  `freshness.tick_late` structured warning — because a counter no route could read was
+  itself the silence ADR 3 § Implications names as the failure;
 - ~~WebSocket delivery of freshness-only deltas~~ **closed 20 August 2026.** A console
   connected to `/ws` receives a coalesced frame carrying the aged robot and nothing else;
   verified against a running server, not only in a unit test;
@@ -182,13 +212,25 @@ Resolve these through the token/MUI boundary; do not introduce another styling s
 
 ### F9. ADR 6 read transport and restart behavior remain unproved
 
-**Assessment: compliant primitives, incomplete transport proof; open.**
+**Assessment: half proved 20 August 2026; the history read and the restart story are still open.**
 
 The state and bounded-history structures comply: canonical envelopes enter the ring
 buffer, raw payload is held separately, capacity is bounded at 60, and no database or
-broker dependency exists. The future API must preserve those properties, return history
-without raw payload, and describe restart loss honestly. Integration tests must prove
-the transport does not leak diagnostic payloads into fleet, history, or deltas.
+broker dependency exists.
+
+**The no-leak property is now proved rather than owed.** The raw payload is served only by
+`GET /api/robots/:id`, the types carry the exclusion rather than a rule each response has
+to remember, and a running server was checked for `rawPayload` in the fleet response and in
+a delta frame — neither carries it. The composition reads it through `store.diagnostic()`
+rather than around it, which is what makes the outbound deep copy real (ADR 26).
+
+**Still open, and both are decisions rather than omissions.** The history read is not
+mounted, because ADR 6 ties the ring-buffer capacity to the sparkline's real decimated
+point count and the sparkline is not built — picking a round number now is what that ADR
+exists to prevent (server TODO **G4**, **M4**). Restart loss is still undescribed anywhere
+a reader would find it: a restarted server begins at flush sequence zero and a client
+holding a higher snapshot sequence discards everything until it catches up (ADR 18 § Open
+questions). That is a real client-visible behaviour with no test and no documentation.
 
 ### F10. ADR 4 and ADR 7 enforcement is web-specific by decision
 

@@ -148,32 +148,54 @@ not present.
 
 Detailed source: `packages/server/TODO.md`, after **P0.2** reconciles completed items.
 
-### P1.3 Replace web fixtures with a decoded live store
+### P1.3 Replace web fixtures with a decoded live store — **DONE 20 August 2026**
 
 Owners: web `shared/lib`, `entities/robot`, and composing features.
 
-- Add an HTTP snapshot client and WebSocket state machine with boundary validation via
-  `@fleet/contracts`.
-- Store robots by id, coalesce deltas on scheduled frames, and expose field-scoped
-  subscriptions with `useSyncExternalStore` or an equivalently bounded design.
-- Preserve observed data during reconnect; do not collapse observed, requested,
-  workflow, or connection state.
-- Expose all specified async states: initial load, background refresh, empty/not-found,
-  partial, offline, recoverable error, and terminal error.
-- Route connection state to the shell banner. While disconnected, suppress every
-  per-robot `FreshnessLabel`; the banner is the sole freshness-integrity signal (ADR 3).
-- Decode retained diagnostics at their boundary and keep technician-only data out of
-  operator surfaces.
+- [x] HTTP snapshot client and WebSocket state machine with boundary validation via
+      `@fleet/contracts` — `shared/lib/{transportDecoding,streamLifecycle,coldStart,fleetTransport}.ts`.
+- [x] Robots stored by id and read with `useSyncExternalStore`. Deltas are applied
+      synchronously and **notification** is what is scheduled: holding state the console
+      already received would be a second coalescing layer on top of the server's 10 Hz cap
+      and would make the store lie about what it knows.
+- [x] Observed data is preserved across a reconnect — the store is never cleared by a
+      connection event, only replaced by a newer snapshot — and connection state lives in
+      its own context rather than on the robot read model (Principle 11, ADR 23).
+- [x] Async states: `loading`, `not-found`, recoverable error with retry, and terminal
+      error carrying `ContractIssue[]`. A failed request is recoverable; a body the contract
+      refuses is terminal, because retrying returns the same bytes (**W-6**).
+- [x] Connection state reaches the shell banner from a real socket, and per-robot labels
+      are suppressed while the stream is not delivering (ADR 3).
+- [x] Retained diagnostics are decoded at the boundary and stay behind the technician
+      toggle; the raw payload is served by one route and no other (ADR 1).
+
+**Not done, and deliberately:** nothing reconnects automatically. `connect()` after a close
+is the caller's call, because an attempt limit, a backoff schedule and how a refused upgrade
+differs from a dropped connection are all unchosen (server TODO **H7**, fleet TODO **A3**).
+The banner ships a manual retry control, so the path exists and is honest; an automatic one
+that guessed a schedule would not be.
 
 Detailed sources: the two web feature TODOs after **P0.2** updates their references.
 
-### P1.4 Prove the integrated behavior in a running browser
+### P1.4 Prove the integrated behavior in a running browser — **the only thing between this repository and a finished claim**
 
-- Vendor payload → adapter → ingest/state → HTTP/WebSocket → web model and row.
-- A targeted drop moves only those robots LIVE → STALE → UNREACHABLE.
-- Stream loss shows the banner, retains rows, and suppresses per-robot freshness;
-  reconnect restores labels without reload.
-- Malformed payloads are rejected and counted without crashing stream or list.
+Every hop below is now built and each has been checked at the wire; none has been watched
+in a browser. That distinction is the whole of this item, and it is why the README still
+marks the demo script `[PARTIAL]`.
+
+- [x] _at the wire_ / [ ] _in a browser_ — Vendor payload → adapter → ingest/state →
+      HTTP/WebSocket → web model and row. One `pnpm dev` run: 1,993 readings sent, 1,993
+      accepted; a subscriber saw one robot as `live` then `stale`.
+- [ ] A targeted drop moves only those robots LIVE → STALE → UNREACHABLE. The simulator's
+      `--drop` flag and the sweep both exist; the two have not been run against each other
+      since the server landed.
+- [ ] Stream loss shows the banner, retains rows, and suppresses per-robot freshness;
+      **reconnect restores labels without reload** — which cannot pass until P1.3's
+      deferred automatic reconnection is decided.
+- [x] _at the wire_ / [ ] _in a browser_ — Malformed payloads are rejected and counted
+      without crashing stream or list. Verified against a running server: a non-JSON body
+      is a counted 400, a bad payload increments `malformedIngest`, and neither disturbs the
+      fleet response.
 - Recovery/shutdown leaves no timers, sockets, queues, or buffers unbounded.
 
 Unit tests alone do not close this item (Principle 10).
