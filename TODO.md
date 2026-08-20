@@ -186,9 +186,15 @@ marks the demo script `[PARTIAL]`.
 - [x] _at the wire_ / [ ] _in a browser_ — Vendor payload → adapter → ingest/state →
       HTTP/WebSocket → web model and row. One `pnpm dev` run: 1,993 readings sent, 1,993
       accepted; a subscriber saw one robot as `live` then `stale`.
-- [ ] A targeted drop moves only those robots LIVE → STALE → UNREACHABLE. The simulator's
-      `--drop` flag and the sweep both exist; the two have not been run against each other
-      since the server landed.
+- [x] _at the API_ / [ ] _in a browser_ — A targeted drop moves only those robots
+      LIVE → STALE → UNREACHABLE. Run on 20 August 2026: a normal simulator run, then a
+      `--drop R-007,R-023,R-041` run, produced `{live: 47, unreachable: 3}` with exactly
+      those three unreachable. Recovery came free with it — robots that had aged out while
+      the simulator was stopped returned to `LIVE` within seconds of it resuming.
+      One finding worth keeping: **a cold start with `--drop` shows `UNKNOWN`, not
+      `UNREACHABLE`**, because those robots never reported. Following the README's step 3
+      from a cold fleet is the one way to make this demo look broken while it is working,
+      and the step now says so.
 - [ ] Stream loss shows the banner, retains rows, and suppresses per-robot freshness;
       **reconnect restores labels without reload** — which cannot pass until P1.3's
       deferred automatic reconnection is decided.
