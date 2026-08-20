@@ -106,9 +106,24 @@ validation in the table; that would be a second decode authority (Principle 1).
       what it knows. `getRobots()` returns a cached array by reference, because
       `useSyncExternalStore` compares by identity and a fresh array per call is an infinite
       render loop rather than a performance note. Eight tests.
-      What is still missing is the transport that drives them: no socket, no snapshot
-      fetch, and nothing calls `useSyncExternalStore` against this store yet — `useFleetRobots`
-      is still fixture-backed. **Deferred, decision not made — the published vocabulary is narrower than the
+      `shared/lib/fleetTransport.ts` composes all four: open the socket, buffer, fetch the
+      snapshot, reconcile, replay. It adds only the sequencing, because that is the part
+      with no pure test — everything testable without a socket was tested before it was
+      written. Two orderings it gets right and nothing else would catch: a snapshot that
+      lands **after** its own socket closed is dropped by a generation counter, or a stale
+      fleet overwrites the one the new connection just fetched; and an `unreachable`
+      snapshot leaves the socket open and the state unchanged, because reporting a
+      connection failure for a failed HTTP read blames the wrong transport while the stream
+      may still be delivering. It emits decoded values and never touches a store —
+      `shared` may not import `entities` (ADR 4) — so the caller wires the callbacks to
+      `createFleetStore`. Nine tests.
+      What is still missing is the wiring: nothing constructs a transport, nothing calls
+      `useSyncExternalStore` against the store, and `useFleetRobots` is still fixture-backed.
+      **Deferred, decision not made — nothing reconnects.** `connect()` after a close is
+      the caller's call, because an attempt limit, a backoff schedule and how a refused
+      upgrade differs from a dropped connection are all unchosen (**H7**). The banner
+      already ships an `onRetry` control, so a manual path exists and is honest; an
+      automatic one that guessed a schedule would not be. **Deferred, decision not made — the published vocabulary is narrower than the
       transport's, and two distinctions are dropped at the projection.** `idle` and
       `failed` both publish as `disconnected`, and `connecting` and `reconnecting` both
       publish as `reconnecting`. So the banner cannot say "connecting for the first time"
