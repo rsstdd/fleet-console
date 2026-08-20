@@ -41,14 +41,17 @@ describe("ingestTelemetry", () => {
   }
 
   let dependencies: IngestDependencies;
+  /** The concrete set behind `dependencies.deltas`, which the interface deliberately hides. */
+  let deltas: PendingDeltaSet<CanonicalEnvelope>;
   let clock: ReturnType<typeof manualClock>;
 
   beforeEach(() => {
     clock = manualClock(RECEIVED_AT);
+    deltas = new PendingDeltaSet<CanonicalEnvelope>();
     dependencies = {
       registry: createAdapterRegistry(),
       store: new CurrentStateStore(manifestFromFixtures()),
-      deltas: new PendingDeltaSet<CanonicalEnvelope>(),
+      deltas,
       health: new HealthMetrics(),
       clock,
       policy: ADR3_BASELINE_FRESHNESS_POLICY,
@@ -77,15 +80,15 @@ describe("ingestTelemetry", () => {
 
   it("marks an accepted reading for fan-out and a duplicate not at all", () => {
     ingest("A");
-    expect(dependencies.deltas.size).toBe(1);
-    dependencies.deltas.drain();
+    expect(deltas.size).toBe(1);
+    deltas.drain();
 
     // The same payload again: the sequence has not advanced, so stored state is unchanged
     // and a delta would flush a frame that says nothing.
     const repeat = ingest("A");
 
     expect(repeat).toMatchObject({ ok: true, disposition: "duplicate" });
-    expect(dependencies.deltas.isEmpty).toBe(true);
+    expect(deltas.isEmpty).toBe(true);
   });
 
   it("records vendor B as sequence-not-evaluated rather than as zero gaps", () => {

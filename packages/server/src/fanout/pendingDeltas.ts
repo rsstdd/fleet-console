@@ -12,7 +12,18 @@
  * If this class ever starts comparing states to decide whether a change is real, the
  * freshness-only case is the one it will get wrong.
  */
-export class PendingDeltaSet<TState> {
+/**
+ * The write half of a coalescing set: what a producer of changes needs and no more.
+ *
+ * Ingest and the freshness sweep take this rather than the class, so neither can drain a
+ * set it does not own — and so fan-out can substitute its per-console broadcaster, which
+ * marks many sets at once and is not a set itself (ADR 2 § Decision, amended).
+ */
+export interface DeltaSink<TState> {
+  mark(robotId: string, state: TState): void;
+}
+
+export class PendingDeltaSet<TState> implements DeltaSink<TState> {
   readonly #pending = new Map<string, TState>();
 
   /** Records a robot's latest state for the next flush, replacing any earlier entry. */

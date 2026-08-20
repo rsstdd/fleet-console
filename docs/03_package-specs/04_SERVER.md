@@ -259,9 +259,9 @@ configuration loaders are covered.
 validation, the current-state store with manifest seeding, the bounded ring buffer, the
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
-**Not built:** the single-robot and health reads, per-robot sequence continuity, and delta
-fan-out onto a connected stream. The server **runs, sweeps, ingests and serves the fleet
-read**:
+**Not built:** the single-robot and health reads, per-robot sequence continuity, and
+backpressure on a console that stops reading. The server **runs, sweeps, ingests, serves
+the fleet read and fans deltas out over `/ws`**:
 `http/createApp` routes with the cross-origin policy mounted, `http/listener` binds it and
 `/ws` to one port with an ordered shutdown, `main.ts` composes them from repository-root
 configuration under `pnpm dev`/`pnpm start`, `POST /api/telemetry/:vendor` decodes one
@@ -271,9 +271,10 @@ record's `routes` count says how many are mounted so a deliberate 404 is disting
 from a broken one.
 
 The ADR 3 sweep runs from the composition root, feeding `HealthMetrics.lateFreshnessTicks`
-and a `freshness.tick_late` structured warning; freshness-only transitions enter the
-pending delta set. Nothing drains that set and no route reads the counters, so both are
-observable today only through the log and a test.
+and a `freshness.tick_late` structured warning; freshness-only transitions reach a
+connected console as a coalesced frame, verified against a running server. One flush
+counter serves both the snapshot and every frame (ADR 18). The health counters still reach
+no route, so they are observable only through the log and a test.
 
 Server state is a superset of the wire contract, so responses are **translated** rather
 than serialized: `http/fleetResponse` drops the manifest-only `model` and encodes

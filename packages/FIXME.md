@@ -145,7 +145,9 @@ Contracts and server primitives agree with the ADR: derivation is pure, uses
   and ADR 3's stated failure is that a sweep which silently stops looks identical to a
   healthy fleet. The sweep starts after the listener binds and stops before it closes;
 - health HTTP exposure;
-- WebSocket delivery of freshness-only deltas;
+- ~~WebSocket delivery of freshness-only deltas~~ **closed 20 August 2026.** A console
+  connected to `/ws` receives a coalesced frame carrying the aged robot and nothing else;
+  verified against a running server, not only in a unit test;
 - a real console connection state. The console side is **now complete** (ADR 23):
   `ConnectionContext` in `shared/lib` carries the state from `app` to both features,
   and the default on both the context and `AppShell`'s prop is `disconnected` rather

@@ -1,7 +1,7 @@
 import { deriveFreshness, type CanonicalEnvelope } from "@fleet/contracts";
 
 import type { FreshnessPolicy } from "../config/freshnessPolicy.ts";
-import type { PendingDeltaSet } from "../fanout/pendingDeltas.ts";
+import type { DeltaSink } from "../fanout/pendingDeltas.ts";
 import type { Clock } from "../runtime/clock.ts";
 import type { CurrentStateStore } from "../state/currentStateStore.ts";
 
@@ -9,7 +9,7 @@ import type { CurrentStateStore } from "../state/currentStateStore.ts";
 export interface FreshnessSweepOptions {
   readonly clock: Clock;
   readonly store: CurrentStateStore;
-  readonly deltas: PendingDeltaSet<CanonicalEnvelope>;
+  readonly deltas: DeltaSink<CanonicalEnvelope>;
   readonly policy: FreshnessPolicy;
   readonly onLateTick?: (latenessMs: number) => void;
 }

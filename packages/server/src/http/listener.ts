@@ -5,6 +5,8 @@ import { serve } from "@hono/node-server";
 import type { Hono } from "hono";
 import { WebSocketServer } from "ws";
 
+import type { FanOutClient } from "../fanout/deltaFanOut.ts";
+
 /**
  * The process's one listener: HTTP and WebSocket on a single port, with a shutdown
  * that closes them in the order that does not drop frames.
@@ -41,6 +43,17 @@ export interface ListenerOptions {
    * such problem.
    */
   readonly port: number;
+  /**
+   * Registers and forgets a console as its stream opens and closes.
+   *
+   * A pair of callbacks rather than the fan-out itself, so this module keeps knowing
+   * nothing about deltas: it turns an upgrade into a `send`/`close` pair and hands it
+   * over. Absent in tests that only exercise HTTP.
+   */
+  readonly streams?: {
+    readonly open: (client: FanOutClient) => void;
+    readonly close: (client: FanOutClient) => void;
+  };
 }
 
 /** A bound listener, and the only supported way to unbind it. */
@@ -88,8 +101,21 @@ export async function startListener(options: ListenerOptions): Promise<RunningLi
       socket.destroy();
       return;
     }
-    streams.handleUpgrade(request, socket, head, (client) => {
-      streams.emit("connection", client, request);
+    streams.handleUpgrade(request, socket, head, (socketClient) => {
+      streams.emit("connection", socketClient, request);
+
+      const client: FanOutClient = {
+        send: (frame) => {
+          socketClient.send(frame);
+        },
+        close: () => {
+          socketClient.close();
+        },
+      };
+      options.streams?.open(client);
+      socketClient.on("close", () => {
+        options.streams?.close(client);
+      });
     });
   });
 

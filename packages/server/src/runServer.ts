@@ -1,8 +1,6 @@
-import type { CanonicalEnvelope } from "@fleet/contracts";
-
 import type { ServerConfiguration } from "./config/serverConfiguration.ts";
 import type { RuntimeEndpoints } from "./config/runtimeEndpoints.ts";
-import { PendingDeltaSet } from "./fanout/pendingDeltas.ts";
+import { createFlushSequence, DeltaFanOut } from "./fanout/deltaFanOut.ts";
 import { FreshnessSweep } from "./freshness/freshnessSweep.ts";
 import { HealthMetrics } from "./health/healthMetrics.ts";
 import { ingestTelemetry } from "./ingest/ingestTelemetry.ts";
@@ -42,8 +40,8 @@ export interface RunningServer {
   readonly store: CurrentStateStore;
   /** The running sweep, exposed so a test can drive a tick without waiting on an interval. */
   readonly sweep: FreshnessSweep;
-  /** Robots whose state changed since the last flush; nothing drains this yet (**H2**). */
-  readonly deltas: PendingDeltaSet<CanonicalEnvelope>;
+  /** Delta fan-out: one coalescing set per connected console. */
+  readonly deltas: DeltaFanOut;
   /** Process-wide counters, including the late-tick count the sweep feeds. */
   readonly health: HealthMetrics;
   /** The dispatch registry, exposed for its unknown-field tally until **G3** serves it. */
@@ -74,7 +72,10 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
   // Seeded from the manifest, so a robot that has never reported reads UNKNOWN in the
   // fleet snapshot rather than being absent from it (ADR 3, ADR 14).
   const store = new CurrentStateStore(configuration.manifest.robots);
-  const deltas = new PendingDeltaSet<CanonicalEnvelope>();
+  // One counter, read by both the snapshot and every frame (**H3a**, ADR 18). A second
+  // source makes the client's reconciliation meaningless while both still look plausible.
+  const sequence = createFlushSequence();
+  const deltas = new DeltaFanOut({ clock, sequence });
   const health = new HealthMetrics();
 
   // One registry, built once. It owns the process-wide unknown-field ledger, so a second
@@ -109,6 +110,14 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
   });
 
   const listener = await startListener({
+    streams: {
+      open: (client) => {
+        deltas.add(client);
+      },
+      close: (client) => {
+        deltas.remove(client);
+      },
+    },
     app: createHttpApp({
       allowedOrigins: endpoints.allowedOrigins,
       readFleet: () =>
@@ -116,7 +125,9 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
           robots: store.list(),
           capturedAt: clock.now(),
           // Zero until fan-out owns the counter (**H3a**); a cold snapshot discards nothing.
-          flushSequence: 0,
+          // The flush this snapshot reflects. A client discards buffered deltas at or
+          // below it, so reading the live counter is what makes that comparison true.
+          flushSequence: sequence.current(),
         }),
       ingest: {
         apply: (vendor, raw) => ingestTelemetry(ingestDependencies, vendor, raw),
@@ -146,6 +157,7 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
   // Started after the listener, so a sweep never runs against a server that failed to
   // bind and left nothing to stop it.
   sweep.start();
+  deltas.start();
 
   return {
     port: listener.port,
@@ -158,6 +170,9 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
       // The interval first: a leaked one outlives the process's usefulness and makes a
       // test suite green while the process stays unkillable (**F6**).
       sweep.stop();
+      // Fan-out before the listener: `stop()` closes every console, which ADR 8 §
+      // Implications requires to happen before the HTTP server goes away.
+      deltas.stop();
       await listener.close();
       logger.log("info", "server.stopped", { port: listener.port });
     },

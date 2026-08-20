@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 22 files, 144 tests     |
+| `pnpm test`      | passes — 22 files, 145 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -64,9 +64,10 @@ packages/server/
 repository-root configuration, binds loopback, announces the policy and roster it is
 actually running, serves `GET /api/fleet` with all fifty manifest robots as UNKNOWN, and
 shuts down on a signal, runs the ADR 3 freshness sweep on its own interval, and **accepts
-telemetry** at `POST /api/telemetry/:vendor` — verified by running it, including watching
-an ingested robot go live to stale on the sweep. The single-robot read, health and the
-socket are still 404 or absent. Sections 7 and 8 are that work.
+telemetry** at `POST /api/telemetry/:vendor`, and **fans coalesced deltas out over `/ws`**
+— verified by running it: a live console received `R-001:live` then `R-001:stale`, the
+second from the sweep alone. The single-robot and health reads are still 404. Sections 7
+and 8 are what remains.
 
 On the four earliest pieces, whose reasoning is worth keeping:
 
@@ -454,23 +455,26 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       change gets nothing: its picture is the `GET /api/fleet` snapshot, so the socket
       carries one message shape for its whole lifetime (**H3**). It owns no socket —
       clients arrive as a `send`/`close` pair — so the whole of fan-out is testable without
-      a port, as every other unit in this package is. **Composition into the listener is
-      the next step and is not done**: nothing calls `add()` on a real connection, and the
-      sweep and ingest still mark a standalone set rather than this one.
+      a port, as every other unit in this package is. **Composed 20 August 2026.** The
+      listener turns a `/ws` upgrade into a `send`/`close` pair and hands it to
+      `streams.open`, the composition root registers it with the fan-out, and the sweep and
+      ingest now take a `DeltaSink` — the write half of a coalescing set — so neither can
+      drain a set it does not own and fan-out can substitute a broadcaster that is not a
+      set at all. Fan-out stops before the listener closes, because ADR 8 § Implications
+      requires consoles to close before the HTTP server goes away.
 - [x] **H3 — Decided 19 August 2026: `GET /api/fleet` first, socket for deltas only.**
       Recorded by amending [ADR 2 § Decision](../../docs/00_adr/02_TRANSPORT_HTTP_INGEST_WS_FANOUT.md),
       which had been silent on it. The socket carries one message shape for its whole
       lifetime, and cold start and reconnect are the same code path.
-- [ ] **H3a — Produce the server-wide flush sequence. Counter built 20 August 2026; not yet
-      shared with the snapshot handler.** `createFlushSequence()` is the one monotonic
+- [x] **H3a — Produce the server-wide flush sequence. Done 20 August 2026.** `createFlushSequence()` is the one monotonic
       source, and `DeltaFanOut` advances it **only on a flush that sends something** — a
       counter climbing on empty ticks would describe no state, and a client reconciling a
       delta against its snapshot would discard readings it needed. Every frame in one flush
       carries that number, which is also the maximum any of them contains, satisfying
-      **H6a** by construction rather than by a separate step. What remains: `GET /api/fleet`
-      still hardcodes `flushSequence: 0` instead of reading this counter, which is exactly
-      the two-sources defect ADR 18 exists to prevent — it lands with the composition.
-      Original item follows. ([ADR 18](../../docs/00_adr/18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md), register D10.)
+      **H6a** by construction rather than by a separate step. `GET /api/fleet` now reads
+      the same counter rather than a hardcoded zero, so there is one source and the
+      client's comparison is meaningful — the two-sources defect ADR 18 exists to prevent
+      would have left both halves looking plausible. Original item follows. ([ADR 18](../../docs/00_adr/18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md), register D10.)
       `packages/contracts` now carries `flushSequenceSchema`, a required `flushSequence`
       on `telemetryBatchSchema`, the `fleetSnapshotSchema` that did not previously exist,
       and `isDeltaCoveredBySnapshot` — the reconciliation rule itself, so the client and
@@ -747,7 +751,7 @@ is missing is everything that needs a socket.
 2. `config/freshness.json` and `config/fleet-manifest.json` exist, are strictly validated at startup, and an invalid file stops the process with a message naming the field. The same holds for the environment: `FLEET_SERVER_HOST`, `FLEET_SERVER_PORT` and `FLEET_ALLOWED_ORIGINS` are decoded once by `loadRuntimeEndpoints()`, an invalid value stops the process naming the key (done, ADR 21), and the listener binds what it returns rather than a literal (**B1a**).
 3. Ingest stamps `receivedAt` from the injected clock, dispatches through the adapter registry, and rejects malformed input with a counted, defined error. **Done 20 August 2026** (**D0**-**D5**, **D8**, **D9**), verified against a running process for the valid, unsupported-vendor, non-JSON and oversized cases.
 4. Current state is seeded from the manifest, so a robot that has never reported reads UNKNOWN rather than being absent. **Done 20 August 2026** — `startServer` builds the store from `configuration.manifest.robots`, and `GET /api/fleet` serves all fifty committed robots as UNKNOWN.
-5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta. **Two of three done 20 August 2026** — the sweep runs from `startServer` and a freshness-only transition enters the pending delta set with `reportedAt` untouched. Nothing drains that set onto a socket yet (**H2**).
+5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta. **Done 20 August 2026, verified against a live socket:** a console connected to `/ws` received frame 1 with `R-001:live` after ingest and frame 2 with `R-001:stale` from the sweep alone, and `GET /api/fleet` then reported flush sequence 2 from the same counter.
 6. Late ticks, malformed ingest, unsupported vendors and per-adapter unknown fields are all visible on `GET /api/health`, each at its true scope.
 7. No raw vendor payload appears in a fleet response, a delta, or history — asserted by a test, not by inspection.
 8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps. **Partly done** — the store refuses both and vendor B records not-evaluated; the _reporting_ of gaps and out-of-order arrivals is **D6a**, whose vocabulary gap is now stated there.

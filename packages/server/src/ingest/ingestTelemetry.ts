@@ -3,7 +3,7 @@ import { isOk } from "@fleet/adapters";
 import { type CanonicalEnvelope, deriveFreshness, withFreshness } from "@fleet/contracts";
 
 import type { FreshnessPolicy } from "../config/freshnessPolicy.ts";
-import type { PendingDeltaSet } from "../fanout/pendingDeltas.ts";
+import type { DeltaSink } from "../fanout/pendingDeltas.ts";
 import type { HealthMetrics } from "../health/healthMetrics.ts";
 import type { Clock } from "../runtime/clock.ts";
 import type { CurrentStateStore, UpsertResult } from "../state/currentStateStore.ts";
@@ -26,7 +26,7 @@ import {
 export interface IngestDependencies {
   readonly registry: AdapterRegistry;
   readonly store: CurrentStateStore;
-  readonly deltas: PendingDeltaSet<CanonicalEnvelope>;
+  readonly deltas: DeltaSink<CanonicalEnvelope>;
   readonly health: HealthMetrics;
   readonly clock: Clock;
   readonly policy: FreshnessPolicy;

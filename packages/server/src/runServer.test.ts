@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { type CanonicalEnvelope, SCHEMA_VERSION } from "@fleet/contracts";
+import {
+  type CanonicalEnvelope,
+  SCHEMA_VERSION,
+  parseFleetSnapshot,
+  parseTelemetryBatch,
+} from "@fleet/contracts";
 
 import { ADR3_BASELINE_FRESHNESS_POLICY } from "./config/freshnessPolicy.ts";
 import type { RuntimeEndpoints } from "./config/runtimeEndpoints.ts";
@@ -169,18 +174,50 @@ describe("startServer", () => {
     });
   });
 
-  it("marks a freshness-only transition for fan-out without touching telemetry", async () => {
-    // F4: the delta set exists so a robot that only aged is still a change worth sending.
+  it("sends a freshness-only transition to a connected console, telemetry untouched", async () => {
+    // F4 through the whole chain: a robot that only aged is still a change worth sending,
+    // and this is the hop that makes the ADR 3 guarantee observable by a client at all.
     const running = await start();
+    const frames: string[] = [];
+    running.deltas.add({
+      send: (frame) => frames.push(frame),
+      close: () => undefined,
+    });
     running.store.upsert(OBSERVED, null, null);
 
     CLOCK.advance(ADR3_BASELINE_FRESHNESS_POLICY.staleThresholdMs + 1);
     running.sweep.tick();
+    running.deltas.flush();
 
-    const marked = [...running.deltas.drain().values()];
-    expect(marked.map((robot) => robot.robotId)).toStrictEqual([OBSERVED.robotId]);
-    expect(marked[0]?.freshness).toBe("unreachable");
-    expect(marked[0]?.reportedAt).toBe(OBSERVED.reportedAt);
+    const batch = parseTelemetryBatch(JSON.parse(frames[0] ?? "null"));
+    expect(batch.ok).toBe(true);
+    if (!batch.ok) return;
+    expect(batch.value.robots).toHaveLength(1);
+    expect(batch.value.robots[0]).toMatchObject({
+      robotId: OBSERVED.robotId,
+      freshness: "unreachable",
+      reportedAt: OBSERVED.reportedAt,
+    });
+  });
+
+  it("serves the same flush sequence on the snapshot that the frames carry", async () => {
+    // ADR 18's whole point: two sources make the client's reconciliation meaningless
+    // while both still look plausible.
+    const running = await start();
+    running.deltas.add({ send: () => undefined, close: () => undefined });
+    running.store.upsert(OBSERVED, null, null);
+    running.sweep.tick();
+    CLOCK.advance(ADR3_BASELINE_FRESHNESS_POLICY.staleThresholdMs + 1);
+    running.sweep.tick();
+    running.deltas.flush();
+
+    const snapshot: unknown = await (
+      await fetch(`http://127.0.0.1:${String(running.port)}/api/fleet`)
+    ).json();
+    const parsed = parseFleetSnapshot(snapshot);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.flushSequence).toBe(1);
   });
 
   it("reports the stop and frees the port", async () => {
