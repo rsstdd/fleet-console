@@ -1,6 +1,8 @@
 # TODO and open-decision audit — 20 August 2026
 
 **Authority:** Historical. This point-in-time report evaluates planning documents; numbered ADRs and current package specifications remain normative.
+**Archived:** 2026-08-20
+**Superseded by:** Current TODOs, the completed roadmap handoff, and ADRs 31–33.
 
 ## Executive summary
 

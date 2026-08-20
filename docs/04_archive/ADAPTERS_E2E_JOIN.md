@@ -1,10 +1,14 @@
 # TODO — decisions this package must absorb before the end-to-end path can close
 
-**Authority:** Planning only. This joining checklist is non-normative; accepted ADRs and current package specifications govern conflicts.
+**Authority:** Historical only. This completed joining checklist is retained for provenance;
+current ADRs and package specifications govern behavior.
+**Archived:** 2026-08-20
+**Superseded by:** ADRs 10, 11, 13, and 25; the adapters package specification; and the
+raw-fixture-to-browser joining test.
 
 **Created:** 19 August 2026 · **Audited:** 20 August 2026
 **Owner:** the session implementing the end-to-end contract path (`packages/contracts/TODO.md` § 10, last item).
-**Status:** Complete 20 August 2026. A-1 settled (ADR 10, and the signature is now stated in
+**Completion:** 20 August 2026. A-1 settled (ADR 10, and the signature is now stated in
 `docs/03_package-specs/02_ADAPTERS.md` § 1), A-2 done (ADR 11), A-3 done and enforced
 (ADR 13), A-4 verified, A-5 settled (ADR 25), and A-6 satisfied by the browser joining
 test. `TODO.md` here plans the vendor work
@@ -12,7 +16,7 @@ as **B1–B4**, **C1–C9**, **D1–D8**; nothing below replaces those items —
 additional constraints the _joining test_ puts on them, which that checklist does not
 cover because it was written before the client half existed.
 
-Separate from [`TODO.md`](./TODO.md) to avoid two writers on one file. Fold these in
+Separate from the package [`TODO.md`](../../packages/adapters/TODO.md) to avoid two writers on one file. Fold these in
 when the bootstrap settles.
 
 ---
@@ -22,7 +26,7 @@ when the bootstrap settles.
 Receipt time is injected by the caller and never read from a clock here, per
 `AGENTS.md` § Adapter contract. `AdapterEnvelope` is the pre-freshness type
 `packages/contracts` **now exports** (ratified as
-[ADR 10](../../docs/00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md), 19 August
+[ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md), 19 August
 2026): the canonical envelope minus `freshness`, which the server completes
 through `withFreshness`. Adapters take their `@fleet/contracts` dependency
 (**A7**) and write `B1`–`B3` / `C2`–`C4` against it. An adapter that supplies
@@ -41,7 +45,7 @@ decision to reverse rather than a discovery to make.
 arguments. Harmless, but the joining test's call site changes with it, and the package
 spec changes first.
 
-## A-2 — DONE 19 August 2026 · ratified as [ADR 11](../../docs/00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md) — fixtures reach other packages through a `./testing` export, not a deep import and not a copy
+## A-2 — DONE 19 August 2026 · ratified as [ADR 11](../00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md) — fixtures reach other packages through a `./testing` export, not a deep import and not a copy
 
 The joining test in `packages/web` needs the _same bytes_ the adapter contract test
 uses. Three ways to get them, one acceptable:
@@ -67,7 +71,7 @@ subpath resolves. One consequence worth carrying forward: the exact-name
 so a `patterns` entry was added and asserted by a boundary fixture. Any future
 subpath on any workspace package inherits that gap.
 
-## A-3 — DONE 19 August 2026 · ratified and enforced by [ADR 13](../../docs/00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md) — fixtures are recorded simulator output, and this package still does not depend on the simulator
+## A-3 — DONE 19 August 2026 · ratified and enforced by [ADR 13](../00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md) — fixtures are recorded simulator output, and this package still does not depend on the simulator
 
 `packages/simulator/src/vendors/{vendorA,vendorB,vendorC}.ts` are the authoritative
 wire dialects and already name their adapter counterparts in `Coupling:` comments.

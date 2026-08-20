@@ -203,7 +203,6 @@ packages/adapters/
 ├── eslint.config.js      the package's rules, enforced and tested (§ 4)
 ├── README.md             the package's public face: dialects, dispatch, adding a vendor
 ├── TODO.md               this file
-├── TODO_E2E_JOIN.md      the joining test's extra constraints on the same items
 └── src/
     ├── index.ts          public entry point; deep imports are not the contract
     ├── core/

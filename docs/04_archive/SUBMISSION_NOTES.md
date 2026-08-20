@@ -1,11 +1,14 @@
 # Submission notes
 
-**Authority:** None. Nothing here decides anything; the ADRs do.
+**Authority:** Historical only. Nothing here decides anything; the ADRs do.
+**Archived:** 2026-08-20
+**Superseded by:** Current ADRs, `README.md`, `TODO.md`, and the author's external
+AI-authorship and review record.
 
-**Coverage: ADRs 1–6 only, of thirty.** ADRs 7 and 9 are toolchain mechanics and carry
+**Coverage: ADRs 1–6 only, of thirty-three.** ADRs 7 and 9 are toolchain mechanics and carry
 no evaluation angle. ADR 8 now has a running listener, ingest/read routes, and WebSocket
 fan-out; its remaining partial status is about deferred transport policy and measurement,
-not a missing process. ADRs 10–30 were written after this file and have not been given
+not a missing process. ADRs 10–33 were written after this file and have not been given
 entries; each already states its own falsifier and observed consequences, which is most of
 what these notes were doing by hand. Read the absence of a section here as "not yet written",
 never as "nothing to say about that decision". The current project status belongs in the

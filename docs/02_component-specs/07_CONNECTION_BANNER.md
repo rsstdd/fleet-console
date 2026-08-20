@@ -139,6 +139,7 @@ Retry button: secondary or danger outline per the design system. Focus visible u
 | Hidden when connected | No visible content and no reserved layout space                                                                      |
 | Attempt surfaced      | `onRetry` increments the visible attempt count                                                                       |
 | Stale honesty         | Disconnected copy states that shown data is last known                                                               |
+| Terminal causes       | Each `terminalCause` renders its own fixed sentence; retry control present in all of them (ADR 31)                   |
 | No focus theft        | Focus position unchanged across a connected → disconnected transition                                                |
 | Tokens                | No raw hex; `--warning` / `--error` only (Principle 8)                                                               |
 
