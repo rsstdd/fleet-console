@@ -28,12 +28,20 @@ import type { Robot } from "./model";
 /** Schedules one notification; the caller supplies the frame, so tests supply none. */
 export type NotifyScheduler = (notify: () => void) => void;
 
-/** Fleet state a component subscribes to. */
+/**
+ * Fleet state a component subscribes to.
+ *
+ * Declared as function-valued properties rather than methods, because
+ * `useSyncExternalStore` takes `subscribe` and `getRobots` **detached**. A method would be
+ * a receiver-bound signature that breaks the moment it is passed rather than called, which
+ * is exactly what `@typescript-eslint/unbound-method` refuses — and it is right to. These
+ * are closures over the store's state and read no `this`, and the property form says so.
+ */
 export interface FleetStore {
   /** Seeds from a decoded snapshot, replacing everything the store held. */
-  applySnapshot(snapshot: FleetSnapshot): void;
+  readonly applySnapshot: (snapshot: FleetSnapshot) => void;
   /** Applies one decoded frame, replacing each robot it names. */
-  applyBatch(batch: TelemetryBatch): void;
+  readonly applyBatch: (batch: TelemetryBatch) => void;
   /**
    * The current fleet, in stable id order.
    *
@@ -41,10 +49,10 @@ export interface FleetStore {
    * `useSyncExternalStore` compares snapshots by identity and a fresh array every call is
    * an infinite render loop rather than a performance note.
    */
-  getRobots(): readonly Robot[];
+  readonly getRobots: () => readonly Robot[];
   /** Returns one robot, or undefined when the fleet has never carried that id. */
-  getRobot(robotId: string): Robot | undefined;
-  subscribe(listener: () => void): () => void;
+  readonly getRobot: (robotId: string) => Robot | undefined;
+  readonly subscribe: (listener: () => void) => () => void;
 }
 
 /** Creates an empty store; nothing is known until a snapshot is applied. */
@@ -65,7 +73,7 @@ export function createFleetStore(schedule: NotifyScheduler = queueMicrotask): Fl
   }
 
   return {
-    applySnapshot(snapshot): void {
+    applySnapshot: (snapshot): void => {
       // Replace rather than merge: the snapshot is the whole fleet, so a robot missing
       // from it has left the manifest and must not survive as a stale row.
       robots.clear();
@@ -76,7 +84,7 @@ export function createFleetStore(schedule: NotifyScheduler = queueMicrotask): Fl
       changed();
     },
 
-    applyBatch(batch): void {
+    applyBatch: (batch): void => {
       if (batch.robots.length === 0) return;
       for (const envelope of batch.robots) {
         robots.set(envelope.robotId, toRobot(envelope));
@@ -84,16 +92,16 @@ export function createFleetStore(schedule: NotifyScheduler = queueMicrotask): Fl
       changed();
     },
 
-    getRobots(): readonly Robot[] {
+    getRobots: (): readonly Robot[] => {
       cached ??= [...robots.values()];
       return cached;
     },
 
-    getRobot(robotId): Robot | undefined {
+    getRobot: (robotId): Robot | undefined => {
       return robots.get(robotId);
     },
 
-    subscribe(listener): () => void {
+    subscribe: (listener): (() => void) => {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);

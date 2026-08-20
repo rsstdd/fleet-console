@@ -7,6 +7,7 @@ import { FleetPage } from "@/features/fleet/fleetPage";
 import { RobotDetailPage } from "@/features/robot/robotDetailPage";
 import { EmptyState } from "@/shared/ui/emptyState";
 import { useFleetTransport } from "@/app/useFleetTransport";
+import { FleetStoreContext } from "@/entities/robot/fleetStoreContext";
 
 /**
  * Route table for the console. Every route renders inside `AppShell`, so the
@@ -23,31 +24,33 @@ export function AppRouter(): ReactNode {
   const transport = useFleetTransport();
 
   return (
-    <Routes>
-      <Route
-        element={
-          <AppShell
-            connectionState={transport.connectionState}
-            lastEventAt={transport.lastEventAt ?? undefined}
-            attempt={transport.attempt}
-            onRetry={transport.retry}
-          />
-        }
-      >
-        <Route path="/" element={<FleetPage />} />
-        <Route path="/robots/:id" element={<RobotDetailPage />} />
-        {import.meta.env.DEV ? <Route path="/dev/ui" element={<ComponentGallery />} /> : null}
+    <FleetStoreContext.Provider value={transport.store}>
+      <Routes>
         <Route
-          path="*"
           element={
-            <EmptyState
-              title="Page not found"
-              description="That address does not match a fleet or robot view."
-              action={<Link to="/">Return to Fleet</Link>}
+            <AppShell
+              connectionState={transport.connectionState}
+              lastEventAt={transport.lastEventAt ?? undefined}
+              attempt={transport.attempt}
+              onRetry={transport.retry}
             />
           }
-        />
-      </Route>
-    </Routes>
+        >
+          <Route path="/" element={<FleetPage />} />
+          <Route path="/robots/:id" element={<RobotDetailPage />} />
+          {import.meta.env.DEV ? <Route path="/dev/ui" element={<ComponentGallery />} /> : null}
+          <Route
+            path="*"
+            element={
+              <EmptyState
+                title="Page not found"
+                description="That address does not match a fleet or robot view."
+                action={<Link to="/">Return to Fleet</Link>}
+              />
+            }
+          />
+        </Route>
+      </Routes>
+    </FleetStoreContext.Provider>
   );
 }

@@ -12,6 +12,25 @@ agent working in this directory finds it without reading 400 lines first.
 
 ---
 
+## Still fixture-backed after the fleet's store swap — 20 August 2026
+
+`useRobotDetail` is now the **last** hook in the console reading invented data.
+`useFleetRobots` moved to the live store on 20 August 2026, and `buildFixtureRobots` stayed
+in `useFleetRobots.ts` only because this hook still imports it; the two should move
+together with the fetch that replaces them.
+
+What that fetch is, is already built and unread: `GET /api/robots/:id` serves the canonical
+robot plus `sequenceHealth` and the retained raw payload, and `toRobotDetail` /
+`toRegisteredRobotDetail` in `entities/robot/fromEnvelope.ts` already map both populations.
+What is missing is only the request and its async states (Principle 5), and the response's
+two-population union has no single parser — flagged in `packages/server/TODO.md` **G2** as
+a `@fleet/contracts` change, so a client must try both parsers until then.
+
+**Do not resolve this by pointing the detail view at the fleet store.** The store carries
+`Robot`, not `RobotDetail`; the diagnostics and the raw payload exist only on the
+single-robot response, and synthesising them from a fleet row would invent the technician
+data this endpoint exists to serve.
+
 ## R1. Per-robot freshness is not suppressed while the stream is down — **CLOSED 19 August 2026**
 
 **Closed by [ADR 23](../../../../../docs/00_adr/23_CONNECTION_STATE_TRAVELS_THROUGH_SHARED_LIB.md)** (register stub **D15**, option 1).

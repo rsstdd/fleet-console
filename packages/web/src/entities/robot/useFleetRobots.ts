@@ -1,28 +1,29 @@
-import { useMemo } from "react";
+import { useSyncExternalStore } from "react";
+
+import { useFleetStore } from "./fleetStoreContext";
 import type { Robot } from "./model";
 
 /**
- * TEMPORARY. packages/contracts, packages/adapters, and packages/server are
- * all decided (ADR 1, ADR 2) but not yet implemented — there is no real
- * WebSocket store to subscribe to. This hook returns a fixed fixture set so
- * features/fleet can be built and reviewed against the real component
- * contract now, rather than blocking on the server.
+ * The fleet, read from the store the transport fills.
  *
- * When the server exists, replace this function's body with a subscription
- * to the normalized client-side store (useSyncExternalStore against the
- * store keyed by robot id, per the data-flow design already agreed) —
- * the exported signature, `readonly Robot[]`, should not need to change.
+ * The exported signature is unchanged from the fixture version this replaced, which was
+ * the point of writing it that way: `features/fleet` was built and reviewed against the
+ * real component contract while the server did not exist, and the swap touched no
+ * component.
  *
- * Note what that replacement does NOT add: a freshness timer. The `freshness`
- * field on each fixture below stands in for a value the server sweep computes
- * and sends (ADR 3). The store applies whatever the delta says. Do not add an
- * interval here that ages robots locally.
+ * **No freshness timer, here or anywhere.** `freshness` is whatever the server's sweep
+ * computed and sent (ADR 3). A client that aged robots locally would be a second authority
+ * that can disagree with the first, and the disagreement would be invisible.
  */
+
 /**
- * Exported for `useRobotDetail`, which layers detail-only fields on top of
- * these rows rather than keeping a second fixture set. One authority for the
- * core fields means the detail header cannot disagree with the row that was
- * clicked to reach it (Principle 1).
+ * Fixture rows, still used by `useRobotDetail`.
+ *
+ * It stays here rather than moving because `useRobotDetail` is the last fixture-backed
+ * hook and both should move together, with the single-robot fetch that replaces them
+ * (`GET /api/robots/:id` exists and is unread). Exported so the detail view layers its
+ * extra fields on one set of core values rather than keeping a second: the detail header
+ * cannot then disagree with the row that was clicked to reach it (Principle 1).
  */
 export function buildFixtureRobots(): Robot[] {
   const now = Date.now();
@@ -135,7 +136,14 @@ export function buildFixtureRobots(): Robot[] {
   ];
 }
 
-/** Returns the current fleet snapshot. Fixture-backed — see file comment. */
+/**
+ * Subscribes to the fleet and re-renders when a frame changes it.
+ *
+ * `getRobots` returns a cached array by identity, which is what makes this safe:
+ * `useSyncExternalStore` compares snapshots by reference, and a store that built a new
+ * array per call would loop forever rather than merely re-render often.
+ */
 export function useFleetRobots(): readonly Robot[] {
-  return useMemo(() => buildFixtureRobots(), []);
+  const store = useFleetStore();
+  return useSyncExternalStore(store.subscribe, store.getRobots);
 }

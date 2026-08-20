@@ -128,10 +128,14 @@ validation in the table; that would be a second decode authority (Principle 1).
       `packages/FIXME.md` **F13**. The hook holds one `StreamState` rather than separate
       published/attempt values, because two views of one fact held separately is how they
       come to disagree.
-      What is still missing is the last hop: `useFleetRobots` does not yet read the store
-      the transport is filling, so the fleet table still renders fixtures while the banner
-      beside it reports a real socket. **That inconsistency is deliberate and short-lived**,
-      not a shipped state — the store swap is the next change.
+      `useFleetRobots` now reads that store through `entities/robot/fleetStoreContext.ts`,
+      which `AppRouter` provides — the same shape ADR 23 used for connection state, applied
+      to the other half of what the transport produces, and for the same reason: `features`
+      may not import `app`. The exported signature did not change, which was the point of
+      writing the fixture version that way; no component was touched. Its default is an
+      **empty** store, not a fixture set, because a fixture default makes a missing provider
+      invisible while emptiness shows on the screen. The fleet table and the banner now
+      describe the same connection.
       **Not yet verified in a running browser.** The proxy path was checked live end to end
       — Vite serves the app, `/api/fleet` proxies to the server and returns the committed
       roster, and `/ws` answers `101 Switching Protocols` through the proxy — and the
