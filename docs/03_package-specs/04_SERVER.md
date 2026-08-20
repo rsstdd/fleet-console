@@ -69,6 +69,7 @@ src/
   observability/logger      one JSON object per line, injected sink
   http/fleetResponse        server state translated into the wire snapshot (not serialized)
   ingest/ingestTelemetry    one reading, untrusted bytes to fleet state
+  http/robotResponse        one robot plus the raw payload only this route serves
   runServer.ts              decoded configuration in, a running server out
   main.ts                   the process: real environment, real paths, real signals
   __boundary-violation__/   deliberate lint violations that prove the rules fire
@@ -80,7 +81,7 @@ a route segment, a header or a byte count, decided before anything reads a body,
 ordering guarantees are properties of the signatures rather than rules a handler has to
 remember (ADR 8 § Observed consequences).
 
-Planned and not yet present: the single-robot and health reads.
+Planned and not yet present: the health read.
 
 ## 5. Contracts owned and consumed
 
@@ -258,8 +259,7 @@ configuration loaders are covered.
 validation, the current-state store with manifest seeding, the bounded ring buffer, the
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
-**Not built:** the single-robot and health reads, and backpressure on a console that stops
-reading. The server **runs, sweeps, ingests, serves
+**Not built:** the health read, and backpressure on a console that stops reading. The server **runs, sweeps, ingests, serves
 the fleet read and fans deltas out over `/ws`**:
 `http/createApp` routes with the cross-origin policy mounted, `http/listener` binds it and
 `/ws` to one port with an ordered shutdown, `main.ts` composes them from repository-root

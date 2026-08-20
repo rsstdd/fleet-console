@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 22 files, 150 tests     |
+| `pnpm test`      | passes — 23 files, 153 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -51,6 +51,7 @@ packages/server/
     ├── http/listener.ts            one port for HTTP and /ws, ordered shutdown (B1a)
     ├── observability/logger.ts     one JSON object per line on stdout (I1, part)
     ├── http/fleetResponse.ts       server state translated into the wire snapshot (G1)
+    ├── http/robotResponse.ts       one robot plus the raw payload only this route serves (G2)
     ├── ingest/ingestTelemetry.ts   one reading, untrusted bytes to fleet state (D0-D9)
     ├── runServer.ts                decoded configuration in, a running server out
     ├── main.ts                     the process: real env, real paths, real signals
@@ -64,10 +65,10 @@ packages/server/
 repository-root configuration, binds loopback, announces the policy and roster it is
 actually running, serves `GET /api/fleet` with all fifty manifest robots as UNKNOWN, and
 shuts down on a signal, runs the ADR 3 freshness sweep on its own interval, and **accepts
-telemetry** at `POST /api/telemetry/:vendor`, and **fans coalesced deltas out over `/ws`**
-— verified by running it: a live console received `R-001:live` then `R-001:stale`, the
-second from the sweep alone. The single-robot and health reads are still 404. Sections 7
-and 8 are what remains.
+telemetry** at `POST /api/telemetry/:vendor`, **serves one robot with its raw payload** at
+`GET /api/robots/:id`, and **fans coalesced deltas out over `/ws`** — verified by running
+it: a live console received `R-001:live` then `R-001:stale`, the second from the sweep
+alone. `GET /api/health` is the last route, and it is blocked on ADR 30.
 
 On the four earliest pieces, whose reasoning is worth keeping:
 
@@ -432,10 +433,40 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       whatever the upsert wrote, and a read hours later would serve that value as current,
       which is the exact failure Principle 4 forbids. **F1**-**F5** must land before or
       with Section 4, never after.
-- [ ] **G2 — `GET /api/robots/:id`** — the same canonical robot plus the retained raw
-      payload as a separate field, plus the diagnostics the robot-detail spec § 6 lists:
-      adapter id/version, sequence, sequence gaps (total since start, or not-evaluated),
-      vendor ts, received ts, clock delta, schema version, unknown-field count.
+- [x] **G2 — `GET /api/robots/:id`. Done 20 August 2026.** `encodeRobotDetail` in
+      `src/http/robotResponse.ts` serves the canonical robot plus the retained raw payload
+      and `sequenceHealth`, which **D6a** made available. This is the only route that
+      serves a raw payload (ADR 1), and the composition reads it through
+      `store.diagnostic()` rather than around it, because that method is what makes the
+      outbound deep copy real (ADR 26). The remaining robot-detail diagnostics the spec § 6
+      lists — adapter id and version, both timestamps, schema version — are already fields
+      on the envelope; clock delta is `receivedAt - reportedAt`, which the console computes
+      rather than the server duplicating, and the unknown-field count is fleet-wide and
+      belongs to **G3**. **G5** and **G7** land with it: an unknown id is an explicit 404
+      carrying the canonical envelope, never a 200 with nothing in it, and the response is
+      built from `@fleet/contracts` types throughout. **Verified by running it:** an
+      unknown id returns 404, a registered robot returns its registration data, vendor C's
+      recorded payload comes back verbatim under `rawPayload` with `sequenceHealth`
+      alongside, and `GET /api/fleet` contains no `rawPayload` at all (**G6**).
+      **Deferred, decision not made — there is no contract for this endpoint's union.**
+      The route serves two populations: `robotDiagnosticEnvelopeSchema` for a robot that
+      has reported, and `registeredRobotStateSchema` for one the manifest registered and
+      nothing has been heard from. Both shapes are contract-owned, so nothing was invented
+      here — but `@fleet/contracts` exports no union schema or parser for the pair, the way
+      `fleetSnapshotRobotSchema` does for the same two populations inside the snapshot. A
+      client therefore has to try both parsers and infer the discriminator itself. Serving
+      a 404 for the unobserved case would have avoided the gap and is **wrong**:
+      `docs/01_page-specs/03_ROBOT_DETAIL.md` requires a known-but-unseen robot to render
+      registration data, and a 404 there contradicts the fleet page already listing it. The
+      fix is a `robotDetailResponseSchema` union plus its parser in contracts under ADR 25,
+      mirroring `fleetSnapshotRobotSchema`; it is a contracts change first, not a handler
+      change.
+
+- [x] **G5 — Validate identifiers and return explicit not-found. Done with G2.** An
+      unknown robot id is a 404 carrying the canonical error envelope.
+- [x] **G7 — Read models are canonical types. Done with G2** — both branches of the
+      response are `@fleet/contracts` shapes, and no adapter type is reachable from a
+      handler (lint enforces the second half).
 - [ ] **G3 — `GET /api/health`** — malformed-ingest count, unsupported-vendor count,
       adapter failures, per-adapter unknown fields, WebSocket connection and flush
       health, late freshness ticks. Label the unknown-field count per-adapter; presenting
@@ -445,15 +476,12 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       _Recommendation:_ separate — the detail view's freshness and summary update on the
       delta stream, while history is a fetch-once-per-visit read, and mixing the two
       lifetimes into one payload means refetching history to refresh a battery number.
-- [ ] **G5 — Validate identifiers and return explicit not-found.** An unknown robot id
-      is a 404, never a 200 with an empty body (AGENTS.md § HTTP and WebSocket transport).
 - [ ] **G6 — Leak nothing.** No stack traces, no secrets, no raw payloads outside **G2**,
       no unbounded diagnostic data in any error or health response. For error bodies this is
       structural rather than a filter: a `ContractIssue` carries a path, a category and a
       schema-derived message and never a rejected value, and `errorResponse`'s summaries are
       constants (ADR 20). `errorResponse.test.ts` asserts it against a payload whose values
       are distinctive; keep that test when the handler lands.
-- [ ] **G7 — Read models are canonical types**, never an adapter's internal types.
 
 ---
 
@@ -768,7 +796,7 @@ is missing is everything that needs a socket.
 4. Current state is seeded from the manifest, so a robot that has never reported reads UNKNOWN rather than being absent. **Done 20 August 2026** — `startServer` builds the store from `configuration.manifest.robots`, and `GET /api/fleet` serves all fifty committed robots as UNKNOWN.
 5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta. **Done 20 August 2026, verified against a live socket:** a console connected to `/ws` received frame 1 with `R-001:live` after ingest and frame 2 with `R-001:stale` from the sweep alone, and `GET /api/fleet` then reported flush sequence 2 from the same counter.
 6. Late ticks, malformed ingest, unsupported vendors and per-adapter unknown fields are all visible on `GET /api/health`, each at its true scope.
-7. No raw vendor payload appears in a fleet response, a delta, or history — asserted by a test, not by inspection.
+7. No raw vendor payload appears in a fleet response, a delta, or history — asserted by a test, not by inspection. **Done 20 August 2026** — the types carry the exclusion, `GET /api/robots/:id` is the only route that reads it, and a running server was checked for `rawPayload` in the fleet response.
 8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps. **Done 20 August 2026** (**D6**, **D6a**) — the store refuses both, counts readings missing and duplicates per robot, folds the per-adapter rollup from those, and reports a counterless dialect as not-evaluated. One reporting gap remains and is deferred under **D6a**: a regressive arrival has no term in `SequenceHealth`.
 9. The demo script's steps 4 and 5 are both reproducible: three `--drop` robots degrade while the rest stay LIVE, and killing the stream produces a connection-level state rather than per-robot degradation.
 10. Throughput and latency are measured at 50 and 500 robots, the bottleneck is attributed to HTTP overhead or validation cost, and the number is published in the README and in ADR 2 § Observed consequences.

@@ -9,6 +9,9 @@ import { encodeFleetSnapshot } from "./fleetResponse.ts";
 const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
   encodeFleetSnapshot({ robots: [], capturedAt: 0, flushSequence: 0 });
 
+/** No robot: these cases are about routing and policy, not about state. */
+const readRobot = (): null => null;
+
 /** A stub ingest port: these cases are about routing and policy, not the transition. */
 const ingest = {
   apply: (): never => {
@@ -26,7 +29,7 @@ const ingest = {
  */
 describe("createHttpApp", () => {
   const ALLOWED = "https://console.example.com";
-  const app = createHttpApp({ allowedOrigins: [ALLOWED], readFleet, ingest });
+  const app = createHttpApp({ allowedOrigins: [ALLOWED], readFleet, readRobot, ingest });
 
   it("echoes an allowed origin on a response no route produced", async () => {
     // The 404 path specifically: a browser has to be able to read the failure, so the
@@ -55,7 +58,7 @@ describe("createHttpApp", () => {
   });
 
   it("grants nothing at all when the allow-list is empty", async () => {
-    const closed = createHttpApp({ allowedOrigins: [], readFleet, ingest });
+    const closed = createHttpApp({ allowedOrigins: [], readFleet, readRobot, ingest });
 
     const response = await closed.request("/api/nothing", { headers: { origin: ALLOWED } });
 
@@ -95,7 +98,7 @@ describe("createHttpApp", () => {
   });
 
   it("reveals nothing about a thrown error", async () => {
-    const throwing = createHttpApp({ allowedOrigins: [], readFleet, ingest });
+    const throwing = createHttpApp({ allowedOrigins: [], readFleet, readRobot, ingest });
     throwing.get("/boom", () => {
       throw new Error('robot-7 payload: {"secret":"vendor-internal"}');
     });

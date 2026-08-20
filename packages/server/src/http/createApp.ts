@@ -7,6 +7,7 @@ import type { SupportedVendor } from "@fleet/adapters";
 
 import type { IngestOutcome } from "../ingest/ingestTelemetry.ts";
 import type { FleetSnapshotWire } from "./fleetResponse.ts";
+import type { RobotDetailWire } from "./robotResponse.ts";
 import { evaluateOriginPolicy } from "./originPolicy.ts";
 
 /**
@@ -44,6 +45,8 @@ export interface HttpAppOptions {
    * would invite a handler that awaits something the store cannot actually do.
    */
   readonly readFleet: () => FleetSnapshotWire;
+  /** Produces one robot's detail body, or null when the manifest never registered it. */
+  readonly readRobot: (robotId: string) => RobotDetailWire | null;
   /** The ingest side of the surface: one transition plus the two refusals it never sees. */
   readonly ingest: IngestPort;
 }
@@ -163,6 +166,21 @@ export function createHttpApp(options: HttpAppOptions): Hono {
   // message shape for its lifetime. No raw vendor payload appears here — that is served
   // only by `GET /api/robots/:id` (ADR 1), and the snapshot type is what enforces it.
   app.get("/api/fleet", (c) => c.json(options.readFleet()));
+
+  /*
+   * The one route that serves a raw vendor payload (ADR 1), and the only one that has to
+   * tell "no such robot" from "this robot has not reported yet". They are different
+   * answers to an operator: the first is a wrong link, the second is a robot the fleet
+   * page is already listing, so a 404 there would contradict the page that consumes this.
+   */
+  app.get("/api/robots/:id", (c) => {
+    const robot = options.readRobot(c.req.param("id"));
+    if (robot === null) {
+      const { status, body } = errorResponse("not_found");
+      return c.json(body, status);
+    }
+    return c.json(robot);
+  });
 
   app.notFound((c) => {
     const { status, body } = errorResponse("not_found");

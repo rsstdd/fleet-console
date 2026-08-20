@@ -8,6 +8,7 @@ import { createAdapterRegistry } from "@fleet/adapters";
 
 import { createHttpApp } from "./http/createApp.ts";
 import { encodeFleetSnapshot } from "./http/fleetResponse.ts";
+import { encodeRobotDetail } from "./http/robotResponse.ts";
 import { startListener } from "./http/listener.ts";
 import type { Logger } from "./observability/logger.ts";
 import type { Clock } from "./runtime/clock.ts";
@@ -57,8 +58,8 @@ export interface RunningServer {
  * deployed is the failure Principle 13 names — and a line proving *which* policy is live is
  * how that claim survives contact with a deployment.
  *
- * `routes` counts what is mounted: `POST /api/telemetry/:vendor` and `GET /api/fleet`.
- * The single-robot and health reads are still 404 (`TODO.md` **G2**–**G3**). A server
+ * `routes` counts what is mounted: `POST /api/telemetry/:vendor`, `GET /api/fleet` and
+ * `GET /api/robots/:id`. The health read is still 404 (`TODO.md` **G3**). A server
  * answering 404 for a reason is different from one answering 404 because it is broken,
  * and only the log can tell an operator which they have.
  *
@@ -129,6 +130,17 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
           // below it, so reading the live counter is what makes that comparison true.
           flushSequence: sequence.current(),
         }),
+      readRobot: (robotId) => {
+        const state = store.get(robotId);
+        if (state === undefined) return null;
+        return encodeRobotDetail({
+          state,
+          // `diagnostic()` is what makes the outbound copy real; reading `rawPayload`
+          // around it would hand a caller a reference into retained evidence (ADR 26).
+          rawPayload: store.diagnostic(robotId)?.rawPayload ?? null,
+          sequenceHealth: store.sequenceHealth(robotId),
+        });
+      },
       ingest: {
         apply: (vendor, raw) => ingestTelemetry(ingestDependencies, vendor, raw),
         noteUnsupportedVendor: () => {
@@ -151,7 +163,7 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
     allowedOrigins: endpoints.allowedOrigins.length,
     robots: configuration.manifest.robots.length,
     freshness: configuration.freshness,
-    routes: 2,
+    routes: 3,
   });
 
   // Started after the listener, so a sweep never runs against a server that failed to

@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createHttpApp } from "./createApp.ts";
 import { encodeFleetSnapshot } from "./fleetResponse.ts";
 
+/** No robot: these cases are about routing and policy, not about state. */
+const readRobot = (): null => null;
+
 /** A stub ingest port: these cases are about routing and policy, not the transition. */
 const ingest = {
   apply: (): never => {
@@ -35,7 +38,7 @@ describe("startListener", () => {
 
   async function start(allowedOrigins: readonly string[] = []): Promise<RunningListener> {
     listener = await startListener({
-      app: createHttpApp({ allowedOrigins, readFleet, ingest }),
+      app: createHttpApp({ allowedOrigins, readFleet, readRobot, ingest }),
       host: "127.0.0.1",
       port: 0,
     });
@@ -120,7 +123,7 @@ describe("startListener", () => {
     // socket is still held is exactly the shutdown bug that leaves `pnpm dev` unable to
     // restart.
     const rebound = await startListener({
-      app: createHttpApp({ allowedOrigins: [], readFleet, ingest }),
+      app: createHttpApp({ allowedOrigins: [], readFleet, readRobot, ingest }),
       host: "127.0.0.1",
       port,
     });
