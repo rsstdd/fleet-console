@@ -644,15 +644,32 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
       decode once adapters exist. Extend that test rather than starting a second harness;
       the threshold must stay 400 µs, because a tightened falsifier is the undefended
       threshold ADR 22 refused to ship.
+      **Transport half done 20 August 2026, in that same file as instructed.** A whole
+      request costs **892 µs at 50 robots and 926 µs at 500** — route, size cap,
+      `JSON.parse`, vendor decode, upsert — against **5.8 µs** for the decode alone.
+      Transport dominates validation by roughly 150×, so ADR 2's estimate is confirmed and
+      its staged mitigation should start with batch ingest rather than worker-pooled
+      validation. The transport half is **report-only**: ADR 2 states a falsifier for
+      validation and none for transport, and inventing one to make the harness look
+      symmetrical is exactly the undefended threshold ADR 22 refused. Published in
+      `README.md` § 10 and ADR 2 § Observed consequences (**I3**).
+      **Still owed, and each is a different question:** throughput and latency under
+      concurrent load — this harness measures one sequential request on purpose, because a
+      flood measures queueing rather than per-request cost (**I4**) — and the two console
+      numbers below.
       **This harness also owes the console a number.**
       [ADR 24](../../docs/00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md)
       (register D14) defers fleet-table virtualization until delta-apply cost at 500 robots
       is measured **under a live stream**, and register D10's deferred half wants one
       mass-transition flush measured at the same scale. Three decisions are waiting on this
       one run; produce all its numbers together rather than one at a time.
-- [ ] **I3 — Report the degradation point, not only a favourable number.** Publish it in
-      the README measurements section and add the outcome to **ADR 2 § Observed
-      consequences**, which is currently empty.
+- [ ] **I3 — Report the degradation point, not only a favourable number. Half done 20
+      August 2026.** ADR 2 § Observed consequences is no longer empty and the README
+      carries the per-request table, including the unfavourable reading: 892 µs sequential
+      is ~1,100 requests/second on one connection, which is **below** ADR 2's 2,500 msg/s
+      design scale, and the harness deliberately does not claim otherwise. What is still
+      owed is the degradation _point_ — the offered load at which latency leaves its floor
+      — which needs the concurrent run **I4** describes.
 - [ ] **I4 — Treat event-loop saturation as a freshness-correctness bug**, not a latency
       nit: it delays the sweep, and a delayed sweep reports stale robots as LIVE
       (ADR 3, ADR 6 § Implications).

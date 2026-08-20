@@ -303,14 +303,27 @@ Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing,
 
 ## 10. Measurements
 
-> **Two numbers are measured and gated; the load tables are not, and cannot be yet.**
-> The scale run has not been performed and cannot be until the server accepts ingest:
-> the simulator generates `--robots 500 --hz 5` today — 2,499 readings/s achieved
-> against 2,500 configured, measured against a trivial receiver — but there is no
-> receiver in this repository to measure the other end of. No number in the empty
-> tables should be cited until it comes from an actual run through the complete harness
-> (Principle 12); the simulator's own figure is not a substitute, because it measures
-> the producer.
+> **ADR 2's own question is now answered, and the answer is decisive.** ADR 2 estimated
+> that schema validation costs tens of microseconds and that per-request HTTP overhead was
+> the likelier first bottleneck, and committed to a harness that would confirm or falsify
+> it. Measured 20 August 2026 by `packages/server/src/ingest/validationCost.test.ts`:
+>
+> | Cost                                              | 50 robots | 500 robots |
+> | ------------------------------------------------- | --------- | ---------- |
+> | Strict canonical decode (`JSON.parse` + Zod)      | 5.8 µs    | 5.8 µs     |
+> | Whole request (route, cap, parse, decode, upsert) | 892 µs    | 926 µs     |
+>
+> **Transport dominates validation by roughly 150×**, so ADR 2's estimate holds and its
+> staged mitigation should start with batch ingest rather than with worker-pooled
+> validation. Per-request cost is essentially flat from 50 to 500 robots (+3.8%), which is
+> what the map-keyed store predicted.
+>
+> Read the 892 µs honestly: it is a **sequential round trip over loopback including the
+> client's own `fetch`**, so it is an upper bound on server-side per-request work rather
+> than an isolate of it. Whether the server sustains ADR 2's 2,500 msg/s is a concurrency
+> question this harness deliberately does not ask — a concurrent flood measures queueing
+> rather than per-request cost, and saturation is server TODO **I4**. The load tables below
+> stay empty until that run happens (Principle 12).
 >
 > The contrast table is blocked on nothing at all and is simply not yet done. It needs
 > a person reading ratios off both themes, and it is tracked as `packages/FIXME.md`
