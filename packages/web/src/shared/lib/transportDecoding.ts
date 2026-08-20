@@ -1,5 +1,18 @@
-import { parseFleetSnapshot, parseTelemetryBatch } from "@fleet/contracts";
-import type { ContractIssue, FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
+import {
+  parseFleetSnapshot,
+  parseHealthResponse,
+  parseRegisteredRobotState,
+  parseRobotDiagnosticEnvelope,
+  parseTelemetryBatch,
+} from "@fleet/contracts";
+import type {
+  ContractIssue,
+  FleetSnapshot,
+  HealthResponse,
+  RegisteredRobotState,
+  RobotDiagnosticEnvelope,
+  TelemetryBatch,
+} from "@fleet/contracts";
 
 /**
  * The console's boundary: bytes from the network become contract types here, or they are
@@ -111,4 +124,87 @@ export function decodeFrameText(text: string): FrameOutcome {
     return { ok: false, issues: [] };
   }
   return decodeFrame(raw);
+}
+
+/** One robot as the detail endpoint serves it: observed with diagnostics, or registered. */
+export type RobotDetailResponse =
+  | { readonly observed: true; readonly envelope: RobotDiagnosticEnvelope }
+  | { readonly observed: false; readonly registered: RegisteredRobotState };
+
+/** Why a single-robot request produced no robot. */
+export type RobotDetailFailure =
+  | { readonly kind: "not-found" }
+  | { readonly kind: "unreachable"; readonly status: number | null }
+  | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
+
+/** What one single-robot request produced. */
+export type RobotDetailOutcome =
+  | { readonly ok: true; readonly robot: RobotDetailResponse }
+  | { readonly ok: false; readonly failure: RobotDetailFailure };
+
+/**
+ * Fetches and decodes one robot.
+ *
+ * **Two parsers, because the contract has no union for this response.** The endpoint
+ * serves `robotDiagnosticEnvelopeSchema` for a robot that has reported and
+ * `registeredRobotStateSchema` for one the manifest registered and nothing has been heard
+ * from, and `@fleet/contracts` exports no combined schema the way it does for the same two
+ * populations inside a fleet snapshot. Trying both here is the consequence, and it is
+ * recorded as a contracts change in `packages/server/TODO.md` **G2** rather than worked
+ * around permanently — the diagnostic shape is tried first because it is the strictly
+ * larger one, so a registered robot cannot satisfy it by accident.
+ *
+ * A 404 is its own outcome, not an error: an unknown robot id is a wrong link, and the
+ * page renders an empty state with a way back rather than a failure banner (robot detail
+ * spec § 10).
+ */
+export async function fetchRobotDetail(
+  fetchLike: FetchLike,
+  url: string,
+): Promise<RobotDetailOutcome> {
+  let body: unknown;
+  try {
+    const response = await fetchLike(url);
+    if (response.status === 404) return { ok: false, failure: { kind: "not-found" } };
+    if (!response.ok) {
+      return { ok: false, failure: { kind: "unreachable", status: response.status } };
+    }
+    body = await response.json();
+  } catch {
+    return { ok: false, failure: { kind: "unreachable", status: null } };
+  }
+
+  const observed = parseRobotDiagnosticEnvelope(body);
+  if (observed.ok) return { ok: true, robot: { observed: true, envelope: observed.value } };
+
+  const registered = parseRegisteredRobotState(body);
+  if (registered.ok) return { ok: true, robot: { observed: false, registered: registered.value } };
+
+  // The diagnostic issues, not the registered ones: a body that failed both is far more
+  // likely a malformed envelope than a malformed two-field registration, and reporting the
+  // narrower schema's complaints would point a reader at the wrong shape.
+  return { ok: false, failure: { kind: "contract", issues: observed.issues } };
+}
+
+/** What one health request produced; a failure is never terminal, since health is advisory. */
+export type HealthOutcome =
+  { readonly ok: true; readonly health: HealthResponse } | { readonly ok: false };
+
+/**
+ * Fetches the operational counters.
+ *
+ * Its failure is deliberately shapeless. Health decorates a technician panel with a
+ * fleet-wide unknown-field count; a console that could not read it still knows everything
+ * about the robot it is showing, so degrading to "not reported" is right and blocking the
+ * page on it would be a diagnostics surface taking the operator's view down with it.
+ */
+export async function fetchHealth(fetchLike: FetchLike, url: string): Promise<HealthOutcome> {
+  try {
+    const response = await fetchLike(url);
+    if (!response.ok) return { ok: false };
+    const decoded = parseHealthResponse(await response.json());
+    return decoded.ok ? { ok: true, health: decoded.value } : { ok: false };
+  } catch {
+    return { ok: false };
+  }
 }

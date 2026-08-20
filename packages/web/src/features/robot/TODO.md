@@ -22,9 +22,30 @@ together with the fetch that replaces them.
 What that fetch is, is already built and unread: `GET /api/robots/:id` serves the canonical
 robot plus `sequenceHealth` and the retained raw payload, and `toRobotDetail` /
 `toRegisteredRobotDetail` in `entities/robot/fromEnvelope.ts` already map both populations.
-What is missing is only the request and its async states (Principle 5), and the response's
-two-population union has no single parser — flagged in `packages/server/TODO.md` **G2** as
-a `@fleet/contracts` change, so a client must try both parsers until then.
+The request itself landed on 20 August 2026: `fetchRobotDetail` and `fetchHealth` in
+`shared/lib/transportDecoding.ts`, both tested. `fetchRobotDetail` tries the diagnostic
+schema first and the registered schema second — the two-population union has no single
+parser, flagged in `packages/server/TODO.md` **G2** as a `@fleet/contracts` change — and
+reports the _diagnostic_ schema's issues when a body satisfies neither, because that is the
+strictly larger shape and the narrower one's complaints would point a reader at the wrong
+thing. A 404 is its own outcome rather than an error, since an unknown id is a wrong link.
+`fetchHealth` fails shapelessly on purpose: health decorates one technician field, and
+blocking the page on it would let a diagnostics surface take the operator's view down.
+
+**What remains is the hook swap, and it is larger than it looks.** Two findings from
+attempting it on 20 August 2026, reverted rather than rushed:
+
+- **`RobotDiagnostics.unknownFieldCount` is `number` and needs to be `number | null`.** The
+  count comes from `GET /api/health`, a _separate_ request that can fail while the robot's
+  own data is fine. Zero is a measurement, so falling back to it claims one nobody took
+  (Principle 4); the field, the mapper's `AdapterHealthCounters` and the panel's copy all
+  change together, and the panel needs a "Not reported" string.
+- **`robotDetailPage.test.tsx` renders the real page against the fixture hook**, so the
+  swap breaks 23 tests that are otherwise good — they exercise the true decode-and-map path
+  through capability panels, sequence health and the raw payload. The fix is to move the
+  fixture _wire responses_ out of `useRobotDetail.ts` into a test helper and stub the fetch,
+  which keeps that path covered. Mocking the hook instead would delete the coverage rather
+  than move it, and is the tempting wrong answer.
 
 **Do not resolve this by pointing the detail view at the fleet store.** The store carries
 `Robot`, not `RobotDetail`; the diagnostics and the raw payload exist only on the

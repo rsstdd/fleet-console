@@ -6,6 +6,8 @@ import {
   decodeFrame,
   decodeFrameText,
   fetchFleetSnapshot,
+  fetchHealth,
+  fetchRobotDetail,
   type FetchLike,
 } from "./transportDecoding";
 
@@ -95,5 +97,122 @@ describe("decodeFrame", () => {
     const batch = { schemaVersion: SCHEMA_VERSION, flushSequence: 7, sentAt: 1, robots: [] };
 
     expect(decodeFrameText(JSON.stringify(batch))).toStrictEqual({ ok: true, batch });
+  });
+});
+
+describe("fetchRobotDetail", () => {
+  const OBSERVED = {
+    schemaVersion: SCHEMA_VERSION,
+    robotId: "R-003",
+    siteId: "SITE-NORTH",
+    vendorId: "C",
+    model: "CV-7",
+    adapterId: "vendor-c",
+    adapterVersion: "1.0.0",
+    reportedAt: 1_755_600_000_000,
+    receivedAt: 1_755_600_000_200,
+    freshness: "live",
+    core: {
+      connectivity: "unknown",
+      batteryPercent: 31,
+      position: null,
+      status: "idle",
+      health: { severity: "nominal" },
+    },
+    capabilities: [{ name: "dock", payload: { docked: false, dockId: null } }],
+    sequenceHealth: { evaluated: true, gaps: 0, duplicates: 0 },
+    rawPayload: { robot_id: "R-003" },
+  };
+
+  const REGISTERED = {
+    schemaVersion: SCHEMA_VERSION,
+    robotId: "R-001",
+    siteId: "SITE-NORTH",
+    vendorId: "A",
+    freshness: "unknown",
+  };
+
+  const responding =
+    (body: unknown, init: { ok?: boolean; status?: number } = {}): FetchLike =>
+    () =>
+      Promise.resolve({
+        ok: init.ok ?? true,
+        status: init.status ?? 200,
+        json: () => Promise.resolve(body),
+      });
+
+  it("decodes a robot that has reported", async () => {
+    const outcome = await fetchRobotDetail(responding(OBSERVED), "/api/robots/R-003");
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.robot.observed).toBe(true);
+  });
+
+  it("decodes a robot the manifest registered and nothing has reported for", async () => {
+    // The endpoint's second population. `@fleet/contracts` has no union for the pair, so
+    // both parsers are tried here — recorded as a contracts change in server TODO G2.
+    const outcome = await fetchRobotDetail(responding(REGISTERED), "/api/robots/R-001");
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.robot.observed).toBe(false);
+  });
+
+  it("treats a 404 as its own outcome, not as an error", async () => {
+    // An unknown id is a wrong link: the page shows a way back, not a failure banner.
+    const outcome = await fetchRobotDetail(responding(null, { ok: false, status: 404 }), "/api");
+
+    expect(outcome).toStrictEqual({ ok: false, failure: { kind: "not-found" } });
+  });
+
+  it("reports the diagnostic schema's issues when a body satisfies neither shape", async () => {
+    // Reporting the two-field registration schema's complaints would point a reader at the
+    // wrong shape; the observed envelope is the strictly larger one.
+    const outcome = await fetchRobotDetail(
+      responding({ ...OBSERVED, receivedAt: "not-a-number" }),
+      "/api",
+    );
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("contract");
+    if (outcome.failure.kind !== "contract") return;
+    expect(outcome.failure.issues.map((issue) => issue.path)).toContain("receivedAt");
+  });
+});
+
+describe("fetchHealth", () => {
+  it("decodes a health response", async () => {
+    const health = {
+      schemaVersion: SCHEMA_VERSION,
+      capturedAt: 0,
+      malformedIngest: 0,
+      unsupportedVendors: 0,
+      unknownFieldScope: "accepted",
+      byAdapter: {
+        A: {
+          failures: 0,
+          unknownFields: { total: 2, fields: { "telemetry.x": 2 } },
+          sequence: { evaluated: false },
+        },
+      },
+      lateFreshnessTicks: { count: 0, lastLatenessMs: null },
+    };
+
+    const outcome = await fetchHealth(
+      () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(health) }),
+      "/api/health",
+    );
+
+    expect(outcome).toStrictEqual({ ok: true, health });
+  });
+
+  it("fails shapelessly, because health is advisory", async () => {
+    // A console that could not read health still knows everything about the robot it is
+    // showing; blocking on it would let a diagnostics surface take the operator view down.
+    const outcome = await fetchHealth(() => Promise.reject(new Error("offline")), "/api/health");
+
+    expect(outcome).toStrictEqual({ ok: false });
   });
 });
