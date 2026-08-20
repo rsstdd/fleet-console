@@ -10,6 +10,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 const FIXTURES = [
   "src/__boundary-violation__/wallClock.ts",
   "src/__boundary-violation__/database.ts",
+  "src/__boundary-violation__/adapterVendorImport.ts",
 ];
 
 /**
@@ -27,7 +28,7 @@ const PROGRAM_BUILD_TIMEOUT_MS = 30_000;
 const lintResults = new Map<string, ESLint.LintResult>();
 
 /**
- * Lints both fixtures with one instance, in one pass.
+ * Lints every fixture with one instance, in one pass.
  *
  * Both cases judge the same snapshot, and this hook is the suite's only contact
  * with the tree. `packages/FIXME.md` **F14** caught this suite failing once and
@@ -95,5 +96,15 @@ describe("server boundary enforcement", () => {
 
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain("ADR 6 decides there is no database");
+  });
+
+  it("rejects direct imports of an adapter vendor module", () => {
+    const messages = messagesFor(
+      "src/__boundary-violation__/adapterVendorImport.ts",
+      "no-restricted-imports",
+    );
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("Dispatch through the adapters package's public entry point");
   });
 });

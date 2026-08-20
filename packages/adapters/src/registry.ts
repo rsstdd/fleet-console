@@ -36,10 +36,7 @@ import type { AdapterEnvelope } from "@fleet/contracts";
 
 import type { VendorAdapter } from "./core/adapter.ts";
 import type { AdapterResult } from "./core/result.ts";
-import {
-  createUnknownFieldLedger,
-  type UnknownFieldSnapshot,
-} from "./core/unknownFields.ts";
+import { createUnknownFieldLedger, type UnknownFieldSnapshot } from "./core/unknownFields.ts";
 import type { SupportedVendor } from "./core/vendor.ts";
 import { createVendorAAdapter } from "./vendors/a/adapter.ts";
 import { createVendorBAdapter } from "./vendors/b/adapter.ts";

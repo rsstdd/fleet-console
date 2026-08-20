@@ -21,6 +21,7 @@ This package does not own transport, storage, freshness derivation, UI behavior,
 - Add a new vendor by adding a module, fixtures, and contract tests here. Do not change the canonical model merely to accommodate a vendor.
 - Import canonical types and schemas from `packages/contracts`; do not duplicate them locally.
 - Export package consumers through the package's public entry point rather than requiring deep imports.
+- Dispatch through `createAdapterRegistry()` in `src/registry.ts`. A consumer never imports a vendor module: the registry's `switch` over `SupportedVendor` is the only place vendor identity selects code, and it owns the one unknown-field ledger the process is allowed (ADR 1, ADR 15).
 
 ## Adapter contract
 

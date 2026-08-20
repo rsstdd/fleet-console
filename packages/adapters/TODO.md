@@ -433,11 +433,39 @@ cannot drift.
       `CurrentStateStore`, deep-copied in both directions, serving it only from
       `robotDiagnosticEnvelopeSchema`. The adapter never sees or holds it. What survives of
       this item is the coupling comment, tracked under **F3**.
-- [ ] **C8 — Dispatch registry.** `src/registry.ts` mapping `SupportedVendor` to adapter,
-      plus one `decodeTelemetry(vendor, raw, receivedAt)` entry point, so
-      `packages/server` never imports a vendor module directly. Exhaustive over
-      `SupportedVendor` — a `switch` with `switch-exhaustiveness-check` (already on)
-      rather than a lookup that can silently miss.
+- [x] **C8 — Dispatch registry. CLOSED 20 August 2026.** `src/registry.ts` maps
+      `SupportedVendor` to adapter behind one `decodeTelemetry(vendor, raw, receivedAt)`
+      entry point, exported from `src/index.ts`, so `packages/server` never imports a
+      vendor module directly. Exhaustive over `SupportedVendor` via a `switch`, not a
+      lookup. **Verified rather than assumed:** adding a fourth member to
+      `SupportedVendor` fails twice and independently — `switch-exhaustiveness-check`
+      reports `Cases not matched: "D"`, and `tsc` reports TS7030 "Not all code paths
+      return a value" on the same function. The guarantee therefore does not rest on the
+      lint rule alone.
+      **There is no lookup table beside the switch.** A record keyed by `SupportedVendor`
+      is exhaustive too, but reading from it yields `VendorAdapter | undefined` under
+      `noUncheckedIndexedAccess`, so dispatch would carry a branch for a case the key type
+      has already excluded — untestable code
+      written to satisfy the checker. The switch is the mapping.
+      **The registry owns its ledger; `createAdapterRegistry()` takes no arguments.**
+      ADR 1 permits one counting scope per adapter and `UnknownFieldSnapshot` can express
+      no other, so a ledger parameter would let a caller pass a fresh one per request —
+      every tally reading 0 or 1, no test failing, and the counter answering a different
+      question than ADR 15 asks. `unknownFields()` returns the snapshot for ADR 25's
+      health response; the per-vendor factories still take a ledger, which is how the
+      contract tests keep isolated counts.
+      **Dispatch wiring is asserted, not typed.** The exhaustiveness check cannot prove a
+      branch reaches the _right_ adapter, and a swapped pair typechecks; each vendor's own
+      `vendorId` is what catches it. Three falsifiers were run and all three fire: swapped
+      B/C branches (9 tests), a ledger rebuilt per call (3), and a dispatch that falls back
+      through the other adapters (4).
+      **One test was written wrong and the code was right.** It asserted that a payload the
+      schema accepted and the mapping then rejected leaves the ledger untouched. ADR 15 §
+      Decision, amended 20 August 2026, puts the gate at _schema_ acceptance and rejects
+      that alternative explicitly as position 4. The test now pins the ratified behaviour
+      from outside the vendor modules, because the registry is what the health endpoint
+      reads and a reordering inside one adapter would change the population that number
+      covers without touching anything server-side.
 - [ ] **C9 — Export surface.** Re-export from `src/index.ts` only. Adding a vendor means
       one directory plus one registry line; it never means touching the canonical model.
 

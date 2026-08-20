@@ -1,6 +1,6 @@
 # 02 — `@fleet/adapters`
 
-- **Status:** partially implemented — core primitives, fixtures, and all three vendor adapters are implemented; dispatch remains
+- **Status:** implemented — core primitives, fixtures, all three vendor adapters, and the exhaustive dispatch registry
 - **Package:** `packages/adapters`
 - **Governing documents:** ADR 1 (adapter boundary), ADR 7 (enforcement needs a resolver),
   ADR 9 (source exports), ADR 10 (pre-freshness return type), ADR 11 (public fixture
@@ -250,14 +250,14 @@ union, accepted-only unknown-field ledger, passthrough/key-difference detection,
 identity narrowing, recorded fixtures with a drift guard, each vendor's loose schema and
 adapter, and the enforcement suite.
 
-**Not built:** the exhaustive dispatch registry (`C8`) and cross-vendor normalization
-assertion (`D7`). C1–C5 and the per-vendor contract evidence are complete.
+**Not built:** the cross-vendor normalization assertion (`D7`). C1–C8 and the per-vendor
+contract evidence are complete, and `createAdapterRegistry()` is exported from the package
+root, so `@fleet/server` has everything it needs to dispatch — building its ingest handler
+on top is now server-side work rather than a gap here.
 
-This remains one of the two gaps on the critical path. Until the registry and remaining
-vendor adapters exist:
-
-- `@fleet/server` cannot dispatch, so its ingest boundary is unbuilt too;
-- ADR 1's per-vendor evidence exists, but its cross-vendor equality evidence is not yet automated.
+ADR 1's per-vendor evidence exists, and `src/capabilityTrace.test.ts` covers the
+field-level half of its cross-vendor evidence (`C6`); the remaining gap is `D7`'s
+assertion that two dialects describing the same robot normalize to the same core.
 
 **Decision consequences.** Adapters return only validated pre-freshness envelopes
 ([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)); publish unknown recorded

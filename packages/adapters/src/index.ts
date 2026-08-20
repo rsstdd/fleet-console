@@ -33,6 +33,15 @@ export { isSupportedVendor, SUPPORTED_VENDORS, type SupportedVendor } from "./co
 
 export type { VendorAdapter } from "./core/adapter.ts";
 
+/**
+ * The dispatch entry point, and what `packages/server` is meant to reach for.
+ *
+ * The three factories below stay exported for tests that need one vendor with its
+ * own ledger. Production dispatch goes through the registry, which is the only
+ * thing that keeps the process to one counting scope (ADR 1, ADR 15).
+ */
+export { createAdapterRegistry, type AdapterRegistry } from "./registry.ts";
+
 export { createVendorAAdapter } from "./vendors/a/adapter.ts";
 export { createVendorBAdapter } from "./vendors/b/adapter.ts";
 export { createVendorCAdapter } from "./vendors/c/adapter.ts";
