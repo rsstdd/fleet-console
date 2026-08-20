@@ -275,14 +275,27 @@ the rule rejected the markup `docs/02_component-specs` mandates, so consolidatin
 styling into classes was impossible without either widening the rule or scattering
 suppressions — which is what the bullet objected to.
 
-### P2.5 Reconcile shared-UI paths, exports, and documentation
+### P2.5 Reconcile shared-UI paths, exports, and documentation — **exports and comments done 20 August 2026; file naming left alone**
 
-- Specs name PascalCase files while the repository uses camelCase.
-- Shared UI mixes default/named exports and has no barrel despite older planning text.
-  Choose and document one convention; do not add a barrel if it hides dependencies.
-- Add missing one-sentence comments to every export. Confirmed examples include
-  `DataPlateProps`, `DataPlate`, `StatusChipSize`, `StatusChipProps`, `SITES`, and
-  `selectSiteLabel`; audit the complete export surface rather than stopping there.
+- **Exports: named only, no barrel.** Four components carried a redundant
+  `export default` beside their named export and four did not; nothing imported a default,
+  so the defaults are deleted rather than the convention being chosen by coin toss. No
+  barrel was added, as the item instructs — a barrel in `shared/ui` would let a feature
+  import the whole layer through one specifier and hide which primitives it actually
+  depends on, which is the boundary `eslint-plugin-boundaries` exists to make visible.
+- **Comments: the export surface was audited, not just the six named.** A script over every
+  `export` in `shared/ui` and `entities/site` found exactly the six the item listed, and all
+  six now carry a sentence that says something the signature does not (ADR 28).
+- **File naming: not changed, deliberately.** The specs write `FreshnessLabel.tsx` and the
+  repository uses `freshnessLabel.tsx`. Renaming eight files and every import to satisfy a
+  document is the larger and riskier half of this item, and the convention in the tree is
+  consistent — it is the specs that are the outlier. Whoever picks this up should change the
+  specs, not the files, unless there is a reason beyond symmetry.
+
+**One thing this audit turned up:** `entities/site` is now the **only** invented data left
+in the console, and it cannot read the server because the fleet manifest carries no site
+label to read. Recorded as `packages/FIXME.md` **F16** with the two ways to close it, both
+of which are decisions rather than cleanups.
 
 ### P2.6 Remove or configure inert Git-hook tooling — DONE 19 August 2026
 

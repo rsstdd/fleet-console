@@ -23,8 +23,10 @@ export type StatusVariant =
   | "fault"
   | "unknown";
 
+/** Two sizes: `small` for a table cell, `medium` for a page header. */
 export type StatusChipSize = "small" | "medium";
 
+/** Display-only inputs for a status chip; `current` is what makes it hollow. */
 export interface StatusChipProps {
   readonly variant: StatusVariant;
   readonly label: string; // always required; colour alone never carries meaning
@@ -71,5 +73,3 @@ export function StatusChip({
 
   return <span className={classes}>{label}</span>;
 }
-
-export default StatusChip;

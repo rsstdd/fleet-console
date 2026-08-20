@@ -517,6 +517,34 @@ and the panel's notice is retained as the reason.
 
 ## Package README follow-ups
 
+### F16. Site labels are the console's last invented data
+
+**Assessment: real gap with no source; open. Added 20 August 2026.**
+
+Every other hook in the console reads the server. `entities/site/model.ts` still does not,
+and it cannot: the committed fleet manifest carries a `siteId` per robot and **no label for
+it**, so `SITES` is a hand-written list of four display names and `selectSiteLabel` matches
+against it.
+
+The consequence is visible rather than theoretical. The shipped manifest uses ids like
+`SITE-NORTH`, which appear in no fixture, so the fleet table renders the raw identifier
+through the fallback — correct behaviour (an identifier beats a blank), but it means the
+label mechanism is dead code against real data while looking alive against fixtures.
+
+Two ways to close it, and the choice is a decision rather than a cleanup:
+
+- **Add a label to the manifest schema** (`config/fleet-manifest.json`, ADR 14). Site names
+  become deployment configuration, which is where tenant-visible strings belong
+  (Principle 13) — but it widens a schema two packages validate and ADR 14 makes the roster
+  a parity join, so the simulator's generator changes with it.
+- **Keep ids on screen and delete the label layer.** Honest, smaller, and defensible for an
+  operations console where the id is what an operator says out loud. It contradicts
+  `docs/01_page-specs/02_FLEET.md`, which specifies a site label column.
+
+Until one is taken, do not "fix" this by extending the fixture list to match the shipped
+manifest: that hides the gap behind data that agrees by hand, which is the class of error
+**F1** and **F4** both were.
+
 ### F11. Add focused READMEs where package behavior becomes consumable
 
 **Assessment: documentation gap/recommendation; open.**

@@ -86,5 +86,3 @@ export function FreshnessLabel({
     </span>
   );
 }
-
-export default FreshnessLabel;
