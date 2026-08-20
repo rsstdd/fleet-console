@@ -17,6 +17,7 @@ import { resolveStreamUrl, useFleetTransport } from "./useFleetTransport";
 describe("useFleetTransport", () => {
   const SNAPSHOT = {
     schemaVersion: SCHEMA_VERSION,
+    serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
     flushSequence: 0,
     capturedAt: 0,
     robots: [
@@ -54,7 +55,8 @@ describe("useFleetTransport", () => {
     const { control, openSocket, fetchLike } = ports();
     const { result } = renderHook(() => useFleetTransport({ openSocket, fetchLike }));
 
-    expect(result.current.connectionState).toBe("reconnecting");
+    // `connecting`, not `reconnecting`: nothing has ever been received (ADR 31).
+    expect(result.current.connectionState).toBe("connecting");
     act(() => control.open?.());
 
     await waitFor(() => {
@@ -103,11 +105,14 @@ describe("useFleetTransport", () => {
       expect(result.current.contractFailure).not.toBeNull();
     });
     expect(result.current.connectionState).toBe("disconnected");
+    // The cause travels with the state, so the banner can say why retrying stopped.
+    expect(result.current.terminalCause).toBe("contract");
 
     act(() => {
       result.current.retry();
     });
     expect(result.current.contractFailure).toBeNull();
+    expect(result.current.terminalCause).toBeNull();
   });
 });
 

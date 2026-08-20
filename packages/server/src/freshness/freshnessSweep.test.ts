@@ -1,4 +1,4 @@
-import type { CanonicalEnvelope } from "@fleet/contracts";
+import { type CanonicalEnvelope, SCHEMA_VERSION } from "@fleet/contracts";
 import { describe, expect, it, vi } from "vitest";
 
 import { PendingDeltaSet } from "../fanout/pendingDeltas.ts";
@@ -10,7 +10,7 @@ const ROBOT: ManifestRobot = { robotId: "R-001", siteId: "site-a", vendorId: "A"
 
 function envelope(): CanonicalEnvelope {
   return {
-    schemaVersion: "1",
+    schemaVersion: SCHEMA_VERSION,
     ...ROBOT,
     adapterId: "adapter-a",
     adapterVersion: "1.0.0",

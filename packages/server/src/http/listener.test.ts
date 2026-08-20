@@ -20,6 +20,9 @@ const readHealth = (): ReturnType<typeof encodeHealthResponse> =>
 /** No robot: these cases are about routing and policy, not about state. */
 const readRobot = (): null => null;
 
+/** No history either: the listener suite is about sockets, not routes. */
+const readHistory = (): null => null;
+
 /** A stub ingest port: these cases are about routing and policy, not the transition. */
 const ingest = {
   apply: (): never => {
@@ -41,7 +44,12 @@ import { startListener, type RunningListener } from "./listener.ts";
  */
 describe("startListener", () => {
   const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
-    encodeFleetSnapshot({ robots: [], capturedAt: 0, flushSequence: 0 });
+    encodeFleetSnapshot({
+      robots: [],
+      capturedAt: 0,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+      flushSequence: 0,
+    });
   let listener: RunningListener | null = null;
 
   afterEach(async () => {
@@ -51,7 +59,7 @@ describe("startListener", () => {
 
   async function start(allowedOrigins: readonly string[] = []): Promise<RunningListener> {
     listener = await startListener({
-      app: createHttpApp({ allowedOrigins, readFleet, readRobot, readHealth, ingest }),
+      app: createHttpApp({ allowedOrigins, readFleet, readRobot, readHistory, readHealth, ingest }),
       host: "127.0.0.1",
       port: 0,
     });
@@ -136,7 +144,14 @@ describe("startListener", () => {
     // socket is still held is exactly the shutdown bug that leaves `pnpm dev` unable to
     // restart.
     const rebound = await startListener({
-      app: createHttpApp({ allowedOrigins: [], readFleet, readRobot, readHealth, ingest }),
+      app: createHttpApp({
+        allowedOrigins: [],
+        readFleet,
+        readRobot,
+        readHistory,
+        readHealth,
+        ingest,
+      }),
       host: "127.0.0.1",
       port,
     });

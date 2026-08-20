@@ -8,12 +8,14 @@ import {
   createFleetTransport,
   type FleetTransport,
   type OpenSocket,
+  type RetryTimer,
 } from "@/shared/lib/fleetTransport";
 import type { StreamConnectionState } from "@/shared/lib/connectionContext";
 import {
   INITIAL_STREAM_STATE,
   publishedConnectionState,
   type StreamState,
+  type StreamTerminalCause,
 } from "@/shared/lib/streamLifecycle";
 import type { FetchLike } from "@/shared/lib/transportDecoding";
 
@@ -36,8 +38,10 @@ export interface FleetTransportState {
   readonly connectionState: StreamConnectionState;
   /** When the stream last opened, for the banner's "last event" copy. Null before then. */
   readonly lastEventAt: number | null;
-  /** Attempts since the last successful open, so the retry control is visibly working. */
+  /** Attempts since the last completed join, so the retry control is visibly working. */
   readonly attempt: number;
+  /** Why the transport stopped retrying, for the banner's terminal copy (ADR 31). */
+  readonly terminalCause: StreamTerminalCause | null;
   /** Set when the server sent a body this console cannot read. Terminal (**W-6**). */
   readonly contractFailure: readonly ContractIssue[] | null;
   /** Frames dropped for failing to decode; a diagnostics number, never a fleet-table one. */
@@ -82,7 +86,13 @@ export function resolveStreamUrl(path: string, origin: string): string {
 
 /** Connects on mount, disconnects on unmount, and publishes what the shell renders. */
 export function useFleetTransport(
-  ports: { readonly openSocket?: OpenSocket; readonly fetchLike?: FetchLike } = {},
+  ports: {
+    readonly openSocket?: OpenSocket;
+    readonly fetchLike?: FetchLike;
+    /** Injected by tests so the ADR 31 retry schedule runs on fake time. */
+    readonly timer?: RetryTimer;
+    readonly random?: () => number;
+  } = {},
 ): FleetTransportState {
   const store = useMemo(() => createFleetStore(), []);
   // One piece of state, because the published value and the attempt count are two views
@@ -100,6 +110,8 @@ export function useFleetTransport(
         },
         openSocket: ports.openSocket ?? openBrowserSocket,
         fetchLike: ports.fetchLike ?? ((url) => fetch(url)),
+        timer: ports.timer,
+        random: ports.random,
         handlers: {
           onSnapshot: (snapshot) => {
             store.applySnapshot(snapshot);
@@ -134,6 +146,7 @@ export function useFleetTransport(
     connectionState: publishedConnectionState(streamState),
     lastEventAt: streamState.lastConnectedAt,
     attempt: streamState.attempt,
+    terminalCause: streamState.terminalCause,
     contractFailure,
     rejectedFrames,
     retry: () => {

@@ -18,13 +18,19 @@ import {
   registeredRobotStateSchema,
   robotDiagnosticEnvelopeSchema,
   fleetSnapshotSchema,
-  isDeltaCoveredBySnapshot,
+  reconcileDeltaWithSnapshot,
   telemetryBatchSchema,
   withFreshness,
 } from "./envelopeSchema.js";
 
 const REPORTED_AT = 1_755_600_000_000;
 const RECEIVED_AT = 1_755_600_000_120;
+
+/** One server runtime's identity, as `crypto.randomUUID()` mints it (ADR 31). */
+const SERVER_SESSION = "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b";
+
+/** A different runtime — the restarted server the reconciliation must detect. */
+const OTHER_SESSION = "01d3b5f7-9a2c-4e6d-8b0f-1a3c5e7d9b2f";
 
 /** A complete wire envelope declaring every capability. */
 function completeWire(): CanonicalEnvelopeWire {
@@ -180,7 +186,7 @@ describe("canonicalEnvelopeSchema", () => {
   });
 
   it("rejects an unsupported schema version rather than reinterpreting it", () => {
-    const result = parseCanonicalEnvelope({ ...completeWire(), schemaVersion: "2" });
+    const result = parseCanonicalEnvelope({ ...completeWire(), schemaVersion: "1" });
 
     expect(result.ok).toBe(false);
     if (result.ok) {
@@ -542,13 +548,19 @@ describe("robotDiagnosticEnvelopeSchema", () => {
 });
 
 describe("telemetryBatchSchema", () => {
-  it("accepts a coalesced batch of changed robots", () => {
-    const result = parseTelemetryBatch({
+  function batch(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
       schemaVersion: SCHEMA_VERSION,
+      serverSessionId: SERVER_SESSION,
       flushSequence: 41,
       sentAt: RECEIVED_AT,
-      robots: [completeWire(), minimalWire()],
-    });
+      robots: [],
+      ...overrides,
+    };
+  }
+
+  it("accepts a coalesced batch of changed robots", () => {
+    const result = parseTelemetryBatch(batch({ robots: [completeWire(), minimalWire()] }));
 
     expect(result.ok).toBe(true);
     if (!result.ok) {
@@ -556,29 +568,20 @@ describe("telemetryBatchSchema", () => {
     }
     expect(result.value.robots).toHaveLength(2);
     expect(result.value.robots[0]?.capabilities.sequence).toEqual({ value: 9014 });
+    expect(result.value.serverSessionId).toBe(SERVER_SESSION);
   });
 
   it("accepts an empty batch", () => {
     // A flush with nothing changed is legal; the server simply should not send
     // one. Rejecting it here would turn a wasteful message into a dropped
     // connection.
-    expect(
-      telemetryBatchSchema.safeParse({
-        schemaVersion: SCHEMA_VERSION,
-        flushSequence: 41,
-        sentAt: RECEIVED_AT,
-        robots: [],
-      }).success,
-    ).toBe(true);
+    expect(telemetryBatchSchema.safeParse(batch()).success).toBe(true);
   });
 
   it("rejects a batch containing an invalid envelope", () => {
-    const result = parseTelemetryBatch({
-      schemaVersion: SCHEMA_VERSION,
-      flushSequence: 41,
-      sentAt: RECEIVED_AT,
-      robots: [completeWire(), { ...minimalWire(), freshness: "LIVE" }],
-    });
+    const result = parseTelemetryBatch(
+      batch({ robots: [completeWire(), { ...minimalWire(), freshness: "LIVE" }] }),
+    );
 
     expect(result.ok).toBe(false);
     if (result.ok) {
@@ -589,12 +592,9 @@ describe("telemetryBatchSchema", () => {
 
   it("rejects a raw payload smuggled into a delta", () => {
     expect(
-      telemetryBatchSchema.safeParse({
-        schemaVersion: SCHEMA_VERSION,
-        flushSequence: 41,
-        sentAt: RECEIVED_AT,
-        robots: [{ ...completeWire(), rawPayload: { any: "thing" } }],
-      }).success,
+      telemetryBatchSchema.safeParse(
+        batch({ robots: [{ ...completeWire(), rawPayload: { any: "thing" } }] }),
+      ).success,
     ).toBe(false);
   });
 
@@ -603,11 +603,7 @@ describe("telemetryBatchSchema", () => {
     // undecodable rather than defaulted: a client cannot tell "flush 0" from
     // "this server does not send sequences", and guessing wrong silently
     // discards deltas it needed (ADR 18).
-    const result = parseTelemetryBatch({
-      schemaVersion: SCHEMA_VERSION,
-      sentAt: RECEIVED_AT,
-      robots: [],
-    });
+    const result = parseTelemetryBatch(without(batch(), "flushSequence"));
 
     expect(result.ok).toBe(false);
     if (result.ok) {
@@ -616,30 +612,42 @@ describe("telemetryBatchSchema", () => {
     expect(result.issues[0]?.path).toBe("flushSequence");
   });
 
+  it("requires the server session, which restart detection depends on", () => {
+    // ADR 31: a batch that cannot name its sequence epoch cannot be reconciled
+    // against any snapshot. Defaulting it would revive the sequence-only
+    // comparison this field exists to replace.
+    const result = parseTelemetryBatch(without(batch(), "serverSessionId"));
+
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      throw new Error("expected a failure");
+    }
+    expect(result.issues[0]?.path).toBe("serverSessionId");
+  });
+
+  it("rejects a server session that is not a UUID", () => {
+    for (const serverSessionId of ["", "restart-1", "8f7a2c9e-1b3d-4e5f-9a6b", 42]) {
+      expect(telemetryBatchSchema.safeParse(batch({ serverSessionId })).success).toBe(false);
+    }
+  });
+
+  it("rejects the version-1 wire format, which predates the session field", () => {
+    // The bump to version 2 was deliberate: a version-1 producer cannot supply
+    // the field reconciliation depends on, so its frames are refused rather
+    // than reinterpreted (ADR 31).
+    expect(telemetryBatchSchema.safeParse(batch({ schemaVersion: "1" })).success).toBe(false);
+  });
+
   it("rejects a non-integral or negative flush sequence", () => {
     // It counts flushes. A fraction means someone put a timestamp in it, and a
     // negative means someone used it as a sentinel.
     for (const flushSequence of [1.5, -1, Number.NaN]) {
-      expect(
-        telemetryBatchSchema.safeParse({
-          schemaVersion: SCHEMA_VERSION,
-          flushSequence,
-          sentAt: RECEIVED_AT,
-          robots: [],
-        }).success,
-      ).toBe(false);
+      expect(telemetryBatchSchema.safeParse(batch({ flushSequence })).success).toBe(false);
     }
   });
 
-  it("accepts flush sequence zero, which a server that has never flushed reports", () => {
-    expect(
-      telemetryBatchSchema.safeParse({
-        schemaVersion: SCHEMA_VERSION,
-        flushSequence: 0,
-        sentAt: RECEIVED_AT,
-        robots: [],
-      }).success,
-    ).toBe(true);
+  it("accepts flush sequence zero, which a freshly restarted server reports", () => {
+    expect(telemetryBatchSchema.safeParse(batch({ flushSequence: 0 })).success).toBe(true);
   });
 });
 
@@ -647,6 +655,7 @@ describe("fleetSnapshotSchema", () => {
   function snapshot(overrides: Record<string, unknown> = {}) {
     return {
       schemaVersion: SCHEMA_VERSION,
+      serverSessionId: SERVER_SESSION,
       flushSequence: 41,
       capturedAt: RECEIVED_AT,
       robots: [completeWire()],
@@ -685,13 +694,19 @@ describe("fleetSnapshotSchema", () => {
   });
 
   it("requires the flush sequence the reconciliation compares against", () => {
-    expect(
-      fleetSnapshotSchema.safeParse({
-        schemaVersion: SCHEMA_VERSION,
-        capturedAt: RECEIVED_AT,
-        robots: [completeWire()],
-      }).success,
-    ).toBe(false);
+    expect(fleetSnapshotSchema.safeParse(without(snapshot(), "flushSequence")).success).toBe(false);
+  });
+
+  it("requires the server session that scopes the flush sequence", () => {
+    // ADR 31: without it, a client joining a restarted server compares its
+    // buffered deltas against a sequence from a different epoch.
+    expect(fleetSnapshotSchema.safeParse(without(snapshot(), "serverSessionId")).success).toBe(
+      false,
+    );
+  });
+
+  it("rejects the version-1 wire format, which predates the session field", () => {
+    expect(fleetSnapshotSchema.safeParse(snapshot({ schemaVersion: "1" })).success).toBe(false);
   });
 
   it("rejects a raw payload smuggled into the snapshot", () => {
@@ -727,9 +742,16 @@ describe("fleetSnapshotSchema", () => {
   });
 });
 
-describe("isDeltaCoveredBySnapshot", () => {
-  it("discards a delta the snapshot already reflects", () => {
-    expect(isDeltaCoveredBySnapshot(41, 40)).toBe(true);
+describe("reconcileDeltaWithSnapshot", () => {
+  /** The snapshot's epoch, against which every delta below is reconciled. */
+  const held = { serverSessionId: SERVER_SESSION, flushSequence: 41 };
+
+  function delta(flushSequence: number, serverSessionId: string = SERVER_SESSION) {
+    return { serverSessionId, flushSequence };
+  }
+
+  it("discards a same-session delta the snapshot already reflects", () => {
+    expect(reconcileDeltaWithSnapshot(held, delta(40))).toBe("covered");
   });
 
   it("discards the flush the snapshot was taken at", () => {
@@ -737,15 +759,29 @@ describe("isDeltaCoveredBySnapshot", () => {
     // is the boundary the whole reconciliation turns on, and getting it wrong
     // re-applies one flush — harmless under whole-envelope replace, not harmless
     // once a merge path exists (ADR 18).
-    expect(isDeltaCoveredBySnapshot(41, 41)).toBe(true);
+    expect(reconcileDeltaWithSnapshot(held, delta(41))).toBe("covered");
   });
 
-  it("keeps a delta the snapshot predates", () => {
-    expect(isDeltaCoveredBySnapshot(41, 42)).toBe(false);
+  it("applies a same-session delta the snapshot predates", () => {
+    expect(reconcileDeltaWithSnapshot(held, delta(42))).toBe("apply");
   });
 
   it("keeps everything for a cold snapshot from a server that has never flushed", () => {
-    expect(isDeltaCoveredBySnapshot(0, 1)).toBe(false);
-    expect(isDeltaCoveredBySnapshot(0, 0)).toBe(true);
+    const cold = { serverSessionId: SERVER_SESSION, flushSequence: 0 };
+    expect(reconcileDeltaWithSnapshot(cold, delta(1))).toBe("apply");
+    expect(reconcileDeltaWithSnapshot(cold, delta(0))).toBe("covered");
+  });
+
+  it("reports a session mismatch for a delta from a different runtime", () => {
+    // The restart defect ADR 31 closes: the new process counts from zero, so a
+    // sequence-only rule would call every one of its deltas covered. The session
+    // comparison must win before any sequence comparison happens.
+    expect(reconcileDeltaWithSnapshot(held, delta(1, OTHER_SESSION))).toBe("session-mismatch");
+  });
+
+  it("reports a session mismatch even when the sequence would say apply", () => {
+    // A mismatched delta with a plausible-looking higher sequence is still from
+    // a different epoch; applying it would interleave two servers' histories.
+    expect(reconcileDeltaWithSnapshot(held, delta(99, OTHER_SESSION))).toBe("session-mismatch");
   });
 });

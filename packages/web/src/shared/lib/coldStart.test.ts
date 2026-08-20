@@ -11,12 +11,21 @@ import { createColdStart } from "./coldStart";
  * stops updating rather than an error.
  */
 describe("createColdStart", () => {
-  function batch(flushSequence: number): TelemetryBatch {
-    return { schemaVersion: SCHEMA_VERSION, flushSequence, sentAt: 0, robots: [] };
+  const SESSION = "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b";
+  const OTHER_SESSION = "01d3b5f7-9a2c-4e6d-8b0f-1a3c5e7d9b2f";
+
+  function batch(flushSequence: number, serverSessionId: string = SESSION): TelemetryBatch {
+    return { schemaVersion: SCHEMA_VERSION, serverSessionId, flushSequence, sentAt: 0, robots: [] };
   }
 
   function snapshot(flushSequence: number): FleetSnapshot {
-    return { schemaVersion: SCHEMA_VERSION, flushSequence, capturedAt: 0, robots: [] };
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      serverSessionId: SESSION,
+      flushSequence,
+      capturedAt: 0,
+      robots: [],
+    };
   }
 
   it("keeps a frame that arrived while the snapshot was in flight", () => {
@@ -28,6 +37,22 @@ describe("createColdStart", () => {
     const settled = coldStart.settle(snapshot(3));
 
     expect(settled.replay.map((frame) => frame.flushSequence)).toStrictEqual([4]);
+    expect(settled.discarded).toBe(0);
+    expect(settled.mismatched).toBe(0);
+  });
+
+  it("refuses a buffered frame from a different server runtime", () => {
+    // ADR 31: a sequence comparison across sessions is meaningless, so a mismatched
+    // frame is never replayed — however plausible its number — and the count tells the
+    // transport the socket disagrees with the snapshot.
+    const coldStart = createColdStart();
+    coldStart.receive(batch(99, OTHER_SESSION));
+    coldStart.receive(batch(4));
+
+    const settled = coldStart.settle(snapshot(3));
+
+    expect(settled.replay.map((frame) => frame.flushSequence)).toStrictEqual([4]);
+    expect(settled.mismatched).toBe(1);
     expect(settled.discarded).toBe(0);
   });
 

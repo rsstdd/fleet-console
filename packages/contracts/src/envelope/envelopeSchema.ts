@@ -22,6 +22,7 @@ import {
   robotStatusSchema,
   schemaVersionSchema,
   sequenceHealthSchema,
+  serverSessionIdSchema,
   vendorIdSchema,
   versionStringSchema,
 } from "../shared/primitives.js";
@@ -188,7 +189,7 @@ export type AdapterEnvelope = z.infer<typeof adapterEnvelopeSchema>;
  *
  * It accepts an `AdapterEnvelope` for the same reason: ingest supplies the
  * field the adapter could not, through the same single constructor the sweep
- * uses. Contracts `TODO_E2E_JOIN.md` **C-2** turns on there being exactly one
+ * uses. The archived contracts joining plan **C-2** turns on there being exactly one
  * place freshness is written, so this widens rather than adding a second one.
  *
  * Returns the original reference when a canonical envelope's state is
@@ -277,14 +278,21 @@ export type RobotDiagnosticEnvelope = z.infer<typeof robotDiagnosticEnvelopeSche
  *
  * Coupling: `flushSequence` here and on `fleetSnapshotSchema` are the same
  * counter and must come from one source in `packages/server`. They exist to be
- * compared — see `isDeltaCoveredBySnapshot`.
+ * compared — see `reconcileDeltaWithSnapshot`, and `serverSessionId` is what
+ * makes that comparison meaningful across a server restart (ADR 31).
  */
 export const telemetryBatchSchema = z.strictObject({
   schemaVersion: schemaVersionSchema,
   /**
+   * The runtime that flushed this batch. Required, because a batch that cannot
+   * name its sequence epoch cannot be reconciled against any snapshot (ADR 31).
+   */
+  serverSessionId: serverSessionIdSchema,
+  /**
    * The server-wide flush this batch is, so a joining client can discard what its
    * snapshot already covers (ADR 2 § Decision, ADR 18). A frame assembled from
-   * several flushes carries the highest sequence it contains.
+   * several flushes carries the highest sequence it contains. Meaningful only
+   * within one `serverSessionId` (ADR 31).
    */
   flushSequence: flushSequenceSchema,
   /** When the server flushed this batch, for measuring end-to-end delay. */
@@ -321,11 +329,12 @@ export type FleetSnapshotRobot = z.infer<typeof fleetSnapshotRobotSchema>;
  *
  * ADR 2 gives initial state to HTTP rather than to the socket, so the socket
  * carries exactly one message shape for its whole lifetime. That choice is only
- * safe because of `flushSequence`: the client opens the socket first and buffers
- * what arrives, then fetches this, then discards every buffered delta at or below
- * this sequence and applies the rest. Fetching before opening loses every delta
- * emitted in the gap, and the symptom is a row that silently stops updating
- * rather than an error (server TODO H3b).
+ * safe because of `serverSessionId` and `flushSequence`: the client opens the
+ * socket first and buffers what arrives, then fetches this, then discards every
+ * buffered delta this snapshot already covers and applies the rest
+ * (`reconcileDeltaWithSnapshot`, ADR 31). Fetching before opening loses every
+ * delta emitted in the gap, and the symptom is a row that silently stops
+ * updating rather than an error (ADR 18, ADR 31).
  *
  * Carries the whole fleet, both populations, so a never-reported robot shows as
  * UNKNOWN rather than as absent (ADR 3).
@@ -337,9 +346,15 @@ export type FleetSnapshotRobot = z.infer<typeof fleetSnapshotRobotSchema>;
 export const fleetSnapshotSchema = z.strictObject({
   schemaVersion: schemaVersionSchema,
   /**
-   * The flush this snapshot was taken at. A delta at or below it is redundant.
-   * Zero from a server that has never flushed, so a cold snapshot discards
-   * nothing.
+   * The runtime this snapshot describes. A delta from a different value belongs
+   * to a different sequence epoch and must not be applied over this snapshot,
+   * however its `flushSequence` compares (ADR 31).
+   */
+  serverSessionId: serverSessionIdSchema,
+  /**
+   * The flush this snapshot was taken at. A same-session delta at or below it is
+   * redundant. Zero from a server that has never flushed, so a cold snapshot
+   * discards nothing.
    */
   flushSequence: flushSequenceSchema,
   /** When the server captured this snapshot; the analogue of a batch's `sentAt`. */
@@ -351,24 +366,50 @@ export const fleetSnapshotSchema = z.strictObject({
 export type FleetSnapshot = z.infer<typeof fleetSnapshotSchema>;
 
 /**
- * Whether a buffered delta is already covered by the snapshot the client holds.
+ * What a client holding a snapshot should do with one delta.
+ *
+ * - `covered`: same session, at or below the snapshot's flush — discard as redundant.
+ * - `apply`: same session, above the snapshot's flush — apply it.
+ * - `session-mismatch`: a different runtime produced it. The sequence comparison is
+ *   meaningless across sessions, so the delta must be discarded regardless of its
+ *   number, and the stream that carried it disagrees with the snapshot (ADR 31).
+ */
+export type DeltaReconciliation = "covered" | "apply" | "session-mismatch";
+
+/** The two fields reconciliation reads from either side of the comparison. */
+export interface ReconciliationEpoch {
+  readonly serverSessionId: string;
+  readonly flushSequence: number;
+}
+
+/**
+ * Reconciles one delta against the snapshot the client holds.
  *
  * The whole reconciliation rule, in one comparison, living here rather than in
  * `packages/web` because both sides of the wire must agree on it and a rule
  * implemented once cannot be implemented differently twice (Principle 1).
  *
- * At-or-below is redundant, because the snapshot reflects every flush up to and
- * including its own sequence. Strictly-below would re-apply the flush the
- * snapshot was taken at — harmless today, since a delta is a keyed replace of
- * state the snapshot already holds, but it stops being harmless the moment a
- * freshness-only delta shape lands and application becomes a merge (ADR 18
- * § Open questions).
+ * The session is compared first, because `flushSequence` restarts at zero with
+ * the server process: after a restart a client's snapshot can hold a higher
+ * sequence than every delta the new runtime will ever send, and a sequence-only
+ * rule discards them all — rows silently stop updating, which is the defect
+ * ADR 31 exists to close.
+ *
+ * Within one session, at-or-below is redundant, because the snapshot reflects
+ * every flush up to and including its own sequence. Strictly-below would
+ * re-apply the flush the snapshot was taken at — harmless today, since a delta
+ * is a keyed replace of state the snapshot already holds, but it stops being
+ * harmless the moment a freshness-only delta shape lands and application
+ * becomes a merge (ADR 18 § Open questions).
  */
-export function isDeltaCoveredBySnapshot(
-  snapshotFlushSequence: number,
-  deltaFlushSequence: number,
-): boolean {
-  return deltaFlushSequence <= snapshotFlushSequence;
+export function reconcileDeltaWithSnapshot(
+  snapshot: ReconciliationEpoch,
+  delta: ReconciliationEpoch,
+): DeltaReconciliation {
+  if (delta.serverSessionId !== snapshot.serverSessionId) {
+    return "session-mismatch";
+  }
+  return delta.flushSequence <= snapshot.flushSequence ? "covered" : "apply";
 }
 
 /** Decodes an untrusted canonical envelope from the wire. */

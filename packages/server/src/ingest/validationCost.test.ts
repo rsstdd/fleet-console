@@ -37,7 +37,7 @@
 // on the measuring instrument itself.
 import { createAdapterRegistry, isOk } from "@fleet/adapters";
 import { loadVendorFixture } from "@fleet/adapters/testing";
-import { encodeCanonicalEnvelope, parseCanonicalEnvelope } from "@fleet/contracts";
+import { encodeCanonicalEnvelope, parseCanonicalEnvelope, SCHEMA_VERSION } from "@fleet/contracts";
 import type { CanonicalEnvelope } from "@fleet/contracts";
 import { describe, expect, it } from "vitest";
 
@@ -61,7 +61,7 @@ const MESSAGES_PER_BATCH = 500;
 
 function telemetryMessage(): CanonicalEnvelope {
   return {
-    schemaVersion: "1",
+    schemaVersion: SCHEMA_VERSION,
     robotId: "R-001",
     siteId: "site-a",
     vendorId: "A",

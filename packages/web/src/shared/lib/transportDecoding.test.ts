@@ -5,6 +5,7 @@ import { SCHEMA_VERSION } from "@fleet/contracts";
 import {
   decodeFrame,
   decodeFrameText,
+  fetchBatteryHistory,
   fetchFleetSnapshot,
   fetchHealth,
   fetchRobotDetail,
@@ -19,6 +20,7 @@ import {
 describe("fetchFleetSnapshot", () => {
   const SNAPSHOT = {
     schemaVersion: SCHEMA_VERSION,
+    serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
     flushSequence: 0,
     capturedAt: 0,
     robots: [],
@@ -60,7 +62,7 @@ describe("fetchFleetSnapshot", () => {
     // Retrying returns the same bytes, so this must not look like a network blip. The
     // paths are what let a diagnostics surface name the field without showing a payload.
     const outcome = await fetchFleetSnapshot(
-      responding({ schemaVersion: SCHEMA_VERSION, flushSequence: -1, capturedAt: 0, robots: [] }),
+      responding({ ...SNAPSHOT, flushSequence: -1 }),
       "/api",
     );
 
@@ -74,7 +76,13 @@ describe("fetchFleetSnapshot", () => {
 
 describe("decodeFrame", () => {
   it("decodes a valid frame", () => {
-    const batch = { schemaVersion: SCHEMA_VERSION, flushSequence: 2, sentAt: 0, robots: [] };
+    const batch = {
+      schemaVersion: SCHEMA_VERSION,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+      flushSequence: 2,
+      sentAt: 0,
+      robots: [],
+    };
 
     expect(decodeFrame(batch)).toStrictEqual({ ok: true, batch });
   });
@@ -94,7 +102,13 @@ describe("decodeFrame", () => {
   });
 
   it("decodes a frame delivered as text", () => {
-    const batch = { schemaVersion: SCHEMA_VERSION, flushSequence: 7, sentAt: 1, robots: [] };
+    const batch = {
+      schemaVersion: SCHEMA_VERSION,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+      flushSequence: 7,
+      sentAt: 1,
+      robots: [],
+    };
 
     expect(decodeFrameText(JSON.stringify(batch))).toStrictEqual({ ok: true, batch });
   });
@@ -214,5 +228,69 @@ describe("fetchHealth", () => {
     const outcome = await fetchHealth(() => Promise.reject(new Error("offline")), "/api/health");
 
     expect(outcome).toStrictEqual({ ok: false });
+  });
+});
+
+describe("fetchBatteryHistory", () => {
+  const HISTORY = {
+    schemaVersion: "1",
+    robotId: "R-118",
+    capturedAt: 60_000,
+    windowMs: 60_000,
+    maxPoints: 60,
+    sourceSampleCount: 1,
+    missingBatterySampleCount: 0,
+    points: [{ receivedAt: 59_000, batteryPercent: 91 }],
+  };
+
+  function responding(body: unknown, init: { ok?: boolean; status?: number } = {}): FetchLike {
+    return () =>
+      Promise.resolve({
+        ok: init.ok ?? true,
+        status: init.status ?? 200,
+        json: () => Promise.resolve(body),
+      });
+  }
+
+  it("decodes a valid history response", async () => {
+    const outcome = await fetchBatteryHistory(responding(HISTORY), "/api/robots/R-118/history");
+
+    expect(outcome).toStrictEqual({ ok: true, history: HISTORY });
+  });
+
+  it("calls a non-2xx unreachable, so it stays retryable", async () => {
+    const outcome = await fetchBatteryHistory(
+      responding(null, { ok: false, status: 503 }),
+      "/api/robots/R-118/history",
+    );
+
+    expect(outcome).toStrictEqual({
+      ok: false,
+      failure: { kind: "unreachable", status: 503 },
+    });
+  });
+
+  it("calls a rejected request unreachable with no status", async () => {
+    const outcome = await fetchBatteryHistory(
+      () => Promise.reject(new Error("offline")),
+      "/api/robots/R-118/history",
+    );
+
+    expect(outcome).toStrictEqual({ ok: false, failure: { kind: "unreachable", status: null } });
+  });
+
+  it("calls a body the contract refuses terminal, with the failing paths named", async () => {
+    // A count invariant violation: more points than numeric samples. Retrying returns
+    // the same bytes, so this must not be presented as retryable.
+    const outcome = await fetchBatteryHistory(
+      responding({ ...HISTORY, sourceSampleCount: 0 }),
+      "/api/robots/R-118/history",
+    );
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.failure.kind).toBe("contract");
+    if (outcome.failure.kind !== "contract") return;
+    expect(outcome.failure.issues.length).toBeGreaterThan(0);
   });
 });

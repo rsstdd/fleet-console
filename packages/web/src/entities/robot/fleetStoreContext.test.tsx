@@ -35,6 +35,7 @@ describe("useFleetRobots", () => {
     const store = createFleetStore();
     store.applySnapshot({
       schemaVersion: SCHEMA_VERSION,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
       flushSequence: 0,
       capturedAt: 0,
       robots: [registered("R-001")],
@@ -58,6 +59,7 @@ describe("useFleetRobots", () => {
 
     store.applySnapshot({
       schemaVersion: SCHEMA_VERSION,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
       flushSequence: 1,
       capturedAt: 0,
       robots: [registered("R-001"), registered("R-002")],

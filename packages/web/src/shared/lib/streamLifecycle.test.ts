@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { isStreamConnected } from "./connectionContext";
 import {
+  INITIAL_PROBE_ATTEMPT_LIMIT,
   INITIAL_STREAM_STATE,
   nextStreamState,
   publishedConnectionState,
+  RETRY_BASE_DELAY_MS,
+  RETRY_DELAY_CEILING_MS,
+  retryDelayMs,
   type StreamEvent,
   type StreamState,
 } from "./streamLifecycle";
@@ -12,7 +16,8 @@ import {
 /**
  * The state matrix Principle 5 requires to exist before the transport does, plus the
  * property ADR 3 depends on: anything that is not delivering must suppress per-robot
- * freshness labels.
+ * freshness labels. The retry schedule's bounds live here too, because ADR 31 states
+ * them as inequalities and inequalities are testable without a socket.
  */
 describe("nextStreamState", () => {
   function run(...events: StreamEvent[]): StreamState {
@@ -24,6 +29,7 @@ describe("nextStreamState", () => {
       phase: "idle",
       attempt: 0,
       lastConnectedAt: null,
+      terminalCause: null,
     });
   });
 
@@ -36,24 +42,23 @@ describe("nextStreamState", () => {
     expect(state.attempt).toBe(2);
   });
 
-  it("clears the attempt count on a successful open", () => {
-    // The banner shows this number; leaving it climbing after a success would make the
-    // retry control describe work that already finished.
-    const state = run(
+  it("keeps counting attempts across an open, until the join completes", () => {
+    // ADR 31: a socket that opens onto a failing snapshot fetch has not delivered a
+    // fleet. `open` alone must not zero the number the banner is showing.
+    const opened = run(
       { kind: "connect" },
       { kind: "close" },
       { kind: "connect" },
-      {
-        kind: "open",
-        at: 1_755_600_000_000,
-      },
+      { kind: "open", at: 1_755_600_000_000 },
     );
-
-    expect(state).toStrictEqual({
+    expect(opened).toStrictEqual({
       phase: "connected",
-      attempt: 0,
+      attempt: 2,
       lastConnectedAt: 1_755_600_000_000,
+      terminalCause: null,
     });
+
+    expect(nextStreamState(opened, { kind: "joined" }).attempt).toBe(0);
   });
 
   it("becomes reconnecting only after it has been connected once", () => {
@@ -63,18 +68,29 @@ describe("nextStreamState", () => {
     expect(state.lastConnectedAt).toBe(1);
   });
 
-  it("stays failed until something explicitly retries", () => {
+  it("stays failed, and names its cause, until something explicitly retries", () => {
     const failed = run(
       { kind: "connect" },
       { kind: "open", at: 1 },
       { kind: "close" },
-      {
-        kind: "give-up",
-      },
+      { kind: "give-up", cause: "session-mismatch" },
     );
     expect(failed.phase).toBe("failed");
+    expect(failed.terminalCause).toBe("session-mismatch");
 
-    expect(nextStreamState(failed, { kind: "connect" }).phase).toBe("reconnecting");
+    // Retrying clears the cause: "why we stopped" is false once we are trying again.
+    const retried = nextStreamState(failed, { kind: "connect" });
+    expect(retried.phase).toBe("reconnecting");
+    expect(retried.terminalCause).toBeNull();
+  });
+
+  it("holds a distinct cause for each of the three terminal outcomes", () => {
+    // ADR 31 keeps the causes as metadata rather than phases; this pins that each one
+    // survives the transition, because the banner copy switches on it.
+    for (const cause of ["handshake-exhausted", "contract", "session-mismatch"] as const) {
+      const state = run({ kind: "connect" }, { kind: "give-up", cause });
+      expect(state).toMatchObject({ phase: "failed", terminalCause: cause });
+    }
   });
 
   it("ignores a connect while already connected", () => {
@@ -87,13 +103,13 @@ describe("nextStreamState", () => {
 describe("publishedConnectionState", () => {
   const PHASES = ["idle", "connecting", "connected", "reconnecting", "failed"] as const;
 
+  function stateIn(phase: StreamState["phase"]): StreamState {
+    return { phase, attempt: 0, lastConnectedAt: null, terminalCause: null };
+  }
+
   it("reports connected only when the stream is actually delivering", () => {
     for (const phase of PHASES) {
-      const published = publishedConnectionState({
-        phase,
-        attempt: 0,
-        lastConnectedAt: null,
-      });
+      const published = publishedConnectionState(stateIn(phase));
 
       // ADR 3: a client showing per-robot freshness over a stream that is not delivering
       // asserts a currency it cannot support. Being wrong in the permissive direction here
@@ -108,13 +124,56 @@ describe("publishedConnectionState", () => {
     expect(publishedConnectionState(INITIAL_STREAM_STATE)).toBe("disconnected");
   });
 
+  it("distinguishes a first connection from a recovery", () => {
+    // ADR 31 publishes `connecting` as its own value: "we have never had a stream" and
+    // "we had one and lost it" earn different operator copy.
+    expect(publishedConnectionState(stateIn("connecting"))).toBe("connecting");
+    expect(publishedConnectionState(stateIn("reconnecting"))).toBe("reconnecting");
+  });
+
   it("distinguishes a stream that is trying from one that has stopped", () => {
-    const trying: StreamState = { phase: "reconnecting", attempt: 3, lastConnectedAt: 1 };
-    const stopped: StreamState = { phase: "failed", attempt: 3, lastConnectedAt: 1 };
+    const trying: StreamState = {
+      phase: "reconnecting",
+      attempt: 3,
+      lastConnectedAt: 1,
+      terminalCause: null,
+    };
+    const stopped: StreamState = {
+      phase: "failed",
+      attempt: 3,
+      lastConnectedAt: 1,
+      terminalCause: "contract",
+    };
 
     expect(publishedConnectionState(trying)).toBe("reconnecting");
     // Both suppress freshness; only the banner copy differs, and `failed` must not claim
     // a retry is in flight when none is.
     expect(publishedConnectionState(stopped)).toBe("disconnected");
+  });
+});
+
+describe("retryDelayMs", () => {
+  it("draws from [0, base × 2^(n−1)) with full jitter, exactly as ADR 31 states", () => {
+    // The inequality is the decision. `random()` scales the cap directly, so the two
+    // endpoints of the injected randomness pin both bounds.
+    expect(retryDelayMs(1, () => 0)).toBe(0);
+    expect(retryDelayMs(1, () => 0.999)).toBeLessThan(RETRY_BASE_DELAY_MS);
+    expect(retryDelayMs(3, () => 1)).toBe(RETRY_BASE_DELAY_MS * 4);
+  });
+
+  it("never reaches the 30-second ceiling, however many attempts have failed", () => {
+    for (const attempts of [6, 7, 10, 100, 10_000]) {
+      expect(retryDelayMs(attempts, () => 0.999)).toBeLessThan(RETRY_DELAY_CEILING_MS);
+      expect(retryDelayMs(attempts, () => 1)).toBe(RETRY_DELAY_CEILING_MS);
+    }
+  });
+
+  it("treats attempt counts below one as the first retry rather than shrinking to zero", () => {
+    expect(retryDelayMs(0, () => 1)).toBe(RETRY_BASE_DELAY_MS);
+  });
+
+  it("caps the initial probe at three attempts, the number the banner copy states", () => {
+    // The banner says "after 3 attempts"; this constant is where that number lives.
+    expect(INITIAL_PROBE_ATTEMPT_LIMIT).toBe(3);
   });
 });

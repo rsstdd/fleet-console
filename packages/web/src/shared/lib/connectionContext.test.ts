@@ -31,6 +31,12 @@ describe("isStreamConnected", () => {
     expect(isStreamConnected("connected")).toBe(true);
   });
 
+  it("treats connecting as not delivering", () => {
+    // A first attempt in flight has delivered nothing yet; suppressing until the join
+    // completes is what keeps the fleet table honest during startup (ADR 31).
+    expect(isStreamConnected("connecting")).toBe(false);
+  });
+
   it("treats reconnecting as not delivering", () => {
     // Nothing updates freshness during a reconnect, so the last value ages
     // silently — the same lie as a dead socket, and the case most likely to be
@@ -45,7 +51,12 @@ describe("isStreamConnected", () => {
   it("covers the whole vocabulary, so a new state cannot default to permissive", () => {
     // A fourth state added to the union without a decision here would be a
     // compile error at this array, not a silently-suppressing runtime surprise.
-    const all: readonly StreamConnectionState[] = ["connected", "reconnecting", "disconnected"];
+    const all: readonly StreamConnectionState[] = [
+      "connecting",
+      "connected",
+      "reconnecting",
+      "disconnected",
+    ];
     expect(all.filter(isStreamConnected)).toEqual(["connected"]);
   });
 
@@ -54,7 +65,7 @@ describe("isStreamConnected", () => {
     // union, restated because `shared/lib` and `shared/ui` may not import each
     // other (ADR 4, ADR 23). Structural typing is what keeps them interchangeable;
     // this assignment is the check that they still are.
-    const fromBanner: "connected" | "reconnecting" | "disconnected" = "reconnecting";
+    const fromBanner: "connecting" | "connected" | "reconnecting" | "disconnected" = "reconnecting";
     const asContextState: StreamConnectionState = fromBanner;
     expect(isStreamConnected(asContextState)).toBe(false);
   });

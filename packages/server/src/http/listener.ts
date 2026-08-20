@@ -60,7 +60,7 @@ export interface ListenerOptions {
 export interface RunningListener {
   /** The port actually bound, which differs from the requested one only when `0` was asked for. */
   readonly port: number;
-  /** Connected stream clients. Zero until fan-out mounts a handler (**H1**). */
+  /** Connected stream clients currently registered with fan-out. */
   readonly streamClientCount: number;
   /** Closes stream clients, then the server, resolving when the port is free. */
   close(): Promise<void>;
@@ -77,8 +77,9 @@ export interface RunningListener {
  * **The upgrade is not origin-checked.** CORS does not apply to a WebSocket handshake and
  * `ws` checks nothing itself, so `/ws` is reachable from any origin while `/api` is
  * governed by `evaluateOriginPolicy`. That gap is deliberate and unresolved — see the
- * deferred decision in `TODO.md` § Section 2. It must be settled with **H1**, not patched
- * here, because whether the HTTP allow-list governs the stream is an ADR question.
+ * WebSocket-origin item in `packages/server/TODO.md`. It requires an explicit transport
+ * policy; copying the HTTP CORS middleware here would neither authenticate the peer nor
+ * settle whether the same allow-list should govern both surfaces.
  */
 export async function startListener(options: ListenerOptions): Promise<RunningListener> {
   const streams = new WebSocketServer({ noServer: true });

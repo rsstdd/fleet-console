@@ -13,13 +13,16 @@ function ConnectionProbe(): React.ReactElement {
 }
 
 function renderShell(
-  state: "connected" | "reconnecting" | "disconnected" = "connected",
+  state: "connecting" | "connected" | "reconnecting" | "disconnected" = "connected",
   child: React.ReactElement = <h1>Route content</h1>,
+  terminalCause?: "handshake-exhausted" | "contract" | "session-mismatch",
 ): void {
   render(
     <MemoryRouter>
       <Routes>
-        <Route element={<AppShell connectionState={state} attempt={2} />}>
+        <Route
+          element={<AppShell connectionState={state} attempt={2} terminalCause={terminalCause} />}
+        >
           <Route index element={child} />
         </Route>
       </Routes>
@@ -77,6 +80,23 @@ describe("AppShell", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("Reconnecting to stream · attempt 2");
     expect(screen.getByText("Stream reconnecting")).toBeInTheDocument();
+  });
+
+  it("passes connecting state to the banner and labels the header to match", () => {
+    // ADR 31's fourth published value: a first attempt is not a recovery, and both
+    // surfaces must say so from the same state.
+    renderShell("connecting");
+
+    expect(screen.getByRole("status")).toHaveTextContent("Connecting to stream · attempt 2");
+    expect(screen.getByText("Stream connecting")).toBeInTheDocument();
+  });
+
+  it("forwards the terminal cause so the banner names why retrying stopped", () => {
+    renderShell("disconnected", <h1>Route content</h1>, "session-mismatch");
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Stream integrity error · showing last known state (may be stale)",
+    );
   });
 
   it("renders routed page content inside the single main landmark", () => {
