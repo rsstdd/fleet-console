@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 20 files, 132 tests     |
+| `pnpm test`      | passes — 21 files, 138 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -50,6 +50,7 @@ packages/server/
     ├── http/listener.ts            one port for HTTP and /ws, ordered shutdown (B1a)
     ├── observability/logger.ts     one JSON object per line on stdout (I1, part)
     ├── http/fleetResponse.ts       server state translated into the wire snapshot (G1)
+    ├── ingest/ingestTelemetry.ts   one reading, untrusted bytes to fleet state (D0-D9)
     ├── runServer.ts                decoded configuration in, a running server out
     ├── main.ts                     the process: real env, real paths, real signals
     ├── config/freshnessPolicy.ts   validated sweep thresholds (ADR 3, Principle 13)
@@ -61,9 +62,10 @@ packages/server/
 **This listens, and serves one route.** `pnpm --filter @fleet/server start` reads the
 repository-root configuration, binds loopback, announces the policy and roster it is
 actually running, serves `GET /api/fleet` with all fifty manifest robots as UNKNOWN, and
-shuts down on a signal, and runs the ADR 3 freshness sweep on its own interval — verified
-by running it, not only by unit test. Ingest, the single-robot read, health and the socket
-are still 404 or absent. Sections 4, 7 and 8 are that work.
+shuts down on a signal, runs the ADR 3 freshness sweep on its own interval, and **accepts
+telemetry** at `POST /api/telemetry/:vendor` — verified by running it, including watching
+an ingested robot go live to stale on the sweep. The single-robot read, health and the
+socket are still 404 or absent. Sections 7 and 8 are that work.
 
 On the four earliest pieces, whose reasoning is worth keeping:
 
@@ -248,48 +250,55 @@ now decides what implements them. The listener is unblocked.
 
 ## Section 4 — Ingest boundary (ADR 1, ADR 2, Principle 2)
 
-- [ ] **D0 — Apply the ingest size cap first, before anything reads the body.** Built and
-      tested as `src/ingest/requestSizeLimit.ts`
-      ([ADR 26](../../docs/00_adr/26_RAW_PAYLOAD_BOUNDED_VERBATIM_AND_UNPROTECTED_BY_DECISION.md));
-      what remains is calling it in the right place. **Order is the whole point** — a cap
-      applied after `JSON.parse` or after adapter dispatch protects only the store, which
-      was never the expensive part.
-      Both guards, not one: `checkDeclaredSize(contentLength)` rejects before a byte is
-      read, and `createByteBudget()` counts chunks as the body streams. The header is
-      caller-supplied, so a client that under-declares or omits it walks past the first
-      guard — **do not delete the budget as redundant.** Answer a rejection through
-      `errorResponse("payload_too_large")`, which is a 413.
-- [ ] **D1 — `POST /api/telemetry`, one reading per request** (ADR 2). Body, route
-      params and headers are `unknown` until decoded. No casts — lint blocks them.
-- [ ] **D2 — Stamp `receivedAt` from the injected `Clock` at the boundary**, before
-      dispatch, and pass it explicitly into the adapter. Never substitute the vendor's
-      `reportedAt`. These two values have different owners and different jobs: the sweep
-      reads `receivedAt`, the operator-facing "last seen" displays `reportedAt`, and
-      ADR 3 § Decision calls their independence a stated invariant of the system.
-- [ ] **D3 — Vendor identity is selected through the adapter registry**, keyed by
-      supported vendor. An unknown vendor is a defined rejection plus a metric, never a
-      guess and never a fallback adapter.
-- [ ] **D4 — Malformed payloads are rejected and counted, not coerced** (ADR 2 §
-      Decision). **The error shape is now decided and built**: answer through
-      `src/ingest/errorResponse.ts`, which is the only place an error body may be
-      constructed. It returns the contract's `errorEnvelopeSchema` body — a `kind`, a fixed
-      summary and the adapter's own `ContractIssue[]`, copied rather than re-derived — and
-      the HTTP status for that kind
-      ([ADR 20](../../docs/00_adr/20_ONE_ISSUE_VOCABULARY_END_TO_END.md), register **D16**).
-      What is left here is the counting and the handler that calls it.
-- [ ] **D5 — Idempotent upsert.** Duplicate or out-of-order input must not roll observed
-      state backward or append misleading history. Compare against the current stored
-      sequence for that robot only — no sequence log, per ADR 6.
-- [ ] **D6 — Represent "sequence not evaluated" distinctly from "zero gaps."** Vendor B
-      has no sequence; its adapter synthesizes ordering from timestamps, which cannot
-      distinguish a duplicate from two events in the same millisecond. Showing "0 gaps"
-      for such a robot is a false statement to an operator (ADR 1 § Implications,
-      README § 4). The health payload and the robot-detail diagnostics field must carry
-      a not-evaluated state, not a zero.
-      **The representation is now decided and is not this package's to choose**
-      ([ADR 25](../../docs/00_adr/25_CONTRACTS_OWNS_EVERY_DECODED_RESPONSE_COUNTERS_BY_SCOPE.md)):
-      `SequenceHealth` from `@fleet/contracts`, which `HealthMetrics` already imports
-      rather than declaring its own twin. Do not add a second shape at the handler.
+- [x] **D0-D5, D8, D9 — the ingest boundary. Done 20 August 2026.** `ingestTelemetry` in
+      `src/ingest/ingestTelemetry.ts` is the transition and `POST /api/telemetry/:vendor`
+      in `createApp.ts` is the transport around it (**D9**): the handler decides nothing
+      about what a reading means. The ordering is the contract and none of it produces a
+      type error if reversed, so each step names what it protects and the tests assert the
+      order rather than only the outcomes — selector before any body byte (**D3**, ADR 8),
+      then `checkDeclaredSize` on the caller's header, then `createByteBudget` on the bytes
+      actually read, both **before** `JSON.parse` (**D0**, ADR 26; the header guard is a
+      cheap early exit and the budget is what holds), then `receivedAt` from the injected
+      clock passed explicitly into the registry (**D2**), then `withFreshness` completing
+      the pre-freshness envelope with `now = receivedAt` so a reading is never born a
+      microsecond stale (ADR 10), then the idempotent upsert (**D5**) which also retains
+      the raw payload for the technician endpoint alone (**D7**, ADR 26). A malformed
+      payload is counted and answered through `errorResponse` with the adapter's own
+      issues copied rather than re-derived (**D4**, ADR 20). Unknown fields need no step:
+      the registry owns one process ledger and counts as it decodes (**D8**, ADR 15) —
+      asserted by vendor C's `telemetry.firmware_channel` moving `byAdapter.C` while
+      `byAdapter.A` stays at zero. Only an accepted reading is marked for fan-out; a
+      duplicate left stored state alone and would flush a frame that says nothing.
+      Answering is **204** rather than 202, because the transition already happened
+      synchronously — and with no body, because no contract describes an ingest response.
+      If a caller ever needs the disposition back, that shape is a `@fleet/contracts`
+      decision first (ADR 25). The test reaches the recorded fixtures through
+      `@fleet/adapters/testing` under the ADR 11 exception, which is also the standing
+      proof that exception is configured — the half that had no fixture when the rule
+      landed. It derives its manifest by decoding the fixtures rather than restating their
+      ids, because ADR 14 makes roster and payloads two views of one seeded fleet and a
+      hardcoded id would drift the next time fixtures are re-recorded (ADR 13).
+      **Verified by running it:** a valid vendor A payload returns 204 and appears in
+      `GET /api/fleet` with server receipt time; `/api/telemetry/Z` returns the
+      `unsupported_vendor` envelope and `/api/telemetry/a` a 404, because ADR 8 makes the
+      segment case-sensitive; a non-JSON body is a counted 400; a 70 KB body is a 413; and
+      an ingested robot was watched going **live to stale** on the sweep, which is the ADR
+      3 guarantee working end to end for the first time.
+- [x] **D6 — Represent "sequence not evaluated" distinctly from "zero gaps." Done for the
+      case that matters.** A dialect with no counter — vendor B — records
+      `noteSequence(adapterId, "not-evaluated")`, so it is never shown as zero gaps. The
+      representation is `SequenceHealth` from `@fleet/contracts` (ADR 25) and no second
+      shape was added at the handler. Everything else about continuity is **D6a**, and
+      three sharper problems were found while building this rather than left latent:
+      (1) `SequenceObservation` is `"gap" | "duplicate" | "not-evaluated"` with **no
+      in-order value**, so an adapter delivering perfectly ordered readings never enters
+      the snapshot at all and is indistinguishable from one never observed; (2) an
+      **out-of-order** arrival has no term in that vocabulary, and `UpsertResult`
+      distinguishes it from a duplicate while `HealthMetrics` cannot; (3) a **gap** cannot
+      be detected from what ingest can see, because it needs the previous sequence, which
+      `CurrentStateStore` keeps private. Ingest therefore records only what it can state
+      honestly and invents no mapping. Fixing this is **D6a**'s first open sub-decision —
+      where continuity is computed — and it now has a concrete problem statement.
 - [ ] **D6a — Track sequence continuity per robot, not only per adapter.** Work ADR 25
       created and named rather than left latent. `HealthMetrics` keys `#sequence` by
       **adapter id**, but `robotDiagnosticEnvelopeSchema.sequenceHealth` is **per robot**,
@@ -706,12 +715,12 @@ is missing is everything that needs a socket.
 
 1. A new ADR records the HTTP and WebSocket implementation choice, and the server listens.
 2. `config/freshness.json` and `config/fleet-manifest.json` exist, are strictly validated at startup, and an invalid file stops the process with a message naming the field. The same holds for the environment: `FLEET_SERVER_HOST`, `FLEET_SERVER_PORT` and `FLEET_ALLOWED_ORIGINS` are decoded once by `loadRuntimeEndpoints()`, an invalid value stops the process naming the key (done, ADR 21), and the listener binds what it returns rather than a literal (**B1a**).
-3. Ingest stamps `receivedAt` from the injected clock, dispatches through the adapter registry, and rejects malformed input with a counted, defined error.
+3. Ingest stamps `receivedAt` from the injected clock, dispatches through the adapter registry, and rejects malformed input with a counted, defined error. **Done 20 August 2026** (**D0**-**D5**, **D8**, **D9**), verified against a running process for the valid, unsupported-vendor, non-JSON and oversized cases.
 4. Current state is seeded from the manifest, so a robot that has never reported reads UNKNOWN rather than being absent. **Done 20 August 2026** — `startServer` builds the store from `configuration.manifest.robots`, and `GET /api/fleet` serves all fifty committed robots as UNKNOWN.
 5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta. **Two of three done 20 August 2026** — the sweep runs from `startServer` and a freshness-only transition enters the pending delta set with `reportedAt` untouched. Nothing drains that set onto a socket yet (**H2**).
 6. Late ticks, malformed ingest, unsupported vendors and per-adapter unknown fields are all visible on `GET /api/health`, each at its true scope.
 7. No raw vendor payload appears in a fleet response, a delta, or history — asserted by a test, not by inspection.
-8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps.
+8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps. **Partly done** — the store refuses both and vendor B records not-evaluated; the _reporting_ of gaps and out-of-order arrivals is **D6a**, whose vocabulary gap is now stated there.
 9. The demo script's steps 4 and 5 are both reproducible: three `--drop` robots degrade while the rest stay LIVE, and killing the stream produces a connection-level state rather than per-robot degradation.
 10. Throughput and latency are measured at 50 and 500 robots, the bottleneck is attributed to HTTP overhead or validation cost, and the number is published in the README and in ADR 2 § Observed consequences.
 11. The origin allow-list is enforced rather than merely validated: a disallowed origin is granted nothing and a request with no `Origin` header still succeeds, both against a **real request** (**L8**). The policy itself is decided and unit-tested (**B1d**); until a listener mounts it, `FLEET_ALLOWED_ORIGINS` still has no runtime consumer, and what a declined request is _answered with_ is deferred under **B1d** as a contracts decision.

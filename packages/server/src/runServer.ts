@@ -5,6 +5,9 @@ import type { RuntimeEndpoints } from "./config/runtimeEndpoints.ts";
 import { PendingDeltaSet } from "./fanout/pendingDeltas.ts";
 import { FreshnessSweep } from "./freshness/freshnessSweep.ts";
 import { HealthMetrics } from "./health/healthMetrics.ts";
+import { ingestTelemetry } from "./ingest/ingestTelemetry.ts";
+import { createAdapterRegistry } from "@fleet/adapters";
+
 import { createHttpApp } from "./http/createApp.ts";
 import { encodeFleetSnapshot } from "./http/fleetResponse.ts";
 import { startListener } from "./http/listener.ts";
@@ -43,6 +46,8 @@ export interface RunningServer {
   readonly deltas: PendingDeltaSet<CanonicalEnvelope>;
   /** Process-wide counters, including the late-tick count the sweep feeds. */
   readonly health: HealthMetrics;
+  /** The dispatch registry, exposed for its unknown-field tally until **G3** serves it. */
+  readonly registry: ReturnType<typeof createAdapterRegistry>;
   stop(): Promise<void>;
 }
 
@@ -54,10 +59,10 @@ export interface RunningServer {
  * deployed is the failure Principle 13 names — and a line proving *which* policy is live is
  * how that claim survives contact with a deployment.
  *
- * `routes` counts what is mounted. Only `GET /api/fleet` is (**G1**); ingest and the other
- * reads are still 404 (`TODO.md` **D1**, **G2**–**G3**). A server answering 404 for a
- * reason is different from one answering 404 because it is broken, and only the log can
- * tell an operator which they have.
+ * `routes` counts what is mounted: `POST /api/telemetry/:vendor` and `GET /api/fleet`.
+ * The single-robot and health reads are still 404 (`TODO.md` **G2**–**G3**). A server
+ * answering 404 for a reason is different from one answering 404 because it is broken,
+ * and only the log can tell an operator which they have.
  *
  * The sweep starts here and is the reason this function returns the pieces it composed:
  * nothing drains the delta set and no route reads the counters yet, so a test is currently
@@ -71,6 +76,18 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
   const store = new CurrentStateStore(configuration.manifest.robots);
   const deltas = new PendingDeltaSet<CanonicalEnvelope>();
   const health = new HealthMetrics();
+
+  // One registry, built once. It owns the process-wide unknown-field ledger, so a second
+  // instance would split a tally that is defined as fleet-wide (ADR 15, **D8**).
+  const registry = createAdapterRegistry();
+  const ingestDependencies = {
+    registry,
+    store,
+    deltas,
+    health,
+    clock,
+    policy: configuration.freshness,
+  };
 
   // ADR 3 § Implications: under ingest saturation the sweep stops firing, the console
   // freezes robots at their last computed state instead of degrading them, and a sweep
@@ -101,6 +118,15 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
           // Zero until fan-out owns the counter (**H3a**); a cold snapshot discards nothing.
           flushSequence: 0,
         }),
+      ingest: {
+        apply: (vendor, raw) => ingestTelemetry(ingestDependencies, vendor, raw),
+        noteUnsupportedVendor: () => {
+          health.noteUnsupportedVendor();
+        },
+        noteMalformedBody: () => {
+          health.noteMalformedIngest();
+        },
+      },
     }),
     host: endpoints.host,
     port: endpoints.port,
@@ -114,7 +140,7 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
     allowedOrigins: endpoints.allowedOrigins.length,
     robots: configuration.manifest.robots.length,
     freshness: configuration.freshness,
-    routes: 1,
+    routes: 2,
   });
 
   // Started after the listener, so a sweep never runs against a server that failed to
@@ -127,6 +153,7 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
     sweep,
     deltas,
     health,
+    registry,
     stop: async () => {
       // The interval first: a leaked one outlives the process's usefulness and makes a
       // test suite green while the process stays unkillable (**F6**).

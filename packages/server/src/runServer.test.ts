@@ -87,7 +87,7 @@ describe("startServer", () => {
       allowedOrigins: 0,
       robots: 2,
       freshness: ADR3_BASELINE_FRESHNESS_POLICY,
-      routes: 1,
+      routes: 2,
     });
   });
 

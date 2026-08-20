@@ -67,6 +67,7 @@ src/
   http/listener             HTTP and /ws on one port, closed in the order ADR 8 requires
   observability/logger      one JSON object per line, injected sink
   http/fleetResponse        server state translated into the wire snapshot (not serialized)
+  ingest/ingestTelemetry    one reading, untrusted bytes to fleet state
   runServer.ts              decoded configuration in, a running server out
   main.ts                   the process: real environment, real paths, real signals
   __boundary-violation__/   deliberate lint violations that prove the rules fire
@@ -78,8 +79,8 @@ a route segment, a header or a byte count, decided before anything reads a body,
 ordering guarantees are properties of the signatures rather than rules a handler has to
 remember (ADR 8 § Observed consequences).
 
-Planned and not yet present: the ingest handler, the adapter registry dispatch, the
-single-robot and health reads, and the fan-out that writes to a connected stream.
+Planned and not yet present: the single-robot and health reads, per-robot sequence
+continuity, and the fan-out that writes to a connected stream.
 
 ## 5. Contracts owned and consumed
 
@@ -257,13 +258,14 @@ configuration loaders are covered.
 validation, the current-state store with manifest seeding, the bounded ring buffer, the
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
-**Not built:** ingest, adapter-registry composition, the single-robot and health reads,
-and delta fan-out onto a connected stream. The server **runs, sweeps and serves the fleet
+**Not built:** the single-robot and health reads, per-robot sequence continuity, and delta
+fan-out onto a connected stream. The server **runs, sweeps, ingests and serves the fleet
 read**:
 `http/createApp` routes with the cross-origin policy mounted, `http/listener` binds it and
 `/ws` to one port with an ordered shutdown, `main.ts` composes them from repository-root
-configuration under `pnpm dev`/`pnpm start`, and `GET /api/fleet` returns every manifest
-robot as UNKNOWN. Anything else is the canonical `not_found` envelope, and the startup
+configuration under `pnpm dev`/`pnpm start`, `POST /api/telemetry/:vendor` decodes one
+reading per request through the adapter registry, and `GET /api/fleet` returns every
+manifest robot. Anything else is the canonical `not_found` envelope, and the startup
 record's `routes` count says how many are mounted so a deliberate 404 is distinguishable
 from a broken one.
 

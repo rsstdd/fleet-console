@@ -1,6 +1,11 @@
 import { Hono } from "hono";
 
 import { errorResponse } from "../ingest/errorResponse.ts";
+import { checkDeclaredSize, createByteBudget } from "../ingest/requestSizeLimit.ts";
+import { selectIngestVendor } from "../ingest/selectVendor.ts";
+import type { SupportedVendor } from "@fleet/adapters";
+
+import type { IngestOutcome } from "../ingest/ingestTelemetry.ts";
 import type { FleetSnapshotWire } from "./fleetResponse.ts";
 import { evaluateOriginPolicy } from "./originPolicy.ts";
 
@@ -39,6 +44,24 @@ export interface HttpAppOptions {
    * would invite a handler that awaits something the store cannot actually do.
    */
   readonly readFleet: () => FleetSnapshotWire;
+  /** The ingest side of the surface: one transition plus the two refusals it never sees. */
+  readonly ingest: IngestPort;
+}
+
+/**
+ * What the ingest route needs, as one injected object.
+ *
+ * `apply` is `ingestTelemetry` bound to its dependencies; the two counters are for
+ * refusals that happen *before* the transition and therefore have no adapter to attribute
+ * themselves to. Grouping them says which of the router's collaborators is which, and
+ * keeps the route testable against a stub rather than a live registry (**D9**).
+ */
+export interface IngestPort {
+  readonly apply: (vendor: SupportedVendor, raw: unknown) => IngestOutcome;
+  /** The selector refuses an unknown vendor; the caller counts it (ADR 8). */
+  readonly noteUnsupportedVendor: () => void;
+  /** Counts a body that was not JSON at all, which no adapter ever sees. */
+  readonly noteMalformedBody: () => void;
 }
 
 /** Status for a preflight that is answered rather than routed. */
@@ -81,6 +104,58 @@ export function createHttpApp(options: HttpAppOptions): Hono {
       c.res.headers.set(name, value);
     }
     return undefined;
+  });
+
+  /*
+   * ADR 8: vendor identity comes from the path segment and nowhere else, and the segment
+   * is validated **before any body byte is read**. The ordering below is the whole reason
+   * this route exists in this shape — selector, then size, then body, then adapter — and
+   * none of it produces a type error if reordered, which is why each step says what it is
+   * protecting and why the test asserts the ordering rather than only the outcomes.
+   */
+  app.post("/api/telemetry/:vendor", async (c) => {
+    const selection = selectIngestVendor(c.req.param("vendor"));
+    if (!selection.ok) {
+      options.ingest.noteUnsupportedVendor();
+      const { status, body } = errorResponse(selection.reason);
+      return c.json(body, status);
+    }
+
+    // ADR 26: the declared size is a cheap early exit on a caller-supplied header, and the
+    // budget is the guard that actually holds. Both, before `JSON.parse` — a cap applied
+    // after decoding protects only the store, which was never the expensive part (**D0**).
+    const declared = checkDeclaredSize(c.req.header("content-length"));
+    if (declared !== null) {
+      const { status, body } = errorResponse("payload_too_large");
+      return c.json(body, status);
+    }
+
+    const bytes = new Uint8Array(await c.req.arrayBuffer());
+    if (createByteBudget().add(bytes.byteLength) !== null) {
+      const { status, body } = errorResponse("payload_too_large");
+      return c.json(body, status);
+    }
+
+    let raw: unknown;
+    try {
+      raw = JSON.parse(new TextDecoder().decode(bytes));
+    } catch {
+      // Unparseable bytes never reach an adapter, so this is the one malformed case the
+      // adapter's issue vocabulary cannot describe. It is still a 400 in the same shape.
+      options.ingest.noteMalformedBody();
+      const { status, body } = errorResponse("malformed_payload");
+      return c.json(body, status);
+    }
+
+    const outcome = options.ingest.apply(selection.vendor, raw);
+    if (!outcome.ok) {
+      return c.json(outcome.response.body, outcome.response.status);
+    }
+    // 204 rather than 202: the state transition already happened, synchronously, so
+    // "accepted for processing" would overstate it. No body, because no contract describes
+    // an ingest response — if a caller ever needs the disposition back, that shape is a
+    // `@fleet/contracts` decision first (ADR 25).
+    return c.body(null, 204);
   });
 
   // ADR 2 gives a joining console its initial picture over HTTP rather than as the

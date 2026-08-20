@@ -9,6 +9,15 @@ import { encodeFleetSnapshot } from "./fleetResponse.ts";
 const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
   encodeFleetSnapshot({ robots: [], capturedAt: 0, flushSequence: 0 });
 
+/** A stub ingest port: these cases are about routing and policy, not the transition. */
+const ingest = {
+  apply: (): never => {
+    throw new Error("ingest is not exercised by this suite");
+  },
+  noteUnsupportedVendor: (): void => undefined,
+  noteMalformedBody: (): void => undefined,
+};
+
 /**
  * The half of **L8** a unit test of `evaluateOriginPolicy` cannot give: evidence that the
  * policy is actually *mounted*, driven through `app.request()` against a real `Request`.
@@ -17,7 +26,7 @@ const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
  */
 describe("createHttpApp", () => {
   const ALLOWED = "https://console.example.com";
-  const app = createHttpApp({ allowedOrigins: [ALLOWED], readFleet });
+  const app = createHttpApp({ allowedOrigins: [ALLOWED], readFleet, ingest });
 
   it("echoes an allowed origin on a response no route produced", async () => {
     // The 404 path specifically: a browser has to be able to read the failure, so the
@@ -46,7 +55,7 @@ describe("createHttpApp", () => {
   });
 
   it("grants nothing at all when the allow-list is empty", async () => {
-    const closed = createHttpApp({ allowedOrigins: [], readFleet });
+    const closed = createHttpApp({ allowedOrigins: [], readFleet, ingest });
 
     const response = await closed.request("/api/nothing", { headers: { origin: ALLOWED } });
 
@@ -86,7 +95,7 @@ describe("createHttpApp", () => {
   });
 
   it("reveals nothing about a thrown error", async () => {
-    const throwing = createHttpApp({ allowedOrigins: [], readFleet });
+    const throwing = createHttpApp({ allowedOrigins: [], readFleet, ingest });
     throwing.get("/boom", () => {
       throw new Error('robot-7 payload: {"secret":"vendor-internal"}');
     });
