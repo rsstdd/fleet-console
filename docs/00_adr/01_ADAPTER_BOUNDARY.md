@@ -127,10 +127,10 @@ Keeping a separate declared-capability record rather than relying on TypeScript 
 - **Principle 3** (the canonical model preserves shared meaning without erasing differences) — this ADR is its direct implementation, and the principle most explicitly tested by the adapter contract fixtures. Vendor-specific behaviour is a capability, never a branch in a component.
 - **Principle 4** (provenance and freshness are explicit where they affect a decision) — indirect; freshness is carried alongside the canonical core rather than as a vendor-specific capability, and the envelope's two timestamps are what make age evaluable at all.
 - **Budylskii's framing** (avoiding a universal schema) — the direct source of Position 1's rejection.
-- **Artifact `packages/contracts`** (not yet implemented) — the canonical envelope type, the capability record type, and the Zod schemas validating both, including the array-to-record transform.
-- **Artifact `packages/adapters`** (not yet implemented) — one module per vendor dialect, with fixtures.
+- **Artifact `packages/contracts`** (implemented) — the canonical envelope type, the capability record type, and the Zod schemas validating both, including the array-to-record transform.
+- **Artifact `packages/adapters`** (implemented; three vendor modules and a dispatch registry) — one module per vendor dialect, with fixtures.
 - **Artifact `docs/01_page-specs/02_ROBOT_DETAIL.md`** — the capability-driven rendering rule this model makes literally true.
-- **Artifact `packages/server`'s health endpoint** (not yet implemented) — surfaces the per-adapter unknown-field count.
+- **Artifact `packages/server`'s health endpoint** (implemented at `GET /api/health`) — surfaces the per-adapter unknown-field count.
 
 ## Notes
 

@@ -13,7 +13,16 @@ plans; this file is the cross-package reconciliation list.
 **Re-audit outcome.** F1–F12 were each re-verified against source. F1–F11 remain open; **F12 was closed on 19 August 2026** by ADR 16. **F13, F14 and F15 were added on 19 August 2026** — by ADR 21, ADR 25 and ADR 26 respectively — and are the newer kind of finding this file should expect more of: not contradictions, but decisions that landed correctly ahead of the code that will consume them.
 **F14 was closed on 20 August 2026**, by the work its own entry prescribed.
 
-**Second pass, later on 20 August 2026 — the critical path closed, and with it four
+**Third pass, 20 August 2026 — the fixture fictions and the stale metadata.** **F1**
+(vendor B declaring a capability no vendor B payload produces) and **F4** (connectivity
+derived from freshness) are closed, both by checking the console's fixtures against what the
+real adapters actually return rather than against an ADR — which is only possible now that
+the adapters exist. **F2** and **F3** are closed too: two of F2's three bullets were retired
+by the server gaining an executable process, and F3's stale ADR statuses were corrected with
+dates. Six of fifteen findings remain open; none of the remaining six is a contradiction
+between documents and code.
+
+**Second pass, earlier on 20 August 2026 — the critical path closed, and with it four
 findings.** **F5** (adapter boundary incomplete), **F6** (transport not implemented
 server-side, except backpressure), **F13** (endpoint configuration with no reader) and the
 composition-wiring bullet of **F7** are closed by the server's listener, ingest, sweep and
@@ -66,9 +75,25 @@ profile:
 This is not permission to branch on vendor identity in rendering. The fixture chooses
 wire input by vendor; the page must continue to render only from decoded capabilities.
 
-### F2. ADR 9's runtime decision, implications, and package scripts disagree
+### F2. ADR 9's runtime decision, implications, and package scripts disagree — **CLOSED 20 August 2026**
 
-**Assessment: internally contradictory ADR plus mismatched manifests; open.**
+**Assessment: two bullets closed by the server landing; the third rests on a reading of ADR 9 the current text does not support.**
+
+- _"server declares `tsx` but has no `dev` or `start` script and no executable process"_ —
+  no longer true. Both scripts exist and run `src/main.ts`, which binds a port.
+- _"`pnpm-workspace.yaml` approves `esbuild` … although no current script invokes it"_ —
+  no longer true, and this was the bullet with teeth: an approved postinstall justified by
+  behaviour that did not exist. `tsx watch src/main.ts` invokes it now.
+- _"internally contradictory ADR"_ — the current text is not. ADR 9 § Decision reads
+  "Packages that execute — `packages/server` now, `packages/simulator` **when it gains a
+  workspace import** — run through `tsx`", stating the carve-out in the Decision itself
+  rather than only in the Implications. The simulator still imports no workspace package in
+  production (its adapters dependency is test-only, ADR 16), so `node --watch src/index.ts`
+  remains correct under that sentence, and ADR 9's own open question — whether to move it
+  early anyway — is the right home for what is left.
+
+No ADR change was needed, which is worth recording: the finding prescribed narrowing a
+decision that had already been written narrowly. The original text follows.
 
 ADR 9's Decision says executable workspace packages run through `tsx`, not plain
 `node`. Its Implications then carve out the simulator to keep `node` until it imports a
@@ -86,9 +111,26 @@ workspace comment, and package README say the same thing. Do not leave an approv
 native build script and unused `tsx` dependency justified by behavior that does not
 exist.
 
-### F3. ADR implementation statuses and artifact notes are stale
+### F3. ADR implementation statuses and artifact notes are stale — **CLOSED 20 August 2026**
 
-**Assessment: incorrect ADR metadata/prose; open.**
+**Assessment: was incorrect ADR metadata; corrected.**
+
+ADR 1 had already moved to Implemented. ADR 2, ADR 3 and ADR 6 were still saying "Not
+started" while their mechanisms ran in production — the worst version of stale metadata,
+since a reader checking whether the transport exists would have been told no by the document
+that decided it.
+
+- **ADR 2 → Partial.** HTTP ingest and WebSocket fan-out are built and measured; batch
+  ingest and backpressure are not.
+- **ADR 3 → Implemented.** The sweep runs from the composition root, freshness travels as a
+  field, and per-robot suppression on stream loss was observed in a browser.
+- **ADR 6 → Partial.** Manifest-seeded state and the bounded ring buffer are in use; the
+  history read is unmounted and the ring capacity is still unchosen (**M4**).
+
+Each status now carries the date it changed, so a later reader can tell a decision that was
+reviewed from one never revisited. The stale artifact prose this entry names went in the
+same pass: ADR 1's three "(not yet implemented)" artifact lines and ADR 3's "will contain
+the sweep" all described a repository that no longer exists. The original text follows.
 
 The code implements meaningful portions of decisions whose ADR headers still say “Not
 started”:

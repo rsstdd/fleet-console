@@ -1,7 +1,7 @@
 # ADR 2 — Transport: HTTP POST Ingest, WebSocket Fan-Out
 
 **Decision:** Ingest is HTTP POST one request per telemetry reading, validated and normalized at the boundary; fan-out is WebSocket carrying coalesced deltas; no MQTT or broker is introduced.
-**Status:** Decided · 2026-08-19 · Not started
+**Status:** Decided · 2026-08-19 · Partial 2026-08-20
 **Group:** Integration / transport.
 
 ## Issue

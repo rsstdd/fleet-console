@@ -2,7 +2,7 @@
 
 **Decision:** Freshness is derived by a recurring 500ms server-side sweep that reads `receivedAt` exclusively and compares it against the current time to assign one of four states: LIVE, STALE, UNREACHABLE, or UNKNOWN.
 
-**Status:** Decided · 2026-08-19 · Not started
+**Status:** Decided · 2026-08-19 · Implemented 2026-08-20
 
 **Group:** Data / derived state (spans server and client, unlike ADR 6 which is server-only).
 
@@ -88,7 +88,7 @@ Principle 4 (provenance and freshness are explicit where they affect a decision)
 Principle 11 (state is separated by authority, lifetime, and transition model) — freshness is live-state metadata distinct from the telemetry value it qualifies.
 Requirement (demo script fault-injection sequence) — the observable proof this mechanism works as claimed.
 ADR 10 — carries this ADR's freshness authority into the type an adapter returns; void without this decision.
-Artifact `packages/server` — not yet implemented; will contain the sweep.
+Artifact `packages/server` — implemented; contains the sweep, which runs from the composition root and feeds both the delta set and the late-tick counter.
 Artifact `docs/02_component-specs/02_FRESHNESS_LABEL.md` — the four-state vocabulary this ADR's output must match exactly.
 Artifact `docs/01_page-specs/01_FLEET.md`, `docs/01_page-specs/02_ROBOT_DETAIL.md` — both display freshness derived by this mechanism rather than recomputed locally.
 Artifact `config/fleet-manifest.json` — lists every expected robot identifier, serving as the roster so the sweep can identify silent robots as UNKNOWN.
