@@ -309,14 +309,14 @@ disagree. The endpoint is credential-stripped before it is logged.
 - **Adapter contract tests are now built in `@fleet/adapters`.** The simulator keeps its
   independent exact-wire tests and fixture recorder rather than importing production
   adapter schemas, which would create the second definition Principle 1 forbids.
-- **Server transport and the freshness E2E** — the framework-independent registry ingest
-  path exists, but `POST /api/telemetry/:vendor` still has no HTTP wrapper. The fast
-  integration test against an in-process receiver is done; there is no live socket to
-  observe.
+- **Server transport and the freshness E2E are built.** The simulator posts through
+  `POST /api/telemetry/:vendor`, and the running-stack demonstration observes freshness
+  transitions over the live socket. Browser automation remains tracked by D23 rather than
+  by this package.
 - **Load measurement of the server** — the numbers above describe _the simulator_,
   measured against a trivial receiver. Server ingest throughput and ingest-to-fan-out
-  latency must come from the complete harness (Principle 12), which is why the root
-  README's measurement table is still `[FILL]`.
+  latency come from the complete harness (Principle 12); the root README and ADR 2 carry
+  those completed measurements.
 
 ## 12. Change rules
 

@@ -46,6 +46,7 @@ This is a TypeScript monorepo for a multi-vendor robot fleet telemetry console: 
   their `Authority` markers.
 - Run `pnpm check:architecture-docs` after changing an ADR, package specification,
   mechanical enforcement rule, audit, TODO, or decision mapping.
+- Do not commit code on my behalf.
 
 ### Updating a durable decision
 

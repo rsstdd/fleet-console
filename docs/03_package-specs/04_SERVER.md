@@ -31,8 +31,8 @@ boundary, and the simulator may not import server internals or write to server s
 
 ## 3. Public API
 
-The runtime composition root does not exist yet. `src/index.ts` currently exports the
-framework-independent pieces it will be assembled from, kept separately testable:
+`src/runServer.ts` is the runtime composition root. `src/index.ts` exports the
+framework-independent pieces it assembles, kept separately testable:
 
 **Configuration** — `parseFreshnessPolicy`, `freshnessPolicySchema`,
 `ADR3_BASELINE_FRESHNESS_POLICY`, `parseFleetManifest`, `fleetManifestSchema`,
@@ -274,8 +274,8 @@ from a broken one.
 The ADR 3 sweep runs from the composition root, feeding `HealthMetrics.lateFreshnessTicks`
 and a `freshness.tick_late` structured warning; freshness-only transitions reach a
 connected console as a coalesced frame, verified against a running server. One flush
-counter serves both the snapshot and every frame (ADR 18). The health counters still reach
-no route, so they are observable only through the log and a test.
+counter serves both the snapshot and every frame (ADR 18). The health counters reach
+`GET /api/health` through the contract-owned response shape.
 
 Server state is a superset of the wire contract, so responses are **translated** rather
 than serialized: `http/fleetResponse` drops the manifest-only `model` and encodes
@@ -293,13 +293,10 @@ Health composition landed 20 August 2026. ADR 30's identifier-space question is 
 already is and because the column answers questions about a dialect rather than about the
 software that decodes it.
 
-This is the remaining gap on the critical path. Consequences today:
-
-- `@fleet/simulator` posts into a socket nothing is listening on, so its integration tests
-  use their own in-process receiver;
-- the freshness end-to-end demonstration — the load-bearing proof of ADR 3 — cannot run;
-- the README's measurement table cannot be filled, because server throughput must be
-  measured through the complete harness rather than inferred (Principle 12).
+The transport critical path is closed: the simulator posts to the live ingest route, the
+freshness demonstration observes sweep transitions over the socket, and ADR 2 records the
+complete-harness throughput measurement. History reads and slow-consumer backpressure
+remain separate server work.
 
 **Decision consequences.** Ingest completes `AdapterEnvelope` only through
 `withFreshness` ([ADR 10](../00_adr/10_PRE_FRESHNESS_ADAPTER_ENVELOPE.md)); health keeps

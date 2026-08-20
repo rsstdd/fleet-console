@@ -517,6 +517,28 @@ and the panel's notice is retained as the reason.
 
 ## Package README follow-ups
 
+### F17. The 500-robot scale test was failing on a timeout it refuses to assert
+
+**Assessment: fixed 20 August 2026; recorded because the shape recurs.**
+
+`fleetScale.test.tsx` renders 500 rows and its own header says it "does not assert a
+duration, and does not publish one as a ceiling" — jsdom has no layout, paint or
+compositor, so a millisecond figure from it would be a measurement against a fixture.
+
+It was nonetheless failing on one. Two cases cost 3–4 s unloaded and crossed Vitest's **5 s
+default** whenever the rest of the suite competed for the machine: green in isolation, red
+in a full run, reproducibly. The file that refuses to assert a duration was gated by an
+undeclared one.
+
+**F14 warns against widening a timeout to make a transient failure go away, and this is not
+that.** The cause is known and measured, and the number being replaced is a framework
+default nobody derived — the thing ADR 22 objects to. The explicit 30 s is roughly eight
+times the unloaded cost, chosen to be unreachable by scheduling noise and therefore never a
+performance gate. If these tests ever approach it, the answer is to investigate the render.
+
+**The shape to watch for:** a test whose stated philosophy is "no timing assertions" still
+inherits one from its runner. Any expensive test in this repository has the same exposure.
+
 ### F16. Site labels are the console's last invented data
 
 **Assessment: real gap with no source; open. Added 20 August 2026.**
@@ -554,7 +576,18 @@ only scoped guides/TODOs, which is acceptable while their public runtime behavio
 incomplete. Add their READMEs when the adapter registry and server process land,
 covering public API, boundary behavior, commands, configuration, and failure modes.
 
-**The adapters half is closed (20 August 2026).** The registry landed (adapters TODO
+**CLOSED 20 August 2026.** All four packages that needed one now have a README written
+against what they actually do. `packages/server/README.md` landed once its precondition did
+— its public runtime behaviour is a process rather than a set of pieces — and covers the
+start commands, the two configuration files and three environment variables, the five
+routes, the ingest ordering and _why it is an ordering_, a table of every failure mode with
+what each is counted as, the five things the package refuses to do, and the measured costs.
+`packages/web/README.md` replaced the Vite template verbatim-in-place: layers and the one
+dependency rule that explains two otherwise-ornate designs, how data arrives and why the
+order matters, the two failures the UI keeps apart, and the rendering rules worth knowing
+before editing.
+
+**The adapters half was closed earlier the same day.** The registry landed (adapters TODO
 **C8**), which is what this finding was waiting for, and `packages/adapters/README.md`
 now covers the dialect differences, `createAdapterRegistry` as the one public way in,
 the two rejection kinds, and the measured cost of adding a fourth vendor. `server` is
