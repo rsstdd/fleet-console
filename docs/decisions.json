@@ -116,6 +116,10 @@
       "adr": 11
     },
     {
+      "path": "packages/server/eslint.config.js",
+      "adr": 11
+    },
+    {
       "path": "packages/web/eslint.config.js",
       "adr": 12
     },

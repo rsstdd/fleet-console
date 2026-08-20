@@ -71,9 +71,9 @@ The accepted cost is stated plainly: a second schema and a conversion function t
 
 ## Open questions
 
-- **Does the server re-validate the adapter's output at runtime, or trust the type and validate only in contract tests?**
-  _Current lean:_ contract tests only. The vendor payload was already decoded once by the adapter's own schema, and a second full parse per reading doubles the per-message validation cost ADR 2 is measuring. `parseAdapterEnvelope` exists for the tests and for any caller that wants it, not as a mandated ingest step.
-  _Resolves on:_ ADR 2's measurement harness, or the first ingest handler, whichever lands first.
+- ~~**Does the server re-validate the adapter's output at runtime, or trust the type and validate only in contract tests?**~~
+  **Closed 20 August 2026, ratifying the stated lean on the event this question named** (the ingest handler, which reached it before ADR 2's harness did). Contract tests only. The vendor payload is decoded once by the adapter's own schema, and a second full parse per reading doubles the per-message validation cost ADR 2 is measuring — against an input that is not untrusted by the time it arrives, because `packages/adapters` produced it. `parseAdapterEnvelope` stays exported for the tests and for any caller that wants it, and is **not** a mandated ingest step.
+  The limit of this, stated plainly: it trusts `packages/adapters` to be correct at runtime, so an adapter bug reaches fleet state as a well-typed wrong value rather than a rejection. That is accepted because the adapter's own contract tests assert exact output per vendor and the boundary this ADR protects — no adapter supplies `freshness` — is a compile error and a strict-schema rejection in the adapter's own tests, not something a re-parse at ingest would be the first to catch. **Reverse it by measurement:** if ADR 2's harness shows validation is not the bottleneck, a `parseAdapterEnvelope` call at ingest is one line and buys a runtime guarantee.
 - **Does ingest receive a whole pre-freshness value, or assemble one from parts?**
   _Current lean:_ a whole value, which is what this ADR assumes. Position 2 becomes correct if the handler ends up assembling.
   _Resolves on:_ the ingest handler being written (`packages/server` TODO **D1**–**D2**).

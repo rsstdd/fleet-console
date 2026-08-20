@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 20 files, 131 tests     |
+| `pnpm test`      | passes — 20 files, 132 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -103,10 +103,27 @@ consequences records the repository already making that mistake once.
       transform.** These now ship from the contracts public entry point.
 - [x] **A3 — [contracts] The pure freshness function.** `deriveFreshness` now remains in
       contracts while this package owns only the recurring caller.
-- [x] **A4 — [adapters] Vendor adapters and the dispatch registry. Done 20 August 2026.**
-      The public registry exists and the deep-import ban remains enforced by lint (§ 10).
-      Server consumption is deferred until ADR 10 and ADR 11's open questions are resolved;
-      do not copy a vendor fixture locally to make the ingest test possible.
+- [x] **A4 — [adapters] Vendor adapters and the dispatch registry. Done 20 August 2026;
+      server consumption unblocked the same day.** The public registry exists and the
+      deep-import ban remains enforced by lint (§ 10). The two questions that were holding
+      ingest are now closed as amendments, each ratifying the lean its own ADR stated and
+      each on the event that ADR named as the resolver: **ADR 10** — the server does not
+      re-validate adapter output at runtime, because the payload is decoded once by the
+      adapter's schema and a second parse per reading doubles the cost ADR 2 measures;
+      **ADR 11** — a server ingest test reaches recorded fixtures through
+      `@fleet/adapters/testing` under a test-file exception, never a local copy. The
+      exception is narrower than the one `packages/web` has: the rule is re-stated with
+      that one subpath removed rather than switched off, so a vendor deep import is still
+      rejected in a test file. Both amendments are cheap to reverse — one ADR edit each —
+      and ADR 10 names the measurement that would reverse it. **One half of the exception
+      is not yet mechanically watched.** All three cases were probed by hand when the rule
+      landed — the subpath rejected in production, admitted in a test, and a vendor deep
+      import still rejected in a test — but only the production rejection has a committed
+      fixture, because ESLint's project service refuses a virtual path and a `.test.ts`
+      fixture under `src/` would be collected by Vitest as an empty suite. The permission
+      half is proven the moment the first server ingest test imports the subpath (**L4**):
+      if the exception were wrong, that test would fail to lint. Until then it is an
+      unwatched rule, which ADR 7 says is indistinguishable from no rule.
 - [x] **A5 — [adapters] The registry-owned unknown-field ledger exists.** The registry
       owns one process tally. Health serialization remains deferred under **G3** because
       ADR 30 has not selected `SupportedVendor` versus software `adapterId` as the response

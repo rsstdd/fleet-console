@@ -11,6 +11,7 @@ const FIXTURES = [
   "src/__boundary-violation__/wallClock.ts",
   "src/__boundary-violation__/database.ts",
   "src/__boundary-violation__/adapterVendorImport.ts",
+  "src/__boundary-violation__/adapterTestingSubpath.ts",
 ];
 
 /**
@@ -96,6 +97,19 @@ describe("server boundary enforcement", () => {
 
     expect(messages).toHaveLength(1);
     expect(messages[0]).toContain("ADR 6 decides there is no database");
+  });
+
+  it("rejects the fixture subpath in production code, where the ADR 11 exception does not reach", () => {
+    // The exception admitting @fleet/adapters/testing is scoped to `**/*.test.ts`. A
+    // production file is the case that has to keep failing, because recorded fixtures
+    // reaching runtime behaviour is what made that subpath nearly not worth having.
+    const messages = messagesFor(
+      "src/__boundary-violation__/adapterTestingSubpath.ts",
+      "no-restricted-imports",
+    );
+
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toContain("In production code the ban is total");
   });
 
   it("rejects direct imports of an adapter vendor module", () => {

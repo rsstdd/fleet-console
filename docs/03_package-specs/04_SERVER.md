@@ -277,9 +277,11 @@ than serialized: `http/fleetResponse` drops the manifest-only `model` and encode
 capabilities into their wire array. A test round-trips its output through
 `parseFleetSnapshot`, because `JSON.stringify` accepts both leaks.
 
-Ingest composition is intentionally deferred: ADR 10 has not resolved runtime
-re-validation of adapter output, and ADR 11 has not decided how a server ingest test may
-access valid recorded vendor input without copying a fixture.
+Ingest composition is unblocked as of 20 August 2026. ADR 10 resolved runtime
+re-validation — the server trusts the adapter's decoded output and does not parse it a
+second time — and ADR 11 resolved fixture access through a test-file exception admitting
+`@fleet/adapters/testing` alone, enforced in `packages/server/eslint.config.js` and probed
+by `src/__boundary-violation__/adapterTestingSubpath.ts`.
 
 Health composition is intentionally deferred: ADR 30 has not selected whether
 `healthResponseSchema.byAdapter` is keyed by `SupportedVendor` (`A`) or software

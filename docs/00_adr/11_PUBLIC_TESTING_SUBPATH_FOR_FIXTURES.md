@@ -81,9 +81,8 @@ The cost is one more public entry point on a package that had one, plus the `res
 
 ## Open questions
 
-- **Does `packages/server` need the fixtures, and if so through a test-file exception or by moving the ingest test elsewhere?**
-  _Current lean:_ a test-file exception mirroring `packages/web`'s, since an ingest test belongs next to the ingest handler.
-  _Resolves on:_ the first server ingest test (`packages/server` TODO **L4**).
+- ~~**Does `packages/server` need the fixtures, and if so through a test-file exception or by moving the ingest test elsewhere?**~~
+  **Closed 20 August 2026, ratifying the stated lean on the event this question named.** Yes, through a test-file exception, because an ingest test belongs next to the ingest handler and the alternative is the second copy of a payload this ADR already rejected for `packages/web`. The exception in `packages/server/eslint.config.js` is **narrower than web's**: web switches `no-restricted-imports` off entirely in test files, while the server re-states the rule with `@fleet/adapters/testing` alone removed, so a test that deep-imports a vendor module is still rejected. Widening it to any other subpath is an amendment to this ADR, not a configuration tidy-up.
 - ~~**Does the loader survive contact with the malformed fixtures?**~~
   **Closed 20 August 2026:** yes, through a separate static registry.
   `loadMalformedPayload` returns valid JSON typed `unknown`; malformed means invalid for a
@@ -94,6 +93,7 @@ The cost is one more public entry point on a package that had one, plus the `res
 
 ## Observed consequences
 
+- **20 August 2026 — the server's exception is narrower than the one it mirrors, deliberately.** `packages/web` turns `no-restricted-imports` off wholesale in test files, which also lifts its ban on deep vendor imports there. The server instead re-declares the rule in its test override with the `testing` subpath removed and every other pattern intact, so `@fleet/adapters/vendors/a/adapter` stays rejected in a test as well as in production code. The two packages differ because the server is the one with a legitimate reason to reach for a vendor module — it dispatches to them — and a ban that lifts in the exact files most likely to violate it is not a ban.
 - 19 August 2026: implemented and green. `@fleet/adapters/testing` exports three symbols; three recorded payloads committed under `src/vendors/{a,b,c}/__fixtures__/`; adapters at 21 tests, `packages/web` at 140. All five packages lint, typecheck, test and build.
 - 19 August 2026: the subpath ban in `packages/web` was probed by deleting the `patterns` entry, and the rejection test failed as it should. ADR 7's lesson applied: a rule nobody has watched fail is indistinguishable from a rule that does nothing.
 - 19 August 2026: the package's own lint rules rejected the first draft of the fixture tests three times — a `Record<string, unknown>` cast on a payload, an unused expression standing in for a type assertion, and an unnecessary-condition error on the loader's missing-fixture guard. The last one was the useful failure: it was correct that the guard was unreachable, which is what exposed that a total `Record<VendorFixtureName, …>` is the wrong type for a registry where fixture names are legitimately per-vendor. The guard is real now because the type is honest.
