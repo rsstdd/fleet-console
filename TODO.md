@@ -11,13 +11,25 @@ component specs, design system, wireframes, manifests, package TODOs, and source
 
 ## Current implementation baseline
 
-| Area      | Current state                                                                                                                                                                     |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Contracts | Canonical schemas, capability codecs, freshness derivation, and tests are built.                                                                                                  |
-| Adapters  | Complete locally: primitives, fixtures, three adapters, exhaustive dispatch, and the browser join are built; undecided server joins are prominently deferred.                     |
-| Simulator | Deterministic payload generation, CLI/config, fault injection, bounded scheduling/transport, metrics, lifecycle, and tests are built. Downstream E2E and measured results remain. |
-| Server    | Validated config, manifest-seeded state, bounded history, freshness sweep, delta coalescing, health metrics, and tests are built. There is no HTTP/WebSocket process.             |
-| Web       | Shell, router, fixture-backed fleet/detail views, all eight shared UI components, gallery, contract decoding, and tests are built. There is no live store.                        |
+| Area      | Current state                                                                                                                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contracts | Canonical schemas, capability codecs, freshness derivation, wire responses, and 150 tests are built.                                                                                              |
+| Adapters  | Complete locally: fixtures, three adapters, exhaustive dispatch, unknown-field accounting, browser join, and 227 tests are built.                                                                 |
+| Simulator | Deterministic payload generation, CLI/config, fault injection, bounded scheduling/transport, metrics, lifecycle, and 211 tests are built. Measured full-stack results remain.                     |
+| Server    | Runnable HTTP/WebSocket process with ingest, reads, health, bounded state/history, freshness sweep, coalesced fan-out, and 160 tests. Battery history and slow-client policy remain.              |
+| Web       | Live decoded fleet store, fleet/detail routes, eight shared UI components, tenant configuration, connection handling, and 265 tests are built. Automatic reconnect and browser automation remain. |
+
+## Current decision and blocker register
+
+| Classification             | Items                                                                                                                                           | Effect                                                                                                                                              |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Registered active blockers | **D22** automatic stream recovery/server-restart integrity; **D23** committed browser automation                                                | D22 blocks automatic recovery and safe sequence reconciliation after restart. D23 blocks durable browser, forced-colors, and client-scale evidence. |
+| Actionable non-blockers    | Disconnected fleet-count qualification; history API/retention decision; complete fleet resource-state modeling; robot-detail delta subscription | Product/spec work is clear enough to schedule but is not authority to change contracts until the relevant decision is ratified.                     |
+| Trigger-deferred           | Repeated malformed-frame escalation; slow-client drain limits; regressions health counter; cross-layer testing-fixture location                 | Register or implement only when the documented diagnostics, deployment, consumer, or duplication trigger occurs.                                    |
+| Deliberate cuts            | Authentication/authorization UI, commands, database, broker/MQTT, commissioning/discovery, map route                                            | Keep visible as non-goals or release risks; do not misreport them as accidentally missing bootstrap work.                                           |
+
+Planning documents under `docs/05_plans/` are proposals. They do not reserve D-ids or ADR
+numbers and do not turn recommendations into decisions.
 
 ## Priority 0 — correct statements that overclaim reality
 

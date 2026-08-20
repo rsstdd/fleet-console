@@ -185,14 +185,14 @@ A package matches its specification when:
 | contracts | 150   | pass | pass      | Complete                                          |
 | adapters  | 227   | pass | pass      | Complete, including dispatch and joining evidence |
 | simulator | 211   | pass | pass      | Complete and runnable                             |
-| server    | 98    | pass | pass      | Framework pieces only; no ingest/listener yet     |
-| web       | 209   | pass | pass      | Substantially built                               |
+| server    | 160   | pass | pass      | Runnable HTTP ingest, reads and WebSocket fan-out |
+| web       | 265   | pass | pass      | Live decoded store and transport are built        |
 
-895 tests across five packages. The server ingest/listener and live client transport remain the
-critical path; vendor normalization and the cross-package contract join are verified.
+1,013 tests across five packages. The live simulator-to-console path is implemented; automatic
+stream recovery (D22) and committed browser automation (D23) remain the cross-package blockers.
 
-Four cross-package decisions remain open in
-`docs/PENDING_ARCHITECTURE_DECISIONS.md`. **D17 is resolved by ADR 22 as Option 3:** gate
+Two registered cross-package decisions remain open in
+`docs/PENDING_ARCHITECTURE_DECISIONS.md`: D22 and D23. **D17 is resolved by ADR 22 as Option 3:** gate
 the first-load bundle and ADR 2's defensible validation falsifier, while reporting adapter
 coverage without a threshold. The 90% proposal is retired because it was underived and
 would have measured an empty vendor-source set. The decision register remains the

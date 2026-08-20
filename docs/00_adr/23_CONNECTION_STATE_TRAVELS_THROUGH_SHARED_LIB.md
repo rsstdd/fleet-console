@@ -18,7 +18,7 @@ Making it worse: `AppShell`'s prop defaulted to `"connected"`. Nothing supplied 
 
 - There is exactly one stream and therefore exactly one connection state per running console. A per-feature or per-route connection is not a thing this architecture has.
 - Connection state changes rarely — on connect, disconnect and reconnect — so a context re-rendering its whole subtree is not a performance concern at this size. If that stops being true it is a memoisation problem, not a decision to revisit.
-- The transport client that will publish real values does not exist yet (fleet TODO **A3**), so this ADR is verified against injected states rather than a live socket.
+- The app owns one transport client and publishes its real socket state through this context. The original injected-state tests remain the cheapest guard for feature behavior.
 - `shared/lib` may hold a stateful module. It has held only pure helpers so far, which is a convention rather than a rule; the lint boundaries permit it and this ADR is the record that it was a choice.
 
 ## Constraints
@@ -41,7 +41,7 @@ Making it worse: `AppShell`'s prop defaulted to `"connected"`. Nothing supplied 
 
 It is deliberately not named `isStreamLive`. `live` is a freshness state in ADR 3's vocabulary, and a helper whose name collides with it invites the precise conflation Principle 11 forbids.
 
-**The default is `disconnected`, and `AppShell`'s prop default changed to match.** The two ways to be wrong about a missing provider are not symmetric. Defaulting to `connected` makes every row assert a currency nothing is supplying; defaulting to `disconnected` suppresses the labels and shows the banner, so the mistake is visible to whoever is looking at the screen. Since no transport client exists yet, `disconnected` is also simply the truth about the console today.
+**The default is `disconnected`, and `AppShell`'s prop default changed to match.** The two ways to be wrong about a missing provider are not symmetric. Defaulting to `connected` makes every row assert a currency nothing is supplying; defaulting to `disconnected` suppresses the labels and shows the banner, so the mistake is visible. The app-owned transport supplies the live value in production; the default protects missing or broken composition.
 
 **Suppression is suppression, not substitution.** Nothing is rendered in the label's place — no "unreachable", no em dash, no placeholder. The rows and their values remain, frozen at last known, exactly as the page specs require. A per-robot state substituted here would blame every machine for the console's own dead socket.
 
@@ -62,7 +62,7 @@ One thing was decided beyond the stub. The stub said to route the state; it did 
 ## Implications
 
 - **Both pages now suppress, and a test fails if either stops.** Verified by removing the condition from both features: exactly four tests fail and forty-six unrelated ones still pass, so the suppression tests are the guard rather than incidental coverage.
-- **The console currently renders no freshness labels at all**, because `AppShell` receives no `connectionState` and the default is now `disconnected`. That is correct and it is also a visible change: until fleet TODO **A3** supplies a real value, the fleet table's Freshness column is empty and the banner reads "Stream disconnected". A reviewer seeing this should not "fix" it by restoring an optimistic default.
+- **The app-owned transport now supplies real connection state.** Labels render only after the socket and snapshot join succeeds; missing composition still fails closed to an empty Freshness column and a disconnected banner.
 - **`shared/lib` is stateful from here on.** The next module added there does not get to cite this one as precedent for a store; it gets to cite the comment explaining why this one is narrow.
 - **Two structurally identical unions now exist** — the banner's and the context's — and a test pins their interchangeability. Adding a fourth connection state is a change in three places: component spec 07, the banner, and here.
 - **`AppShell` is the single provider.** A second provider anywhere below it would silently shadow the first for its subtree, which is the one way this design can grow a second authority. There is no lint rule preventing that today; the test asserting a routed child sees the shell's value is what would catch it.
@@ -89,7 +89,7 @@ One thing was decided beyond the stub. The stub said to route the state; it did 
 - **ADR 4** (feature-sliced structure) — the constraint that made this a decision rather than a patch. `features` may not import `app`, and `shared/lib` is the only layer both may reach.
 - **Component spec 07** (`ConnectionBanner`) — the authority for the state vocabulary, and the surface that carries the connection-level state once the labels are gone. Its own prose already said the banner is "necessary, not sufficient".
 - **Component spec 02** (`FreshnessLabel`) — states that this component is not rendered per robot while the stream is disconnected; that sentence is now enforced by tests rather than by review.
-- **ADR 21** (endpoints from the environment) — supplies the address the transport client will connect to; this ADR supplies the channel its connection state will travel on. Neither has a client yet.
+- **ADR 21** (endpoints from the environment) — supplies the address the transport client connects to; this ADR supplies the channel its connection state travels on.
 - **Register D15** — resolved by this ADR; the stub is now a tombstone.
 - **Principle 11** (state separated by authority, lifetime and transition model) — the reason position 2 was rejected outright rather than weighed.
 - **Principle 1** (one authoritative implementation) — the reason `isStreamConnected` is in the shared module rather than written once per feature.

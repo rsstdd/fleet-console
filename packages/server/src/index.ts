@@ -1,9 +1,9 @@
 /**
  * Public entry point for `@fleet/server`.
  *
- * The runtime composition root — the process that listens, sweeps and fans out — does
- * not exist yet; see `TODO.md`. What is exported here are the framework-independent
- * pieces it will be assembled from, kept separately testable per AGENTS.md § Tests.
+ * The runtime composition root lives in `runServer.ts`; this library surface exports the
+ * framework-independent pieces it assembles so consumers and tests do not depend on the
+ * executable process entry point.
  */
 
 export {

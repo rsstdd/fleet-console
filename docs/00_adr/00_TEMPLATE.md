@@ -7,6 +7,7 @@
 
 **Decision:** One sentence. What was decided, not why.
 **Status:** Decided | Superseded · YYYY-MM-DD · Implemented | Partial | Not started
+**Superseded by:** ADR N <!-- required only when Status is Superseded -->
 **Group:** ...
 
 ## Issue
@@ -32,14 +33,17 @@
 ## Notes
 ```
 
-The three header lines are structured metadata consumed by
+The header lines are structured metadata consumed by
 `scripts/architectureDocs.mjs`; keep their spelling and separators exact. CI checks this
 documentation on every change. Edit the normative ADR and its entry in
 `docs/decisions.json`, run `pnpm docs:decisions` to regenerate the decision index, then run
 `pnpm check:architecture-docs` before committing. Never edit the generated index directly.
+Follow the complete create, resolve, amend, and supersede algorithms in
+[`docs/DOCUMENT_LIFECYCLES.md`](../DOCUMENT_LIFECYCLES.md).
 
 - **Decision (Top Summary):** A single declarative sentence placed at the very top of the file. State exactly what was decided, not why. This serves as the primary chunk a retrieval system or human reader surfaces first.
 - **Status:** Replace prose status with three structured fields: state (`Decided` or `Superseded`), date (`YYYY-MM-DD`), and implementation state (`Implemented`, `Partial`, or `Not started`).
+- **Superseded by:** Required only for a superseded ADR. Name the replacement numbered ADR; never delete or rewrite the superseded record.
 - **Group:** Use a simple grouping—such as integration, presentation, data, and so on—to help organize the set of decisions. You could also use a more sophisticated architecture ontology (e.g., event, calendar, location).
 - **Issue:** Describe the architectural design issue you’re addressing, leaving no questions about why you’re addressing this issue now. Following a minimalist approach, address and document only the issues that need addressing at various points in the life cycle.
 - **Assumptions:** Clearly describe the underlying assumptions (what is believed) in the environment in which you’re making the decision—cost, schedule, technology, and so on. Move overlapping items strictly here if they are beliefs rather than bindings.

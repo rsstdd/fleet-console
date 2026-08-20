@@ -193,6 +193,7 @@
     }
   ],
   "authorityMarkers": {
+    "repository process": ["docs/DOCUMENT_LIFECYCLES.md"],
     "compatibility": ["CLAUDE.md"],
     "historical": ["docs/ARCHITECTURE_AUDIT.md", "packages/FIXME.md", "packages/web/UI_PLAN.md"],
     "planning": [

@@ -14,8 +14,8 @@ capabilities and never branches on a vendor name.
 | [`contracts`](./contracts) | Canonical envelope, capabilities, wire schemas, freshness function | Landed                                    |
 | [`adapters`](./adapters)   | Vendor dialect decoding, unknown-field accounting                  | Landed — three vendors, dispatch registry |
 | [`simulator`](./simulator) | Deterministic vendor telemetry, fault injection                    | Landed                                    |
-| [`server`](./server)       | Ingest, state, freshness sweep, fan-out, health                    | Partial — pieces landed, no process yet   |
-| [`web`](./web)             | The operations console                                             | Partial — UI built, data is fixtures      |
+| [`server`](./server)       | Ingest, state, freshness sweep, fan-out, health                    | Live process; history/backpressure open   |
+| [`web`](./web)             | The operations console                                             | Live data; automatic recovery/E2E open    |
 
 A **canonical envelope** is the shared robot record every vendor is translated
 into. A **capability** is an optional payload a vendor may or may not send;
@@ -219,12 +219,10 @@ the only layer both `app` and `features` may import — carries the state from
 is connected. `reconnecting` counts as not connected. Nothing is substituted for a
 suppressed label.
 
-What is still missing is a transport reporting a real state. The context default
-and `AppShell`'s prop default are both `disconnected` rather than the old
-optimistic `"connected"`, so today the console suppresses every freshness label and
-the banner reads "Stream disconnected". That is the honest description of a console
-with no socket, and it is deliberate — restoring an optimistic default to make the
-labels reappear would reinstate the defect.
+The app-owned transport now reports the real state. The context and `AppShell` defaults
+remain `disconnected`, so missing composition fails closed rather than asserting
+freshness. Automatic retry is not implemented; the banner's manual retry remains the
+recovery path pending D22.
 
 A row reading LIVE from a socket that died two minutes ago is the failure this
 rule prevents. A row reading UNREACHABLE is no better: it blames the machine for
