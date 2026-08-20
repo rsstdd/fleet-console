@@ -11,12 +11,13 @@ Root `pnpm dev` starts simulator, server, and web together.
 
 ## Remaining work
 
-- **Committed browser E2E (blocked by D23).** Automate the live path from simulator ingest
-  through server freshness and WebSocket fan-out to rendered fleet/detail behavior. The
-  equivalent path was observed manually but is not a repository test.
-- **Recovery scenario (blocked by D22).** After the reconnection policy is ratified, prove
-  resumed emission and a restarted server recover without a page reload and without a
-  client freshness timer.
+- **Committed browser E2E — done (ADR 32, 20 August 2026).** The Playwright smoke suite
+  runs this simulator against the real server per test and asserts the rendered result:
+  live rows streaming, freshness degrading when the simulator is stopped, and vendor
+  normalization from its recorded dialects (`packages/web/e2e/smoke.spec.ts`).
+- **Recovery scenario — done (ADR 31 policy, ADR 32 browser proof).** The committed
+  restart scenario kills the server under a live simulator and watches the console
+  re-join without reload.
 - **Full-stack scale evidence.** Capture ingest-to-fan-out p50/p95, WebSocket frame rate,
   server memory/event-loop health, and browser delta-to-paint behavior at 50 @ 1 Hz and
   500 @ 5 Hz. Report the environment and degradation point; do not infer server or browser

@@ -44,13 +44,14 @@ actually running.
 
 ## HTTP surface
 
-| Route                         | Serves                                                          |
-| ----------------------------- | --------------------------------------------------------------- |
-| `POST /api/telemetry/:vendor` | One reading. `204`, no body — the transition already happened.  |
-| `GET /api/fleet`              | Every registered robot, observed or not, plus a flush sequence. |
-| `GET /api/robots/:id`         | One robot, its diagnostics, and **the raw vendor payload**.     |
-| `GET /api/health`             | Counters at three scopes, never summed.                         |
-| `GET /ws`                     | Coalesced deltas; changed robots only.                          |
+| Route                         | Serves                                                                                          |
+| ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| `POST /api/telemetry/:vendor` | One reading. `204`, no body — the transition already happened.                                  |
+| `GET /api/fleet`              | Every registered robot, observed or not, plus a flush sequence.                                 |
+| `GET /api/robots/:id`         | One robot, its diagnostics, and **the raw vendor payload**.                                     |
+| `GET /api/robots/:id/history` | The last 60 s of battery readings, decimated to ≤60 points (ADR 33). `Cache-Control: no-store`. |
+| `GET /api/health`             | Counters at three scopes, never summed.                                                         |
+| `GET /ws`                     | Coalesced deltas; changed robots only.                                                          |
 
 Anything else is the canonical `not_found` envelope. The startup record reports how many
 routes are mounted, because a server answering 404 for a reason is a different state from

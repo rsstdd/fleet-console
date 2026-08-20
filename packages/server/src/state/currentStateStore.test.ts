@@ -1,7 +1,7 @@
 import { type CanonicalEnvelope, SCHEMA_VERSION } from "@fleet/contracts";
 import { describe, expect, it } from "vitest";
 
-import { CurrentStateStore, type ManifestRobot } from "./currentStateStore.ts";
+import { CurrentStateStore, HISTORY_CAPACITY, type ManifestRobot } from "./currentStateStore.ts";
 
 const ROBOT: ManifestRobot = {
   robotId: "R-001",
@@ -12,7 +12,7 @@ const ROBOT: ManifestRobot = {
 
 function envelope(sequence: number, receivedAt = 1_000): CanonicalEnvelope {
   return {
-    schemaVersion: "1",
+    schemaVersion: SCHEMA_VERSION,
     robotId: ROBOT.robotId,
     siteId: ROBOT.siteId,
     vendorId: ROBOT.vendorId,
@@ -39,7 +39,7 @@ describe("CurrentStateStore", () => {
 
     expect(store.get(ROBOT.robotId)).toEqual({
       ...ROBOT,
-      schemaVersion: "1",
+      schemaVersion: SCHEMA_VERSION,
       freshness: "unknown",
     });
   });
@@ -51,7 +51,7 @@ describe("CurrentStateStore", () => {
     expect(store.upsert(envelope(1, 3_000), { sequence: 1 }, 1).kind).toBe("out-of-order");
 
     expect(store.get(ROBOT.robotId)).toMatchObject({ receivedAt: 1_000 });
-    expect(store.history(ROBOT.robotId)).toHaveLength(1);
+    expect(store.batteryHistory(ROBOT.robotId)).toHaveLength(1);
   });
 
   it("keeps raw payload separate from fleet state and history", () => {
@@ -59,7 +59,7 @@ describe("CurrentStateStore", () => {
     store.upsert(envelope(1), { secretVendorField: "diagnostic" }, 1);
 
     expect(JSON.stringify(store.list())).not.toContain("secretVendorField");
-    expect(JSON.stringify(store.history(ROBOT.robotId))).not.toContain("secretVendorField");
+    expect(JSON.stringify(store.batteryHistory(ROBOT.robotId))).not.toContain("secretVendorField");
     expect(store.diagnostic(ROBOT.robotId)?.rawPayload).toEqual({
       secretVendorField: "diagnostic",
     });
@@ -150,6 +150,76 @@ describe("CurrentStateStore", () => {
 });
 
 /**
+ * Battery-history retention (ADR 33): compact samples, accepted upserts only,
+ * bounded by a capacity derived from the 50 Hz simulator ceiling.
+ */
+describe("CurrentStateStore battery history", () => {
+  it("derives its default capacity from the 50 Hz ceiling over one contract window", () => {
+    expect(HISTORY_CAPACITY).toBe(3_001);
+  });
+
+  it("retains compact samples, not envelopes", () => {
+    const store = new CurrentStateStore([ROBOT], 3);
+    store.upsert(envelope(1, 5_000), null, 1);
+
+    expect(store.batteryHistory(ROBOT.robotId)).toEqual([
+      { receivedAt: 5_000, batteryPercent: 80 },
+    ]);
+  });
+
+  it("retains a null battery as null, never as zero and never skipped", () => {
+    const store = new CurrentStateStore([ROBOT], 3);
+    const reading = envelope(1, 5_000);
+    store.upsert({ ...reading, core: { ...reading.core, batteryPercent: null } }, null, 1);
+
+    expect(store.batteryHistory(ROBOT.robotId)).toEqual([
+      { receivedAt: 5_000, batteryPercent: null },
+    ]);
+  });
+
+  it("wraps at full capacity, discarding the oldest sample and holding memory flat", () => {
+    const store = new CurrentStateStore([ROBOT]);
+    for (let sequence = 1; sequence <= HISTORY_CAPACITY + 1; sequence += 1) {
+      store.upsert(envelope(sequence, sequence * 10), null, sequence);
+    }
+
+    const history = store.batteryHistory(ROBOT.robotId);
+    expect(history).toHaveLength(HISTORY_CAPACITY);
+    expect(history[0]).toEqual({ receivedAt: 20, batteryPercent: 80 });
+    expect(history.at(-1)).toEqual({
+      receivedAt: (HISTORY_CAPACITY + 1) * 10,
+      batteryPercent: 80,
+    });
+  });
+
+  it("records nothing for duplicate or regressive readings", () => {
+    const store = new CurrentStateStore([ROBOT], 3);
+    store.upsert(envelope(2, 1_000), null, 2);
+    store.upsert(envelope(2, 2_000), null, 2);
+    store.upsert(envelope(1, 3_000), null, 1);
+
+    expect(store.batteryHistory(ROBOT.robotId)).toHaveLength(1);
+  });
+
+  it("records nothing for a freshness-only sweep change", () => {
+    // The sweep changes derived freshness, not the reading; a history entry for
+    // it would plot the same battery twice at a time nothing reported.
+    const store = new CurrentStateStore([ROBOT], 3);
+    store.upsert(envelope(1, 1_000), null, 1);
+    store.setFreshness(ROBOT.robotId, "stale");
+
+    expect(store.batteryHistory(ROBOT.robotId)).toHaveLength(1);
+  });
+
+  it("is empty for an unheard robot and for an unregistered identifier", () => {
+    const store = new CurrentStateStore([ROBOT], 3);
+
+    expect(store.batteryHistory(ROBOT.robotId)).toEqual([]);
+    expect(store.batteryHistory("R-999")).toEqual([]);
+  });
+});
+
+/**
  * Per-robot sequence continuity (**D6a**), tracked where the previous accepted sequence
  * already lives so there is no second copy of that number to drift.
  */
@@ -205,6 +275,17 @@ describe("CurrentStateStore sequence continuity", () => {
       evaluated: true,
       gaps: 0,
       duplicates: 1,
+    });
+  });
+
+  it("reports both sequence values when rejecting a regression", () => {
+    const store = new CurrentStateStore(MANIFEST);
+    store.upsert(reading("rbt-1", "A", "vendor-a"), null, 8);
+
+    expect(store.upsert(reading("rbt-1", "A", "vendor-a"), null, 3)).toMatchObject({
+      kind: "out-of-order",
+      acceptedSequence: 8,
+      receivedSequence: 3,
     });
   });
 

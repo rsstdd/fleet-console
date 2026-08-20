@@ -1,4 +1,5 @@
 import {
+  BATTERY_HISTORY_WINDOW_MS,
   type CanonicalEnvelope,
   type FreshnessState,
   SCHEMA_VERSION,
@@ -9,8 +10,36 @@ import {
 
 import { RingBuffer } from "./ringBuffer.ts";
 
-/** Retained observations per robot: one minute at the nominal 1 Hz reporting rate. */
-export const HISTORY_CAPACITY = 60;
+/**
+ * The fastest source rate history is sized for, in accepted readings per second.
+ *
+ * 50 Hz is the simulator's validated ceiling (packages/simulator, ADR 33); the
+ * coupling runs both ways — raising the simulator's ceiling without raising this
+ * shortens the covered window below the contract's 60 seconds. Faster external
+ * input degrades coverage the same way but can never grow memory: the buffer
+ * overwrites, it does not expand.
+ */
+const MAX_SOURCE_RATE_HZ = 50;
+
+/**
+ * Retained battery samples per robot: one full contract window at the maximum
+ * source rate, plus one so a sample on the inclusive window boundary survives.
+ */
+export const HISTORY_CAPACITY = MAX_SOURCE_RATE_HZ * (BATTERY_HISTORY_WINDOW_MS / 1_000) + 1;
+
+/**
+ * One retained battery observation: server receipt time and the reported charge.
+ *
+ * Compact by decision (ADR 33, amending ADR 6): retaining whole canonical
+ * envelopes at 3,001 deep × 500 robots would hold every field the sparkline
+ * never reads. Null battery is retained rather than skipped so the history
+ * endpoint can say "samples arrived but carried no battery" — a different
+ * statement from "nothing arrived".
+ */
+export interface BatteryHistorySample {
+  readonly receivedAt: number;
+  readonly batteryPercent: number | null;
+}
 
 /** One validated fleet-manifest entry used to seed server state. */
 export interface ManifestRobot {
@@ -29,7 +58,13 @@ export type CurrentRobotState = UnobservedRobotState | CanonicalEnvelope;
 /** Outcome of an idempotent telemetry upsert. */
 export type UpsertResult =
   | { readonly kind: "accepted"; readonly state: CanonicalEnvelope }
-  | { readonly kind: "duplicate" | "out-of-order"; readonly state: CurrentRobotState };
+  | { readonly kind: "duplicate"; readonly state: CurrentRobotState }
+  | {
+      readonly kind: "out-of-order";
+      readonly state: CurrentRobotState;
+      readonly acceptedSequence: number;
+      readonly receivedSequence: number;
+    };
 
 interface RobotSlot {
   state: CurrentRobotState;
@@ -48,7 +83,7 @@ interface RobotSlot {
    * of one fact is the drift Principle 1 forbids (**D6a**).
    */
   sequenceHealth: SequenceHealth | null;
-  readonly history: RingBuffer<CanonicalEnvelope>;
+  readonly history: RingBuffer<BatteryHistorySample>;
 }
 
 function isObserved(state: CurrentRobotState): state is CanonicalEnvelope {
@@ -148,10 +183,17 @@ export class CurrentStateStore {
       if (duplicate) {
         slot.sequenceHealth = countDuplicate(slot.sequenceHealth);
       }
+      if (duplicate) return { kind: "duplicate", state: slot.state };
       // A regressive arrival is counted as neither a gap nor a duplicate, because
-      // `SequenceHealth` has no term for it (**D6a**). Stored state is still protected —
-      // this returns without writing — so what is missing is the reporting, not the guard.
-      return { kind: duplicate ? "duplicate" : "out-of-order", state: slot.state };
+      // `SequenceHealth` has no term for it (**D6a**). The rejected and accepted values
+      // travel only in this result so `ingestTelemetry` can report the event without
+      // duplicating the store's ordering authority or retaining a sequence log.
+      return {
+        kind: "out-of-order",
+        state: slot.state,
+        acceptedSequence: slot.sequence,
+        receivedSequence: sequence,
+      };
     }
 
     slot.sequenceHealth = advanceSequenceHealth(slot.sequenceHealth, slot.sequence, sequence);
@@ -159,7 +201,13 @@ export class CurrentStateStore {
     slot.state = envelope;
     slot.rawPayload = copyPayload(rawPayload);
     slot.sequence = sequence;
-    slot.history.push(envelope);
+    // Only an accepted upsert records history: duplicates and regressive
+    // sequences returned above, and freshness-only sweep changes go through
+    // `setFreshness`, which deliberately does not write here (ADR 33).
+    slot.history.push({
+      receivedAt: envelope.receivedAt,
+      batteryPercent: envelope.core.batteryPercent,
+    });
     return { kind: "accepted", state: envelope };
   }
 
@@ -212,8 +260,8 @@ export class CurrentStateStore {
     return rollup;
   }
 
-  /** Returns bounded canonical history, oldest first, with no raw payloads. */
-  history(robotId: string): CanonicalEnvelope[] {
+  /** Returns bounded compact battery samples, oldest first; empty for unknown or unheard robots. */
+  batteryHistory(robotId: string): BatteryHistorySample[] {
     return this.#robots.get(robotId)?.history.toArray() ?? [];
   }
 

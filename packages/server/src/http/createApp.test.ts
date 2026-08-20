@@ -133,11 +133,72 @@ describe("createHttpApp", () => {
     });
   });
 
+  it("serves battery history with no-store caching and a strict parser round trip", async () => {
+    // The stubbed read model is what the real wiring produces: `selectBatteryHistory`
+    // over the store's compact samples. Type-level proof that no raw payload can leak —
+    // `readHistory` returns `RobotBatteryHistory`, which has no field to carry one.
+    const history = selectBatteryHistory({
+      robotId: "R-001",
+      samples: [{ receivedAt: 1_000, batteryPercent: 75 }],
+      capturedAt: 2_000,
+    });
+    const serving = createHttpApp({
+      allowedOrigins: [],
+      readFleet,
+      readRobot,
+      readHistory: (robotId) => (robotId === "R-001" ? history : null),
+      readHealth,
+      ingest,
+    });
+
+    const response = await serving.request("/api/robots/R-001/history");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const parsed = parseRobotBatteryHistory(await response.json());
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.points).toEqual([{ receivedAt: 1_000, batteryPercent: 75 }]);
+  });
+
+  it("serves an unheard robot's history as an empty 200, not a 404", async () => {
+    const empty = selectBatteryHistory({ robotId: "R-002", samples: [], capturedAt: 2_000 });
+    const serving = createHttpApp({
+      allowedOrigins: [],
+      readFleet,
+      readRobot,
+      readHistory: () => empty,
+      readHealth,
+      ingest,
+    });
+
+    const response = await serving.request("/api/robots/R-002/history");
+
+    expect(response.status).toBe(200);
+    const parsed = parseRobotBatteryHistory(await response.json());
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.sourceSampleCount).toBe(0);
+    expect(parsed.value.points).toEqual([]);
+  });
+
+  it("returns the canonical 404 for an unregistered robot's history", async () => {
+    const response = await app.request("/api/robots/R-999/history");
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBeNull();
+    expect(await response.json()).toStrictEqual({
+      schemaVersion: SCHEMA_VERSION,
+      error: { kind: "not_found", message: "No such resource.", issues: [] },
+    });
+  });
+
   it("reveals nothing about a thrown error", async () => {
     const throwing = createHttpApp({
       allowedOrigins: [],
       readFleet,
       readRobot,
+      readHistory,
       readHealth,
       ingest,
     });

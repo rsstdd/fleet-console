@@ -6,7 +6,7 @@ import { selectIngestVendor } from "../ingest/selectVendor.ts";
 import type { SupportedVendor } from "@fleet/adapters";
 
 import type { IngestOutcome } from "../ingest/ingestTelemetry.ts";
-import type { HealthResponse } from "@fleet/contracts";
+import type { HealthResponse, RobotBatteryHistory } from "@fleet/contracts";
 
 import type { FleetSnapshotWire } from "./fleetResponse.ts";
 import type { RobotDetailWire } from "./robotResponse.ts";
@@ -49,6 +49,14 @@ export interface HttpAppOptions {
   readonly readFleet: () => FleetSnapshotWire;
   /** Produces one robot's detail body, or null when the manifest never registered it. */
   readonly readRobot: (robotId: string) => RobotDetailWire | null;
+  /**
+   * Produces one robot's battery history, or null when the manifest never registered it.
+   *
+   * A registered robot with nothing retained gets the contract's empty response, not
+   * null: the fleet page is already listing it, so a 404 here would contradict the page
+   * that links to this route — the same distinction `readRobot` draws (ADR 33).
+   */
+  readonly readHistory: (robotId: string) => RobotBatteryHistory | null;
   /** Produces the operational health body, joined from the components that count. */
   readonly readHealth: () => HealthResponse;
   /** The ingest side of the surface: one transition plus the two refusals it never sees. */

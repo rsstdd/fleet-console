@@ -208,18 +208,18 @@ second apart carrying the same timestamp, which no real robot would have done.
 most specific wins. Every value validated at startup; an invalid one names the option and
 its accepted range and exits `2` without starting a timer or opening a connection.
 
-| Flag                  | Default                 | Notes                                                    |
-| --------------------- | ----------------------- | -------------------------------------------------------- |
-| `--robots <n>`        | 50                      | 1–5000                                                   |
-| `--hz <n>`            | 1                       | **per robot**; total rate is `robots × hz`; ceiling 50   |
-| `--seed <n>`          | 1                       |                                                          |
-| `--drop <ids>`        | none                    | comma-separated, repeatable; unknown id fails at startup |
-| `--endpoint <url>`    | `http://127.0.0.1:8080` |                                                          |
-| `--timeout <ms>`      | 2000                    |                                                          |
-| `--max-in-flight <n>` | 64                      |                                                          |
-| `--retries <n>`       | **0**                   | see § 9                                                  |
-| `--summary <ms>`      | 5000                    |                                                          |
-| `--print-manifest`    | —                       | prints the roster and exits                              |
+| Flag                  | Default                 | Notes                                                                                                                                                               |
+| --------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--robots <n>`        | 50                      | 1–5000                                                                                                                                                              |
+| `--hz <n>`            | 1                       | **per robot**; total rate is `robots × hz`; ceiling 50 — the server sizes battery-history retention to this ceiling (ADR 33), so raising it is a coordinated change |
+| `--seed <n>`          | 1                       |                                                                                                                                                                     |
+| `--drop <ids>`        | none                    | comma-separated, repeatable; unknown id fails at startup                                                                                                            |
+| `--endpoint <url>`    | `http://127.0.0.1:8080` |                                                                                                                                                                     |
+| `--timeout <ms>`      | 2000                    |                                                                                                                                                                     |
+| `--max-in-flight <n>` | 64                      |                                                                                                                                                                     |
+| `--retries <n>`       | **0**                   | see § 9                                                                                                                                                             |
+| `--summary <ms>`      | 5000                    |                                                                                                                                                                     |
+| `--print-manifest`    | —                       | prints the roster and exits                                                                                                                                         |
 
 **Lifecycle.** Startup order is configuration → fleet → drop-target validation →
 transport/metrics → scheduler, so a `--drop` typo fails before a single request is sent.
@@ -311,8 +311,9 @@ disagree. The endpoint is credential-stripped before it is logged.
   adapter schemas, which would create the second definition Principle 1 forbids.
 - **Server transport and the freshness E2E are built.** The simulator posts through
   `POST /api/telemetry/:vendor`, and the running-stack demonstration observes freshness
-  transitions over the live socket. Browser automation remains tracked by D23 rather than
-  by this package.
+  transitions over the live socket. Browser automation is committed under ADR 32 and
+  lives in `packages/web/e2e`, which starts this simulator per test rather than
+  duplicating anything here.
 - **Load measurement of the server** — the numbers above describe _the simulator_,
   measured against a trivial receiver. Server ingest throughput and ingest-to-fan-out
   latency come from the complete harness (Principle 12); the root README and ADR 2 carry

@@ -4,8 +4,8 @@
 - **Package:** `packages/contracts`
 - **Governing documents:** ADR 1 (canonical core plus declared capabilities), ADR 3
   (freshness ownership), ADR 9 (source exports), ADR 19 (operator/diagnostic
-  capability classification), ADR 20 (one issue vocabulary and the HTTP error body);
-  Principles 1, 2, 3, 4, 11
+  capability classification), ADR 20 (one issue vocabulary and the HTTP error body),
+  ADR 33 (the battery-history response); Principles 1, 2, 3, 4, 11
 
 ## 1. Responsibility
 
@@ -36,13 +36,16 @@ its raw dialects stay independent of the canonical model.
 Everything is re-exported from `src/index.ts`; the `exports` map exposes only that entry
 point, which is what keeps the internal file layout free to change.
 
-**Primitives** — `SCHEMA_VERSION`, `MAX_EPOCH_MS`, `MAX_POSITION_METRES`,
+**Primitives** — `SCHEMA_VERSION` (now `"2"`; version 2 added the server session field,
+ADR 31), `MAX_EPOCH_MS`, `MAX_POSITION_METRES`,
 `identifierSchema`, `displayNameSchema`, `vendorIdSchema`, `versionStringSchema`,
-`schemaVersionSchema`, `epochMillisecondsSchema`, `batteryPercentSchema`,
+`schemaVersionSchema`, `serverSessionIdSchema`, `flushSequenceSchema`,
+`sequenceHealthSchema`, `epochMillisecondsSchema`, `batteryPercentSchema`,
 `positionSchema`, `robotStatusSchema`, `healthSchema`, `healthSeveritySchema`,
 `connectivitySchema`, `freshnessStateSchema`, `parseWith`, `toContractIssues`.
 Types: `Identifier`, `EpochMilliseconds`, `Position`, `RobotStatus`, `Health`,
-`HealthSeverity`, `Connectivity`, `FreshnessState`, `ContractIssue`, `ParseResult`.
+`HealthSeverity`, `Connectivity`, `FreshnessState`, `ServerSessionId`, `FlushSequence`,
+`SequenceHealth`, `ContractIssue`, `ParseResult`.
 
 **Capabilities** — `CAPABILITY_NAMES`, `CAPABILITY_KINDS`,
 `OPERATOR_CAPABILITY_NAMES`, `DIAGNOSTIC_CAPABILITY_NAMES`,
