@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 20 files, 128 tests     |
+| `pnpm test`      | passes — 20 files, 131 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -61,9 +61,9 @@ packages/server/
 **This listens, and serves one route.** `pnpm --filter @fleet/server start` reads the
 repository-root configuration, binds loopback, announces the policy and roster it is
 actually running, serves `GET /api/fleet` with all fifty manifest robots as UNKNOWN, and
-shuts down on a signal — verified by running it, not only by unit test. Ingest, the
-single-robot read, health and the socket are still 404 or absent. Sections 4, 7 and 8 are
-that work.
+shuts down on a signal, and runs the ADR 3 freshness sweep on its own interval — verified
+by running it, not only by unit test. Ingest, the single-robot read, health and the socket
+are still 404 or absent. Sections 4, 7 and 8 are that work.
 
 On the four earliest pieces, whose reasoning is worth keeping:
 
@@ -344,17 +344,22 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
 - [x] **F4 — A freshness-only transition is a real change** and must enter the pending
       delta set without touching observed telemetry or `reportedAt`
       (`PendingDeltaSet.mark` is built for exactly this).
-- [ ] **F5 — Record sweep lateness and expose it. Half landed; the half that matters is
-      the composition.** `FreshnessSweep` measures the gap against
-      `policy.lateTickToleranceMs` and calls `onLateTick(latenessMs)`, and
-      `HealthMetrics.noteLateFreshnessTick` consumes exactly that shape into
-      `lateFreshnessTicks`. Both are tested. **Nothing connects them** — `src/index.ts`
-      re-exports the pieces and composes nothing — and there is no health endpoint to read
-      the counter (**G3**). ADR 3 § Implications is explicit about why this cannot stay
-      half-built: under ingest saturation the sweep stops firing, the console freezes
-      robots at their last computed state instead of degrading them, and that is precisely
-      the failure the mechanism exists to prevent. A sweep that silently stops looks
-      identical to a healthy fleet. Recorded as `packages/FIXME.md` **F7**, first bullet.
+- [x] **F5 — Record sweep lateness and expose it. Composed 20 August 2026; the HTTP
+      surface is still deferred.** `startServer` builds the store, the delta set, the
+      counters and the sweep together and routes `onLateTick` into
+      `HealthMetrics.noteLateFreshnessTick`, closing the first bullet of
+      `packages/FIXME.md` **F7**. The callback also emits a `freshness.tick_late` warning
+      through the structured logger, which is the part that matters before **G3** exists:
+      a counter nobody can read is not exposure, and ADR 3 § Implications names the failure
+      precisely — under ingest saturation the sweep stops firing, the console freezes
+      robots at their last computed state instead of degrading them, and a sweep that
+      silently stops looks identical to a healthy fleet. A real six-second run emitted the
+      startup line and nothing else, so the warning is a signal rather than noise. The
+      sweep starts after the listener binds, so it never runs against a server that failed
+      to bind and left nothing to stop it, and stops before the listener closes (**F6**).
+      **Still deferred: `GET /api/health`.** `lateFreshnessTicks` reaches no HTTP response
+      because **G3** waits on ADR 30's unresolved `byAdapter` key space, and that must not
+      be decided in a handler.
 - [x] **F6 — Explicit timer lifecycle.** `start()` / `stop()`, with tests and the
       shutdown path both stopping intervals and closing sockets. A leaked interval turns
       a test suite green and a process unkillable.
@@ -686,7 +691,7 @@ is missing is everything that needs a socket.
 2. `config/freshness.json` and `config/fleet-manifest.json` exist, are strictly validated at startup, and an invalid file stops the process with a message naming the field. The same holds for the environment: `FLEET_SERVER_HOST`, `FLEET_SERVER_PORT` and `FLEET_ALLOWED_ORIGINS` are decoded once by `loadRuntimeEndpoints()`, an invalid value stops the process naming the key (done, ADR 21), and the listener binds what it returns rather than a literal (**B1a**).
 3. Ingest stamps `receivedAt` from the injected clock, dispatches through the adapter registry, and rejects malformed input with a counted, defined error.
 4. Current state is seeded from the manifest, so a robot that has never reported reads UNKNOWN rather than being absent. **Done 20 August 2026** — `startServer` builds the store from `configuration.manifest.robots`, and `GET /api/fleet` serves all fifty committed robots as UNKNOWN.
-5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta.
+5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta. **Two of three done 20 August 2026** — the sweep runs from `startServer` and a freshness-only transition enters the pending delta set with `reportedAt` untouched. Nothing drains that set onto a socket yet (**H2**).
 6. Late ticks, malformed ingest, unsupported vendors and per-adapter unknown fields are all visible on `GET /api/health`, each at its true scope.
 7. No raw vendor payload appears in a fleet response, a delta, or history — asserted by a test, not by inspection.
 8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps.

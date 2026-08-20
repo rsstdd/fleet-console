@@ -137,10 +137,13 @@ shutdown. `packages/README.md` now describes these as planned rather than presen
 Contracts and server primitives agree with the ADR: derivation is pure, uses
 `receivedAt`, runs in the server sweep, and marks freshness-only changes. Missing:
 
-- composition wiring from the sweep's late-tick callback into `HealthMetrics`. Both
-  halves exist and neither is connected: `FreshnessSweep` takes an `onLateTick`
-  option and `HealthMetrics.noteLateFreshnessTick` consumes exactly that shape, but
-  `packages/server/src/index.ts` only re-exports the pieces and composes nothing;
+- ~~composition wiring from the sweep's late-tick callback into `HealthMetrics`~~
+  **closed 20 August 2026.** `startServer` in `packages/server/src/runServer.ts` builds
+  the store, the delta set, the counters and the sweep together, routes `onLateTick`
+  into `HealthMetrics.noteLateFreshnessTick`, and also emits a `freshness.tick_late`
+  warning — because the counter alone is unreadable until the health endpoint exists,
+  and ADR 3's stated failure is that a sweep which silently stops looks identical to a
+  healthy fleet. The sweep starts after the listener binds and stops before it closes;
 - health HTTP exposure;
 - WebSocket delivery of freshness-only deltas;
 - a real console connection state. The console side is **now complete** (ADR 23):

@@ -258,13 +258,19 @@ validation, the current-state store with manifest seeding, the bounded ring buff
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
 **Not built:** ingest, adapter-registry composition, the single-robot and health reads,
-and delta fan-out onto a connected stream. The server **runs and serves the fleet read**:
+and delta fan-out onto a connected stream. The server **runs, sweeps and serves the fleet
+read**:
 `http/createApp` routes with the cross-origin policy mounted, `http/listener` binds it and
 `/ws` to one port with an ordered shutdown, `main.ts` composes them from repository-root
 configuration under `pnpm dev`/`pnpm start`, and `GET /api/fleet` returns every manifest
 robot as UNKNOWN. Anything else is the canonical `not_found` envelope, and the startup
 record's `routes` count says how many are mounted so a deliberate 404 is distinguishable
 from a broken one.
+
+The ADR 3 sweep runs from the composition root, feeding `HealthMetrics.lateFreshnessTicks`
+and a `freshness.tick_late` structured warning; freshness-only transitions enter the
+pending delta set. Nothing drains that set and no route reads the counters, so both are
+observable today only through the log and a test.
 
 Server state is a superset of the wire contract, so responses are **translated** rather
 than serialized: `http/fleetResponse` drops the manifest-only `model` and encodes

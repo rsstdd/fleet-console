@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { type CanonicalEnvelope, SCHEMA_VERSION } from "@fleet/contracts";
+
 import { ADR3_BASELINE_FRESHNESS_POLICY } from "./config/freshnessPolicy.ts";
 import type { RuntimeEndpoints } from "./config/runtimeEndpoints.ts";
 import type { ServerConfiguration } from "./config/serverConfiguration.ts";
 import { createJsonLogger } from "./observability/logger.ts";
-import { fixedClock } from "./runtime/clock.ts";
+import { manualClock } from "./runtime/clock.ts";
 import { startServer, type RunningServer } from "./runServer.ts";
 
 /**
@@ -18,7 +20,29 @@ import { startServer, type RunningServer } from "./runServer.ts";
 describe("startServer", () => {
   // A literal instant, so `capturedAt` is an assertable value rather than "recently".
   const CAPTURED_AT = 1_755_000_000_000;
-  const CLOCK = fixedClock(CAPTURED_AT);
+  const CLOCK = manualClock(CAPTURED_AT);
+
+  /** One observed robot, so the sweep has something to age. */
+  const OBSERVED: CanonicalEnvelope = {
+    schemaVersion: SCHEMA_VERSION,
+    robotId: "rbt-1",
+    siteId: "site-a",
+    vendorId: "A",
+    model: "sweeper-2000",
+    adapterId: "vendor-a",
+    adapterVersion: "1.0.0",
+    reportedAt: CAPTURED_AT - 20,
+    receivedAt: CAPTURED_AT,
+    freshness: "live",
+    core: {
+      connectivity: "unknown",
+      batteryPercent: 80,
+      position: null,
+      status: "idle",
+      health: { severity: "nominal" },
+    },
+    capabilities: {},
+  };
 
   const CONFIGURATION: ServerConfiguration = {
     freshness: ADR3_BASELINE_FRESHNESS_POLICY,
@@ -108,6 +132,55 @@ describe("startServer", () => {
     });
 
     expect(response.headers.get("access-control-allow-origin")).toBe(origin);
+  });
+
+  it("runs the sweep while the server is up and stops it with the server", async () => {
+    // A leaked interval makes a test suite green and a process unkillable (**F6**).
+    const running = await start();
+
+    expect(running.sweep.isRunning).toBe(true);
+
+    await running.stop();
+    server = null;
+
+    expect(running.sweep.isRunning).toBe(false);
+  });
+
+  it("routes a late tick into the health counter and says so in the log", async () => {
+    // ADR 3 § Implications: a sweep that silently stops looks identical to a healthy
+    // fleet, so the lateness has to reach something an operator can read.
+    const running = await start();
+    const policy = ADR3_BASELINE_FRESHNESS_POLICY;
+
+    running.sweep.tick();
+    const overrun = policy.lateTickToleranceMs + 50;
+    CLOCK.advance(policy.sweepIntervalMs + overrun);
+    running.sweep.tick();
+
+    expect(running.health.snapshot().lateFreshnessTicks).toStrictEqual({
+      count: 1,
+      lastLatenessMs: overrun,
+    });
+    expect(JSON.parse(lines.at(-1) ?? "{}")).toStrictEqual({
+      level: "warn",
+      event: "freshness.tick_late",
+      latenessMs: overrun,
+      toleranceMs: policy.lateTickToleranceMs,
+    });
+  });
+
+  it("marks a freshness-only transition for fan-out without touching telemetry", async () => {
+    // F4: the delta set exists so a robot that only aged is still a change worth sending.
+    const running = await start();
+    running.store.upsert(OBSERVED, null, null);
+
+    CLOCK.advance(ADR3_BASELINE_FRESHNESS_POLICY.staleThresholdMs + 1);
+    running.sweep.tick();
+
+    const marked = [...running.deltas.drain().values()];
+    expect(marked.map((robot) => robot.robotId)).toStrictEqual([OBSERVED.robotId]);
+    expect(marked[0]?.freshness).toBe("unreachable");
+    expect(marked[0]?.reportedAt).toBe(OBSERVED.reportedAt);
   });
 
   it("reports the stop and frees the port", async () => {

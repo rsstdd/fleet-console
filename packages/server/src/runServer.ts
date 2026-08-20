@@ -1,5 +1,10 @@
+import type { CanonicalEnvelope } from "@fleet/contracts";
+
 import type { ServerConfiguration } from "./config/serverConfiguration.ts";
 import type { RuntimeEndpoints } from "./config/runtimeEndpoints.ts";
+import { PendingDeltaSet } from "./fanout/pendingDeltas.ts";
+import { FreshnessSweep } from "./freshness/freshnessSweep.ts";
+import { HealthMetrics } from "./health/healthMetrics.ts";
 import { createHttpApp } from "./http/createApp.ts";
 import { encodeFleetSnapshot } from "./http/fleetResponse.ts";
 import { startListener } from "./http/listener.ts";
@@ -32,6 +37,12 @@ export interface RunningServer {
   readonly port: number;
   /** Seeded fleet state, exposed so a test can observe what the routes serve. */
   readonly store: CurrentStateStore;
+  /** The running sweep, exposed so a test can drive a tick without waiting on an interval. */
+  readonly sweep: FreshnessSweep;
+  /** Robots whose state changed since the last flush; nothing drains this yet (**H2**). */
+  readonly deltas: PendingDeltaSet<CanonicalEnvelope>;
+  /** Process-wide counters, including the late-tick count the sweep feeds. */
+  readonly health: HealthMetrics;
   stop(): Promise<void>;
 }
 
@@ -47,6 +58,10 @@ export interface RunningServer {
  * reads are still 404 (`TODO.md` **D1**, **G2**–**G3**). A server answering 404 for a
  * reason is different from one answering 404 because it is broken, and only the log can
  * tell an operator which they have.
+ *
+ * The sweep starts here and is the reason this function returns the pieces it composed:
+ * nothing drains the delta set and no route reads the counters yet, so a test is currently
+ * the only consumer that can prove either one moved.
  */
 export async function startServer(options: StartServerOptions): Promise<RunningServer> {
   const { endpoints, configuration, logger, clock } = options;
@@ -54,6 +69,27 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
   // Seeded from the manifest, so a robot that has never reported reads UNKNOWN in the
   // fleet snapshot rather than being absent from it (ADR 3, ADR 14).
   const store = new CurrentStateStore(configuration.manifest.robots);
+  const deltas = new PendingDeltaSet<CanonicalEnvelope>();
+  const health = new HealthMetrics();
+
+  // ADR 3 § Implications: under ingest saturation the sweep stops firing, the console
+  // freezes robots at their last computed state instead of degrading them, and a sweep
+  // that silently stops looks identical to a healthy fleet. The counter is the durable
+  // record and the log line is what makes it audible before `GET /api/health` exists
+  // (**G3**, blocked on ADR 30).
+  const sweep = new FreshnessSweep({
+    clock,
+    store,
+    deltas,
+    policy: configuration.freshness,
+    onLateTick: (latenessMs) => {
+      health.noteLateFreshnessTick(latenessMs);
+      logger.log("warn", "freshness.tick_late", {
+        latenessMs,
+        toleranceMs: configuration.freshness.lateTickToleranceMs,
+      });
+    },
+  });
 
   const listener = await startListener({
     app: createHttpApp({
@@ -81,10 +117,20 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
     routes: 1,
   });
 
+  // Started after the listener, so a sweep never runs against a server that failed to
+  // bind and left nothing to stop it.
+  sweep.start();
+
   return {
     port: listener.port,
     store,
+    sweep,
+    deltas,
+    health,
     stop: async () => {
+      // The interval first: a leaked one outlives the process's usefulness and makes a
+      // test suite green while the process stays unkillable (**F6**).
+      sweep.stop();
       await listener.close();
       logger.log("info", "server.stopped", { port: listener.port });
     },
