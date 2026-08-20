@@ -86,9 +86,34 @@ validation in the table; that would be a second decode authority (Principle 1).
       loses every delta emitted in the gap, and the symptom is a row that quietly stops
       updating rather than an error (server TODO **H3b**). Six tests, including the cold
       server at sequence zero discarding nothing.
-      What is still missing is the transport around it: no socket, no snapshot fetch, no
+      `shared/lib/streamLifecycle.ts` is the other half: the complete state matrix
+      Principle 5 requires to exist **before** the transport does, as a pure reducer over
+      `idle | connecting | connected | reconnecting | failed`, plus the projection onto the
+      three values ADR 23 publishes. A failed first attempt stays `connecting` rather than
+      becoming `reconnecting`, because telling an operator the connection was lost when it
+      never existed sends them looking for a fault that is not there; `attempt` resets on a
+      successful open, so the banner's retry control never describes work that finished.
+      Nine tests, including a sweep asserting `isStreamConnected` is true for exactly one
+      phase — being wrong in the permissive direction is what makes a console assert
+      currency it cannot support (ADR 3).
+      What is still missing is the transport around them: no socket, no snapshot fetch, no
       store. Deltas apply keyed by `robotId` on a scheduled frame, never synchronously per
-      message (spec § 6, ADR 2, Principle 12).
+      message (spec § 6, ADR 2, Principle 12). **Deferred, decision not made — the published vocabulary is narrower than the
+      transport's, and two distinctions are dropped at the projection.** `idle` and
+      `failed` both publish as `disconnected`, and `connecting` and `reconnecting` both
+      publish as `reconnecting`. So the banner cannot say "connecting for the first time"
+      rather than "reconnecting", and cannot say "stopped trying" rather than "retrying" —
+      and the banner's own source calls a retry control that does nothing observable "the
+      class of lie this project exists to argue against". Widening it is **three** changes,
+      not one: `StreamConnectionState` in `shared/lib`, the structurally identical union in
+      `shared/ui/connectionBanner.tsx` that cannot import it (ADR 23), and new operator copy
+      in `docs/02_component-specs`. Keeping it narrow is defensible — every non-connected
+      state suppresses freshness identically, which is all ADR 3 requires — so this is a
+      product question about banner copy, not a correctness gap. Decide it before writing
+      the socket, or the socket will decide it by accident. **Deferred, decision not made — when to give up.** `give-up` is an event the caller
+      raises, not a cap this reducer counts, because an attempt limit, a backoff schedule
+      and how a refused upgrade differs from a dropped connection are all unchosen. A
+      machine that invented a cap would make that decision silently.
       _Where to connect is already decided and configured_
       ([ADR 21](../../../../../docs/00_adr/21_ENDPOINTS_FROM_THE_ENVIRONMENT_WITH_A_DEV_PROXY.md)):
       read `TENANT.endpoints.streamUrl` and `TENANT.endpoints.apiBaseUrl` from

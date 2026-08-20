@@ -592,9 +592,17 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
 - [ ] **H6c — Define the remaining connection states.** Reconnect and orderly shutdown
       still need defining; ADR 8 § Implications requires socket clients to close before
       the HTTP server does, or in-flight frames land on a dead listener.
-- [ ] **H7 — Every asynchronous surface defines its complete state** (Principle 5). For
-      the stream that means: connecting, connected, degraded, disconnected, reconnecting,
-      terminal failure — and the console's connection banner is the consumer of it.
+- [x] **H7 — Every asynchronous surface defines its complete state. Defined 20 August
+      2026 in `packages/web`; the consumer is still fixture-backed.**
+      `shared/lib/streamLifecycle.ts` is the matrix as a pure reducer —
+      `idle | connecting | connected | reconnecting | failed` — with the transitions tested
+      rather than described (Principle 5). `degraded` was **not** adopted: nothing in this
+      design produces a partly-working stream, and a state with no producer is a state the
+      banner would never show. Two questions the definition surfaced are deferred and
+      flagged in `packages/web/src/features/fleet/TODO.md` **A3**: the published vocabulary
+      is narrower than the transport's, so the banner cannot distinguish a first connection
+      from a reconnection or a stopped client from a retrying one; and when to give up is
+      an event the caller raises rather than a cap the reducer invents.
 
 ---
 
