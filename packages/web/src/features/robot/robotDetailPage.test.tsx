@@ -4,6 +4,10 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConnectionContext, type StreamConnectionState } from "@/shared/lib/connectionContext";
+import { StreamDiagnosticsContext } from "@/shared/lib/streamDiagnosticsContext";
+import { SCHEMA_VERSION, type CanonicalEnvelope } from "@fleet/contracts";
+import { createFleetStore } from "@/entities/robot/fleetStore";
+import { FleetStoreContext } from "@/entities/robot/fleetStoreContext";
 
 import { RobotDetailPage } from "./robotDetailPage";
 import { createFixtureFetch } from "./robotDetailFixtures";
@@ -382,5 +386,103 @@ describe("RobotDetailPage", () => {
 
     expect(screen.getByRole("region", { name: "Diagnostics" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Raw payload" })).toBeInTheDocument();
+  });
+});
+
+describe("live detail reconciliation", () => {
+  /** R-118's canonical envelope as a stream delta would carry it. */
+  function liveEnvelope(over: Partial<CanonicalEnvelope["core"]> = {}): CanonicalEnvelope {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      robotId: "R-118",
+      siteId: "zone-a",
+      vendorId: "A",
+      model: "Courier 4",
+      adapterId: "vendor-a",
+      adapterVersion: "1.4.0",
+      reportedAt: Date.now(),
+      receivedAt: Date.now(),
+      freshness: "live",
+      core: {
+        connectivity: "online",
+        batteryPercent: 42,
+        position: null,
+        status: "busy",
+        health: { severity: "nominal" },
+        ...over,
+      },
+      capabilities: {},
+    };
+  }
+
+  async function renderWithStore(store: ReturnType<typeof createFleetStore>): Promise<void> {
+    render(
+      <FleetStoreContext.Provider value={store}>
+        <ConnectionContext.Provider value="connected">
+          <MemoryRouter initialEntries={["/robots/R-118"]}>
+            <Routes>
+              <Route path="/robots/:id" element={<RobotDetailPage />} />
+            </Routes>
+          </MemoryRouter>
+        </ConnectionContext.Provider>
+      </FleetStoreContext.Provider>,
+    );
+    await waitForElementToBeRemoved(() => screen.queryByText("Loading robot…"));
+  }
+
+  it("updates core values from a stream delta without refetching", async () => {
+    const fetchSpy = vi.fn(createFixtureFetch());
+    vi.stubGlobal("fetch", fetchSpy);
+    const store = createFleetStore();
+    await renderWithStore(store);
+
+    const summary = screen.getByRole("region", { name: "Summary" });
+    expect(within(summary).getByText("91%")).toBeInTheDocument();
+    const fetchesAfterLoad = fetchSpy.mock.calls.length;
+
+    // One delta naming this robot: the page's row subscription applies it over
+    // the fetched detail, and no request leaves the console.
+    store.applyBatch({
+      schemaVersion: SCHEMA_VERSION,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+      flushSequence: 2,
+      sentAt: Date.now(),
+      robots: [liveEnvelope()],
+    });
+
+    expect(await within(summary).findByText("42%")).toBeInTheDocument();
+    expect(fetchSpy.mock.calls.length).toBe(fetchesAfterLoad);
+  });
+});
+
+describe("stream diagnostics in the technician view", () => {
+  it("shows the session-wide rejected-frame count with its scope stated", async () => {
+    render(
+      <StreamDiagnosticsContext.Provider value={{ rejectedFrames: 7 }}>
+        <ConnectionContext.Provider value="connected">
+          <MemoryRouter initialEntries={["/robots/R-118"]}>
+            <Routes>
+              <Route path="/robots/:id" element={<RobotDetailPage />} />
+            </Routes>
+          </MemoryRouter>
+        </ConnectionContext.Provider>
+      </StreamDiagnosticsContext.Provider>,
+    );
+    await waitForElementToBeRemoved(() => screen.queryByText("Loading robot…"));
+    await showTechnicianView();
+
+    const diagnostics = screen.getByRole("region", { name: "Diagnostics" });
+    // The label names the true scope: the console's own session, all robots —
+    // never a per-robot precision the counter does not have (Principle 11).
+    expect(
+      within(diagnostics).getByText("Rejected stream frames (console session, all robots)"),
+    ).toBeInTheDocument();
+    expect(within(diagnostics).getByText("7")).toBeInTheDocument();
+  });
+
+  it("is absent from the operator view, like every diagnostics row", async () => {
+    await renderRobot("R-118");
+
+    expect(screen.queryByText(/Rejected stream frames/)).toBeNull();
   });
 });

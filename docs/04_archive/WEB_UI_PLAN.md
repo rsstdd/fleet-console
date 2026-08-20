@@ -2,6 +2,8 @@
 
 **Authority:** Historical. This implementation plan records earlier reasoning; current ADRs, package specifications, and shipped tests supersede its status claims.
 
+**Archived 20 August 2026** from `packages/web/UI_PLAN.md`. Its replacement as the record of web-package alignment work is [`WEB_ALIGNMENT_PLAN.md`](./WEB_ALIGNMENT_PLAN.md) (since archived in turn) together with the current `docs/03_package-specs/05_WEB.md`; the per-slice TODOs under `packages/web/src/**` carry any remaining items. Nothing links this file as current remaining work.
+
 **Revision 6.** § 2, § 3, § 6 and § 7 were re-checked against the tree on 19 August 2026 and their status claims corrected: all eight shared components are built and styled, and the shell, router and robot detail exist. The plan's own reasoning is unchanged; only the claims about what had been written were wrong.
 
 **Revision 5.** The § 1 mapping sample is corrected: it declared the presentational union by importing it from `shared/ui`, which the dependency rule forbids and which ADR 4 recorded as a known-wrong sample. The virtualization deferral no longer cites ADR 6, which is a server-persistence decision. § 2, § 6 and § 7 now record what exists against what is planned, so the document can be checked against the tree rather than read as intent.

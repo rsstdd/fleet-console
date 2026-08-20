@@ -3,18 +3,22 @@ import { describe, expect, it } from "vitest";
 import { SCHEMA_VERSION } from "@fleet/contracts";
 import type { CanonicalEnvelope, FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
 
-import { createFleetStore } from "./fleetStore";
+import { createFleetStore, type FleetData } from "./fleetStore";
 
 /**
- * The store applies whole robots and derives nothing. What these cases guard is the two
- * ways that could quietly stop being true: a merge creeping in where a replace belongs,
- * and a subscriber woken per message rather than per frame.
+ * The store applies whole robots, owns the resource-state machine, and derives
+ * nothing. These cases guard the ways that could quietly stop being true: a
+ * merge creeping in where a replace belongs, a subscriber woken per message
+ * rather than per frame, an error state that blanks retained rows, and
+ * provenance invented rather than copied off the wire.
  */
 describe("createFleetStore", () => {
   /** Runs scheduled notifications immediately, so a test needs no frame. */
   const immediate = (notify: () => void): void => {
     notify();
   };
+
+  const noRetry = (): void => {};
 
   function envelope(robotId: string, over: Partial<CanonicalEnvelope> = {}): CanonicalEnvelope {
     return {
@@ -40,27 +44,45 @@ describe("createFleetStore", () => {
     };
   }
 
-  function snapshot(robots: FleetSnapshot["robots"]): FleetSnapshot {
+  function snapshot(
+    robots: FleetSnapshot["robots"],
+    over: Partial<FleetSnapshot> = {},
+  ): FleetSnapshot {
     return {
       schemaVersion: SCHEMA_VERSION,
       serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
       flushSequence: 0,
-      capturedAt: 0,
+      capturedAt: 1_755_600_000_000,
+      sites: [{ siteId: "site-a", label: "Site A" }],
       robots,
+      ...over,
     };
   }
 
-  function batch(robots: CanonicalEnvelope[]): TelemetryBatch {
+  function batch(robots: CanonicalEnvelope[], sentAt = 1_755_600_000_500): TelemetryBatch {
     return {
       schemaVersion: SCHEMA_VERSION,
       serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
       flushSequence: 1,
-      sentAt: 0,
+      sentAt,
       robots,
     };
   }
 
-  it("seeds both populations from a snapshot", () => {
+  /** Narrows to the data-bearing states, failing loudly on the rest. */
+  function dataOf(store: ReturnType<typeof createFleetStore>): FleetData {
+    const state = store.getState();
+    if (!("data" in state) || state.data === null) {
+      throw new Error(`expected data-bearing state, got ${state.kind}`);
+    }
+    return state.data;
+  }
+
+  it("starts loading: nothing is known until a snapshot is applied", () => {
+    expect(createFleetStore(immediate).getState()).toStrictEqual({ kind: "loading" });
+  });
+
+  it("seeds both populations from a snapshot and becomes ready", () => {
     const store = createFleetStore(immediate);
 
     store.applySnapshot(
@@ -76,9 +98,120 @@ describe("createFleetStore", () => {
       ]),
     );
 
-    expect(store.getRobots().map((robot) => robot.id)).toStrictEqual(["rbt-1", "rbt-2"]);
+    expect(store.getState().kind).toBe("ready");
+    expect(dataOf(store).robots.map((robot) => robot.id)).toStrictEqual(["rbt-1", "rbt-2"]);
     // A registered robot has no health rather than a fabricated `nominal` (Principle 4).
     expect(store.getRobot("rbt-2")?.health).toBeNull();
+  });
+
+  it("carries the snapshot's site directory and capture instant, never inventing either", () => {
+    // Provenance is decoded, not derived: the plate renders what the server
+    // stamped (Principle 4, ADR 34).
+    const store = createFleetStore(immediate);
+
+    store.applySnapshot(snapshot([envelope("rbt-1")], { capturedAt: 1_755_601_234_000 }));
+
+    const data = dataOf(store);
+    expect(data.sites).toStrictEqual([{ siteId: "site-a", label: "Site A" }]);
+    expect(data.capturedAt).toBe(1_755_601_234_000);
+    expect(data.latestFrameAt).toBeNull();
+  });
+
+  it("tracks the latest applied frame's sentAt as stream provenance", () => {
+    const store = createFleetStore(immediate);
+    store.applySnapshot(snapshot([envelope("rbt-1")]));
+
+    store.applyBatch(batch([envelope("rbt-1")], 1_755_600_000_900));
+
+    expect(dataOf(store).latestFrameAt).toBe(1_755_600_000_900);
+  });
+
+  it("resets stream provenance on a new snapshot, which is a new epoch", () => {
+    const store = createFleetStore(immediate);
+    store.applySnapshot(snapshot([envelope("rbt-1")]));
+    store.applyBatch(batch([envelope("rbt-1")]));
+
+    store.applySnapshot(snapshot([envelope("rbt-1")]));
+
+    expect(dataOf(store).latestFrameAt).toBeNull();
+  });
+
+  it("shows loading, not refreshing, when an attempt starts with nothing retained", () => {
+    const store = createFleetStore(immediate);
+
+    store.snapshotStart();
+
+    expect(store.getState()).toStrictEqual({ kind: "loading" });
+  });
+
+  it("shows refreshing over retained rows when an attempt starts after a snapshot", () => {
+    const store = createFleetStore(immediate);
+    store.applySnapshot(snapshot([envelope("rbt-1")]));
+
+    store.snapshotStart();
+
+    const state = store.getState();
+    expect(state.kind).toBe("refreshing");
+    expect(dataOf(store).robots).toHaveLength(1);
+  });
+
+  it("retains rows through a recoverable failure and exposes the given retry", () => {
+    // Last-known rows beat no rows; only the recoverable state offers retry
+    // (Principle 4, Principle 5).
+    let retried = 0;
+    const store = createFleetStore(immediate);
+    store.applySnapshot(snapshot([envelope("rbt-1")]));
+
+    store.recoverableFailure({ cause: "handshake-exhausted" }, () => {
+      retried += 1;
+    });
+
+    const state = store.getState();
+    if (state.kind !== "recoverable-error") throw new Error(`unexpected ${state.kind}`);
+    expect(state.data?.robots).toHaveLength(1);
+    expect(state.failure.cause).toBe("handshake-exhausted");
+    state.retry();
+    expect(retried).toBe(1);
+  });
+
+  it("reports a first-load recoverable failure with nothing retained", () => {
+    const store = createFleetStore(immediate);
+    store.snapshotStart();
+
+    store.recoverableFailure({ cause: "handshake-exhausted" }, noRetry);
+
+    const state = store.getState();
+    if (state.kind !== "recoverable-error") throw new Error(`unexpected ${state.kind}`);
+    expect(state.data).toBeNull();
+  });
+
+  it("retains rows through a terminal contract failure and carries the issues", () => {
+    // Terminal by decision: retrying returns the same bytes, so no retry is
+    // exposed, and the issues carry path and code only (ADR 20).
+    const store = createFleetStore(immediate);
+    store.applySnapshot(snapshot([envelope("rbt-1")]));
+
+    store.terminalFailure([
+      { path: "robots.0.siteId", code: "custom", message: "robot references undefined site" },
+    ]);
+
+    const state = store.getState();
+    if (state.kind !== "terminal-error") throw new Error(`unexpected ${state.kind}`);
+    expect(state.data?.robots).toHaveLength(1);
+    expect(state.issues).toStrictEqual([
+      { path: "robots.0.siteId", code: "custom", message: "robot references undefined site" },
+    ]);
+    expect("retry" in state).toBe(false);
+  });
+
+  it("recovers from a failure state when a later snapshot settles", () => {
+    const store = createFleetStore(immediate);
+    store.recoverableFailure({ cause: "handshake-exhausted" }, noRetry);
+
+    store.snapshotStart();
+    store.applySnapshot(snapshot([envelope("rbt-1")]));
+
+    expect(store.getState().kind).toBe("ready");
   });
 
   it("replaces a robot whole rather than merging fields into it", () => {
@@ -101,6 +234,18 @@ describe("createFleetStore", () => {
     expect(store.getRobot("rbt-1")).toMatchObject({ freshness: "stale", batteryPercent: 11 });
   });
 
+  it("keeps an unrelated robot's identity across a frame, for per-id subscribers", () => {
+    // `useFleetRobot` bails out on identity; a frame naming rbt-2 must not
+    // produce a new rbt-1 object or robot detail re-renders for every delta.
+    const store = createFleetStore(immediate);
+    store.applySnapshot(snapshot([envelope("rbt-1"), envelope("rbt-2")]));
+    const before = store.getRobot("rbt-1");
+
+    store.applyBatch(batch([envelope("rbt-2", { freshness: "stale" })]));
+
+    expect(store.getRobot("rbt-1")).toBe(before);
+  });
+
   it("drops a robot the snapshot no longer carries", () => {
     // A robot that left the manifest must not survive as a stale row.
     const store = createFleetStore(immediate);
@@ -108,20 +253,20 @@ describe("createFleetStore", () => {
 
     store.applySnapshot(snapshot([envelope("rbt-2")]));
 
-    expect(store.getRobots().map((robot) => robot.id)).toStrictEqual(["rbt-2"]);
+    expect(dataOf(store).robots.map((robot) => robot.id)).toStrictEqual(["rbt-2"]);
   });
 
-  it("returns the same array until something changes", () => {
-    // useSyncExternalStore compares by identity, so a fresh array every call is an infinite
-    // render loop rather than a performance note.
+  it("returns the same state object until something changes", () => {
+    // useSyncExternalStore compares by identity, so a fresh object every call is an
+    // infinite render loop rather than a performance note.
     const store = createFleetStore(immediate);
     store.applySnapshot(snapshot([envelope("rbt-1")]));
 
-    const first = store.getRobots();
-    expect(store.getRobots()).toBe(first);
+    const first = store.getState();
+    expect(store.getState()).toBe(first);
 
     store.applyBatch(batch([envelope("rbt-1", { freshness: "stale" })]));
-    expect(store.getRobots()).not.toBe(first);
+    expect(store.getState()).not.toBe(first);
   });
 
   it("wakes subscribers once per frame, not once per message", () => {
@@ -137,7 +282,8 @@ describe("createFleetStore", () => {
     store.applyBatch(batch([envelope("rbt-1")]));
     store.applyBatch(batch([envelope("rbt-2")]));
     expect(woken).toBe(0);
-    expect(store.getRobots()).toHaveLength(2);
+    expect(store.getRobot("rbt-1")).toBeDefined();
+    expect(store.getRobot("rbt-2")).toBeDefined();
 
     for (const notify of pending.splice(0)) notify();
     expect(woken).toBe(1);

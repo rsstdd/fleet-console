@@ -339,7 +339,10 @@ export function buildFixtureRobots(): Robot[] {
   const secondsAgo = (n: number) => new Date(now - n * 1_000).toISOString();
   const minutesAgo = (n: number) => new Date(now - n * 60_000).toISOString();
 
-  return [
+  /** Fleet-row core values; the observed-only detail fields are filled below. */
+  const rows: ReadonlyArray<
+    Omit<Robot, "observed" | "model" | "connectivity" | "position" | "capabilities">
+  > = [
     {
       id: "R-118",
       vendor: "A",
@@ -443,4 +446,20 @@ export function buildFixtureRobots(): Robot[] {
       lastSeenAt: secondsAgo(1),
     },
   ];
+
+  // A row with freshness "unknown" has never reported, so the observed-only
+  // fields stay absent for it the way `toRegisteredRobot` leaves them; the
+  // rest carry minimal observed values, since these rows exercise the fleet
+  // table's columns rather than the detail panels.
+  return rows.map((row) => {
+    const observed = row.freshness !== "unknown";
+    return {
+      ...row,
+      observed,
+      model: observed ? `Model ${row.vendor}` : null,
+      connectivity: observed ? "online" : null,
+      position: null,
+      capabilities: {},
+    };
+  });
 }

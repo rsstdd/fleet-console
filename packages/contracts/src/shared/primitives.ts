@@ -41,8 +41,13 @@ const DESCRIPTION_MAX_LENGTH = 240;
  * Version 2 added the required `serverSessionId` on fleet snapshots and
  * telemetry batches (ADR 31); a version-1 payload lacks the field a client's
  * restart reconciliation depends on, so it is rejected rather than defaulted.
+ *
+ * Version 3 added the required `sites` directory on fleet snapshots (ADR 34):
+ * a version-2 snapshot carries site ids the console has no labels for, so it
+ * is rejected rather than rendered with invented names. There is no
+ * compatibility fallback; producers and consumers move together.
  */
-export const SCHEMA_VERSION = "2";
+export const SCHEMA_VERSION = "3";
 
 /**
  * Largest accepted epoch-millisecond value, 31 December 9999. A timestamp past

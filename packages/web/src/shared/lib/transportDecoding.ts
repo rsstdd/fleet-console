@@ -28,7 +28,7 @@ import type {
  * connection refused is recoverable and retrying is the right response; a body that does
  * not satisfy the canonical schema is terminal, because the server did not stumble, it
  * sent bytes this console cannot read, and retrying returns the same bytes
- * (`entities/robot/TODO.md` **W-6**). Collapsing them produces a console that retries
+ * (ADR 20, web spec § 9). Collapsing them produces a console that retries
  * forever against a contract mismatch, showing a spinner where it should show an error
  * naming the field.
  *

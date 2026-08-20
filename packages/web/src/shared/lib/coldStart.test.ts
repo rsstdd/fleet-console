@@ -24,6 +24,7 @@ describe("createColdStart", () => {
       serverSessionId: SESSION,
       flushSequence,
       capturedAt: 0,
+      sites: [],
       robots: [],
     };
   }

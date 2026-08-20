@@ -4,14 +4,15 @@ Multi-vendor robot fleet telemetry console. Canonical contracts, vendor adapters
 
 **Core guarantees:**
 
-1. The console never presents stale state as current; enforced by tooling, survives team turnover/agent-written code (Principle 4).
-2. Vendor differences are normalized where shared and preserved as declared capabilities where not (flattening differences deletes the product) (Principle 3).
+1. The UI never presents stale data as current. This is enforced by tooling and intended to survive team turnover/agent-written code (Principle 4).
+2. Vendor differences are normalized where shared. These differences are preserved as declared capabilities where not shared
+   (flattening differences deletes the product) (Principle 3).
 
-Sections 2-3 cover freshness; 4 covers normalization; 7 covers scale.
+Sections 2-3 cover "freshness"; 4 covers normalization; 7 covers scale.
 
 > **Implementation status — 20 August 2026.** This README describes the design in the
 > present tense throughout. Where a section still claims behavior the tree does not have,
-> it is marked **[NOT BUILT]** or **[PARTIAL]** inline rather than quietly left standing.
+> it is marked inline with **[NOT BUILT]** or **[PARTIAL]**.
 >
 > The short version: **the path runs end to end.** `pnpm dev` starts the server, the
 > simulator and the console together; the simulator's readings reach the server's ingest,
@@ -94,7 +95,10 @@ pnpm dev
 The web tenant is selected at build time with `VITE_TENANT=tenant-a|tenant-b`; omitting
 it selects tenant A. For example, `VITE_TENANT=tenant-b pnpm --filter web build` produces
 the Tenant B bundle. Unknown values fail the build rather than silently falling back
-(ADR 17).
+(ADR 17). To see Tenant B against the same live stack, run `pnpm dev:tenant-b` — the
+"Northwind Robotics" wordmark, the light theme, and a robot-detail page without the
+lidar-health panel are the three visible differences; `pnpm test:e2e:tenant` asserts the
+same three on the production bundle in Chromium.
 
 D13 is settled as **Option 2 — environment variables at server startup plus a Vite dev
 proxy, with strict startup validation**
@@ -123,6 +127,12 @@ and the simulator POSTs into the real ingest — 1,993 readings sent and 1,993 a
 ---
 
 ## 3. Demo script
+
+A presenter-facing version of this sequence — seven acts with per-act frontend notes,
+plus an interactive driver that starts, faults, and restarts the stack itself — lives in
+[`demo/DEMO.md`](demo/DEMO.md) and [`demo/demo.sh`](demo/demo.sh). The steps below are
+the canonical sequence; the demo guide restates them and must stay consistent with this
+section.
 
 **Observed in a browser on 20 August 2026.** Headless Chrome against the running stack, at
 `http://127.0.0.1:5301`:
@@ -207,7 +217,7 @@ Two corrections against ADR 1, which is the current authority: **sequence** is a
 
 Adapter contract tests verify normalization: recorded vendor payload → exact canonical event (Principle 10). `pnpm record:fixtures` records one representative payload per vendor from the simulator into `packages/adapters/src/vendors/*/__fixtures__/`, and CI fails if the tree produces a different byte ([ADR 13](docs/00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md)). Each vendor module decodes its own fixture to an exact canonical envelope, a cross-vendor test proves two dialects describing one state produce identical cores, and every malformed fixture returns a failure result rather than throwing. `packages/adapters` also ships the result type, the unknown-field ledger, the vendor union, the dispatch registry, and a public `testing` subpath ([ADR 11](docs/00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)) that `packages/server`'s ingest test consumes under a narrow lint exception.
 
-**Site hierarchy:** 1 level (robots → sites). Extends rather than changes shape for org → site → building → fleet → robot.
+**Site hierarchy:** 1 level (robots → sites). Extends rather than changes shape for org → site → building → fleet → robot. Site labels are deployment configuration: the manifest's `sites` directory travels on the fleet snapshot (schema version 3, ADR 34) and the console labels from it — North site, South site, East site in the shipped configuration — inventing nothing.
 
 ---
 
@@ -233,7 +243,7 @@ Status as of 20 August 2026, verified against the tree and against one `pnpm dev
 | Server: ingest, dispatch, idempotent upsert, health endpoint  | **Built.** `POST /api/telemetry/:vendor` with the size cap ahead of the parse, registry dispatch, idempotent upsert, and `GET /api/fleet`, `/api/robots/:id`, `/api/robots/:id/history` and `/api/health`. The history route (**G4**) landed under ADR 33: compact retention at capacity 3,001 per robot, decimated to at most 60 extrema-preserving points over a fixed 60-second window.                         |
 | WebSocket fan-out with coalescing                             | **Built.** One coalescing set per console, flushed at up to 10 Hz on `/ws`, sharing the server's one flush counter with the snapshot (ADR 18). No backpressure yet — deferred on ADR 8's open configuration question (**H6b**).                                                                                                                                                                                    |
 | Fleet view: summary, filters, table                           | **Built**, reading the live store. Freshness summary, site/vendor/freshness/search filters, table.                                                                                                                                                                                                                                                                                                                 |
-| Robot detail: capability panels, operator/technician personas | **Built**, reading `GET /api/robots/:id` and `/api/health`, plus the fetch-on-visit battery-history sparkline over `GET /api/robots/:id/history` (ADR 33).                                                                                                                                                                                                                                                         |
+| Robot detail: capability panels, operator/technician personas | **Built**, reading `GET /api/robots/:id` and `/api/health`, plus the fetch-on-visit battery-history sparkline over `GET /api/robots/:id/history` (ADR 33). Live after the one fetch: core values and freshness update from stream deltas by reconciling this robot's fleet row over the fetched detail — no refetch, no re-render for other robots' deltas.                                                        |
 | Connection-integrity handling                                 | **Built.** The banner, `ConnectionContext` and label suppression are driven by a real socket, failing closed to `disconnected` (ADR 23). Recovery is automatic under ADR 31 — full-jitter reconnect, capped initial probe, server-session restart detection — with manual retry for the terminal states. The restart recovery is committed browser automation against a real killed-and-restarted server (ADR 32). |
 | Tenant theming + one gated feature                            | **Built.** Build-time profiles are validated; Tenant B disables the lidar-health panel through `flags.lidarHealthPanel` (ADR 17).                                                                                                                                                                                                                                                                                  |
 | Enforced dependency boundaries in lint and CI                 | **Built.** `eslint-plugin-boundaries` + resolver, violation fixtures, `.github/workflows/ci.yml`.                                                                                                                                                                                                                                                                                                                  |
@@ -308,17 +318,17 @@ Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing,
 
 ## 9. Not Built
 
-| Cut                               | Reason                                                                                                                                                                                          |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Robot discovery/commissioning** | Highest-value front-end, cut because provisioning/credentials is a different exercise.                                                                                                          |
-| **Schema-driven config forms**    | Right answer for differing vendor schemas, cut for time. Capability model is foundation.                                                                                                        |
-| **Auth/multi-tenancy**            | Real tenancy is auth model, not filter. Config = theming/features only (Principle 7, 13).                                                                                                       |
-| **Commands to robots**            | Requires state machine (requested, ack, executing, completed, failed, unknown) + audit (Principle 11). Fake buttons reporting unverifiable success violates anti-stale principle (Principle 4). |
-| **Cloud/on-prem skew**            | Envelope has schema version for this, but full compatibility window out of scope.                                                                                                               |
-| **Floor plans/calibration**       | Transform robot map → building drawing per site/floor is real problem. Positions shown native map frame + frame name. Abstract bounds used.                                                     |
-| **Horizontal scale/broker**       | Correct at this size. Seam named: ingest stateless, state/fan-out partition. In-memory state won't scale across instances (Principle 12).                                                       |
-| **Alerting/escalation**           | Different product than live view.                                                                                                                                                               |
-| **Persistent history**            | In-memory current state, rebuildable (Principle 11). History = bounded per-robot ring buffer of compact battery samples, served decimated for the sparkline. [ADR 6], amended by [ADR 33].      |
+| Cut                               | Reason                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Robot discovery/commissioning** | Highest-value front-end, cut because provisioning/credentials is a different exercise.                                                                                                                                                                                                                                                                                              |
+| **Schema-driven config forms**    | Right answer for differing vendor schemas, cut for time. Capability model is foundation.                                                                                                                                                                                                                                                                                            |
+| **Auth/multi-tenancy**            | Real tenancy is auth model, not filter. Config = theming/features only (Principle 7, 13). This is the demo-only security boundary: raw vendor payloads are served unauthenticated by recorded decision (ADR 26), the technician panel states the exposure on the surface, and production deployment remains blocked until authentication and authorization supersede that decision. |
+| **Commands to robots**            | Requires state machine (requested, ack, executing, completed, failed, unknown) + audit (Principle 11). Fake buttons reporting unverifiable success violates anti-stale principle (Principle 4).                                                                                                                                                                                     |
+| **Cloud/on-prem skew**            | Envelope has schema version for this, but full compatibility window out of scope.                                                                                                                                                                                                                                                                                                   |
+| **Floor plans/calibration**       | Transform robot map → building drawing per site/floor is real problem. Positions shown native map frame + frame name. Abstract bounds used.                                                                                                                                                                                                                                         |
+| **Horizontal scale/broker**       | Correct at this size. Seam named: ingest stateless, state/fan-out partition. In-memory state won't scale across instances (Principle 12).                                                                                                                                                                                                                                           |
+| **Alerting/escalation**           | Different product than live view.                                                                                                                                                                                                                                                                                                                                                   |
+| **Persistent history**            | In-memory current state, rebuildable (Principle 11). History = bounded per-robot ring buffer of compact battery samples, served decimated for the sparkline. [ADR 6], amended by [ADR 33].                                                                                                                                                                                          |
 
 ---
 
@@ -487,7 +497,7 @@ Named in the scope and now built:
 
 - Adapter contract tests (recorded fixture → exact output), drift-gated in CI (ADR 13).
 - Idempotent ingest at the HTTP boundary, over the store-level guarantee above.
-- E2E (simulator → visibly stale row) **in a browser** ([ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)). `pnpm test:e2e` runs seven scenarios per engine against the real server, simulator, and production bundle — rendering and streamed row updates, vendor normalization with capability panels, keyboard operability without focus theft, freshness degradation with the stream up, row retention with the server down, the battery-history chart surviving a robot going silent (ADR 33), and automatic restart recovery. `pnpm test:e2e:scale` reports the 500-robot client measurement (integrity asserted, numbers reported, gated by nothing). Chromium and Firefox run anywhere; WebKit's system libraries are installed in CI (`--with-deps`), so a box without them proves two engines and leaves the third to the `browser-evidence` job.
+- E2E (simulator → visibly stale row) **in a browser** ([ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)). `pnpm test:e2e` runs the smoke suite per engine against the real server, simulator, and production bundle — rendering and streamed row updates, vendor normalization with capability panels, keyboard operability without focus theft, freshness degradation with the stream up, row retention with the server down, the battery-history chart surviving a robot going silent (ADR 33), automatic restart recovery, live robot detail updating from deltas without navigation, manifest-provided site labels and filters (ADR 34), a first-load server failure recovered through the visible retry, and a controlled malformed snapshot rendered as a terminal contract failure. `pnpm test:e2e:tenant` builds and drives the tenant-B production bundle in Chromium: light theme, disabled lidar panel, and narrow-viewport behavior (ADR 17). `pnpm test:e2e:scale` reports the 500-robot client measurement (integrity asserted, numbers reported, gated by nothing). Chromium and Firefox run anywhere; WebKit's system libraries are installed in CI (`--with-deps`), so a box without them proves two engines and leaves the third to the `browser-evidence` job.
 
 Still explicitly **manual**: real screen-reader output and subjective forced-colors inspection (ADR 32 keeps them named rather than claimed).
 

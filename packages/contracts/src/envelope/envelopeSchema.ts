@@ -325,6 +325,24 @@ export const fleetSnapshotRobotSchema = z.union([
 export type FleetSnapshotRobot = z.infer<typeof fleetSnapshotRobotSchema>;
 
 /**
+ * One site in the snapshot's directory: the identifier telemetry carries and
+ * the label an operator reads (ADR 34).
+ *
+ * The directory travels on `GET /api/fleet` only. Telemetry envelopes keep
+ * carrying the authoritative `siteId` and never a label, because a label on
+ * every envelope is the same fact restated at telemetry rate — the drift
+ * surface Principle 1 exists to prevent.
+ */
+export const fleetSiteSchema = z.strictObject({
+  siteId: identifierSchema,
+  /** Operator-facing display name; prose, not an identifier. */
+  label: displayNameSchema,
+});
+
+/** One site definition as the fleet snapshot's directory carries it. */
+export type FleetSite = z.infer<typeof fleetSiteSchema>;
+
+/**
  * The `GET /api/fleet` response: a joining console's entire initial picture.
  *
  * ADR 2 gives initial state to HTTP rather than to the socket, so the socket
@@ -343,24 +361,59 @@ export type FleetSnapshotRobot = z.infer<typeof fleetSnapshotRobotSchema>;
  * diagnostic endpoint, and the type is what enforces that rather than a rule the
  * server has to remember on every response.
  */
-export const fleetSnapshotSchema = z.strictObject({
-  schemaVersion: schemaVersionSchema,
-  /**
-   * The runtime this snapshot describes. A delta from a different value belongs
-   * to a different sequence epoch and must not be applied over this snapshot,
-   * however its `flushSequence` compares (ADR 31).
-   */
-  serverSessionId: serverSessionIdSchema,
-  /**
-   * The flush this snapshot was taken at. A same-session delta at or below it is
-   * redundant. Zero from a server that has never flushed, so a cold snapshot
-   * discards nothing.
-   */
-  flushSequence: flushSequenceSchema,
-  /** When the server captured this snapshot; the analogue of a batch's `sentAt`. */
-  capturedAt: epochMillisecondsSchema,
-  robots: z.array(fleetSnapshotRobotSchema),
-});
+export const fleetSnapshotSchema = z
+  .strictObject({
+    schemaVersion: schemaVersionSchema,
+    /**
+     * The runtime this snapshot describes. A delta from a different value belongs
+     * to a different sequence epoch and must not be applied over this snapshot,
+     * however its `flushSequence` compares (ADR 31).
+     */
+    serverSessionId: serverSessionIdSchema,
+    /**
+     * The flush this snapshot was taken at. A same-session delta at or below it is
+     * redundant. Zero from a server that has never flushed, so a cold snapshot
+     * discards nothing.
+     */
+    flushSequence: flushSequenceSchema,
+    /** When the server captured this snapshot; the analogue of a batch's `sentAt`. */
+    capturedAt: epochMillisecondsSchema,
+    /**
+     * The site directory: every site a robot below may reference, with its
+     * label (ADR 34). Required with no fallback — a snapshot that cannot name
+     * its sites is version-2 data, and version 3 rejects it rather than
+     * inventing labels client-side.
+     */
+    sites: z.array(fleetSiteSchema),
+    robots: z.array(fleetSnapshotRobotSchema),
+  })
+  // Referential integrity is part of the contract, not a consumer's defensive
+  // check: a robot pointing at a site the directory does not define would make
+  // every console invent its own fallback rendering (ADR 34).
+  .superRefine((snapshot, ctx) => {
+    const siteIds = new Set<string>();
+    snapshot.sites.forEach((site, index) => {
+      if (siteIds.has(site.siteId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["sites", index, "siteId"],
+          message: `duplicate site id: ${site.siteId}`,
+          input: site.siteId,
+        });
+      }
+      siteIds.add(site.siteId);
+    });
+    snapshot.robots.forEach((robot, index) => {
+      if (!siteIds.has(robot.siteId)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["robots", index, "siteId"],
+          message: `robot references undefined site: ${robot.siteId}`,
+          input: robot.siteId,
+        });
+      }
+    });
+  });
 
 /** A joining console's initial full picture of the fleet. */
 export type FleetSnapshot = z.infer<typeof fleetSnapshotSchema>;

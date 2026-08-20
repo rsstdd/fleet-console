@@ -20,6 +20,8 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      // The tenant-B production bundle the e2e tenant project builds (ADR 17, ADR 32).
+      "dist-tenant-b",
       "coverage",
       "playwright-report",
       "test-results",

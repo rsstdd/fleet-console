@@ -3,7 +3,12 @@
 **Authority:** Planning only. This work is trigger-deferred and is not a registered decision.
 **Status:** Trigger-deferred
 **Updated:** 2026-08-20
-**Trigger:** The global stream-diagnostics surface is scheduled for implementation.
+**Trigger:** A repeated malformed-frame rejection run is observed on the shipped rejected-frame diagnostics surface, or escalation is explicitly scheduled.
+
+> The diagnostics _surface_ half of the original trigger landed on 20 August 2026 (WEB
+> alignment plan): the session-wide rejected-frame count now shows in technician
+> Diagnostics with its scope stated. Escalation — this plan's remaining substance —
+> stays deferred, and the trigger above is restated so it remains observable.
 
 ## Summary
 

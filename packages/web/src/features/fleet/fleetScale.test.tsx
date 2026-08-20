@@ -37,14 +37,17 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Robot } from "@/entities/robot/model";
+import type { FleetResourceState } from "@/entities/robot/fleetStore";
 
 /** The scale point ADR 2 commits to measuring, and the one Principle 12 names. */
 const FLEET_SIZE = 500;
 
-const fleet = vi.hoisted(() => ({ robots: [] as Robot[] }));
+const fleet = vi.hoisted((): { state: FleetResourceState } => ({
+  state: { kind: "loading" },
+}));
 
 vi.mock("@/entities/robot/useFleetRobots", () => ({
-  useFleetRobots: (): readonly Robot[] => fleet.robots,
+  useFleetRobots: (): FleetResourceState => fleet.state,
 }));
 
 const { FleetPage } = await import("./fleetPage");
@@ -61,6 +64,11 @@ function buildFleet(size: number): Robot[] {
     id: `R-${String(index).padStart(4, "0")}`,
     vendor: (["A", "B", "C"] as const)[index % 3] ?? "A",
     siteId: index % 2 === 0 ? "zone-a" : "zone-b",
+    observed: true,
+    model: "Model X",
+    connectivity: "online" as const,
+    position: null,
+    capabilities: {},
     status: "idle" as const,
     health: { severity: "nominal" as const },
     freshness: freshness[index % freshness.length] ?? "live",
@@ -70,7 +78,18 @@ function buildFleet(size: number): Robot[] {
 }
 
 function renderFleet(size: number): void {
-  fleet.robots = buildFleet(size);
+  fleet.state = {
+    kind: "ready",
+    data: {
+      robots: buildFleet(size),
+      sites: [
+        { siteId: "zone-a", label: "Zone A" },
+        { siteId: "zone-b", label: "Zone B" },
+      ],
+      capturedAt: Date.UTC(2026, 7, 19, 10, 0, 5),
+      latestFrameAt: null,
+    },
+  };
   render(
     <MemoryRouter>
       <FleetPage />

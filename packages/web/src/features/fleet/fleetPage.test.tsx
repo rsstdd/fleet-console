@@ -6,19 +6,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 
 import type { Robot } from "@/entities/robot/model";
+import type { FleetData, FleetResourceState } from "@/entities/robot/fleetStore";
 import { ConnectionContext, type StreamConnectionState } from "@/shared/lib/connectionContext";
 
 /**
  * Contract test for docs/01_page-specs/02_FLEET.md §2, §9, §10 and §11.
  *
  * The hook is mocked so the fixtures are deterministic: the real
- * `useFleetRobots` builds timestamps from `Date.now()`, and a table asserting on
- * rendered times cannot be stable against a moving clock (Principle 10).
+ * `useFleetRobots` reads the live store, and a table asserting on rendered
+ * times cannot be stable against a moving clock (Principle 10). The mock
+ * returns the full resource-state union, so every state the page owes the
+ * operator is drivable from a test (Principle 5).
  */
-const fleet = vi.hoisted(() => ({ robots: [] as Robot[] }));
+const fleet = vi.hoisted((): { state: FleetResourceState } => ({
+  state: { kind: "loading" },
+}));
 
 vi.mock("@/entities/robot/useFleetRobots", () => ({
-  useFleetRobots: (): readonly Robot[] => fleet.robots,
+  useFleetRobots: (): FleetResourceState => fleet.state,
 }));
 
 const { FleetPage } = await import("./fleetPage");
@@ -27,6 +32,11 @@ function robot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
   return {
     vendor: "A",
     siteId: "zone-a",
+    observed: true,
+    model: "Model A",
+    connectivity: "online",
+    position: null,
+    capabilities: {},
     status: "idle",
     health: { severity: "nominal" },
     freshness: "live",
@@ -48,6 +58,25 @@ const FIXTURE: readonly Robot[] = [
   }),
   robot({ id: "R-402", vendor: "A", siteId: "zone-a", freshness: "unknown", lastSeenAt: null }),
 ];
+
+/** The directory the fixture robots reference; the only source of labels (ADR 34). */
+const SITES = [
+  { siteId: "zone-a", label: "Zone A" },
+  { siteId: "zone-b", label: "Zone B" },
+];
+
+/** 2026-08-19T10:00:05Z, a moment after the newest fixture reading. */
+const CAPTURED_AT = Date.UTC(2026, 7, 19, 10, 0, 5);
+
+/** Builds the retained data the ready and error states carry. */
+function fleetData(robots: readonly Robot[], over: Partial<FleetData> = {}): FleetData {
+  return { robots, sites: SITES, capturedAt: CAPTURED_AT, latestFrameAt: null, ...over };
+}
+
+/** Builds the ready state most cases render from. */
+function ready(robots: readonly Robot[], over: Partial<FleetData> = {}): FleetResourceState {
+  return { kind: "ready", data: fleetData(robots, over) };
+}
 
 /** Reports the router's current path so navigation can be asserted, or its absence. */
 function LocationProbe(): ReactNode {
@@ -110,7 +139,7 @@ function fleetTable(): HTMLElement {
 }
 
 beforeEach(() => {
-  fleet.robots = [...FIXTURE];
+  fleet.state = ready(FIXTURE);
 });
 
 describe("FleetPage", () => {
@@ -327,7 +356,7 @@ describe("FleetPage", () => {
   });
 
   it("states an unregistered fleet as a fact, without a clear action that would do nothing", () => {
-    fleet.robots = [];
+    fleet.state = ready([]);
     renderPage();
 
     expect(screen.getByRole("heading", { name: "No robots registered" })).toBeVisible();
@@ -346,10 +375,121 @@ describe("FleetPage", () => {
     ).toContain("—");
   });
 
-  it("dates the data plate from the newest reading, not from render time", () => {
+  it("dates the data plate from decoded provenance, not from render time", () => {
+    // The capture instant the server stamped on the snapshot, and the send
+    // instant of the last applied frame — never a client clock (Principle 4).
+    fleet.state = ready(FIXTURE, { latestFrameAt: Date.UTC(2026, 7, 19, 10, 0, 7) });
     renderPage();
 
-    // 10:00:00Z is the newest lastSeenAt in the fixture; R-402 has never reported.
-    expect(screen.getByText(/Fleet snapshot/)).toHaveTextContent("latest reading 10:00:00Z");
+    const plate = screen.getByText(/Fleet snapshot/);
+    expect(plate).toHaveTextContent("Fleet snapshot captured 10:00:05Z");
+    expect(plate).toHaveTextContent("latest stream frame 10:00:07Z");
+  });
+
+  it("states that no stream frame has arrived rather than inventing an instant", () => {
+    fleet.state = ready(FIXTURE, { latestFrameAt: null });
+    renderPage();
+
+    expect(screen.getByText(/Fleet snapshot/)).toHaveTextContent("latest stream frame none yet");
+  });
+
+  it("derives site filter options and labels from the snapshot directory (ADR 34)", async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByLabelText("Site"));
+
+    const options = screen.getAllByRole("option").map((option) => option.textContent);
+    expect(options).toEqual(["All sites", "Zone A", "Zone B"]);
+  });
+
+  it("derives vendor filter options from the robots on screen, not a constant", async () => {
+    // The vendor set is open (ADR 1): a fleet reporting a vendor D must offer
+    // it, and a fleet without C must not.
+    fleet.state = ready([robot({ id: "R-118", vendor: "A" }), robot({ id: "R-900", vendor: "D" })]);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByLabelText("Vendor"));
+
+    const options = screen.getAllByRole("option").map((option) => option.textContent);
+    expect(options).toEqual(["All vendors", "Vendor A", "Vendor D"]);
+  });
+
+  it("shows the loading state before anything has arrived", () => {
+    fleet.state = { kind: "loading" };
+    renderPage();
+
+    expect(screen.getByText("Loading fleet…")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("keeps last-known rows on screen while refreshing", () => {
+    fleet.state = { kind: "refreshing", data: fleetData(FIXTURE) };
+    renderPage();
+
+    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+    expect(screen.getByText(/Refreshing fleet data/)).toBeInTheDocument();
+  });
+
+  it("offers a retry on a recoverable failure and retains last-known rows", async () => {
+    const retry = vi.fn();
+    fleet.state = {
+      kind: "recoverable-error",
+      data: fleetData(FIXTURE),
+      failure: { cause: "handshake-exhausted" },
+      retry,
+    };
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(screen.getByText(/could not be refreshed/)).toBeInTheDocument();
+    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a first-load recoverable failure with no rows to retain", () => {
+    fleet.state = {
+      kind: "recoverable-error",
+      data: null,
+      failure: { cause: "handshake-exhausted" },
+      retry: vi.fn(),
+    };
+    renderPage();
+
+    expect(screen.getByText(/could not be loaded/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("renders a terminal contract failure with issue paths and codes, and no retry", () => {
+    // Terminal by decision (ADR 20): retrying returns the same bytes, so the
+    // banner names the disagreeing fields instead of offering a control that
+    // cannot help.
+    fleet.state = {
+      kind: "terminal-error",
+      data: fleetData(FIXTURE),
+      issues: [{ path: "robots.0.siteId", code: "custom", message: "undefined site" }],
+    };
+    renderPage();
+
+    expect(screen.getByText(/did not match the canonical contract/)).toBeInTheDocument();
+    expect(screen.getByText("robots.0.siteId: custom")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    // Retained rows survive under the banner (Principle 4).
+    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+  });
+
+  it("renders a terminal contract failure alone when nothing was ever readable", () => {
+    fleet.state = {
+      kind: "terminal-error",
+      data: null,
+      issues: [{ path: "(root)", code: "invalid_type", message: "not an object" }],
+    };
+    renderPage();
+
+    expect(screen.getByText("(root): invalid_type")).toBeInTheDocument();
+    expect(screen.queryByRole("table")).toBeNull();
   });
 });

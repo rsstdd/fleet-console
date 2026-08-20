@@ -45,6 +45,7 @@ import { startListener, type RunningListener } from "./listener.ts";
 describe("startListener", () => {
   const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
     encodeFleetSnapshot({
+      sites: [],
       robots: [],
       capturedAt: 0,
       serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",

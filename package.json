@@ -22,6 +22,7 @@
     "check:type-safety": "node --test scripts/typeSafetyConfig.test.mjs",
     "clean": "pnpm --recursive exec rm -rf dist coverage node_modules/.tmp",
     "dev": "pnpm --recursive --parallel --stream dev",
+    "dev:tenant-b": "VITE_TENANT=tenant-b pnpm --recursive --parallel --stream dev",
     "docs:decisions": "node scripts/architectureDocs.mjs --write",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
@@ -30,6 +31,7 @@
     "test": "pnpm --recursive --workspace-concurrency=1 test",
     "test:e2e": "pnpm --filter web test:e2e",
     "test:e2e:scale": "pnpm --filter web test:e2e:scale",
+    "test:e2e:tenant": "pnpm --filter web test:e2e:tenant",
     "typecheck": "pnpm --recursive typecheck"
   },
   "devDependencies": {

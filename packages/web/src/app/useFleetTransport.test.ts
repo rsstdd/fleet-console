@@ -20,6 +20,7 @@ describe("useFleetTransport", () => {
     serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
     flushSequence: 0,
     capturedAt: 0,
+    sites: [{ siteId: "SITE-NORTH", label: "North site" }],
     robots: [
       {
         schemaVersion: SCHEMA_VERSION,
@@ -71,8 +72,13 @@ describe("useFleetTransport", () => {
     act(() => control.open?.());
 
     await waitFor(() => {
-      expect(result.current.store.getRobots().map((robot) => robot.id)).toStrictEqual(["R-001"]);
+      expect(result.current.store.getRobot("R-001")?.id).toBe("R-001");
     });
+    // The explicit snapshot-success transition: the resource settles ready
+    // with the snapshot's directory and provenance retained.
+    const state = result.current.store.getState();
+    if (state.kind !== "ready") throw new Error(`unexpected ${state.kind}`);
+    expect(state.data.sites).toStrictEqual([{ siteId: "SITE-NORTH", label: "North site" }]);
   });
 
   it("opens exactly one socket, however often it re-renders", () => {
@@ -94,16 +100,20 @@ describe("useFleetTransport", () => {
     expect(control.closed).toBe(true);
   });
 
-  it("surfaces a terminal contract failure and clears it on retry", async () => {
-    // W-6: retrying returns the same bytes, so the failure has to be visible — and the
-    // retry has to clear it, or the banner shows an error over a connection that is trying.
+  it("drives the store terminal on a contract failure, and back to loading on retry", async () => {
+    // Retrying returns the same bytes, so the failure lands in the resource
+    // state the fleet page renders — with the decoder's own issues — rather
+    // than in a hook field nothing consumed.
     const { control, openSocket, fetchLike } = ports({ schemaVersion: SCHEMA_VERSION });
     const { result } = renderHook(() => useFleetTransport({ openSocket, fetchLike }));
     act(() => control.open?.());
 
     await waitFor(() => {
-      expect(result.current.contractFailure).not.toBeNull();
+      expect(result.current.store.getState().kind).toBe("terminal-error");
     });
+    const failed = result.current.store.getState();
+    if (failed.kind !== "terminal-error") throw new Error(`unexpected ${failed.kind}`);
+    expect(failed.issues.length).toBeGreaterThan(0);
     expect(result.current.connectionState).toBe("disconnected");
     // The cause travels with the state, so the banner can say why retrying stopped.
     expect(result.current.terminalCause).toBe("contract");
@@ -111,8 +121,9 @@ describe("useFleetTransport", () => {
     act(() => {
       result.current.retry();
     });
-    expect(result.current.contractFailure).toBeNull();
     expect(result.current.terminalCause).toBeNull();
+    // A fresh attempt with nothing retained reads as loading, not as a stale error.
+    expect(result.current.store.getState().kind).toBe("loading");
   });
 });
 

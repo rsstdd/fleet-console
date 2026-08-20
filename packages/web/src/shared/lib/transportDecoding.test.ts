@@ -14,7 +14,7 @@ import {
 
 /**
  * The console's one decode. What these cases guard is the distinction Principle 5 needs
- * and W-6 states: a request that failed is recoverable, a body this console cannot read
+ * and ADR 20 states: a request that failed is recoverable, a body this console cannot read
  * is not, and a console that merges them retries forever against a contract mismatch.
  */
 describe("fetchFleetSnapshot", () => {
@@ -23,6 +23,7 @@ describe("fetchFleetSnapshot", () => {
     serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
     flushSequence: 0,
     capturedAt: 0,
+    sites: [],
     robots: [],
   };
 

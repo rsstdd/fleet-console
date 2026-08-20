@@ -57,6 +57,7 @@ const EXPECTED_RUNTIME_EXPORTS: readonly string[] = [
   "canonicalCoreSchema",
   "canonicalEnvelopeSchema",
   "encodeCanonicalEnvelope",
+  "fleetSiteSchema",
   "fleetSnapshotRobotSchema",
   "fleetSnapshotSchema",
   "parseAdapterEnvelope",
@@ -108,7 +109,7 @@ describe("@fleet/contracts public API", () => {
     // `sideEffects: false` in package.json is a claim bundlers act on. If the
     // barrel ever gains a side effect, that claim becomes a bug that only
     // appears in a consumer's production build.
-    expect(contracts.SCHEMA_VERSION).toBe("2");
+    expect(contracts.SCHEMA_VERSION).toBe("3");
     expect(contracts.CAPABILITY_NAMES).toEqual(["dock", "lidarHealth", "waterLevel", "sequence"]);
   });
 

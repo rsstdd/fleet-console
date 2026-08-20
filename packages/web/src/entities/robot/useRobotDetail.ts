@@ -22,7 +22,7 @@ import type { RobotDetail } from "./model";
  *
  * **Two requests, not one, and they fail differently.** The robot is the page; the health
  * counters decorate one technician field with a fleet-wide unknown-field total that no
- * envelope carries and none should (ADR 15, **W-8**). A failed health read leaves that one
+ * envelope carries and none should (ADR 15). A failed health read leaves that one
  * field unreported and the page still renders; a failed robot read is the page's failure.
  *
  * No freshness timer, here or anywhere. Freshness arrives as a field the server sweep set
@@ -99,7 +99,7 @@ function failureState(
       };
     case "contract":
       // Terminal: the server did not stumble, it sent bytes this console cannot read, and
-      // retrying returns the same bytes (**W-6**).
+      // retrying returns the same bytes (ADR 20).
       return {
         status: "error",
         recoverable: false,

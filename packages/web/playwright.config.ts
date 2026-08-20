@@ -56,5 +56,18 @@ export default defineConfig<StackOptions>({
       testMatch: /scale\.spec\.ts/,
       use: { ...devices["Desktop Chrome"], serverPort: 8395, vitePort: 5395 },
     },
+    {
+      // The tenant-B production bundle, built by the spec's own beforeAll and
+      // served from its own directory (ADR 17). Chromium-only: the claim is
+      // about the profile, not engine compatibility.
+      name: "tenant-b-chromium",
+      testMatch: /tenantB\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        serverPort: 8396,
+        vitePort: 5396,
+        viteOutDir: "dist-tenant-b",
+      },
+    },
   ],
 });

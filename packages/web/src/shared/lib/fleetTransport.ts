@@ -89,7 +89,7 @@ export interface FleetTransportHandlers {
    * increment without the published value moving.
    */
   onConnectionState: (published: StreamConnectionState, state: StreamState) => void;
-  /** A body this console cannot read. Terminal: retrying returns the same bytes (**W-6**). */
+  /** A body this console cannot read. Terminal: retrying returns the same bytes (ADR 20). */
   onTerminalError: (issues: readonly ContractIssue[]) => void;
   /** One frame dropped. Counted for a diagnostics surface, never for the fleet table. */
   onFrameRejected: () => void;

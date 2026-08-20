@@ -158,7 +158,15 @@ export interface Stack {
 /** Starts server, simulator, and Vite, waiting for each to be genuinely ready. */
 export async function startStack(
   ports: StackPorts,
-  options: { readonly simulator?: boolean } = {},
+  options: {
+    readonly simulator?: boolean;
+    /**
+     * Which production bundle `vite preview` serves. Defaults to `dist`, the
+     * tenant-A build from `globalSetup.ts`; the tenant-B project points this at
+     * the bundle its own beforeAll built (ADR 17, ADR 32).
+     */
+    readonly outDir?: string;
+  } = {},
 ): Promise<Stack> {
   const serverUrl = `http://127.0.0.1:${String(ports.server)}`;
   const consoleUrl = `http://127.0.0.1:${String(ports.vite)}`;
@@ -197,7 +205,13 @@ export async function startStack(
   const vite = launch(
     "vite",
     path.join(WEB_DIR, "node_modules", ".bin", "vite"),
-    ["preview", "--port", String(ports.vite), "--strictPort"],
+    [
+      "preview",
+      "--port",
+      String(ports.vite),
+      "--strictPort",
+      ...(options.outDir === undefined ? [] : ["--outDir", options.outDir]),
+    ],
     {
       cwd: WEB_DIR,
       env: { FLEET_SERVER_HOST: "127.0.0.1", FLEET_SERVER_PORT: String(ports.server) },

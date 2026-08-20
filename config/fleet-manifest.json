@@ -1,4 +1,18 @@
 {
+  "sites": [
+    {
+      "siteId": "SITE-NORTH",
+      "label": "North site"
+    },
+    {
+      "siteId": "SITE-SOUTH",
+      "label": "South site"
+    },
+    {
+      "siteId": "SITE-EAST",
+      "label": "East site"
+    }
+  ],
   "robots": [
     {
       "robotId": "R-001",

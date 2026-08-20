@@ -4,7 +4,7 @@
 - **Revision 3:** ADR 31 (register D22) widened the vocabulary and named the terminal states. `connecting` joins the union — a first attempt is not a recovery, and its copy carries no last-event fragment because nothing was ever received. `terminalCause` is added so the two decided terminal disconnects render their own fixed sentences: initial probe exhausted ("Unable to connect to stream after 3 attempts") and stream integrity error ("Stream integrity error · showing last known state (may be stale)"). A contract failure keeps the plain disconnected copy. The retry control appears in every non-connected state, because ADR 31 pairs every terminal state with an immediate manual retry.
 - **Revision 2:** the live region is now always mounted; rendering `null` when connected meant the `role="status"` container appeared at the same moment as its message, which screen readers do not reliably announce. Adds `attempt`, which the wireframes and the shell both require and the prop list omitted. Retry label fixed to "Retry now". Token names corrected: `--critical` and an `info` surface do not exist. Adds the ADR 3 coupling that makes this component part of the freshness mechanism rather than adjacent chrome.
 
-Implementation: `shared/ui/ConnectionBanner.tsx`
+Implementation: `shared/ui/connectionBanner.tsx`
 
 ## 1. Responsibility
 

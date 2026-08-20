@@ -12,11 +12,15 @@ does not enter the production bundle.
 
 ## Remaining work
 
-- **W3 — derive vendor filters from observed fleet data.** `Robot.vendor` is open-ended,
-  but the fleet filter still imports the closed `VENDORS` list. Derive options from the
-  fleet before removing the compatibility alias and constant.
-- **Fleet resource state.** Replace the bare-array hook contract with a discriminated state
-  only as part of fleet A1, keeping transport lifecycle in `app` and robot data here.
+- **W3 — derive vendor filters from observed fleet data — done (20 August 2026).** The
+  closed `Vendor` union and `VENDORS` constant are deleted; the fleet filter derives its
+  options from the robots it was given, and a unit test drives a vendor outside A/B/C
+  through it (ADR 1).
+- **Fleet resource state — done with fleet A1 (20 August 2026).** `useFleetRobots` returns
+  the entity-owned `FleetResourceState` union; the store receives explicit
+  snapshot-start/success, recoverable/terminal failure, and batch transitions from the
+  app transport, keeping transport lifecycle in `app` and robot data here. `useFleetRobot`
+  adds the per-id subscription behind live robot detail (R6).
 - **Future contract revisions.** A regressions counter or other new stream fields begin in
   `@fleet/contracts` after their decisions are ratified; do not invent local optional
   fields. (Session-aware reconciliation landed with ADR 31; battery history landed with

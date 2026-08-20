@@ -69,7 +69,7 @@ describe("fleet manifest parity", () => {
     // `vendor` where the canonical spelling is `vendorId` (ADR 14). Text is the
     // right level here — this file is consumed as bytes by a redirect, and the
     // simulator carries no schema library to re-validate it with.
-    expect(printed.startsWith('{\n  "robots": [')).toBe(true);
+    expect(printed.startsWith('{\n  "sites": [')).toBe(true);
     expect(printed).not.toContain('"seed"');
     expect(printed).not.toMatch(/"vendor":/);
     expect(printed).toContain('"vendorId": "A"');

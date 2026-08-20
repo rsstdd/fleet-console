@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-tenant-b/
 build/
 coverage/
 playwright-report/
