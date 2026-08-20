@@ -80,8 +80,7 @@ a route segment, a header or a byte count, decided before anything reads a body,
 ordering guarantees are properties of the signatures rather than rules a handler has to
 remember (ADR 8 § Observed consequences).
 
-Planned and not yet present: the single-robot and health reads, per-robot sequence
-continuity, and the fan-out that writes to a connected stream.
+Planned and not yet present: the single-robot and health reads.
 
 ## 5. Contracts owned and consumed
 
@@ -259,8 +258,8 @@ configuration loaders are covered.
 validation, the current-state store with manifest seeding, the bounded ring buffer, the
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
-**Not built:** the single-robot and health reads, per-robot sequence continuity, and
-backpressure on a console that stops reading. The server **runs, sweeps, ingests, serves
+**Not built:** the single-robot and health reads, and backpressure on a console that stops
+reading. The server **runs, sweeps, ingests, serves
 the fleet read and fans deltas out over `/ws`**:
 `http/createApp` routes with the cross-origin policy mounted, `http/listener` binds it and
 `/ws` to one port with an ordered shutdown, `main.ts` composes them from repository-root

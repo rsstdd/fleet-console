@@ -3,6 +3,7 @@ import {
   type FreshnessState,
   SCHEMA_VERSION,
   type RegisteredRobotState,
+  type SequenceHealth,
   withFreshness,
 } from "@fleet/contracts";
 
@@ -34,6 +35,19 @@ interface RobotSlot {
   state: CurrentRobotState;
   rawPayload: Readonly<Record<string, unknown>> | null;
   sequence: number | null;
+  /**
+   * This robot's continuity, or null before it has been heard from at all.
+   *
+   * Null rather than `{ evaluated: false }`: that value states "this dialect carries no
+   * counter", which is a claim about vendor B and not about a robot that simply has not
+   * reported yet. Only an observed robot has a diagnostic envelope, so the null is never
+   * serialized.
+   *
+   * Continuity is tracked **here** because this is where the previous accepted sequence
+   * lives. Computing it anywhere else means a second copy of that number, and two copies
+   * of one fact is the drift Principle 1 forbids (**D6a**).
+   */
+  sequenceHealth: SequenceHealth | null;
   readonly history: RingBuffer<CanonicalEnvelope>;
 }
 
@@ -84,6 +98,7 @@ export class CurrentStateStore {
         state: { ...robot, schemaVersion: SCHEMA_VERSION, freshness: "unknown" },
         rawPayload: null,
         sequence: null,
+        sequenceHealth: null,
         history: new RingBuffer(historyCapacity),
       });
     }
@@ -129,8 +144,17 @@ export class CurrentStateStore {
       throw new Error(`Telemetry identity does not match manifest for robot: ${envelope.robotId}`);
     }
     if (sequence !== null && slot.sequence !== null && sequence <= slot.sequence) {
-      return { kind: sequence === slot.sequence ? "duplicate" : "out-of-order", state: slot.state };
+      const duplicate = sequence === slot.sequence;
+      if (duplicate) {
+        slot.sequenceHealth = countDuplicate(slot.sequenceHealth);
+      }
+      // A regressive arrival is counted as neither a gap nor a duplicate, because
+      // `SequenceHealth` has no term for it (**D6a**). Stored state is still protected —
+      // this returns without writing — so what is missing is the reporting, not the guard.
+      return { kind: duplicate ? "duplicate" : "out-of-order", state: slot.state };
     }
+
+    slot.sequenceHealth = advanceSequenceHealth(slot.sequenceHealth, slot.sequence, sequence);
 
     slot.state = envelope;
     slot.rawPayload = copyPayload(rawPayload);
@@ -149,6 +173,37 @@ export class CurrentStateStore {
     return next;
   }
 
+  /** Returns this robot's sequence continuity, or null before it has ever reported. */
+  sequenceHealth(robotId: string): SequenceHealth | null {
+    return this.#robots.get(robotId)?.sequenceHealth ?? null;
+  }
+
+  /**
+   * Folds every robot's continuity into one entry per adapter.
+   *
+   * Derived from the per-robot values rather than accumulated alongside them (**D6a**).
+   * A second accumulator would be a second authority that can disagree with the first
+   * while both look plausible, and the fold is over the fleet — five hundred entries on a
+   * request to a health endpoint nothing calls in a loop.
+   *
+   * The two scopes answer different questions and are not substitutes: this one says
+   * whether a *dialect* is ordered at all, and the per-robot value says whether *this
+   * robot* missed readings (ADR 25). An adapter is `{ evaluated: false }` if any of its
+   * robots is, because one unordered robot means the dialect's ordering cannot be relied
+   * on for the rollup's question.
+   */
+  sequenceByAdapter(): Record<string, SequenceHealth> {
+    const rollup: Record<string, SequenceHealth> = {};
+    for (const slot of this.#robots.values()) {
+      if (!isObserved(slot.state) || slot.sequenceHealth === null) continue;
+      rollup[slot.state.adapterId] = mergeSequenceHealth(
+        rollup[slot.state.adapterId],
+        slot.sequenceHealth,
+      );
+    }
+    return rollup;
+  }
+
   /** Returns bounded canonical history, oldest first, with no raw payloads. */
   history(robotId: string): CanonicalEnvelope[] {
     return this.#robots.get(robotId)?.history.toArray() ?? [];
@@ -163,4 +218,52 @@ export class CurrentStateStore {
     if (slot === undefined || !isObserved(slot.state)) return null;
     return { ...slot.state, rawPayload: copyPayload(slot.rawPayload) };
   }
+}
+
+/**
+ * Records one repeat of a sequence number already seen.
+ *
+ * Reachable only after a reading with a counter was accepted, so `current` is evaluated in
+ * practice; the other branch starts the count rather than discarding the observation,
+ * because losing a duplicate is the failure this whole field exists to prevent.
+ */
+function countDuplicate(current: SequenceHealth | null): SequenceHealth {
+  return current !== null && current.evaluated
+    ? { ...current, duplicates: current.duplicates + 1 }
+    : { evaluated: true, gaps: 0, duplicates: 1 };
+}
+
+/**
+ * Folds one accepted reading into a robot's continuity.
+ *
+ * `gaps` counts **readings missing**, not gap events, because that is what the contract's
+ * own field comment says and it is the number an operator can act on: one jump of five is
+ * five lost readings, and reporting it as `1` understates the loss by the amount that
+ * matters.
+ */
+function advanceSequenceHealth(
+  current: SequenceHealth | null,
+  previous: number | null,
+  next: number | null,
+): SequenceHealth {
+  // No counter in this dialect, so there is nothing to evaluate and never will be.
+  // Vendor B is this case, and "0 gaps" for it is a false statement (ADR 1, **D6**).
+  if (next === null) return { evaluated: false };
+  if (current === null || !current.evaluated) return { evaluated: true, gaps: 0, duplicates: 0 };
+  const missing = previous === null ? 0 : Math.max(next - previous - 1, 0);
+  return { ...current, gaps: current.gaps + missing };
+}
+
+/** Combines two robots' continuity into an adapter-scoped answer. */
+function mergeSequenceHealth(
+  rollup: SequenceHealth | undefined,
+  robot: SequenceHealth,
+): SequenceHealth {
+  if (rollup === undefined) return robot;
+  if (!rollup.evaluated || !robot.evaluated) return { evaluated: false };
+  return {
+    evaluated: true,
+    gaps: rollup.gaps + robot.gaps,
+    duplicates: rollup.duplicates + robot.duplicates,
+  };
 }

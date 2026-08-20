@@ -34,11 +34,7 @@ export { PendingDeltaSet } from "./fanout/pendingDeltas.ts";
 
 export { FreshnessSweep, type FreshnessSweepOptions } from "./freshness/freshnessSweep.ts";
 
-export {
-  HealthMetrics,
-  type HealthSnapshot,
-  type SequenceObservation,
-} from "./health/healthMetrics.ts";
+export { HealthMetrics, type HealthSnapshot } from "./health/healthMetrics.ts";
 
 export {
   selectIngestVendor,

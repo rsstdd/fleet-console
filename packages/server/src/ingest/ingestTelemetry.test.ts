@@ -93,11 +93,11 @@ describe("ingestTelemetry", () => {
 
   it("records vendor B as sequence-not-evaluated rather than as zero gaps", () => {
     // D6: B's dialect carries no counter, and "0 gaps" for it is a false statement to an
-    // operator (ADR 1 § Implications).
-    ingest("B");
+    // operator (ADR 1 § Implications). Continuity is counted in the store (**D6a**), where
+    // the previous accepted sequence lives, so this reads it from there.
+    const robotId = ingest("B").ok ? dependencies.store.observed()[0]?.robotId : undefined;
 
-    const { sequence } = dependencies.health.snapshot();
-    expect(Object.values(sequence)).toContainEqual({ evaluated: false });
+    expect(dependencies.store.sequenceHealth(robotId ?? "")).toStrictEqual({ evaluated: false });
   });
 
   it("rejects a malformed payload with the adapter's own issues, and counts it", () => {

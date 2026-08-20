@@ -88,16 +88,11 @@ export function ingestTelemetry(
     deriveFreshness({ receivedAt, now: receivedAt, policy }),
   );
 
+  // `null` means "this dialect has no counter" — vendor B — and not "no reading yet". The
+  // store turns that into `{ evaluated: false }` rather than zero gaps, which would be a
+  // false statement to an operator (ADR 1 § Implications, **D6**). Continuity itself is
+  // counted in the store, where the previous accepted sequence already lives (**D6a**).
   const sequence = envelope.capabilities.sequence?.value ?? null;
-
-  // A dialect with no counter is recorded as not-evaluated rather than as zero gaps.
-  // Vendor B is that dialect, and "0 gaps" for it is a false statement to an operator
-  // (ADR 1 § Implications, **D6**). Everything else about continuity — gap detection, and
-  // what an out-of-order arrival is called — is **D6a**, and is deliberately not invented
-  // here; see the deferred note in `TODO.md` § Section 4.
-  if (sequence === null) {
-    health.noteSequence(envelope.adapterId, "not-evaluated");
-  }
 
   let result: UpsertResult;
   try {
@@ -108,10 +103,6 @@ export function ingestTelemetry(
     // faults — a simulator aimed at a stale roster produces exactly this — so they are a
     // 404 rather than a 500, and the message says nothing derived from the payload (**G6**).
     return { ok: false, response: errorResponse("not_found") };
-  }
-
-  if (result.kind === "duplicate") {
-    health.noteSequence(envelope.adapterId, "duplicate");
   }
 
   // Only an accepted reading is a change worth sending. A duplicate or a regression left

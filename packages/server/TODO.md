@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 22 files, 145 tests     |
+| `pnpm test`      | passes — 22 files, 150 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -298,21 +298,36 @@ now decides what implements them. The listener is unblocked.
       **out-of-order** arrival has no term in that vocabulary, and `UpsertResult`
       distinguishes it from a duplicate while `HealthMetrics` cannot; (3) a **gap** cannot
       be detected from what ingest can see, because it needs the previous sequence, which
-      `CurrentStateStore` keeps private. Ingest therefore records only what it can state
-      honestly and invents no mapping. Fixing this is **D6a**'s first open sub-decision —
-      where continuity is computed — and it now has a concrete problem statement.
-- [ ] **D6a — Track sequence continuity per robot, not only per adapter.** Work ADR 25
-      created and named rather than left latent. `HealthMetrics` keys `#sequence` by
-      **adapter id**, but `robotDiagnosticEnvelopeSchema.sequenceHealth` is **per robot**,
-      because an adapter rollup cannot answer "did this robot miss readings" — which is
-      the question the robot-detail page asks. Both scopes are wanted and neither
-      substitutes for the other: the per-adapter rollup stays on `GET /api/health` and
-      answers "is this dialect ordered at all".
-      Two things to decide while building it: whether the rollup is derived from the
-      per-robot map or accumulated separately, and what a per-robot map costs at 500
-      robots (ADR 6 bounds memory, and this is a new per-robot allocation). Until it
-      exists the server cannot populate a field the contract requires, so the diagnostic
-      endpoint cannot be served at all.
+      `CurrentStateStore` holds. **D6a** moved continuity there and resolved (1) and (3);
+      (2) is still open and is deferred under **D6a**.
+- [x] **D6a — Track sequence continuity per robot, not only per adapter. Done 20 August 2026.** Both sub-decisions this item said to make while building it are made, and
+      both went the same way for the same reason. **Where it lives:** `CurrentStateStore`,
+      because gaps can only be counted where the previous accepted sequence already is —
+      anywhere else means a second copy of that number, which is the drift Principle 1
+      forbids. **How the rollup is produced:** folded from the per-robot values on demand
+      (`sequenceByAdapter()`), not accumulated alongside them, because a second accumulator
+      is a second authority that can disagree while both look plausible; the fold is over
+      the fleet, on a health request nothing calls in a loop. **What it costs:** one small
+      object per robot — `{ evaluated: false }` or three numbers — so five hundred robots
+      is tens of kilobytes against the 31.25 MiB raw-payload budget ADR 26 already
+      computed. Not a number worth a decision.
+      Consequences worth carrying. `HealthMetrics.noteSequence` and
+      `HealthSnapshot.sequence` are **removed**: they were the second copy, and leaving
+      them fed from the store would have kept two spellings of one fact alive. `gaps`
+      counts **readings missing**, not gap events — the contract's own field comment says
+      so, and it is the number an operator can act on, since reporting a jump of five as
+      `1` understates the loss by the amount that matters. Null, not `{ evaluated: false }`,
+      before a robot has ever reported: that value claims "this dialect has no counter",
+      which is a statement about vendor B and not about silence. An adapter's rollup is
+      `{ evaluated: false }` if any of its robots is, because one unordered robot means the
+      dialect's ordering cannot answer the rollup's question. **Deferred, decision not made — a regressive arrival is counted as nothing.**
+      `SequenceHealth` has `gaps` and `duplicates` and no term for a reading whose sequence
+      went _backwards_, which `UpsertResult` distinguishes from a duplicate and the store
+      therefore knows about and cannot report. Stored state is still protected — the upsert
+      returns without writing — so what is missing is the reporting, not the guard. Adding
+      a third counter is a `@fleet/contracts` change under ADR 25, then this module and the
+      health response; it must not be smuggled in as a `gaps` increment, which would report
+      a lost reading that never existed.
 - [ ] **D7 — Retain the raw payload for technician diagnosis only.** Excluded from the
       fleet read model, from history, and from every delta; served only as a separate
       field on `GET /api/robots/:id` (ADR 1, robot-detail spec § 2). Assert this in a
@@ -754,7 +769,7 @@ is missing is everything that needs a socket.
 5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta. **Done 20 August 2026, verified against a live socket:** a console connected to `/ws` received frame 1 with `R-001:live` after ingest and frame 2 with `R-001:stale` from the sweep alone, and `GET /api/fleet` then reported flush sequence 2 from the same counter.
 6. Late ticks, malformed ingest, unsupported vendors and per-adapter unknown fields are all visible on `GET /api/health`, each at its true scope.
 7. No raw vendor payload appears in a fleet response, a delta, or history — asserted by a test, not by inspection.
-8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps. **Partly done** — the store refuses both and vendor B records not-evaluated; the _reporting_ of gaps and out-of-order arrivals is **D6a**, whose vocabulary gap is now stated there.
+8. Out-of-order and duplicate input cannot regress current state, and a robot whose sequence cannot be evaluated is reported as not-evaluated rather than as zero gaps. **Done 20 August 2026** (**D6**, **D6a**) — the store refuses both, counts readings missing and duplicates per robot, folds the per-adapter rollup from those, and reports a counterless dialect as not-evaluated. One reporting gap remains and is deferred under **D6a**: a regressive arrival has no term in `SequenceHealth`.
 9. The demo script's steps 4 and 5 are both reproducible: three `--drop` robots degrade while the rest stay LIVE, and killing the stream produces a connection-level state rather than per-robot degradation.
 10. Throughput and latency are measured at 50 and 500 robots, the bottleneck is attributed to HTTP overhead or validation cost, and the number is published in the README and in ADR 2 § Observed consequences.
 11. The origin allow-list is enforced rather than merely validated: a disallowed origin is granted nothing and a request with no `Origin` header still succeeds, both against a **real request** (**L8**). The policy itself is decided and unit-tested (**B1d**); until a listener mounts it, `FLEET_ALLOWED_ORIGINS` still has no runtime consumer, and what a declined request is _answered with_ is deferred under **B1d** as a contracts decision.
