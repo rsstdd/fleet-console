@@ -4,14 +4,15 @@ Multi-vendor robot fleet telemetry console. Canonical contracts, vendor adapters
 
 **Core guarantees:**
 
-1. The console never presents stale state as current; enforced by tooling, survives team turnover/agent-written code (Principle 4).
-2. Vendor differences are normalized where shared and preserved as declared capabilities where not (flattening differences deletes the product) (Principle 3).
+1. The UI never presents stale data as current. This is enforced by tooling and intended to survive team turnover/agent-written code (Principle 4).
+2. Vendor differences are normalized where shared. These differences are preserved as declared capabilities where not shared
+   (flattening differences deletes the product) (Principle 3).
 
-Sections 2-3 cover freshness; 4 covers normalization; 7 covers scale.
+Sections 2-3 cover "freshness"; 4 covers normalization; 7 covers scale.
 
 > **Implementation status — 20 August 2026.** This README describes the design in the
 > present tense throughout. Where a section still claims behavior the tree does not have,
-> it is marked **[NOT BUILT]** or **[PARTIAL]** inline rather than quietly left standing.
+> it is marked inline with **[NOT BUILT]** or **[PARTIAL]**.
 >
 > The short version: **the path runs end to end.** `pnpm dev` starts the server, the
 > simulator and the console together; the simulator's readings reach the server's ingest,
@@ -25,9 +26,11 @@ Sections 2-3 cover freshness; 4 covers normalization; 7 covers scale.
 > `telemetry.firmware_channel` counted 235 times, vendor B's ordering as _not evaluated_
 > rather than as zero gaps, and no malformed payloads.
 >
-> What is **not** yet demonstrated: the console rendering against a live socket has not
-> been observed in a browser, and the fault-injection and load steps below have not been
-> re-run since the server landed. Section 5 has the per-item table;
+> The console rendering against a live socket is committed browser automation: the
+> Playwright suite drives the real stack in Chromium, Firefox, and (in CI) WebKit,
+> including freshness degradation, stream loss, and automatic restart recovery
+> ([ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)).
+> Section 5 has the per-item table;
 > [`packages/FIXME.md`](packages/FIXME.md) preserves the historical package audit;
 > [`TODO.md`](TODO.md) is the current work queue.
 
@@ -58,8 +61,8 @@ Two deliberate hard problems:
                 A/B/C schemas, registry, unknown-field ledger, recorded fixtures and
                 public `testing` subpath
   /simulator    multi-vendor telemetry producer with fault injection
-  /server       ingest, adapter dispatch, current state, WebSocket fan-out, health
-                runnable HTTP/WebSocket process; battery history and slow-client policy open
+  /server       ingest, adapter dispatch, current state, battery history, WebSocket fan-out, health
+                runnable HTTP/WebSocket process; slow-client policy remains trigger-deferred
   /web          the console — primary deliverable
 PRINCIPLES.md   binding engineering principles
 AGENTS.md       normative agent routing and hard rules (Principle 14)
@@ -92,7 +95,10 @@ pnpm dev
 The web tenant is selected at build time with `VITE_TENANT=tenant-a|tenant-b`; omitting
 it selects tenant A. For example, `VITE_TENANT=tenant-b pnpm --filter web build` produces
 the Tenant B bundle. Unknown values fail the build rather than silently falling back
-(ADR 17).
+(ADR 17). To see Tenant B against the same live stack, run `pnpm dev:tenant-b` — the
+"Northwind Robotics" wordmark, the light theme, and a robot-detail page without the
+lidar-health panel are the three visible differences; `pnpm test:e2e:tenant` asserts the
+same three on the production bundle in Chromium.
 
 D13 is settled as **Option 2 — environment variables at server startup plus a Vite dev
 proxy, with strict startup validation**
@@ -109,18 +115,24 @@ add integration coverage for accepted and rejected cross-origin requests.
 
 **Starts all three, connected.** Root `dev` is `pnpm --recursive --parallel --stream dev`,
 and `server`, `simulator` and `web` each define one. Verified on 20 August 2026: the server
-logs `server.listening` on `127.0.0.1:8080` with 4 routes and the shipped freshness policy,
+logs `server.listening` on `127.0.0.1:8080` with 5 routes and the shipped freshness policy,
 the console comes up on `http://localhost:5173` and proxies `/api` and `/ws` to the server,
 and the simulator POSTs into the real ingest — 1,993 readings sent and 1,993 accepted over
 40 seconds, with no rejections and no server failures.
 
-1. **Summary strip:** Counts freshness only (`LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN`). Mutually exclusive, totals fleet exactly. No status duplication.
-2. **Rows:** Show status + freshness. Non-`LIVE` rows use outline status chips (`(last known)`) and em-dash batteries (no stale numbers presented as current). The connection state is now supplied by a real socket, so the labels render while the stream is connected and are suppressed while it is not (ADR 3) — **this specific rendering has not been watched in a browser**, only the transport underneath it.
+1. **Summary strip:** Counts freshness only (`LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN`). Mutually exclusive, totals fleet exactly. No status duplication. Headed "Fleet freshness" while the stream is connected; during an outage the counts stay visible under "Fleet freshness · last known", so the group never asserts a currency the socket cannot support (ADR 23).
+2. **Rows:** Show status + freshness. Non-`LIVE` rows use outline status chips (`(last known)`) and em-dash batteries (no stale numbers presented as current). The connection state is supplied by a real socket, so the labels render while the stream is connected and are suppressed while it is not (ADR 3) — watched in a browser by the Playwright outage scenario, which kills the server and asserts the suppression, the retained rows, and the qualified summary heading (ADR 32).
 3. **Vendor column:** Filter to Vendor C vs A. Capability panels differ because robots differ.
 
 ---
 
 ## 3. Demo script
+
+A presenter-facing version of this sequence — seven acts with per-act frontend notes,
+plus an interactive driver that starts, faults, and restarts the stack itself — lives in
+[`demo/DEMO.md`](demo/DEMO.md) and [`demo/demo.sh`](demo/demo.sh). The steps below are
+the canonical sequence; the demo guide restates them and must stay consistent with this
+section.
 
 **Observed in a browser on 20 August 2026.** Headless Chrome against the running stack, at
 `http://127.0.0.1:5301`:
@@ -141,17 +153,19 @@ answer about it; the console going blind suppresses every per-robot label and sa
 the connection level instead. Deriving freshness server-side is what makes those two
 distinguishable at all.
 
-Still not automated: this was a throwaway CDP script, not a committed test. Choosing whether
-this repository takes on a browser-testing framework is registered as decision **D23**.
+Every step of it is now committed automation
+([ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)):
+`pnpm test:e2e` drives the real server, simulator, and built console through these
+scenarios in Chromium, Firefox, and (in CI) WebKit.
 
 Sequence to watch (Steps 2 & 4 are the submission):
 
 1. Open fleet (50 robots). All `LIVE`.
 2. Compare capability panels across all three vendors: A shows dock + lidar-health, B shows dock alone, C shows dock + water-level. Confirmed against the real adapters on 20 August 2026 — decoding the recorded payloads yields `A: dock+lidarHealth+sequence`, `B: dock`, `C: dock+sequence+waterLevel` — and the console's fixtures were corrected to match, closing `packages/FIXME.md` **F1**. Three vendors, three distinct panel sections. Absence is the interface (no disabled placeholders). Cannot offer unsupported actions.
 3. Simulator `--drop` 3 robots (`R-007,R-023,R-041` — ids must exist in the 50-robot default fleet; an unknown id fails at startup rather than silently dropping nothing). No message sent to console. **Run the simulator once _without_ the flag first.** A cold start with `--drop` leaves those three at `UNKNOWN` rather than degrading them, because they never reported at all and `UNKNOWN` is the honest state for a robot nobody has heard from (ADR 3). The `LIVE → STALE → UNREACHABLE` transition needs them to have been live first, and following step 3 from a cold fleet is the one way to make this demo look broken when it is working.
-4. Watch 3 rows degrade on the server sweep (`STALE` → `UNREACHABLE`). Others stay `LIVE`. Status chips hollow, batteries em-dash. Caused by message absence. **Verified against a running stack on 20 August 2026**: after a normal run followed by a `--drop` run, `GET /api/fleet` reported `{live: 47, unreachable: 3}` with `R-007`, `R-023` and `R-041` the only unreachable robots. Watched through the API rather than in a browser — the row rendering itself is still unobserved.
-5. Kill stream. Connection banner appears, table retains last-known data, per-robot freshness labels are suppressed. **Built and observed on 20 August 2026 against the running stack; committed browser automation remains open decision D23.** Connection state travels through `ConnectionContext`, both pages render `FreshnessLabel` only while the real socket is connected, and the default remains fail-closed at `disconnected` ([ADR 23](docs/00_adr/23_CONNECTION_STATE_TRAVELS_THROUGH_SHARED_LIB.md)). With no live connection the console has no current per-robot answer and says so at the connection level rather than guessing per row (ADR 3).
-6. Restore stream. Labels return; rows resume degrading on the sweep (no reload). **The server half was observed on 20 August 2026**: robots that had aged to `UNREACHABLE` while the simulator was stopped returned to `LIVE` within seconds of it resuming, with no server restart. The console half depends on automatic reconnection, so today it needs the banner's manual retry; retry policy and restart integrity remain D22.
+4. Watch 3 rows degrade on the server sweep (`STALE` → `UNREACHABLE`). Others stay `LIVE`. Status chips hollow, batteries em-dash. Caused by message absence. **Verified against a running stack on 20 August 2026**: after a normal run followed by a `--drop` run, `GET /api/fleet` reported `{live: 47, unreachable: 3}` with `R-007`, `R-023` and `R-041` the only unreachable robots. The browser half is a committed Playwright scenario: silence the simulator and watch `R-001`'s row render `Live` → `Stale` → `Unreachable` while the banner stays `Stream connected` (ADR 32).
+5. Kill stream. Connection banner appears, table retains last-known data, per-robot freshness labels are suppressed. **Built, observed on 20 August 2026 against the running stack, and committed as a Playwright scenario (ADR 32): rows retained, freshness suppressed, banner honest.** Connection state travels through `ConnectionContext`, both pages render `FreshnessLabel` only while the real socket is connected, and the default remains fail-closed at `disconnected` ([ADR 23](docs/00_adr/23_CONNECTION_STATE_TRAVELS_THROUGH_SHARED_LIB.md)). With no live connection the console has no current per-robot answer and says so at the connection level rather than guessing per row (ADR 3).
+6. Restore stream. Labels return; rows resume degrading on the sweep (no reload). **The server half was observed on 20 August 2026**: robots that had aged to `UNREACHABLE` while the simulator was stopped returned to `LIVE` within seconds of it resuming, with no server restart. **The console half is implemented under [ADR 31](docs/00_adr/31_JITTERED_RECONNECT_AND_SERVER_SESSION_RECONCILIATION.md)**: the transport reconnects automatically on a full-jitter schedule and detects a restarted server by its `serverSessionId`, replacing its picture from the new snapshot without reload or manual retry. Proven at unit and process boundaries (`fleetTransport.test.ts`, `runServer.test.ts`) and now in real browsers: the committed restart scenario kills the server, starts a new process, and watches the console re-join and resume live rows without Retry or reload (`packages/web/e2e/smoke.spec.ts`, ADR 32).
 
 Steps 4 and 5 are different failures on purpose: 4 is a robot going silent, 5 is the console going blind. Deriving freshness server-side is what lets the console tell them apart.
 
@@ -194,11 +208,16 @@ Two corrections against ADR 1, which is the current authority: **sequence** is a
 
 - **Capabilities drive UI, not vendor names.** `if (vendor === …)` in `features/` is a defect (Principle 3).
 - **Unknown fields counted.** Vendor C's undocumented field increments a per-adapter counter on `GET /api/health`. Quietly discarding data rots integrations. Measured on a 40-second `pnpm dev` run: `telemetry.firmware_channel` counted **235** times under vendor C, with vendor A and B at zero — the count is per adapter and fleet-wide, and the response says so in `unknownFieldScope` rather than in a caption ([ADR 15](docs/00_adr/15_UNKNOWN_FIELD_ACCOUNTING_ON_ACCEPTED_PAYLOADS.md), [ADR 25](docs/00_adr/25_CONTRACTS_OWNS_EVERY_DECODED_RESPONSE_COUNTERS_BY_SCOPE.md)).
+- **Sequence regressions are rejected and reported safely.** A lower reliable sequence
+  leaves accepted state, diagnostics, history, deltas, and health counters unchanged and
+  emits one `telemetry.sequence_regression` warning with canonical ids, both sequence
+  values, and server receipt time—never raw payload or vendor prose. The public health
+  counter remains deferred until a real diagnostics consumer requires contract versioning.
 - **Vendor B's synthesized sequence is weaker.** Timestamp ordering can not distinguish duplicates from same-ms events. Recorded as a known limitation.
 
 Adapter contract tests verify normalization: recorded vendor payload → exact canonical event (Principle 10). `pnpm record:fixtures` records one representative payload per vendor from the simulator into `packages/adapters/src/vendors/*/__fixtures__/`, and CI fails if the tree produces a different byte ([ADR 13](docs/00_adr/13_RECORDED_FIXTURES_WITH_A_CI_DRIFT_GUARD.md)). Each vendor module decodes its own fixture to an exact canonical envelope, a cross-vendor test proves two dialects describing one state produce identical cores, and every malformed fixture returns a failure result rather than throwing. `packages/adapters` also ships the result type, the unknown-field ledger, the vendor union, the dispatch registry, and a public `testing` subpath ([ADR 11](docs/00_adr/11_PUBLIC_TESTING_SUBPATH_FOR_FIXTURES.md)) that `packages/server`'s ingest test consumes under a narrow lint exception.
 
-**Site hierarchy:** 1 level (robots → sites). Extends rather than changes shape for org → site → building → fleet → robot.
+**Site hierarchy:** 1 level (robots → sites). Extends rather than changes shape for org → site → building → fleet → robot. Site labels are deployment configuration: the manifest's `sites` directory travels on the fleet snapshot (schema version 3, ADR 34) and the console labels from it — North site, South site, East site in the shipped configuration — inventing nothing.
 
 ---
 
@@ -216,18 +235,18 @@ Budget: 10–11 hours / 3 days.
 
 Status as of 20 August 2026, verified against the tree and against one `pnpm dev` run. Cuts go in section 9.
 
-| Built                                                         | Status                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Canonical envelope + capability model + freshness machine     | **Built.** Schemas, capability wire codec, `deriveFreshness`, tests.                                                                                                                                                                                                                                             |
-| Three vendor adapters + recorded fixtures + contract tests    | **Built.** A, B and C modules with per-vendor schemas, a dispatch registry, exact-output contract tests, and recorded fixtures drift-gated in CI (ADR 13) reachable through the public `testing` subpath (ADR 11).                                                                                               |
-| Simulator with vendor mix and fault-injection flags           | **Built.** Three dialects, `--drop`, seeded fleet, bounded transport, integration tests.                                                                                                                                                                                                                         |
-| Server: ingest, dispatch, idempotent upsert, health endpoint  | **Built.** `POST /api/telemetry/:vendor` with the size cap ahead of the parse, registry dispatch, idempotent upsert, and `GET /api/fleet`, `/api/robots/:id` and `/api/health`. History for the sparkline is the one unmounted route (**G4**).                                                                   |
-| WebSocket fan-out with coalescing                             | **Built.** One coalescing set per console, flushed at up to 10 Hz on `/ws`, sharing the server's one flush counter with the snapshot (ADR 18). No backpressure yet — deferred on ADR 8's open configuration question (**H6b**).                                                                                  |
-| Fleet view: summary, filters, table                           | **Built**, reading the live store. Freshness summary, site/vendor/freshness/search filters, table.                                                                                                                                                                                                               |
-| Robot detail: capability panels, operator/technician personas | **Built**, reading `GET /api/robots/:id` and `/api/health`.                                                                                                                                                                                                                                                      |
-| Connection-integrity handling                                 | **Partial.** The banner, `ConnectionContext` and label suppression are driven by a real socket and were observed in headless Chrome, failing closed to `disconnected` (ADR 23). Nothing reconnects automatically — recovery is manual pending D22 — and the observation is not committed automation pending D23. |
-| Tenant theming + one gated feature                            | **Built.** Build-time profiles are validated; Tenant B disables the lidar-health panel through `flags.lidarHealthPanel` (ADR 17).                                                                                                                                                                                |
-| Enforced dependency boundaries in lint and CI                 | **Built.** `eslint-plugin-boundaries` + resolver, violation fixtures, `.github/workflows/ci.yml`.                                                                                                                                                                                                                |
+| Built                                                         | Status                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Canonical envelope + capability model + freshness machine     | **Built.** Schemas, capability wire codec, `deriveFreshness`, tests.                                                                                                                                                                                                                                                                                                                                               |
+| Three vendor adapters + recorded fixtures + contract tests    | **Built.** A, B and C modules with per-vendor schemas, a dispatch registry, exact-output contract tests, and recorded fixtures drift-gated in CI (ADR 13) reachable through the public `testing` subpath (ADR 11).                                                                                                                                                                                                 |
+| Simulator with vendor mix and fault-injection flags           | **Built.** Three dialects, `--drop`, seeded fleet, bounded transport, integration tests.                                                                                                                                                                                                                                                                                                                           |
+| Server: ingest, dispatch, idempotent upsert, health endpoint  | **Built.** `POST /api/telemetry/:vendor` with the size cap ahead of the parse, registry dispatch, idempotent upsert, and `GET /api/fleet`, `/api/robots/:id`, `/api/robots/:id/history` and `/api/health`. The history route (**G4**) landed under ADR 33: compact retention at capacity 3,001 per robot, decimated to at most 60 extrema-preserving points over a fixed 60-second window.                         |
+| WebSocket fan-out with coalescing                             | **Built.** One coalescing set per console, flushed at up to 10 Hz on `/ws`, sharing the server's one flush counter with the snapshot (ADR 18). No backpressure yet — deferred on ADR 8's open configuration question (**H6b**).                                                                                                                                                                                    |
+| Fleet view: summary, filters, table                           | **Built**, reading the live store. Freshness summary, site/vendor/freshness/search filters, table.                                                                                                                                                                                                                                                                                                                 |
+| Robot detail: capability panels, operator/technician personas | **Built**, reading `GET /api/robots/:id` and `/api/health`, plus the fetch-on-visit battery-history sparkline over `GET /api/robots/:id/history` (ADR 33). Live after the one fetch: core values and freshness update from stream deltas by reconciling this robot's fleet row over the fetched detail — no refetch, no re-render for other robots' deltas.                                                        |
+| Connection-integrity handling                                 | **Built.** The banner, `ConnectionContext` and label suppression are driven by a real socket, failing closed to `disconnected` (ADR 23). Recovery is automatic under ADR 31 — full-jitter reconnect, capped initial probe, server-session restart detection — with manual retry for the terminal states. The restart recovery is committed browser automation against a real killed-and-restarted server (ADR 32). |
+| Tenant theming + one gated feature                            | **Built.** Build-time profiles are validated; Tenant B disables the lidar-health panel through `flags.lidarHealthPanel` (ADR 17).                                                                                                                                                                                                                                                                                  |
+| Enforced dependency boundaries in lint and CI                 | **Built.** `eslint-plugin-boundaries` + resolver, violation fixtures, `.github/workflows/ci.yml`.                                                                                                                                                                                                                                                                                                                  |
 
 ---
 
@@ -243,7 +262,7 @@ Status as of 20 August 2026, verified against the tree and against one `pnpm dev
 - **§9 Boundaries:** `shared/ui` gets display data/callbacks only. No domain imports. No cross-feature imports. Lint-checked.
 - **§10 Tests:** Tests prove behavior at the cheapest reliable boundary. No component snapshots (asserts no-change, not correctness).
 - **§11 State:** State is separated by authority, lifetime, and transition model. Requested ≠ observed.
-- **§12 Performance:** Performance and observability are product behavior. Two budgets are enforced in CI — the console's first-load size and per-message ingest validation cost ([ADR 22](docs/00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md)). Ingest latency and client frame time have no budget yet, because neither can be measured until the server transport exists; see § 10.
+- **§12 Performance:** Performance and observability are product behavior. Two budgets are enforced in CI — the console's first-load size and per-message ingest validation cost ([ADR 22](docs/00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md)). Ingest latency and client frame time are measured and reported without budgets (§ 10); a budget without a derivation is the thing ADR 22 exists to refuse.
 - **§14 Agent operability:** `CLAUDE.md`/`AGENTS.md` have hard rules + routing table. Structure makes agent code checkable.
 
 ---
@@ -299,17 +318,17 @@ Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing,
 
 ## 9. Not Built
 
-| Cut                               | Reason                                                                                                                                                                                          |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Robot discovery/commissioning** | Highest-value front-end, cut because provisioning/credentials is a different exercise.                                                                                                          |
-| **Schema-driven config forms**    | Right answer for differing vendor schemas, cut for time. Capability model is foundation.                                                                                                        |
-| **Auth/multi-tenancy**            | Real tenancy is auth model, not filter. Config = theming/features only (Principle 7, 13).                                                                                                       |
-| **Commands to robots**            | Requires state machine (requested, ack, executing, completed, failed, unknown) + audit (Principle 11). Fake buttons reporting unverifiable success violates anti-stale principle (Principle 4). |
-| **Cloud/on-prem skew**            | Envelope has schema version for this, but full compatibility window out of scope.                                                                                                               |
-| **Floor plans/calibration**       | Transform robot map → building drawing per site/floor is real problem. Positions shown native map frame + frame name. Abstract bounds used.                                                     |
-| **Horizontal scale/broker**       | Correct at this size. Seam named: ingest stateless, state/fan-out partition. In-memory state won't scale across instances (Principle 12).                                                       |
-| **Alerting/escalation**           | Different product than live view.                                                                                                                                                               |
-| **Persistent history**            | In-memory current state, rebuildable (Principle 11). History = bounded per-robot ring buffer (decimated sparkline). [ADR 6].                                                                    |
+| Cut                               | Reason                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Robot discovery/commissioning** | Highest-value front-end, cut because provisioning/credentials is a different exercise.                                                                                                                                                                                                                                                                                              |
+| **Schema-driven config forms**    | Right answer for differing vendor schemas, cut for time. Capability model is foundation.                                                                                                                                                                                                                                                                                            |
+| **Auth/multi-tenancy**            | Real tenancy is auth model, not filter. Config = theming/features only (Principle 7, 13). This is the demo-only security boundary: raw vendor payloads are served unauthenticated by recorded decision (ADR 26), the technician panel states the exposure on the surface, and production deployment remains blocked until authentication and authorization supersede that decision. |
+| **Commands to robots**            | Requires state machine (requested, ack, executing, completed, failed, unknown) + audit (Principle 11). Fake buttons reporting unverifiable success violates anti-stale principle (Principle 4).                                                                                                                                                                                     |
+| **Cloud/on-prem skew**            | Envelope has schema version for this, but full compatibility window out of scope.                                                                                                                                                                                                                                                                                                   |
+| **Floor plans/calibration**       | Transform robot map → building drawing per site/floor is real problem. Positions shown native map frame + frame name. Abstract bounds used.                                                                                                                                                                                                                                         |
+| **Horizontal scale/broker**       | Correct at this size. Seam named: ingest stateless, state/fan-out partition. In-memory state won't scale across instances (Principle 12).                                                                                                                                                                                                                                           |
+| **Alerting/escalation**           | Different product than live view.                                                                                                                                                                                                                                                                                                                                                   |
+| **Persistent history**            | In-memory current state, rebuildable (Principle 11). History = bounded per-robot ring buffer of compact battery samples, served decimated for the sparkline. [ADR 6], amended by [ADR 33].                                                                                                                                                                                          |
 
 ---
 
@@ -348,6 +367,24 @@ Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing,
 > failure under saturation is not slowness but a sweep that stops firing and leaves stale
 > robots reported as LIVE. No degradation point was found on this machine; the honest
 > statement is that saturation was not reached, not that it cannot be.
+>
+> **The client half, measured 20 August 2026 by the Playwright scale project**
+> (`packages/web/e2e/scale.spec.ts`,
+> [ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)):
+> 500 robots at ten WebSocket frames per second (250 robots changing per frame) against
+> the production build in a real Chromium:
+>
+> | Client metric at 500 robots, live stream | Measured                                |
+> | ---------------------------------------- | --------------------------------------- |
+> | Frames applied                           | 120 of 120                              |
+> | Achieved frame rate                      | 9.79 Hz of 10 Hz offered                |
+> | Delta to next paint                      | p50 47.3 ms · p95 53.7 ms · max 74.5 ms |
+> | Animation-frame interval                 | p50 16.7 ms · p95 50.1 ms               |
+>
+> The un-virtualized table absorbs the documented workload with the frame budget intact,
+> so ADR 24's virtualization deferral now rests on evidence. Integrity is asserted in CI;
+> the numbers are reported, never gated, and each run writes its own `scale-report.json`
+> with the environment attached.
 >
 > The contrast table is blocked on nothing at all and is simply not yet done. It needs
 > a person reading ratios off both themes, and it is tracked as `packages/FIXME.md`
@@ -439,7 +476,10 @@ authoritative for an uncommitted local tree; an indivisible change over the budg
 the `Oversized-diff: <reason>` commit trailer documented by ADR 27.
 
 CI also runs adapter coverage and writes it to the job summary, but that step is explicitly
-report-only and does not gate a merge. The workflow file remains the executable source of
+report-only and does not gate a merge. A separate `browser-evidence` job runs
+`pnpm test:e2e` across three engines and `pnpm test:e2e:scale`, uploading the report,
+traces, and measurement JSON (ADR 32); it is not part of `check:ci` because it needs
+Playwright's browsers installed. The workflow file remains the executable source of
 truth if this list and CI ever disagree.
 
 Deliberate scope (Principle 10). Built today:
@@ -447,6 +487,8 @@ Deliberate scope (Principle 10). Built today:
 - Envelope validation (valid, missing, malformed, boundary, unknown) — `packages/contracts`.
 - Freshness machine (injected time, threshold boundaries) — `contracts` + the server sweep.
 - No double-apply, no backwards state — `currentStateStore.test.ts` rejects duplicate and out-of-order sequences.
+- Privacy-safe regression reporting — store, ingest, and live-composition tests prove one
+  stable warning and no mutation or counter misclassification.
 - Simulator HTTP delivery against a live receiver — `simulator/src/integration/ingest.integration.test.ts`.
 - Boundary lint (violation fails, legal passes) — `__boundary-violation__` / `__enforcement__` suites in `web`, `server`, `adapters`.
 - **No component snapshots** (asserts no-change, not correctness; trains blind diff acceptance). Verified: the repository contains no `.snap` files.
@@ -455,10 +497,9 @@ Named in the scope and now built:
 
 - Adapter contract tests (recorded fixture → exact output), drift-gated in CI (ADR 13).
 - Idempotent ingest at the HTTP boundary, over the store-level guarantee above.
+- E2E (simulator → visibly stale row) **in a browser** ([ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)). `pnpm test:e2e` runs the smoke suite per engine against the real server, simulator, and production bundle — rendering and streamed row updates, vendor normalization with capability panels, keyboard operability without focus theft, freshness degradation with the stream up, row retention with the server down, the battery-history chart surviving a robot going silent (ADR 33), automatic restart recovery, live robot detail updating from deltas without navigation, manifest-provided site labels and filters (ADR 34), a first-load server failure recovered through the visible retry, and a controlled malformed snapshot rendered as a terminal contract failure. `pnpm test:e2e:tenant` builds and drives the tenant-B production bundle in Chromium: light theme, disabled lidar panel, and narrow-viewport behavior (ADR 17). `pnpm test:e2e:scale` reports the 500-robot client measurement (integrity asserted, numbers reported, gated by nothing). Chromium and Firefox run anywhere; WebKit's system libraries are installed in CI (`--with-deps`), so a box without them proves two engines and leaves the third to the `browser-evidence` job.
 
-Still **[NOT BUILT]**:
-
-- E2E (simulator → visibly stale row) **in a browser**. Every hop underneath it is covered — the adapter tests, the ingest test against recorded bytes, and a wire-level check that watched one robot go `live` then `stale` on a real socket — but no browser-driven test exists, so the last hop from delta to rendered row is asserted by component tests against decoded values rather than end to end.
+Still explicitly **manual**: real screen-reader output and subjective forced-colors inspection (ADR 32 keeps them named rather than claimed).
 
 ## Licence
 

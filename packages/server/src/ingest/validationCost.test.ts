@@ -37,7 +37,7 @@
 // on the measuring instrument itself.
 import { createAdapterRegistry, isOk } from "@fleet/adapters";
 import { loadVendorFixture } from "@fleet/adapters/testing";
-import { encodeCanonicalEnvelope, parseCanonicalEnvelope } from "@fleet/contracts";
+import { encodeCanonicalEnvelope, parseCanonicalEnvelope, SCHEMA_VERSION } from "@fleet/contracts";
 import type { CanonicalEnvelope } from "@fleet/contracts";
 import { describe, expect, it } from "vitest";
 
@@ -61,7 +61,7 @@ const MESSAGES_PER_BATCH = 500;
 
 function telemetryMessage(): CanonicalEnvelope {
   return {
-    schemaVersion: "1",
+    schemaVersion: SCHEMA_VERSION,
     robotId: "R-001",
     siteId: "site-a",
     vendorId: "A",
@@ -184,7 +184,13 @@ describe("per-request ingest transport cost", () => {
 
     const server = await startServer({
       endpoints: { host: "127.0.0.1", port: 0, allowedOrigins: [] },
-      configuration: { freshness: ADR3_BASELINE_FRESHNESS_POLICY, manifest: { robots: manifest } },
+      configuration: {
+        freshness: ADR3_BASELINE_FRESHNESS_POLICY,
+        manifest: {
+          sites: [{ siteId: identity.value.siteId, label: "Load site" }],
+          robots: manifest,
+        },
+      },
       logger: createJsonLogger(() => undefined),
       clock: systemClock,
     });

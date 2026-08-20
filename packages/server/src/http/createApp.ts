@@ -6,7 +6,7 @@ import { selectIngestVendor } from "../ingest/selectVendor.ts";
 import type { SupportedVendor } from "@fleet/adapters";
 
 import type { IngestOutcome } from "../ingest/ingestTelemetry.ts";
-import type { HealthResponse } from "@fleet/contracts";
+import type { HealthResponse, RobotBatteryHistory } from "@fleet/contracts";
 
 import type { FleetSnapshotWire } from "./fleetResponse.ts";
 import type { RobotDetailWire } from "./robotResponse.ts";
@@ -49,6 +49,14 @@ export interface HttpAppOptions {
   readonly readFleet: () => FleetSnapshotWire;
   /** Produces one robot's detail body, or null when the manifest never registered it. */
   readonly readRobot: (robotId: string) => RobotDetailWire | null;
+  /**
+   * Produces one robot's battery history, or null when the manifest never registered it.
+   *
+   * A registered robot with nothing retained gets the contract's empty response, not
+   * null: the fleet page is already listing it, so a 404 here would contradict the page
+   * that links to this route — the same distinction `readRobot` draws (ADR 33).
+   */
+  readonly readHistory: (robotId: string) => RobotBatteryHistory | null;
   /** Produces the operational health body, joined from the components that count. */
   readonly readHealth: () => HealthResponse;
   /** The ingest side of the surface: one transition plus the two refusals it never sees. */
@@ -87,8 +95,8 @@ const PREFLIGHT_STATUS = 204;
  * accepts `POST` but not `OPTIONS`, or require every route to carry an `OPTIONS` twin.
  *
  * Coupling: `packages/simulator` posts to `POST /api/telemetry/:vendor` and the console
- * reads `/api` through Vite's proxy; the routes those callers need are not mounted yet, so
- * both currently receive this module's 404 (`TODO.md` **D1**, **G1**–**G3**).
+ * reads the four `/api` resources through Vite's proxy. Those consumers and this router
+ * must change together when a route or method changes (ADR 21).
  */
 export function createHttpApp(options: HttpAppOptions): Hono {
   const app = new Hono();
@@ -184,6 +192,19 @@ export function createHttpApp(options: HttpAppOptions): Hono {
       return c.json(body, status);
     }
     return c.json(robot);
+  });
+
+  // The sparkline's data, captured at the request instant. `no-store` because the
+  // response embeds the moment it was computed: a cached copy re-served later would
+  // shift the whole 60-second window into the past while claiming it is current.
+  app.get("/api/robots/:id/history", (c) => {
+    const history = options.readHistory(c.req.param("id"));
+    if (history === null) {
+      const { status, body } = errorResponse("not_found");
+      return c.json(body, status);
+    }
+    c.header("Cache-Control", "no-store");
+    return c.json(history);
   });
 
   // Unauthenticated by decision, like the rest of this surface (**K4**). It exposes

@@ -68,7 +68,9 @@ export function parsePlanMetadata(source, file) {
 /** Loads every current plan and rejects files without executable lifecycle metadata. */
 export async function loadPlans(root = ROOT) {
   const directory = path.join(root, "docs", "05_plans");
-  const files = (await readdir(directory)).filter((file) => file.endsWith(".md"));
+  const files = (await readdir(directory)).filter(
+    (file) => file.endsWith(".md") && file !== "00_TEMPLATE.md",
+  );
   return Promise.all(
     files.map(async (file) =>
       parsePlanMetadata(await readFile(path.join(directory, file), "utf8"), file),

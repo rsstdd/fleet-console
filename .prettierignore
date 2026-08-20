@@ -1,7 +1,10 @@
 node_modules/
 dist/
+dist-tenant-b/
 build/
 coverage/
+playwright-report/
+test-results/
 pnpm-lock.yaml
 docs/design-system.html
 packages/web/src/__boundary-violation__/

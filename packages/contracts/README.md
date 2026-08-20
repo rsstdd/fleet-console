@@ -176,11 +176,13 @@ would reopen the question ADR 3 closed.
 
 ## Schema version
 
-`SCHEMA_VERSION` is `"1"`. Every envelope carries it and every schema matches it
+`SCHEMA_VERSION` is `"3"`. Every envelope carries it and every schema matches it
 exactly — an envelope declaring any other version is rejected, never
-reinterpreted under version 1 rules. Changing a field's meaning, units,
-requiredness, or serialized shape means a deliberate version bump with
-coordinated consumer changes.
+reinterpreted under current rules. Version 2 added the required
+`serverSessionId` on snapshots and batches (ADR 31); version 3 added the
+required `sites` directory on fleet snapshots with no compatibility fallback
+(ADR 34). Changing a field's meaning, units, requiredness, or serialized shape
+means a deliberate version bump with coordinated consumer changes.
 
 ## Commands
 

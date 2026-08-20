@@ -1,8 +1,10 @@
 # Preserve Production-Layer Classification for Tests
 
-**Authority:** Planning only. The current classification remains unchanged.
-**Status:** Active
-**Updated:** 2026-08-20
+**Authority:** Historical only. This plan was consumed by the web package specification,
+the robot-feature TODO, and the retained same-feature fixture placement.
+**Archived:** 2026-08-20
+**Superseded by:** `docs/03_package-specs/05_WEB.md` § 4 and
+`packages/web/src/features/robot/TODO.md` § Settled test placement.
 
 ## Summary
 

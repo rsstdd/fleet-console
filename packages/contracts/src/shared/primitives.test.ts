@@ -82,9 +82,11 @@ describe("schemaVersionSchema", () => {
   });
 
   it("rejects any other version rather than reinterpreting it", () => {
-    // An unsupported version must fail loudly. Accepting "2" under version 1
-    // rules is the silent reinterpretation AGENTS.md forbids.
-    for (const value of ["2", "0", "1.0", 1, null]) {
+    // An unsupported version must fail loudly. Accepting "2" under version 3
+    // rules is the silent reinterpretation AGENTS.md forbids — a version-2
+    // snapshot predates the site directory (ADR 34), and a version-1 payload
+    // predates `serverSessionId` (ADR 31).
+    for (const value of ["1", "0", "2", "4", "3.0", 3, null]) {
       expect(schemaVersionSchema.safeParse(value).success).toBe(false);
     }
   });

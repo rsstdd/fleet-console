@@ -91,32 +91,34 @@ export type CapabilitySet = Capabilities;
  */
 export type PanelCapabilityName = OperatorCapabilityName;
 
-/**
- * Vendor ids the console's filter offers today.
- *
- * Narrower than the contract on purpose and temporarily: `vendorIdSchema` is an
- * open identifier so a fourth vendor is an adapter change and never a contracts
- * change (ADR 1). This closed union exists only because the fleet filter builds
- * its options from a constant rather than from the robots it was given.
- *
- * TODO(open-vendor): derive the filter options from the fleet and delete both
- * this type and `VENDORS`. `Robot.vendor` is already `string`, so nothing else
- * depends on the narrowing (src/entities/robot/TODO.md W-3).
- */
-export type Vendor = "A" | "B" | "C";
-
-export const VENDORS: readonly Vendor[] = ["A", "B", "C"];
-
 export interface Robot {
   readonly id: string;
   /**
-   * The vendor id exactly as the envelope carried it. Not narrowed to
-   * `Vendor`: the contract keeps this an open identifier so a fourth vendor is
-   * an adapter change and never a contracts change (ADR 1), and a closed union
-   * here would put that coupling back in the console.
+   * The vendor id exactly as the envelope carried it, an open identifier: the
+   * contract keeps it open so a fourth vendor is an adapter change and never a
+   * contracts change (ADR 1), and a closed union here would put that coupling
+   * back in the console. The fleet filter derives its options from the robots
+   * it was given rather than from any constant.
    */
   readonly vendor: string;
   readonly siteId: string;
+  /**
+   * Whether telemetry has ever been observed for this robot, or the manifest
+   * merely registered it. The discriminant behind every nullable field below:
+   * a registered-only robot has no model, no connectivity, no position, and no
+   * declared capabilities to show (ADR 3).
+   */
+  readonly observed: boolean;
+  /** Null for a robot that has never reported: the manifest names a vendor, not a model. */
+  readonly model: string | null;
+  /**
+   * The robot's own reported link state, which is neither the console's socket
+   * state nor freshness (ADR 1). Null before the first report.
+   */
+  readonly connectivity: Connectivity | null;
+  readonly position: Position | null;
+  /** Declared capabilities; empty for a robot that has never reported (ADR 1). */
+  readonly capabilities: CapabilitySet;
   readonly status: RobotStatus;
   /**
    * Null for a robot that has never reported. The canonical severity
@@ -175,7 +177,7 @@ export interface RobotDiagnostics {
    * Null when `GET /api/health` could not be read, which is a different fact
    * from a count of zero: zero is a measurement, and claiming one nobody took
    * is the failure Principle 4 names. Health is a second request and fails
-   * independently of the robot's own data (**W-8**).
+   * independently of the robot's own data.
    */
   readonly unknownFieldCount: number | null;
 }
@@ -190,16 +192,6 @@ export interface RobotDiagnostics {
  * code block (spec §10).
  */
 export interface RobotDetail extends Robot {
-  /** Null for a robot that has never reported: the manifest names a vendor, not a model. */
-  readonly model: string | null;
-  /**
-   * The robot's own reported link state, which is neither the console's socket
-   * state nor freshness (ADR 1). Null before the first report. Present on the
-   * detail read model only — the fleet row does not show it (fleet spec §2).
-   */
-  readonly connectivity: Connectivity | null;
-  readonly position: Position | null;
-  readonly capabilities: CapabilitySet;
   /**
    * Null for a robot that has never reported. Registration names no adapter,
    * no sequence and no schema version, and a row of em dashes would imply the

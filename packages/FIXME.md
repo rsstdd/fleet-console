@@ -13,11 +13,21 @@ plans; this file is the cross-package reconciliation list.
 **Re-audit outcome.** F1–F12 were each re-verified against source. F1–F11 remain open; **F12 was closed on 19 August 2026** by ADR 16. **F13, F14 and F15 were added on 19 August 2026** — by ADR 21, ADR 25 and ADR 26 respectively — and are the newer kind of finding this file should expect more of: not contradictions, but decisions that landed correctly ahead of the code that will consume them.
 **F14 was closed on 20 August 2026**, by the work its own entry prescribed.
 
+**Fifth pass, later on 20 August 2026 — F9 closed.** Its two halves resolved by ADR: the
+restart story by [ADR 31](../docs/00_adr/31_JITTERED_RECONNECT_AND_SERVER_SESSION_RECONCILIATION.md)
+(server-session reconciliation, proved over real sockets and in real browsers) and the
+history read by [ADR 33](../docs/00_adr/33_BATTERY_HISTORY_RETAINED_COMPACT_AND_SERVED_DECIMATED.md)
+(compact retention at derived capacity 3,001, decimated `GET /api/robots/:id/history`,
+sparkline on robot detail). Two findings remain open — **F10** a retained caution,
+**F15** a decided product cut — plus **F8**'s one un-automatable bullet; **F16** closed
+under ADR 34 on 20 August 2026.
+
 **Fourth pass, 20 August 2026 — the last sweep.** **F7** and **F11** closed, **F8** down to
-its one un-automatable bullet, and **F17** raised and fixed in the same pass. Four findings
-remain open and **none of them is a contradiction between documents and code**: **F9** and
-**F16** are real work behind named ADR questions, **F10** is a retained caution rather than
-a defect, and **F15** is a decided product cut that is a release blocker by design. Three
+its one un-automatable bullet, and **F17** raised and fixed in the same pass. Findings
+remaining open share one property — **none is a contradiction between documents and
+code**: **F9** is real work behind a named ADR question, **F10** is a retained caution
+rather than a defect, and **F15** is a decided product cut that is a release blocker by
+design. (**F16**, once in that list, closed under ADR 34 later on 20 August 2026.) Three
 assessment lines that still read "open" over struck-through bullets were corrected here;
 that drift is the same shape as **F3** and is worth re-checking whenever a finding closes.
 
@@ -329,9 +339,16 @@ Remaining alignment work is concrete:
 
 Resolve these through the token/MUI boundary; do not introduce another styling system.
 
-### F9. ADR 6 read transport and restart behavior remain unproved
+### F9. ADR 6 read transport and restart behavior remain unproved — **CLOSED 20 August 2026**
 
-**Assessment: half proved 20 August 2026; the history read and the restart story are still open.**
+**Assessment: fully closed 20 August 2026.** The restart story closed under ADR 31 — a
+restarted server is detected by its `serverSessionId` and re-joined from the new snapshot,
+proved over real sockets in `runServer.test.ts` and against a really-restarted server in
+the Playwright suite. The history read closed under ADR 33 — the ring buffer now holds
+compact battery samples at derived capacity 3,001 (not 60 envelopes; the capacity question
+**M4** resolved from the window and the source ceiling, not the point count), and
+`GET /api/robots/:id/history` serves the retained minute decimated behind the
+contracts-owned response. Original text follows.
 
 The state and bounded-history structures comply: canonical envelopes enter the ring
 buffer, raw payload is held separately, capacity is bounded at 60, and no database or
@@ -557,9 +574,18 @@ performance gate. If these tests ever approach it, the answer is to investigate 
 **The shape to watch for:** a test whose stated philosophy is "no timing assertions" still
 inherits one from its runner. Any expensive test in this repository has the same exposure.
 
-### F16. Site labels are the console's last invented data
+### F16. Site labels are the console's last invented data — **CLOSED 20 August 2026**
 
-**Assessment: real gap with no source; open. Added 20 August 2026.**
+**Assessment: real gap with no source; closed by ADR 34 (the first option below, taken as
+a recorded decision).** The manifest widened to `{ sites, robots }` with strict
+`{ siteId, label }` entries; the schema version advanced to "3"; `GET /api/fleet` carries
+the directory; the simulator emits the same one and the ADR 14 parity test covers it byte
+for byte. The console deleted `SITES` and resolves labels from the decoded directory —
+`selectSiteLabel(siteId, sites)` — with the raw id only as a pre-snapshot fallback. The
+shipped `SITE-NORTH`/`SITE-SOUTH`/`SITE-EAST` ids now label as "North site", "South
+site", and "East site" in a real browser (Playwright smoke scenario).
+
+The original finding, kept for the record:
 
 Every other hook in the console reads the server. `entities/site/model.ts` still does not,
 and it cannot: the committed fleet manifest carries a `siteId` per robot and **no label for
@@ -618,7 +644,7 @@ console. Replace it now: the web package already has meaningful routes, architec
 tests, and development commands even though its data source remains fixtures.
 
 Related: `web` is also the one package with no top-level `TODO.md`. Its remaining work
-lives in `web/UI_PLAN.md` and three per-slice TODOs under `src/entities/robot`,
+lives in three per-slice TODOs under `src/entities/robot`,
 `src/features/fleet`, and `src/features/robot`. `packages/README.md` claimed
 `<name>/TODO.md` for every package; that row has been corrected. `contracts` and
 `adapters` additionally carry a `TODO_E2E_JOIN.md` alongside their `TODO.md`.

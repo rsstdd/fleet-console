@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /**
  * ConnectionBanner — stream connection integrity.
- * Spec: docs/02_component-specs/07_CONNECTION_BANNER.md (revision 2).
+ * Spec: docs/02_component-specs/07_CONNECTION_BANNER.md (revision 3).
  *
  * Load-bearing for ADR 3. Freshness is derived by a server sweep and delivered
  * over the stream, so while the stream is down no per-robot freshness label can
@@ -19,7 +19,14 @@ import type { ReactNode } from "react";
  * `src/styles/global.css`, which read `--warning` / `--error` in `tokens.css`.
  * No inline style and no second styling system (Principle 8, ADR 5).
  */
-export type ConnectionState = "connected" | "reconnecting" | "disconnected";
+export type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
+
+/**
+ * Why the transport stopped retrying, when it has (ADR 31). Structurally restated from
+ * `shared/lib/streamLifecycle`'s `StreamTerminalCause` for the same sibling-layer reason
+ * as `ConnectionState` below.
+ */
+export type ConnectionTerminalCause = "handshake-exhausted" | "contract" | "session-mismatch";
 
 /**
  * Display-only inputs for the banner.
@@ -32,8 +39,14 @@ export interface ConnectionBannerProps {
   readonly state: ConnectionState;
   /** ISO 8601, or epoch ms. Last event actually received on the stream. */
   readonly lastEventAt?: string | number;
-  /** Reconnect attempt number, surfaced so the control is visibly doing something. */
+  /** Attempt number, surfaced so the control is visibly doing something. */
   readonly attempt?: number;
+  /**
+   * Why retrying stopped, shown only while `disconnected`. Distinct copy per cause
+   * (spec § 5): an operator told only "disconnected" cannot tell a server that never
+   * answered from one that answered with a different runtime's stream (ADR 31).
+   */
+  readonly terminalCause?: ConnectionTerminalCause | null;
   /**
    * Must force an immediate reconnect attempt and increment `attempt`.
    * A retry control that does nothing observable is the class of lie this
@@ -95,6 +108,7 @@ export function ConnectionBanner({
   state,
   lastEventAt,
   attempt,
+  terminalCause,
   onRetry,
   className,
 }: ConnectionBannerProps): ReactNode {
@@ -112,7 +126,12 @@ export function ConnectionBanner({
       {state === "connected" ? null : (
         <>
           <span className="connection-banner__message">
-            <ConnectionMessage state={state} lastEventAt={lastEventAt} attempt={attempt} />
+            <ConnectionMessage
+              state={state}
+              lastEventAt={lastEventAt}
+              attempt={attempt}
+              terminalCause={terminalCause}
+            />
           </span>
           {onRetry ? (
             <button type="button" className="connection-banner__retry" onClick={onRetry}>
@@ -135,25 +154,40 @@ function ConnectionMessage({
   state,
   lastEventAt,
   attempt,
+  terminalCause,
 }: {
   readonly state: Exclude<ConnectionState, "connected">;
   readonly lastEventAt: string | number | undefined;
   readonly attempt: number | undefined;
+  readonly terminalCause: ConnectionTerminalCause | null | undefined;
 }): ReactNode {
+  const attemptText = formatAttempt(attempt);
+  const attemptFragment =
+    attemptText === null ? null : (
+      <>
+        {" · "}
+        <span className="mono">attempt {attemptText}</span>
+      </>
+    );
+
   switch (state) {
+    // No last-event fragment: nothing has ever been received, so there is no
+    // event whose time would be true (spec § 5, ADR 31).
+    case "connecting":
+      return (
+        <>
+          Connecting to stream
+          {attemptFragment}
+        </>
+      );
+
     case "reconnecting": {
-      const attemptText = formatAttempt(attempt);
       const eventTime = formatEventTime(lastEventAt);
 
       return (
         <>
           Reconnecting to stream
-          {attemptText === null ? null : (
-            <>
-              {" · "}
-              <span className="mono">attempt {attemptText}</span>
-            </>
-          )}
+          {attemptFragment}
           {eventTime === null ? null : (
             <>
               {" · "}
@@ -163,10 +197,20 @@ function ConnectionMessage({
         </>
       );
     }
-    // Fixed string, with no attempt or last-event fragment: once the stream is
+    // Fixed strings, with no attempt or last-event fragment: once the stream is
     // gone the age of the last event is a detail beside the fact that nothing
-    // on screen is current, and § 5 fixes this sentence exactly.
+    // on screen is current, and § 5 fixes these sentences exactly. The cause
+    // picks which sentence, because "never connected" and "the stream is not the
+    // snapshot's server" call for different operator responses (ADR 31).
     case "disconnected":
-      return <>Stream disconnected · showing last known state (may be stale)</>;
+      switch (terminalCause ?? null) {
+        case "handshake-exhausted":
+          return <>Unable to connect to stream after 3 attempts</>;
+        case "session-mismatch":
+          return <>Stream integrity error · showing last known state (may be stale)</>;
+        case "contract":
+        case null:
+          return <>Stream disconnected · showing last known state (may be stale)</>;
+      }
   }
 }

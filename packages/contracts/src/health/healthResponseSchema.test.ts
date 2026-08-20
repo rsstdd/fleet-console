@@ -123,7 +123,7 @@ describe("healthResponseSchema", () => {
 
   it("requires the schema version, and rejects any other value", () => {
     expect(
-      healthResponseSchema.safeParse({ ...completeHealth(), schemaVersion: "2" }).success,
+      healthResponseSchema.safeParse({ ...completeHealth(), schemaVersion: "1" }).success,
     ).toBe(false);
   });
 

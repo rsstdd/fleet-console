@@ -27,6 +27,16 @@ export default defineConfig({
       "/ws": { target: DEV_PROXY_TARGET, ws: true },
     },
   },
+  preview: {
+    // The same forwarding for `vite preview`, which serves the production build to the
+    // browser test harness (`e2e/stack.ts`). The dev server renders every delta through
+    // React's development build, which is measured to saturate a core at 10 Hz × 50 rows
+    // and starves the browser evidence; preview serves what users actually get (ADR 32).
+    proxy: {
+      "/api": { target: DEV_PROXY_TARGET },
+      "/ws": { target: DEV_PROXY_TARGET, ws: true },
+    },
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -46,7 +56,14 @@ export default defineConfig({
     // stand in for is classified. They are inputs to a test, not tests, so
     // vitest must not collect them — `violation.test.ts`, the enforcement suite
     // in the same directory, still runs.
-    exclude: ["**/node_modules/**", "**/dist/**", "**/__boundary-violation__/**/*.fixture.test.ts"],
+    // e2e/ is Playwright's, not vitest's; its specs import @playwright/test and run
+    // against real processes (ADR 32).
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/e2e/**",
+      "**/__boundary-violation__/**/*.fixture.test.ts",
+    ],
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,

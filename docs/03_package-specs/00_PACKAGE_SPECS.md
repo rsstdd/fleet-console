@@ -68,7 +68,7 @@ below states what is built and what is not.
    ┌────────────────┐  ┌──────┐  ┌──────────────┐
    │ @fleet/adapters│  │ web  │  │ @fleet/server│
    └────────┬───────┘  └──────┘  └──────┬───────┘
-            └─────────────────────────────┘
+            └───────────────────────────┘
                     server imports adapters
 
    ┌───────────────────┐
@@ -180,19 +180,20 @@ A package matches its specification when:
 
 ## 8. Current state — 20 August 2026
 
-| Package   | Tests | Lint | Typecheck | Runtime status                                    |
-| --------- | ----- | ---- | --------- | ------------------------------------------------- |
-| contracts | 150   | pass | pass      | Complete                                          |
-| adapters  | 227   | pass | pass      | Complete, including dispatch and joining evidence |
-| simulator | 211   | pass | pass      | Complete and runnable                             |
-| server    | 160   | pass | pass      | Runnable HTTP ingest, reads and WebSocket fan-out |
-| web       | 265   | pass | pass      | Live decoded store and transport are built        |
+| Package   | Tests | Lint | Typecheck | Runtime status                                                                                 |
+| --------- | ----- | ---- | --------- | ---------------------------------------------------------------------------------------------- |
+| contracts | 174   | pass | pass      | Complete, including the battery-history response (ADR 33)                                      |
+| adapters  | 227   | pass | pass      | Complete, including dispatch and joining evidence                                              |
+| simulator | 211   | pass | pass      | Complete and runnable                                                                          |
+| server    | 186   | pass | pass      | Runnable HTTP ingest, reads (battery history included) and WebSocket fan-out                   |
+| web       | 313   | pass | pass      | Live decoded store, transport, automatic recovery, and the battery-history sparkline are built |
 
-1,013 tests across five packages. The live simulator-to-console path is implemented; automatic
-stream recovery (D22) and committed browser automation (D23) remain the cross-package blockers.
+The live simulator-to-console path is implemented, including automatic stream recovery and
+server-restart reconciliation (ADR 31, register D22), and is proven end to end in real
+browsers by the committed Playwright suite (ADR 32, register D23).
 
-Two registered cross-package decisions remain open in
-`docs/PENDING_ARCHITECTURE_DECISIONS.md`: D22 and D23. **D17 is resolved by ADR 22 as Option 3:** gate
+No registered cross-package decision remains open in
+`docs/PENDING_ARCHITECTURE_DECISIONS.md`. **D17 is resolved by ADR 22 as Option 3:** gate
 the first-load bundle and ADR 2's defensible validation falsifier, while reporting adapter
 coverage without a threshold. The 90% proposal is retired because it was underived and
 would have measured an empty vendor-source set. The decision register remains the

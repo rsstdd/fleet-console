@@ -1,6 +1,7 @@
 import {
   parseFleetSnapshot,
   parseHealthResponse,
+  parseRobotBatteryHistory,
   parseRegisteredRobotState,
   parseRobotDiagnosticEnvelope,
   parseTelemetryBatch,
@@ -9,6 +10,7 @@ import type {
   ContractIssue,
   FleetSnapshot,
   HealthResponse,
+  RobotBatteryHistory,
   RegisteredRobotState,
   RobotDiagnosticEnvelope,
   TelemetryBatch,
@@ -26,7 +28,7 @@ import type {
  * connection refused is recoverable and retrying is the right response; a body that does
  * not satisfy the canonical schema is terminal, because the server did not stumble, it
  * sent bytes this console cannot read, and retrying returns the same bytes
- * (`entities/robot/TODO.md` **W-6**). Collapsing them produces a console that retries
+ * (ADR 20, web spec § 9). Collapsing them produces a console that retries
  * forever against a contract mismatch, showing a spinner where it should show an error
  * naming the field.
  *
@@ -149,10 +151,10 @@ export type RobotDetailOutcome =
  * serves `robotDiagnosticEnvelopeSchema` for a robot that has reported and
  * `registeredRobotStateSchema` for one the manifest registered and nothing has been heard
  * from, and `@fleet/contracts` exports no combined schema the way it does for the same two
- * populations inside a fleet snapshot. Trying both here is the consequence, and it is
- * recorded as a contracts change in `packages/server/TODO.md` **G2** rather than worked
- * around permanently — the diagnostic shape is tried first because it is the strictly
- * larger one, so a registered robot cannot satisfy it by accident.
+ * populations inside a fleet snapshot. Trying both here is the explicit boundary policy:
+ * the diagnostic shape is tried first because it is the strictly larger one, so a
+ * registered robot cannot satisfy it by accident. If another consumer needs the same
+ * union, move that authority into contracts instead of copying this ordering.
  *
  * A 404 is its own outcome, not an error: an unknown robot id is a wrong link, and the
  * page renders an empty state with a way back rather than a failure banner (robot detail
@@ -207,4 +209,46 @@ export async function fetchHealth(fetchLike: FetchLike, url: string): Promise<He
   } catch {
     return { ok: false };
   }
+}
+
+/** Why a battery-history request produced no usable history. */
+export type BatteryHistoryFailure =
+  | { readonly kind: "unreachable"; readonly status: number | null }
+  | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
+
+/** What one battery-history request produced. */
+export type BatteryHistoryOutcome =
+  | { readonly ok: true; readonly history: RobotBatteryHistory }
+  | { readonly ok: false; readonly failure: BatteryHistoryFailure };
+
+/**
+ * Fetches and decodes one robot's battery history (ADR 33).
+ *
+ * The same recoverable/terminal split as every fetch here: a refused connection
+ * or non-2xx status is `unreachable` and worth an inline retry, a body the
+ * contract's cross-field invariants refuse is `contract` and is not — the
+ * server sent bytes this console cannot trust, and retrying returns the same
+ * bytes. A 404 lands in `unreachable` deliberately: the page only asks about a
+ * robot it is already showing, so an unregistered id here means the console and
+ * server disagree about the roster mid-navigation, which a retry can resolve
+ * and a terminal state cannot.
+ */
+export async function fetchBatteryHistory(
+  fetchLike: FetchLike,
+  url: string,
+): Promise<BatteryHistoryOutcome> {
+  let body: unknown;
+  try {
+    const response = await fetchLike(url);
+    if (!response.ok) {
+      return { ok: false, failure: { kind: "unreachable", status: response.status } };
+    }
+    body = await response.json();
+  } catch {
+    return { ok: false, failure: { kind: "unreachable", status: null } };
+  }
+
+  const decoded = parseRobotBatteryHistory(body);
+  if (decoded.ok) return { ok: true, history: decoded.value };
+  return { ok: false, failure: { kind: "contract", issues: decoded.issues } };
 }

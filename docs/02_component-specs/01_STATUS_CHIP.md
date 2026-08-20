@@ -3,7 +3,7 @@
 - **Status:** implementation-ready
 - **Revision 2:** the variant union is replaced. The seven-value set (`online`, `offline`, `degraded`, `critical`, `charging`, `maintenance`, `info`) predates the canonical status enum and named states no adapter can produce; `maintenance` and `info` are removed, and the remainder is re-derived from `RobotStatus` plus health severity per ADR 1. Adds the required `current` prop, which carries the freshness qualification the design profile and wireframes both depend on. Token mapping updated to the `--status-*` role names; the `--online` / `--offline` family no longer exists.
 
-Implementation: `shared/ui/StatusChip.tsx`
+Implementation: `shared/ui/statusChip.tsx`
 
 ## 1. Responsibility
 

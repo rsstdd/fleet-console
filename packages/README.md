@@ -9,13 +9,13 @@ belongs at a boundary, not in the UI.** Vendor disagreement is absorbed by
 and filter vendor identity, but rendering behavior comes from declared
 capabilities and never branches on a vendor name.
 
-| Package                    | Owns                                                               | Status                                    |
-| -------------------------- | ------------------------------------------------------------------ | ----------------------------------------- |
-| [`contracts`](./contracts) | Canonical envelope, capabilities, wire schemas, freshness function | Landed                                    |
-| [`adapters`](./adapters)   | Vendor dialect decoding, unknown-field accounting                  | Landed — three vendors, dispatch registry |
-| [`simulator`](./simulator) | Deterministic vendor telemetry, fault injection                    | Landed                                    |
-| [`server`](./server)       | Ingest, state, freshness sweep, fan-out, health                    | Live process; history/backpressure open   |
-| [`web`](./web)             | The operations console                                             | Live data; automatic recovery/E2E open    |
+| Package                    | Owns                                                               | Status                                      |
+| -------------------------- | ------------------------------------------------------------------ | ------------------------------------------- |
+| [`contracts`](./contracts) | Canonical envelope, capabilities, wire schemas, freshness function | Landed                                      |
+| [`adapters`](./adapters)   | Vendor dialect decoding, unknown-field accounting                  | Landed — three vendors, dispatch registry   |
+| [`simulator`](./simulator) | Deterministic vendor telemetry, fault injection                    | Landed                                      |
+| [`server`](./server)       | Ingest, state, history, freshness sweep, fan-out, health           | Live process; backpressure trigger-deferred |
+| [`web`](./web)             | The operations console                                             | Live data, automatic recovery, browser E2E  |
 
 A **canonical envelope** is the shared robot record every vendor is translated
 into. A **capability** is an optional payload a vendor may or may not send;
@@ -117,7 +117,8 @@ fixtures here. It is never an edit to `contracts`.
 
 Unknown fields a vendor sends are **counted, not silently dropped**. Vendor C's
 undocumented field increments the per-adapter tally at
-`telemetry.firmware_channel`; the future health endpoint still needs to expose it.
+`telemetry.firmware_channel`; `GET /api/health` exposes it under the explicitly accepted
+payload scope.
 
 **Landed:** the result type, accepted-payload unknown-field ledger and path discovery,
 the supported-vendor set and parity guard, the complete fixture matrix, all three
@@ -152,22 +153,24 @@ than reacting only to arrivals.
 
 ## `server` — the runtime authority
 
-Thin. Its completed framework-independent core keeps one in-memory entry per
-robot, sweeps freshness every 500 ms, and coalesces pending deltas. The planned
-composition root will accept telemetry over HTTP, dispatch to the right
-adapter, and fan those deltas out over WebSocket.
+Thin. Its framework-independent core keeps one in-memory entry per robot, sweeps
+freshness every 500 ms, and coalesces pending deltas. The composition root accepts
+telemetry over HTTP, dispatches to the right adapter, serves the four read routes, and
+fans those deltas out over WebSocket.
 
 **Owns:** receipt time (`receivedAt`), the current-state store, bounded
 per-robot history, the freshness sweep, delta coalescing, and health accounting.
-The health _endpoint_ is planned, not present: `HealthMetrics` is a counter
-object today and nothing serves it.
+`HealthMetrics` owns the process counters; `GET /api/health` joins them with adapter and
+per-robot sequence scopes through the contracts-owned response.
 
 **Does not own:** freshness _derivation_. That is `contracts`' pure function,
 called by the sweep here. The split is deliberate: the rule is unit-testable
 against an injected clock; the schedule is the server's problem.
 
 No database. Current state rebuilds from the next telemetry snapshot. History is
-a small ring buffer sized to what a decimated sparkline consumes.
+a bounded ring buffer of compact `{receivedAt, batteryPercent | null}` samples —
+one 60-second contract window at the simulator's 50 Hz ceiling — served decimated
+to at most 60 extrema-preserving points (ADR 6 as amended by ADR 33).
 
 **Landed:** configuration and the fleet manifest, the current-state store, the
 ring buffer, the pending-delta set, clocks, health metrics, and the sweep itself.
@@ -178,16 +181,17 @@ once by `loadRuntimeEndpoints()` — the only `process.env` read in the package 
 21). Both raise the same `ConfigValidationError`.
 
 **Landed 20 August 2026:** the composition root. `pnpm --filter @fleet/server start` binds
-what `loadRuntimeEndpoints()` returns, serves `POST /api/telemetry/:vendor` and the three
-reads, runs the ADR 3 sweep, fans coalesced deltas out on `/ws`, and refuses to continue
-past a `ConfigValidationError`. `FLEET_ALLOWED_ORIGINS` is now enforced ahead of every
+what `loadRuntimeEndpoints()` returns, serves `POST /api/telemetry/:vendor` and the four
+reads (fleet, robot, battery history, health), runs the ADR 3 sweep, fans coalesced deltas
+out on `/ws`, and refuses to continue past a `ConfigValidationError`. `FLEET_ALLOWED_ORIGINS` is now enforced ahead of every
 route, and the ingest size cap runs before `JSON.parse` rather than after it — both were
 configuration with no consumer, and `FIXME.md` **F13** closed with them.
 
-**Not yet:** backpressure on a console that stops reading, and the history read for the
-sparkline. The first is deferred on ADR 8's undecided question of whether the connection
-cap is configuration or a constant; the second on ADR 6's ring-buffer capacity, which
-resolves from the sparkline's real point count and not from a round number.
+**Not yet:** backpressure on a console that stops reading, deferred on ADR 8's undecided
+question of whether the connection cap is configuration or a constant. The history read
+landed 20 August 2026 under ADR 33: `GET /api/robots/:id/history` serves the retained
+minute decimated behind the contracts-owned response, and capacity resolved from the
+window and the validated source ceiling rather than from the sparkline's point count.
 
 **Retention is decided.** One raw payload per robot, replaced not accumulated,
 kept verbatim with no redaction, bounded at 64 KiB per request — 31.25 MiB across
@@ -221,8 +225,10 @@ suppressed label.
 
 The app-owned transport now reports the real state. The context and `AppShell` defaults
 remain `disconnected`, so missing composition fails closed rather than asserting
-freshness. Automatic retry is not implemented; the banner's manual retry remains the
-recovery path pending D22.
+freshness. Recovery is automatic under ADR 31 — full-jitter reconnect with a
+server-session check that detects a restarted server — and the banner's manual retry
+remains for the terminal states (initial probe exhausted, contract failure, stream
+integrity mismatch).
 
 A row reading LIVE from a socket that died two minutes ago is the failure this
 rule prevents. A row reading UNREACHABLE is no better: it blames the machine for
@@ -243,13 +249,16 @@ the entity layer that maps a canonical envelope into the read model.
 
 **Landed 20 August 2026:** the transport. `shared/lib` holds the cold-start ordering, the
 stream lifecycle, the one decode boundary and the client that sequences them; `app` owns
-the socket and publishes connection state; `useFleetRobots` reads a keyed store and
-`useRobotDetail` fetches `GET /api/robots/:id`. No hook renders invented data.
+the socket and publishes connection state; `useFleetRobots` reads a keyed store,
+`useRobotDetail` fetches `GET /api/robots/:id`, and `useRobotHistory` fetches the
+battery-history window once per visit for the detail-page sparkline (ADR 33). No hook
+renders invented data.
 
-**Not yet:** proof in a browser, and automatic reconnection. The console has been verified
-at the wire — snapshot, deltas, a freshness-only transition — but not watched rendering
-them; and `connect()` after a close is the caller's call, because an attempt limit and a
-backoff schedule are unchosen (fleet TODO **A3**).
+**Also landed 20 August 2026:** both halves of what this section used to defer.
+Reconnection is automatic under ADR 31 — full-jitter schedule, capped initial probe,
+server-session restart detection — and the proof in a browser is the committed Playwright
+suite under ADR 32 (`packages/web/e2e`): real server, real simulator, production bundle,
+three engines, plus the reported 500-robot client measurement.
 
 ---
 
@@ -306,27 +315,27 @@ Every package carries a `CLAUDE.md`, and the four Node packages carry an
 its rules in `CLAUDE.md` directly. Those files are authoritative for their
 directory; this one is a map, not a rulebook.
 
-| Concern                                          | Source                                 |
-| ------------------------------------------------ | -------------------------------------- |
-| Binding engineering principles                   | [`PRINCIPLES.md`](../PRINCIPLES.md)    |
-| Architecture decisions and their consequences    | [`docs/00_adr/`](../docs/00_adr)       |
-| Adapter boundary, canonical core, capabilities   | ADR 1                                  |
-| Transport, ingest, fan-out                       | ADR 2                                  |
-| Freshness derivation and its two halves          | ADR 3                                  |
-| Feature-sliced structure and the dependency rule | ADR 4                                  |
-| Material UI and the CSS-token styling boundary   | ADR 5                                  |
-| In-memory state and bounded history              | ADR 6                                  |
-| Module-resolution boundary enforcement           | ADR 7                                  |
-| Server HTTP/WebSocket implementation libraries   | ADR 8                                  |
-| Source exports and TypeScript runtime            | ADR 9                                  |
-| Pre-freshness adapter envelope                   | ADR 10                                 |
-| Public testing subpath for fixtures              | ADR 11                                 |
-| Test-only web dependency on adapters             | ADR 12                                 |
-| Recorded fixtures and CI drift guard             | ADR 13                                 |
-| Shared fleet roster parity                       | ADR 14                                 |
-| Accepted-only unknown-field accounting           | ADR 15                                 |
-| Independent vendor lists with test-only parity   | ADR 16                                 |
-| Per-package scoped rules                         | `<name>/AGENTS.md`, or `web/CLAUDE.md` |
-| Remaining work — the four Node packages          | `<name>/TODO.md`                       |
-| Remaining work — `web`                           | `UI_PLAN.md`, per-slice `TODO.md`      |
-| Cross-package audit findings                     | [`FIXME.md`](./FIXME.md)               |
+| Concern                                          | Source                                    |
+| ------------------------------------------------ | ----------------------------------------- |
+| Binding engineering principles                   | [`PRINCIPLES.md`](../PRINCIPLES.md)       |
+| Architecture decisions and their consequences    | [`docs/00_adr/`](../docs/00_adr)          |
+| Adapter boundary, canonical core, capabilities   | ADR 1                                     |
+| Transport, ingest, fan-out                       | ADR 2                                     |
+| Freshness derivation and its two halves          | ADR 3                                     |
+| Feature-sliced structure and the dependency rule | ADR 4                                     |
+| Material UI and the CSS-token styling boundary   | ADR 5                                     |
+| In-memory state and bounded history              | ADR 6, amended by ADR 33                  |
+| Module-resolution boundary enforcement           | ADR 7                                     |
+| Server HTTP/WebSocket implementation libraries   | ADR 8                                     |
+| Source exports and TypeScript runtime            | ADR 9                                     |
+| Pre-freshness adapter envelope                   | ADR 10                                    |
+| Public testing subpath for fixtures              | ADR 11                                    |
+| Test-only web dependency on adapters             | ADR 12                                    |
+| Recorded fixtures and CI drift guard             | ADR 13                                    |
+| Shared fleet roster parity                       | ADR 14                                    |
+| Accepted-only unknown-field accounting           | ADR 15                                    |
+| Independent vendor lists with test-only parity   | ADR 16                                    |
+| Per-package scoped rules                         | `<name>/AGENTS.md`, or `<name>/CLAUDE.md` |
+| Remaining work — the four Node packages          | `<name>/TODO.md`                          |
+| Remaining work — `web`                           | per-slice `TODO.md` files under `src/**`  |
+| Cross-package audit findings                     | [`FIXME.md`](./FIXME.md)                  |

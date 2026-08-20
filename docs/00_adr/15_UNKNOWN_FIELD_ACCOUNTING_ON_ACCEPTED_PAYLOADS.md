@@ -80,10 +80,10 @@ Deriving known paths from the schema, rather than listing them beside each vendo
 - **An `unmappable_value` rejection can move two counters at once**, and that is correct: the ledger sees a well-formed document, the server sees a rejected request. It is one more reason the two numbers must never be summed. Whoever wires `noteMalformedIngest` into the ingest handler inherits this — it has no production call site yet.
 - **The health endpoint serves the ledger under a scope-named key.** `unknownFields.accepted`, not `unknownFields`. The coupling is commented in `packages/server/src/health/healthMetrics.ts`, which owns the other population's counter.
 - **The two counters must never be summed or presented as one number.** Their pairing is the signal; a total erases it. This constrains the health response's shape and the console's diagnostics panel, which must also keep the existing per-adapter caveat (ADR 1).
-- **The console's label can now be derived rather than written.** `scope` travels with the data, so the diagnostics panel renders "(adapter, accepted payloads)" from the value instead of hardcoding a caveat that can go stale. `packages/web` does not consume it yet — its `unknownFieldCount` is still injected from a fixture — and should read the scope when the health endpoint lands.
+- **The console's label is derived rather than written.** `scope` travels through `GET /api/health`, so the diagnostics panel renders "(adapter, accepted payloads)" from the decoded value instead of hardcoding a caveat that can go stale.
 - **Adding the rejected tally later is additive.** A second ledger with `scope: "rejected"` sits beside this one; no consumer renames anything. If it is added, ADR 1's "counted, not dropped" claim gets stronger, and this ADR should be amended rather than superseded.
 - **This package now reads a Zod private surface.** One module, three helpers, all narrowing with type predicates rather than casts. A Zod major upgrade is a reason to re-run this directory's tests specifically.
-- **Unknown-field accounting remains per adapter.** Nothing here moves it toward per-robot, and the register's **D12** is where that question lives — it is a contracts change first.
+- **Unknown-field accounting remains per adapter.** ADR 25 resolved D12 by keeping that scope and placing genuinely per-robot sequence continuity on the diagnostic envelope instead.
 
 ## Open questions
 

@@ -19,16 +19,16 @@
  * before the ledger sees it, so its unknown-field count stays flat while
  * `malformedIngest` climbs. That pairing is the signal; a total would erase it.
  *
- * When the health endpoint lands, serve the ledger under a scope-named key
- * (`unknownFields.accepted`) so the rejected-payload tally ADR 15 leaves open
- * can be added beside it rather than renaming what consumers already read.
+ * The health endpoint serves the ledger under the scope-named key
+ * `unknownFields.accepted`, so the rejected-payload tally ADR 15 leaves open can be
+ * added beside it rather than renaming what consumers already read.
  *
  * The response shape itself is `healthResponseSchema` in `@fleet/contracts`
  * (ADR 25). This class accumulates; it does not serialize, and it must not grow a
  * second opinion about what the wire looks like.
  */
 
-/** Immutable operational health snapshot exposed by the future health endpoint. */
+/** Immutable process-health snapshot exposed by `GET /api/health`. */
 export interface HealthSnapshot {
   readonly malformedIngest: number;
   readonly unsupportedVendors: number;

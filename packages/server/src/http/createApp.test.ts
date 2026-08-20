@@ -1,17 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { SCHEMA_VERSION } from "@fleet/contracts";
+import { SCHEMA_VERSION, parseRobotBatteryHistory } from "@fleet/contracts";
 
 import { createHttpApp } from "./createApp.ts";
 import { createAdapterRegistry } from "@fleet/adapters";
 
 import { HealthMetrics } from "../health/healthMetrics.ts";
+import { selectBatteryHistory } from "../history/selectBatteryHistory.ts";
 import { encodeFleetSnapshot } from "./fleetResponse.ts";
 import { encodeHealthResponse } from "./healthResponse.ts";
 
 /** An empty fleet: these cases are about the policy and the routes, not about state. */
 const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
-  encodeFleetSnapshot({ robots: [], capturedAt: 0, flushSequence: 0 });
+  encodeFleetSnapshot({
+    sites: [],
+    robots: [],
+    capturedAt: 0,
+    serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+    flushSequence: 0,
+  });
 
 /** Zeroed health: these cases are about routing and policy, not about counters. */
 const readHealth = (): ReturnType<typeof encodeHealthResponse> =>
@@ -24,6 +31,9 @@ const readHealth = (): ReturnType<typeof encodeHealthResponse> =>
 
 /** No robot: these cases are about routing and policy, not about state. */
 const readRobot = (): null => null;
+
+/** No robot again: the history route's default stub mirrors `readRobot`. */
+const readHistory = (): null => null;
 
 /** A stub ingest port: these cases are about routing and policy, not the transition. */
 const ingest = {
@@ -46,6 +56,7 @@ describe("createHttpApp", () => {
     allowedOrigins: [ALLOWED],
     readFleet,
     readRobot,
+    readHistory,
     readHealth,
     ingest,
   });
@@ -77,7 +88,14 @@ describe("createHttpApp", () => {
   });
 
   it("grants nothing at all when the allow-list is empty", async () => {
-    const closed = createHttpApp({ allowedOrigins: [], readFleet, readRobot, readHealth, ingest });
+    const closed = createHttpApp({
+      allowedOrigins: [],
+      readFleet,
+      readRobot,
+      readHistory,
+      readHealth,
+      ingest,
+    });
 
     const response = await closed.request("/api/nothing", { headers: { origin: ALLOWED } });
 
@@ -116,11 +134,72 @@ describe("createHttpApp", () => {
     });
   });
 
+  it("serves battery history with no-store caching and a strict parser round trip", async () => {
+    // The stubbed read model is what the real wiring produces: `selectBatteryHistory`
+    // over the store's compact samples. Type-level proof that no raw payload can leak —
+    // `readHistory` returns `RobotBatteryHistory`, which has no field to carry one.
+    const history = selectBatteryHistory({
+      robotId: "R-001",
+      samples: [{ receivedAt: 1_000, batteryPercent: 75 }],
+      capturedAt: 2_000,
+    });
+    const serving = createHttpApp({
+      allowedOrigins: [],
+      readFleet,
+      readRobot,
+      readHistory: (robotId) => (robotId === "R-001" ? history : null),
+      readHealth,
+      ingest,
+    });
+
+    const response = await serving.request("/api/robots/R-001/history");
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    const parsed = parseRobotBatteryHistory(await response.json());
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.points).toEqual([{ receivedAt: 1_000, batteryPercent: 75 }]);
+  });
+
+  it("serves an unheard robot's history as an empty 200, not a 404", async () => {
+    const empty = selectBatteryHistory({ robotId: "R-002", samples: [], capturedAt: 2_000 });
+    const serving = createHttpApp({
+      allowedOrigins: [],
+      readFleet,
+      readRobot,
+      readHistory: () => empty,
+      readHealth,
+      ingest,
+    });
+
+    const response = await serving.request("/api/robots/R-002/history");
+
+    expect(response.status).toBe(200);
+    const parsed = parseRobotBatteryHistory(await response.json());
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(parsed.value.sourceSampleCount).toBe(0);
+    expect(parsed.value.points).toEqual([]);
+  });
+
+  it("returns the canonical 404 for an unregistered robot's history", async () => {
+    const response = await app.request("/api/robots/R-999/history");
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("cache-control")).toBeNull();
+    expect(await response.json()).toStrictEqual({
+      schemaVersion: SCHEMA_VERSION,
+      error: { kind: "not_found", message: "No such resource.", issues: [] },
+    });
+  });
+
   it("reveals nothing about a thrown error", async () => {
     const throwing = createHttpApp({
       allowedOrigins: [],
       readFleet,
       readRobot,
+      readHistory,
       readHealth,
       ingest,
     });

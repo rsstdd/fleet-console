@@ -1,5 +1,7 @@
 # Wireframes — `canonical-fleet` console
 
+**Revision 6.** § 6 gained the three states ADR 31 added to the banner: `connecting` (a first attempt, with no last-event fragment because nothing was ever received), and the two named terminal disconnects — initial probe exhausted, and stream integrity error. Copy is the exact string the component renders (component spec 07 revision 3).
+
 **Revision 5.** § 0 and the § 3 annotation reconciled with ADR 19, which they had lagged: capabilities now split `operator` / `diagnostic` in `@fleet/contracts`, so the rule for § 3's panels is the operator set rather than "non-core", and `sequence` is listed as the declared capability it is instead of appearing only as envelope metadata. Page spec 03 revision 6 had already made this change; these screens had not.
 
 **Revision 4.** § 1 and § 6 banner sketches reconciled with component spec 07 revision 2, which these wireframes had outdated in three ways. The disconnected line now carries the fixed § 5 copy including `(may be stale)`; both retry controls read `Retry now`; and the `⚠` / `✕` glyphs are gone, because the § 4 required output has no icon element and the condition is carried by the words and the tint. Copy on these screens is the exact string the component renders, so a change to either updates both (component spec 07 § 12).
@@ -210,6 +212,12 @@ Vendor C declares `waterLevel`, which A and B do not, and omits `lidarHealth`, w
 
 ## 6. Connection states
 
+**Connecting** (first connection; nothing has ever been received, so no last-event fragment)
+
+```
+│ Connecting to stream · attempt 2                              [Retry now]    │
+```
+
 **Reconnecting**
 
 ```
@@ -220,6 +228,18 @@ Vendor C declares `waterLevel`, which A and B do not, and omits `lidarHealth`, w
 
 ```
 │ Stream disconnected · showing last known state (may be stale) [Retry now]    │
+```
+
+**Disconnected — initial probe exhausted** (three attempts, socket never opened; ADR 31)
+
+```
+│ Unable to connect to stream after 3 attempts                  [Retry now]    │
+```
+
+**Disconnected — stream integrity error** (snapshot and stream from different server runtimes; ADR 31)
+
+```
+│ Stream integrity error · showing last known state (may be stale) [Retry now] │
 ```
 
 The table stays visible with last-known data, and per-robot freshness labels are **suppressed** — the banner carries the connection-level truth instead. Freshness is derived by a server sweep and delivered over the stream (ADR 3), so a dead socket means the console has no current per-robot answer and must not display one. A row still reading LIVE from a socket that died two minutes ago is the exact failure this project argues against, and a row reading UNREACHABLE is no better: it blames the machine for the console's own blindness.

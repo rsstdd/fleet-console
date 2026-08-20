@@ -133,3 +133,55 @@ jobs:
             sed -n '/Coverage report/,$p' "$RUNNER_TEMP/coverage.log"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ADR 32: the claims only a real engine can make — rendering, focus, reconnection
+  # against a killed-and-restarted server — this job is configured to prove in Chromium,
+  # Firefox, and WebKit against the real server, simulator, and built console. A separate job because its
+  # failure mode is different: `verify` fails on code, this fails on behavior in a
+  # browser, and the diagnosis needs the traces this job uploads, not a rerun.
+  #
+  # WebKit is configured only here: its Linux system libraries come from `--with-deps`, which
+  # needs root. The suite itself is engine-agnostic; a developer box without those
+  # libraries runs the Chromium and Firefox projects and leaves WebKit to CI.
+  browser-evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers and their system dependencies
+        run: pnpm --filter web exec playwright install --with-deps chromium firefox webkit
+
+      - name: Browser smoke evidence across all three engines
+        run: pnpm test:e2e
+
+      # The 500-robot client measurement (ADR 32; feeds ADR 18 and ADR 24's deferred
+      # questions). Integrity is asserted; the numbers land in scale-report.json in the
+      # uploaded report, gated by nothing (ADR 22).
+      - name: 500-robot live-stream measurement (reported, not gated)
+        run: pnpm test:e2e:scale
+
+      # The tenant-B production bundle, built and driven for real (ADR 17):
+      # light theme, disabled lidar panel, and narrow-viewport behavior.
+      - name: Tenant-B production build evidence (Chromium)
+        run: pnpm test:e2e:tenant
+
+      # `if: always()`: the report matters most on the runs that fail.
+      - name: Upload Playwright report, traces, and measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-evidence
+          path: |
+            packages/web/playwright-report
+            packages/web/test-results
+          retention-days: 30
+          if-no-files-found: ignore

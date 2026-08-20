@@ -1,8 +1,13 @@
 # Ratify and implement D22 stream recovery
 
-**Authority:** Planning only. D22 remains open until a numbered ADR is accepted.
-**Status:** Active
-**Updated:** 2026-08-20
+**Authority:** Historical only. This plan was consumed by the D22 ratification and its implementation.
+**Archived:** 2026-08-20
+**Superseded by:** `docs/00_adr/31_JITTERED_RECONNECT_AND_SERVER_SESSION_RECONCILIATION.md` (the ratified decision), the implementation in `packages/contracts`, `packages/server`, and `packages/web/src/shared/lib`, and their tests (`envelopeSchema.test.ts`, `runServer.test.ts`, `fleetTransport.test.ts`, `streamLifecycle.test.ts`).
+
+All acceptance evidence below passed on 2026-08-20 except the full-stack browser
+verification of restart recovery, which is deliberately owed to the D23 browser-evidence
+decision (`docs/04_archive/D23_PLAYWRIGHT.md`) as its first scenario; unit, contract, and
+process boundaries cover it in this change.
 
 ## Summary
 

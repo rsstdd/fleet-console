@@ -118,7 +118,7 @@ const COMPONENT_PROPS: ReadonlyArray<{ readonly component: string; readonly prop
 
 /**
  * Dev-only gallery of the `shared/ui` primitives, mounted at /dev/ui and excluded
- * from production builds by an import.meta.env.DEV guard on the route (TODO D10).
+ * from production builds by an import.meta.env.DEV guard on the route (app-shell spec § 3).
  *
  * It is a preview of the design system, not the application. It keeps its own
  * ThemeProvider and tenant switch so the two tenant themes can be compared side by
@@ -387,6 +387,7 @@ export function ComponentGallery() {
               aria-label="Connection banner state"
               sx={{ mb: 2 }}
             >
+              <ToggleButton value="connecting">Connecting</ToggleButton>
               <ToggleButton value="connected">Connected</ToggleButton>
               <ToggleButton value="reconnecting">Reconnecting</ToggleButton>
               <ToggleButton value="disconnected">Disconnected</ToggleButton>

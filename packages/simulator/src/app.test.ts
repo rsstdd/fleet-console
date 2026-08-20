@@ -333,8 +333,14 @@ describe("renderFleetManifest", () => {
 
     // No `seed` wrapper and `vendorId` throughout: the printed document is
     // exactly what the server's strict schema accepts, and the seed goes to
-    // stderr at the call site (ADR 14).
+    // stderr at the call site (ADR 14). The site directory travels with the
+    // roster so the ids below have labels wherever the manifest lands (ADR 34).
     expect(parsed).toEqual({
+      sites: [
+        { siteId: "SITE-NORTH", label: "North site" },
+        { siteId: "SITE-SOUTH", label: "South site" },
+        { siteId: "SITE-EAST", label: "East site" },
+      ],
       robots: [
         { robotId: "R-001", siteId: "SITE-NORTH", vendorId: "A", model: expect.any(String) },
         { robotId: "R-002", siteId: "SITE-NORTH", vendorId: "B", model: expect.any(String) },

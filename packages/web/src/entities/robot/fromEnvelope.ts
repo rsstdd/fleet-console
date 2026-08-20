@@ -61,6 +61,11 @@ export function toRobot(envelope: CanonicalEnvelope): Robot {
     id: envelope.robotId,
     vendor: envelope.vendorId,
     siteId: envelope.siteId,
+    observed: true,
+    model: envelope.model,
+    connectivity: envelope.core.connectivity,
+    position: envelope.core.position,
+    capabilities: envelope.capabilities,
     status: envelope.core.status,
     health: envelope.core.health,
     freshness: envelope.freshness,
@@ -86,6 +91,11 @@ export function toRegisteredRobot(state: RegisteredRobotState): Robot {
     id: state.robotId,
     vendor: state.vendorId,
     siteId: state.siteId,
+    observed: false,
+    model: null,
+    connectivity: null,
+    position: null,
+    capabilities: {},
     status: "unknown",
     health: null,
     freshness: state.freshness,
@@ -107,10 +117,6 @@ export function toRobotDetail(
 ): RobotDetail {
   return {
     ...toRobot(envelope),
-    model: envelope.model,
-    connectivity: envelope.core.connectivity,
-    position: envelope.core.position,
-    capabilities: envelope.capabilities,
     diagnostics: {
       adapterId: envelope.adapterId,
       adapterVersion: envelope.adapterVersion,
@@ -141,11 +147,39 @@ export function toRobotDetail(
 export function toRegisteredRobotDetail(state: RegisteredRobotState): RobotDetail {
   return {
     ...toRegisteredRobot(state),
-    model: null,
-    connectivity: null,
-    position: null,
-    capabilities: {},
     diagnostics: null,
     rawPayload: null,
   };
+}
+
+/**
+ * Overlays one live fleet row onto a fetched detail, updating core values and
+ * freshness from deltas without refetching diagnostics or history.
+ *
+ * Pure and identity-stable: when the row carries nothing the detail does not
+ * already show, the same `detail` reference comes back, so a memoized consumer
+ * re-renders only when a delta actually named this robot. The diagnostics
+ * block and the retained raw payload are deliberately left at their fetched
+ * values — they are served only by `GET /api/robots/:id` (ADR 1), and a delta
+ * carries neither.
+ *
+ * Coupling: `useFleetRobot` in `useFleetRobots.ts` is what feeds `row` here;
+ * the pair is how robot detail stays live without a second fetch.
+ */
+export function reconcileDetailWithRow(detail: RobotDetail, row: Robot): RobotDetail {
+  if (
+    row.freshness === detail.freshness &&
+    row.lastSeenAt === detail.lastSeenAt &&
+    row.status === detail.status &&
+    row.health === detail.health &&
+    row.batteryPercent === detail.batteryPercent &&
+    row.connectivity === detail.connectivity &&
+    row.position === detail.position &&
+    row.capabilities === detail.capabilities &&
+    row.model === detail.model &&
+    row.observed === detail.observed
+  ) {
+    return detail;
+  }
+  return { ...detail, ...row, diagnostics: detail.diagnostics, rawPayload: detail.rawPayload };
 }

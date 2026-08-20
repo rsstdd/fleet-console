@@ -1,8 +1,15 @@
 # Ratify D23 with a portfolio-grade Playwright suite
 
-**Authority:** Planning only. Playwright is a proposal; D23 remains open until a numbered ADR is accepted.
-**Status:** Active
-**Updated:** 2026-08-20
+**Authority:** Historical only. This plan was consumed by the D23 ratification and its implementation.
+**Archived:** 2026-08-20
+**Superseded by:** `docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md` (the ratified decision), the harness and suites in `packages/web/e2e/` (`stack.ts`, `fixtures.ts`, `globalSetup.ts`, `smoke.spec.ts`, `scale.spec.ts`), `packages/web/playwright.config.ts`, and the `browser-evidence` job in `.github/workflows/ci.yml`.
+
+Executed 2026-08-20. Every committed scenario passed in Chromium and Firefox locally
+(CI is configured to install WebKit's system libraries and run that project); the scale
+measurement reported its numbers; the cleanup and failure-artifact proofs ran as
+specified. One departure from the letter of the plan, recorded in the ADR: the harness
+serves the production build via `vite preview` rather than the dev server, because the
+dev build's render cost was measured to starve the browser.
 
 ## Summary
 

@@ -360,6 +360,8 @@ table {
   white-space: nowrap;
 }
 
+/* Connecting shares the warning treatment: not an outage, not yet a stream (spec § 6). */
+.connection-banner--connecting,
 .connection-banner--reconnecting {
   color: var(--warning);
   background: var(--warning-bg);

@@ -23,6 +23,9 @@
    */
   --panel-min-width: 240px;
   --scroll-block-max-height: 24rem;
+  /* The battery-history sparkline's rendered height (ADR 33); its drawn
+   * coordinate space is fixed in the component and scales into this. */
+  --sparkline-height: 6rem;
 
   --space-1: 4px;
   --space-2: 8px;

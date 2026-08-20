@@ -1,7 +1,7 @@
 # 03 — SectionLabel
 
 Status: implementation-ready
-Implementation: `shared/ui/SectionLabel.tsx`
+Implementation: `shared/ui/sectionLabel.tsx`
 
 ## 1. Responsibility
 

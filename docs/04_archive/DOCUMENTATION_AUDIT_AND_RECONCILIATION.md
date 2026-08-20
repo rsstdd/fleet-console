@@ -1,8 +1,10 @@
 # Documentation Audit and Reconciliation
 
-**Authority:** Planning only. Principles, numbered ADRs, and current specifications govern conflicts.
-**Status:** Active
-**Updated:** 2026-08-20
+**Authority:** Historical only. This audit was consumed by current documentation and the
+Phase 8 handoff in `docs/04_archive/ROADMAP.md`.
+**Archived:** 2026-08-20
+**Superseded by:** Current ADRs, specifications, READMEs, TODO classifications,
+documentation-bearing source comments, and the ROADMAP Phase 8 handoff.
 
 ## Objective
 
@@ -27,3 +29,15 @@ Audit every repository README, TODO/FIXME, planning document, specification, dec
 - No runtime API, contract, component, endpoint, dependency, or product behavior changes.
 - Preserve user-owned worktree changes and create no commit.
 - Do not rewrite historical findings to make them appear current.
+
+## Acceptance evidence
+
+- Current package and page specifications, READMEs, TODOs, ADR consequences, and source
+  comments were reconciled against the implemented transport, recovery, history, and
+  browser paths.
+- Every unresolved item is routed through the root classification table as an active
+  blocker, actionable non-blocker, trigger-deferred item, or deliberate cut/release risk.
+- Completed lifecycle, product, test-layer, and joining plans are archived; one Phase 6
+  logging plan remains active and two implementation plans remain trigger-deferred.
+- The ROADMAP handoff records current behavior, evidence, blockers, actionable work, and
+  triggers, including the local WebKit dependency limitation.

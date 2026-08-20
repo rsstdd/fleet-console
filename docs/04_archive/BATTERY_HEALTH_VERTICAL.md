@@ -1,8 +1,20 @@
 # Deliver the battery-history vertical slice
 
-**Authority:** Planning only. The history contract is proposed, not ratified.
-**Status:** Active
-**Updated:** 2026-08-20
+**Authority:** Historical only. Executed and archived; ADR 33 (register D24) is the living
+record of everything this plan proposed.
+**Status:** Done
+**Archived:** 2026-08-20
+**Superseded by:** [ADR 33](../00_adr/33_BATTERY_HISTORY_RETAINED_COMPACT_AND_SERVED_DECIMATED.md)
+(register D24, amending ADR 6's retention arithmetic in place), the
+[robot-detail page spec revision 7](../01_page-specs/03_ROBOT_DETAIL.md), the
+implementation across `packages/contracts/src/history/`, `packages/server/src/history/`
+and `packages/web/src/features/robot/batteryHistorySection.tsx`, and the battery-history
+scenario in `packages/web/e2e/smoke.spec.ts`.
+
+> Executed as planned; implementation departed from it nowhere (ADR 33 § Notes). The one
+> finding the plan could not predict: the detail page's header freshness is fetch-time
+> state, so the browser scenario asserts freshness degradation on the streaming fleet rows
+> while a re-visit still serves the retained window (ADR 33 § Observed consequences).
 
 ## Summary
 

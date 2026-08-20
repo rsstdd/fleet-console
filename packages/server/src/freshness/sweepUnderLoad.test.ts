@@ -99,7 +99,10 @@ describe("freshness sweep under ingest load", () => {
       endpoints: { host: "127.0.0.1", port: 0, allowedOrigins: [] },
       configuration: {
         freshness: ADR3_BASELINE_FRESHNESS_POLICY,
-        manifest: { robots: manifestFor(robotId, siteId, model) },
+        manifest: {
+          sites: [{ siteId, label: "Load site" }],
+          robots: manifestFor(robotId, siteId, model),
+        },
       },
       // Discarded rather than printed: a late-tick warning per tick would bury the
       // annotation this test exists to produce.

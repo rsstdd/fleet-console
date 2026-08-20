@@ -12,7 +12,13 @@ import {
 } from "@fleet/contracts";
 import { describe, expect, it } from "vitest";
 
-import { toRegisteredRobot, toRegisteredRobotDetail, toRobot, toRobotDetail } from "./fromEnvelope";
+import {
+  reconcileDetailWithRow,
+  toRegisteredRobot,
+  toRegisteredRobotDetail,
+  toRobot,
+  toRobotDetail,
+} from "./fromEnvelope";
 
 /**
  * The console's half of the canonical contract: decoded envelope in, read model
@@ -69,6 +75,14 @@ describe("toRobot", () => {
       id: "R-118",
       vendor: "A",
       siteId: "zone-a",
+      observed: true,
+      model: "Courier 4",
+      connectivity: "online",
+      position: { frame: "site-map", x: 41.2, y: 18.7 },
+      capabilities: {
+        dock: { docked: false, dockId: "dock-a3" },
+        sequence: { value: 88_412 },
+      },
       status: "busy",
       health: { severity: "nominal" },
       freshness: "live",
@@ -121,6 +135,11 @@ describe("toRegisteredRobot", () => {
       id: "R-233",
       vendor: "B",
       siteId: "zone-a",
+      observed: false,
+      model: null,
+      connectivity: null,
+      position: null,
+      capabilities: {},
       status: "unknown",
       // Not `nominal`: nobody has heard from this robot, so its health is not
       // known to be fine (Principle 4).
@@ -308,5 +327,68 @@ describe("wire round trip", () => {
     const result = parseRobotDiagnosticEnvelope({ ...wire, rawPayload: null, surprise: 1 });
 
     expect(result.ok).toBe(false);
+  });
+});
+
+describe("reconcileDetailWithRow", () => {
+  const NO_COUNT = { unknownFieldCount: null } as const;
+
+  it("overlays live core values and freshness without touching diagnostics or payload", () => {
+    // The pair behind live robot detail: the fetched diagnostics stay as
+    // fetched, while everything a delta carries updates from the fleet row.
+    const detail = toRobotDetail(
+      { ...envelope(), sequenceHealth: { evaluated: false }, rawPayload: { raw: true } },
+      NO_COUNT,
+    );
+    const row = toRobot(
+      envelope({
+        freshness: "stale",
+        reportedAt: REPORTED_AT + 5_000,
+        core: { ...envelope().core, batteryPercent: 12, status: "charging" },
+      }),
+    );
+
+    const merged = reconcileDetailWithRow(detail, row);
+
+    expect(merged.batteryPercent).toBe(12);
+    expect(merged.status).toBe("charging");
+    expect(merged.freshness).toBe("stale");
+    expect(merged.lastSeenAt).toBe(row.lastSeenAt);
+    expect(merged.diagnostics).toBe(detail.diagnostics);
+    expect(merged.rawPayload).toBe(detail.rawPayload);
+  });
+
+  it("returns the same detail reference when the row is already reflected", () => {
+    // Identity stability: applying one row is idempotent, so a page that
+    // re-renders for an unrelated reason does not manufacture a new detail
+    // object and cascade further renders.
+    const detail = toRobotDetail(
+      { ...envelope(), sequenceHealth: { evaluated: false }, rawPayload: null },
+      NO_COUNT,
+    );
+    const row = toRobot(envelope({ freshness: "stale" }));
+
+    const merged = reconcileDetailWithRow(detail, row);
+
+    expect(merged).not.toBe(detail);
+    expect(reconcileDetailWithRow(merged, row)).toBe(merged);
+  });
+
+  it("upgrades a registered-only detail once its robot starts reporting", () => {
+    const detail = toRegisteredRobotDetail({
+      schemaVersion: SCHEMA_VERSION,
+      robotId: "R-118",
+      siteId: "zone-a",
+      vendorId: "A",
+      freshness: "unknown",
+    });
+
+    const merged = reconcileDetailWithRow(detail, toRobot(envelope()));
+
+    expect(merged.observed).toBe(true);
+    expect(merged.model).toBe("Courier 4");
+    expect(merged.freshness).toBe("live");
+    // Diagnostics still require the one fetch; a delta carries none (ADR 1).
+    expect(merged.diagnostics).toBeNull();
   });
 });

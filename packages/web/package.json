@@ -12,6 +12,9 @@
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test --project=smoke-chromium --project=smoke-firefox --project=smoke-webkit",
+    "test:e2e:scale": "playwright test --project=scale-chromium",
+    "test:e2e:tenant": "playwright test --project=tenant-b-chromium",
     "lint:js": "eslint . --ignore-pattern '**/__boundary-violation__/**'"
   },
   "dependencies": {
@@ -29,6 +32,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@fleet/adapters": "workspace:*",
+    "@playwright/test": "^1.62.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.4",

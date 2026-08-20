@@ -58,6 +58,12 @@ export function createFlushSequence(): FlushSequence {
 export interface DeltaFanOutOptions {
   readonly clock: Clock;
   readonly sequence: FlushSequence;
+  /**
+   * This runtime's identity, minted once in `runServer.ts` and stamped on every
+   * frame so a client can tell a restart from a resumed stream (ADR 31). Must be
+   * the same value `encodeFleetSnapshot` puts on the snapshot.
+   */
+  readonly serverSessionId: string;
   /** Milliseconds between flushes; ADR 2 caps the rate at 10 Hz, so this floors at 100. */
   readonly flushIntervalMs?: number;
 }
@@ -135,7 +141,15 @@ export class DeltaFanOut {
       // Encoded per client because each drains its own set; the capability record becomes
       // the wire array here, which is the form JSON preserves (**H5**, ADR 1).
       const robots = [...pending.drain().values()].map(encodeCanonicalEnvelope);
-      client.send(JSON.stringify({ schemaVersion: SCHEMA_VERSION, flushSequence, sentAt, robots }));
+      client.send(
+        JSON.stringify({
+          schemaVersion: SCHEMA_VERSION,
+          serverSessionId: this.#options.serverSessionId,
+          flushSequence,
+          sentAt,
+          robots,
+        }),
+      );
     }
   }
 

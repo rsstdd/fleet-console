@@ -33,6 +33,7 @@ const EXPECTED_RUNTIME_EXPORTS: readonly string[] = [
   "robotStatusSchema",
   "schemaVersionSchema",
   "sequenceHealthSchema",
+  "serverSessionIdSchema",
   "toContractIssues",
   "vendorIdSchema",
   "versionStringSchema",
@@ -56,15 +57,16 @@ const EXPECTED_RUNTIME_EXPORTS: readonly string[] = [
   "canonicalCoreSchema",
   "canonicalEnvelopeSchema",
   "encodeCanonicalEnvelope",
+  "fleetSiteSchema",
   "fleetSnapshotRobotSchema",
   "fleetSnapshotSchema",
-  "isDeltaCoveredBySnapshot",
   "parseAdapterEnvelope",
   "parseCanonicalEnvelope",
   "parseFleetSnapshot",
   "parseRegisteredRobotState",
   "parseRobotDiagnosticEnvelope",
   "parseTelemetryBatch",
+  "reconcileDeltaWithSnapshot",
   "registeredRobotStateSchema",
   "robotDiagnosticEnvelopeSchema",
   "telemetryBatchSchema",
@@ -82,6 +84,13 @@ const EXPECTED_RUNTIME_EXPORTS: readonly string[] = [
   "deriveFreshness",
   "freshnessPolicySchema",
   "parseFreshnessPolicy",
+  // history
+  "BATTERY_HISTORY_MAX_POINTS",
+  "BATTERY_HISTORY_SCHEMA_VERSION",
+  "BATTERY_HISTORY_WINDOW_MS",
+  "batteryHistoryPointSchema",
+  "parseRobotBatteryHistory",
+  "robotBatteryHistorySchema",
   // health
   "adapterHealthSchema",
   "healthResponseSchema",
@@ -100,7 +109,7 @@ describe("@fleet/contracts public API", () => {
     // `sideEffects: false` in package.json is a claim bundlers act on. If the
     // barrel ever gains a side effect, that claim becomes a bug that only
     // appears in a consumer's production build.
-    expect(contracts.SCHEMA_VERSION).toBe("1");
+    expect(contracts.SCHEMA_VERSION).toBe("3");
     expect(contracts.CAPABILITY_NAMES).toEqual(["dock", "lidarHealth", "waterLevel", "sequence"]);
   });
 

@@ -1,13 +1,14 @@
 # 07 — ConnectionBanner
 
 - **Status:** implementation-ready
+- **Revision 3:** ADR 31 (register D22) widened the vocabulary and named the terminal states. `connecting` joins the union — a first attempt is not a recovery, and its copy carries no last-event fragment because nothing was ever received. `terminalCause` is added so the two decided terminal disconnects render their own fixed sentences: initial probe exhausted ("Unable to connect to stream after 3 attempts") and stream integrity error ("Stream integrity error · showing last known state (may be stale)"). A contract failure keeps the plain disconnected copy. The retry control appears in every non-connected state, because ADR 31 pairs every terminal state with an immediate manual retry.
 - **Revision 2:** the live region is now always mounted; rendering `null` when connected meant the `role="status"` container appeared at the same moment as its message, which screen readers do not reliably announce. Adds `attempt`, which the wireframes and the shell both require and the prop list omitted. Retry label fixed to "Retry now". Token names corrected: `--critical` and an `info` surface do not exist. Adds the ADR 3 coupling that makes this component part of the freshness mechanism rather than adjacent chrome.
 
-Implementation: `shared/ui/ConnectionBanner.tsx`
+Implementation: `shared/ui/connectionBanner.tsx`
 
 ## 1. Responsibility
 
-`ConnectionBanner` reports stream connection integrity: connected, reconnecting, or disconnected. It is the surface that keeps the console honest when the transport is not healthy.
+`ConnectionBanner` reports stream connection integrity: connecting, connected, reconnecting, or disconnected — and, when the transport has stopped retrying, why. It is the surface that keeps the console honest when the transport is not healthy.
 
 It does not own the WebSocket client, does not implement retry policy, and does not compute freshness. It reflects state passed from the app layer and invokes `onRetry`.
 
@@ -23,14 +24,18 @@ It does not own the WebSocket client, does not implement retry policy, and does 
 ## 3. Public contract
 
 ```ts
-type ConnectionState = "connected" | "reconnecting" | "disconnected";
+type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
+
+type ConnectionTerminalCause = "handshake-exhausted" | "contract" | "session-mismatch";
 
 interface ConnectionBannerProps {
   readonly state: ConnectionState;
   /** ISO 8601, or epoch ms. Last event actually received on the stream. */
   readonly lastEventAt?: string | number;
-  /** Reconnect attempt number, surfaced so the control is visibly doing something. */
+  /** Attempt number, surfaced so the control is visibly doing something. */
   readonly attempt?: number;
+  /** Why retrying stopped; selects the disconnected sentence (ADR 31). */
+  readonly terminalCause?: ConnectionTerminalCause | null;
   /**
    * Must force an immediate reconnect attempt and increment `attempt`.
    * A retry control that does nothing observable is the class of lie this
@@ -77,18 +82,25 @@ Consequently the banner occupies no layout space when connected: the hidden stat
 
 Fixed message patterns:
 
+- **connecting:** `Connecting to stream` · attempt number when `attempt` is supplied. Never a last-event fragment: nothing has ever been received, so there is no event whose time would be true.
 - **reconnecting:** `Reconnecting to stream` · attempt number when `attempt` is supplied · last event time when `lastEventAt` is supplied
-- **disconnected:** `Stream disconnected · showing last known state (may be stale)`
+- **disconnected**, by `terminalCause`:
+  - `handshake-exhausted`: `Unable to connect to stream after 3 attempts` — the number is `INITIAL_PROBE_ATTEMPT_LIMIT` in `shared/lib/streamLifecycle.ts`, and changing either updates both (ADR 31).
+  - `session-mismatch`: `Stream integrity error · showing last known state (may be stale)`
+  - `contract`, absent, or null: `Stream disconnected · showing last known state (may be stale)`
 
-Do not claim data is live while disconnected. Do not invent vendor-specific or reassuring wording.
+No attempt or last-event fragment in any disconnected sentence. Do not claim data is live while disconnected. Do not invent vendor-specific or reassuring wording.
 
 ## 6. Design-system mapping
 
 | State        | Treatment                                     |
 | ------------ | --------------------------------------------- |
+| connecting   | `--warning` tint background, `--warning` text |
 | reconnecting | `--warning` tint background, `--warning` text |
 | disconnected | `--error` tint background, `--error` text     |
 | connected    | rendered, empty, visually hidden, zero height |
+
+`connecting` shares the warning treatment deliberately: it is not an outage, and it is not yet a stream.
 
 `--warning` and `--error` are aliases of `--status-degraded` and `--status-fault`, so the feedback and status palettes cannot drift (Principle 8). There is no `--critical` token and no `info` surface; both were removed from the design profile.
 
@@ -127,6 +139,7 @@ Retry button: secondary or danger outline per the design system. Focus visible u
 | Hidden when connected | No visible content and no reserved layout space                                                                      |
 | Attempt surfaced      | `onRetry` increments the visible attempt count                                                                       |
 | Stale honesty         | Disconnected copy states that shown data is last known                                                               |
+| Terminal causes       | Each `terminalCause` renders its own fixed sentence; retry control present in all of them (ADR 31)                   |
 | No focus theft        | Focus position unchanged across a connected → disconnected transition                                                |
 | Tokens                | No raw hex; `--warning` / `--error` only (Principle 8)                                                               |
 

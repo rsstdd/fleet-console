@@ -1,8 +1,11 @@
+import { randomUUID } from "node:crypto";
+
 import type { ServerConfiguration } from "./config/serverConfiguration.ts";
 import type { RuntimeEndpoints } from "./config/runtimeEndpoints.ts";
 import { createFlushSequence, DeltaFanOut } from "./fanout/deltaFanOut.ts";
 import { FreshnessSweep } from "./freshness/freshnessSweep.ts";
 import { HealthMetrics } from "./health/healthMetrics.ts";
+import { selectBatteryHistory } from "./history/selectBatteryHistory.ts";
 import { ingestTelemetry } from "./ingest/ingestTelemetry.ts";
 import { createAdapterRegistry } from "@fleet/adapters";
 
@@ -38,6 +41,11 @@ export interface StartServerOptions {
 export interface RunningServer {
   /** The bound port, which is what a caller that asked for `0` needs back. */
   readonly port: number;
+  /**
+   * This runtime's identity, minted at start and carried on every snapshot and
+   * frame so a client can detect a restart (ADR 31). Two starts are two values.
+   */
+  readonly serverSessionId: string;
   /** Seeded fleet state, exposed so a test can observe what the routes serve. */
   readonly store: CurrentStateStore;
   /** The running sweep, exposed so a test can drive a tick without waiting on an interval. */
@@ -60,10 +68,9 @@ export interface RunningServer {
  * how that claim survives contact with a deployment.
  *
  * `routes` counts what is mounted: `POST /api/telemetry/:vendor`, `GET /api/fleet`,
- * `GET /api/robots/:id` and `GET /api/health`. Only the history read for the sparkline is
- * outstanding (`TODO.md` **G4**), and its shape is undecided. A server
- * answering 404 for a reason is different from one answering 404 because it is broken,
- * and only the log can tell an operator which they have.
+ * `GET /api/robots/:id`, `GET /api/robots/:id/history` and `GET /api/health` (**G4**
+ * closed by ADR 33). A server answering 404 for a reason is different from one answering
+ * 404 because it is broken, and only the log can tell an operator which they have.
  *
  * The sweep and fan-out start here; returning the composed pieces keeps their lifecycle and
  * counters independently testable while the mounted routes and sockets consume them live.
@@ -77,7 +84,11 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
   // One counter, read by both the snapshot and every frame (**H3a**, ADR 18). A second
   // source makes the client's reconciliation meaningless while both still look plausible.
   const sequence = createFlushSequence();
-  const deltas = new DeltaFanOut({ clock, sequence });
+  // One identity per runtime, shared by the snapshot and fan-out paths (ADR 31). The
+  // counter above restarts at zero with the process; this value is what tells a client
+  // holding an old snapshot that the zero it now sees is a new epoch, not old history.
+  const serverSessionId = randomUUID();
+  const deltas = new DeltaFanOut({ clock, sequence, serverSessionId });
   const health = new HealthMetrics();
 
   // One registry, built once. It owns the process-wide unknown-field ledger, so a second
@@ -88,6 +99,9 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
     store,
     deltas,
     health,
+    // Ingest owns the safe event fields; composition supplies the same process sink used
+    // by lifecycle and sweep events so deployments receive one structured stream.
+    logger,
     clock,
     policy: configuration.freshness,
   };
@@ -123,11 +137,15 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
       allowedOrigins: endpoints.allowedOrigins,
       readFleet: () =>
         encodeFleetSnapshot({
+          // The directory the console labels sites from; validated at startup
+          // against the same referential rules the contract enforces (ADR 34).
+          sites: configuration.manifest.sites,
           robots: store.list(),
           capturedAt: clock.now(),
-          // Zero until fan-out owns the counter (**H3a**); a cold snapshot discards nothing.
-          // The flush this snapshot reflects. A client discards buffered deltas at or
-          // below it, so reading the live counter is what makes that comparison true.
+          serverSessionId,
+          // The flush this snapshot reflects. A client discards buffered same-session
+          // deltas at or below it, so reading the live counter is what makes that
+          // comparison true.
           flushSequence: sequence.current(),
         }),
       readRobot: (robotId) => {
@@ -139,6 +157,18 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
           // around it would hand a caller a reference into retained evidence (ADR 26).
           rawPayload: store.diagnostic(robotId)?.rawPayload ?? null,
           sequenceHealth: store.sequenceHealth(robotId),
+        });
+      },
+      readHistory: (robotId) => {
+        // Same registered-versus-unheard distinction as `readRobot`: an unregistered id
+        // is a 404, a registered robot with nothing retained is the empty response.
+        if (store.get(robotId) === undefined) return null;
+        return selectBatteryHistory({
+          robotId,
+          samples: store.batteryHistory(robotId),
+          // The injected clock, read at request time: the window is defined by when it
+          // was asked for, never by when a robot last reported (ADR 33).
+          capturedAt: clock.now(),
         });
       },
       readHealth: () =>
@@ -165,12 +195,15 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
   logger.log("info", "server.listening", {
     host: endpoints.host,
     port: listener.port,
+    // In the startup record so an operator can match a console's integrity error to a
+    // deployment event: the value changes exactly when the process does (ADR 31).
+    serverSessionId,
     // A count, not the list: an origin is deployment configuration and belongs in the
     // startup record, but repeating it on every line is how it ends up in a demo capture.
     allowedOrigins: endpoints.allowedOrigins.length,
     robots: configuration.manifest.robots.length,
     freshness: configuration.freshness,
-    routes: 4,
+    routes: 5,
   });
 
   // Started after the listener, so a sweep never runs against a server that failed to
@@ -180,6 +213,7 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
 
   return {
     port: listener.port,
+    serverSessionId,
     store,
     sweep,
     deltas,

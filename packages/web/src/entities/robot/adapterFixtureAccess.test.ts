@@ -5,7 +5,7 @@
  * This is a smoke test, not the joining test. The end-to-end path — recorded
  * vendor payload → adapter → canonical envelope → JSON → read model — still
  * waits on a vendor adapter and the dispatch registry
- * (`packages/adapters/TODO_E2E_JOIN.md` A-6). What it proves is the property
+ * (archived adapters joining-plan A-6). What it proves is the property
  * that path depends on and that nothing else in this package checks: the exact
  * recorded bytes are reachable from the console's test run through one public
  * specifier, with no deep import and no second copy.

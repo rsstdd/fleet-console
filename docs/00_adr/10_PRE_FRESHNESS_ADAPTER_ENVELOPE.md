@@ -14,7 +14,7 @@ The wrong answers are both available and both cheap. An adapter can stamp a plac
 
 ## Assumptions
 
-- The server's ingest handler receives one whole pre-freshness value from the adapter rather than assembling an envelope from separately validated identity, core and capability parts. This is the assumption most likely to be wrong, and contracts `TODO_E2E_JOIN.md` **C-1** recorded it as the falsifier before any code existed: if ingest turns out to assemble from parts, this type is ceremony and the loose-parts shape is right.
+- The server's ingest handler receives one whole pre-freshness value from the adapter rather than assembling an envelope from separately validated identity, core and capability parts. This is the assumption most likely to be wrong, and the archived contracts joining plan **C-1** recorded it as the falsifier before any code existed: if ingest turns out to assemble from parts, this type is ceremony and the loose-parts shape is right.
 - `freshness` stays the only server-owned field on the envelope. A second one would force either another pre-shaped schema or a different pattern entirely.
 - Adapters are the only producer of this type. Nothing else in the system has a reason to construct an envelope that is deliberately incomplete.
 - Three vendors is enough to fix the return type. A fourth vendor adds a module, not a shape (ADR 1).
@@ -23,7 +23,7 @@ The wrong answers are both available and both cheap. An adapter can stamp a plac
 
 - Freshness authority is not reopened. ADR 3 gives derivation to the server sweep exclusively; any position that lets an adapter write the field, even as a placeholder later overwritten, contradicts it and would require superseding ADR 3 first.
 - The value crossing the adapter boundary must have a schema. `packages/contracts` exists so that no value crosses a package boundary on trust alone (Principle 2); an intermediate that only the type system knows about would be the one exception, at exactly the boundary that handles untrusted input.
-- One authoritative implementation per rule (Principle 1). There must remain exactly one function that writes freshness, which is what contracts `TODO_E2E_JOIN.md` **C-2** turns on.
+- One authoritative implementation per rule (Principle 1). There must remain exactly one function that writes freshness, which is what the archived contracts joining plan **C-2** turns on.
 - The canonical and pre-freshness shapes may not be maintained as two hand-written field lists. Two lists that must agree are the drift this repository has already been bitten by in prose; here it would be silent.
 - `withFreshness` must keep returning the identical reference when a canonical envelope's state is unchanged. The fan-out coalescer skips unchanged robots by identity (ADR 2), so widening the input may not cost that property.
 
@@ -92,7 +92,7 @@ The accepted cost is stated plainly: a second schema and a conversion function t
   without a second runtime parse, as decided above, so the ADR is fully implemented.
 
 - 19 August 2026: implemented in `packages/contracts` and green across the workspace — `adapterEnvelopeSchema`, `AdapterEnvelope` and `parseAdapterEnvelope` exported; `withFreshness` widened; 103 contracts tests passing, and `packages/adapters`, `packages/server`, `packages/simulator` and `packages/web` all typecheck and test unchanged against the widened signature. The widening was source-compatible: no existing caller changed.
-- 19 August 2026: measured against contracts `TODO_E2E_JOIN.md` **C-5**, the console's bundle moved from 567.32 kB raw / 175.01 kB gzip to **567.36 kB / 175.03 kB** — 40 bytes raw, 20 gzip. The new schema is a spread of shapes already in the bundle, and `packages/web` never references it, so the residue is barrel plumbing rather than the schema itself. Recorded because C-5 asked for the number to be re-measured rather than assumed, not because the delta is interesting.
+- 19 August 2026: measured against the archived contracts joining plan **C-5**, the console's bundle moved from 567.32 kB raw / 175.01 kB gzip to **567.36 kB / 175.03 kB** — 40 bytes raw, 20 gzip. The new schema is a spread of shapes already in the bundle, and `packages/web` never references it, so the residue is barrel plumbing rather than the schema itself. Recorded because C-5 asked for the number to be re-measured rather than assumed, not because the delta is interesting.
 - 19 August 2026: the strictness of the schema turned out to carry more weight than expected. An adapter that supplies `freshness` is rejected with `unrecognized_keys` naming that field, so the rule fails loudly at runtime as well as at compile time. The test asserting this read the raw Zod issue rather than the flattened contract issue, because `ContractIssue` dropped the key list — a small gap in the contract error shape, noted here rather than fixed, since **D16** was deciding that shape. **Closed 19 August 2026 by [ADR 20](./20_ONE_ISSUE_VOCABULARY_END_TO_END.md):** `toContractIssues` now expands an `unrecognized_keys` issue into one issue per key with the key in the `path`, and this test asserts on the contract issue.
 
 ## Related

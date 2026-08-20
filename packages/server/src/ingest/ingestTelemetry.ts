@@ -5,6 +5,7 @@ import { type CanonicalEnvelope, deriveFreshness, withFreshness } from "@fleet/c
 import type { FreshnessPolicy } from "../config/freshnessPolicy.ts";
 import type { DeltaSink } from "../fanout/pendingDeltas.ts";
 import type { HealthMetrics } from "../health/healthMetrics.ts";
+import type { Logger } from "../observability/logger.ts";
 import type { Clock } from "../runtime/clock.ts";
 import type { CurrentStateStore, UpsertResult } from "../state/currentStateStore.ts";
 import {
@@ -28,6 +29,7 @@ export interface IngestDependencies {
   readonly store: CurrentStateStore;
   readonly deltas: DeltaSink<CanonicalEnvelope>;
   readonly health: HealthMetrics;
+  readonly logger: Logger;
   readonly clock: Clock;
   readonly policy: FreshnessPolicy;
 }
@@ -72,7 +74,7 @@ export function ingestTelemetry(
   vendor: SupportedVendor,
   raw: unknown,
 ): IngestOutcome {
-  const { registry, store, deltas, health, clock, policy } = dependencies;
+  const { registry, store, deltas, health, logger, clock, policy } = dependencies;
 
   const receivedAt = clock.now();
   const decoded = registry.decodeTelemetry(vendor, raw, receivedAt);
@@ -109,6 +111,18 @@ export function ingestTelemetry(
   // stored state alone, and marking it would flush a frame that says nothing.
   if (result.kind === "accepted") {
     deltas.mark(envelope.robotId, result.state);
+  } else if (result.kind === "out-of-order") {
+    // The store returns both values because it alone owns accepted ordering; this layer
+    // adds canonical identity and the server receipt time, then emits no payload or
+    // vendor-supplied prose. Regressions remain distinct from every health counter.
+    logger.log("warn", "telemetry.sequence_regression", {
+      robotId: envelope.robotId,
+      vendorId: envelope.vendorId,
+      adapterId: envelope.adapterId,
+      acceptedSequence: result.acceptedSequence,
+      receivedSequence: result.receivedSequence,
+      receivedAt,
+    });
   }
 
   return { ok: true, disposition: result.kind, robotId: envelope.robotId };

@@ -4,8 +4,8 @@
 - **Package:** `packages/contracts`
 - **Governing documents:** ADR 1 (canonical core plus declared capabilities), ADR 3
   (freshness ownership), ADR 9 (source exports), ADR 19 (operator/diagnostic
-  capability classification), ADR 20 (one issue vocabulary and the HTTP error body);
-  Principles 1, 2, 3, 4, 11
+  capability classification), ADR 20 (one issue vocabulary and the HTTP error body),
+  ADR 33 (the battery-history response); Principles 1, 2, 3, 4, 11
 
 ## 1. Responsibility
 
@@ -36,13 +36,16 @@ its raw dialects stay independent of the canonical model.
 Everything is re-exported from `src/index.ts`; the `exports` map exposes only that entry
 point, which is what keeps the internal file layout free to change.
 
-**Primitives** — `SCHEMA_VERSION`, `MAX_EPOCH_MS`, `MAX_POSITION_METRES`,
+**Primitives** — `SCHEMA_VERSION` (now `"2"`; version 2 added the server session field,
+ADR 31), `MAX_EPOCH_MS`, `MAX_POSITION_METRES`,
 `identifierSchema`, `displayNameSchema`, `vendorIdSchema`, `versionStringSchema`,
-`schemaVersionSchema`, `epochMillisecondsSchema`, `batteryPercentSchema`,
+`schemaVersionSchema`, `serverSessionIdSchema`, `flushSequenceSchema`,
+`sequenceHealthSchema`, `epochMillisecondsSchema`, `batteryPercentSchema`,
 `positionSchema`, `robotStatusSchema`, `healthSchema`, `healthSeveritySchema`,
 `connectivitySchema`, `freshnessStateSchema`, `parseWith`, `toContractIssues`.
 Types: `Identifier`, `EpochMilliseconds`, `Position`, `RobotStatus`, `Health`,
-`HealthSeverity`, `Connectivity`, `FreshnessState`, `ContractIssue`, `ParseResult`.
+`HealthSeverity`, `Connectivity`, `FreshnessState`, `ServerSessionId`, `FlushSequence`,
+`SequenceHealth`, `ContractIssue`, `ParseResult`.
 
 **Capabilities** — `CAPABILITY_NAMES`, `CAPABILITY_KINDS`,
 `OPERATOR_CAPABILITY_NAMES`, `DIAGNOSTIC_CAPABILITY_NAMES`,
@@ -59,15 +62,32 @@ Types: `AdapterErrorKind`, `ErrorKind`, `ErrorEnvelope`. This is the HTTP error 
 defined in terms of `ContractIssue` rather than as a second failure shape, and the closed
 kind vocabulary the adapter and the wire share (ADR 20).
 
-**Envelope** — `canonicalCoreSchema`, `canonicalEnvelopeSchema`,
+**Envelope** — `canonicalCoreSchema`, `canonicalEnvelopeSchema`, `adapterEnvelopeSchema`,
 `registeredRobotStateSchema`, `robotDiagnosticEnvelopeSchema`, `telemetryBatchSchema`,
-`parseCanonicalEnvelope`, `parseRegisteredRobotState`, `parseRobotDiagnosticEnvelope`,
-`parseTelemetryBatch`, `encodeCanonicalEnvelope`, `withFreshness`. Types:
+`fleetSnapshotSchema`, `fleetSnapshotRobotSchema`, `parseCanonicalEnvelope`,
+`parseAdapterEnvelope`, `parseRegisteredRobotState`, `parseRobotDiagnosticEnvelope`,
+`parseTelemetryBatch`, `parseFleetSnapshot`, `reconcileDeltaWithSnapshot`,
+`encodeCanonicalEnvelope`, `withFreshness`. Types:
 `AdapterEnvelope`, `CanonicalCore`, `CanonicalEnvelope`, `CanonicalEnvelopeWire`, `RegisteredRobotState`,
-`RobotDiagnosticEnvelope`, `TelemetryBatch`.
+`RobotDiagnosticEnvelope`, `TelemetryBatch`, `FleetSnapshot`, `FleetSnapshotRobot`,
+`DeltaReconciliation`, `ReconciliationEpoch`.
+
+The snapshot and batch both carry a required `serverSessionId` (UUID, one per server
+runtime) scoping their shared `flushSequence`, and `reconcileDeltaWithSnapshot` is the one
+reconciliation rule both sides of the wire use: session first, then at-or-below coverage
+(ADR 18, ADR 31).
 
 **Freshness** — `deriveFreshness`, `DEFAULT_FRESHNESS_POLICY`, `freshnessPolicySchema`,
 `parseFreshnessPolicy`. Types: `FreshnessPolicy`, `DeriveFreshnessInput`.
+
+**History** — `BATTERY_HISTORY_WINDOW_MS`, `BATTERY_HISTORY_MAX_POINTS`,
+`BATTERY_HISTORY_SCHEMA_VERSION`, `batteryHistoryPointSchema`,
+`robotBatteryHistorySchema`, `parseRobotBatteryHistory`. Types: `BatteryHistoryPoint`,
+`RobotBatteryHistory`. The battery-history response (ADR 33): a strict fixed-window shape
+with its own `schemaVersion: "1"`, literal window and point-budget fields, and cross-field
+checks that enforce the decimator's count and window invariants at decode time. The server
+derives retention capacity from the window constant and the console draws axes from both
+constants, which is why they are exported rather than restated.
 
 ## 4. Internal structure
 
@@ -77,6 +97,7 @@ src/
   capabilities/capabilitySchemas.ts  name-to-payload map, wire array transform
   envelope/envelopeSchema.ts  canonical envelope, its variants, encode/withFreshness
   freshness/deriveFreshness.ts  the pure state function and its policy
+  history/batteryHistorySchema.ts  the fixed-window battery-history response (ADR 33)
   index.ts                    the entire public surface
 ```
 
@@ -233,22 +254,23 @@ Rejected: whitespace-padded identifiers (trimming silently merges `"R-204 "` int
 
 ## 10. Verification matrix
 
-| Concern              | Check                                                                              |
-| -------------------- | ---------------------------------------------------------------------------------- |
-| Envelope round trip  | `parse` → `encode` is identity, capabilities in canonical order                    |
-| Capability binding   | Cross-product: every name against every other name's payload fails                 |
-| Capability kinds     | Derived sets partition all names, preserve order, and pin `sequence` as diagnostic |
-| Strictness           | An added key is a decode failure, not a silent pass                                |
-| Freshness boundaries | Exact threshold values, with an injected clock, at both edges                      |
-| Freshness invariant  | `withFreshness` alters one field and nothing else                                  |
-| Excluded fields      | An envelope carrying `sequence` or `rawPayload` is rejected                        |
-| Public surface       | `index.test.ts` asserts the export list                                            |
+| Concern              | Check                                                                                                               |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Envelope round trip  | `parse` → `encode` is identity, capabilities in canonical order                                                     |
+| Capability binding   | Cross-product: every name against every other name's payload fails                                                  |
+| Capability kinds     | Derived sets partition all names, preserve order, and pin `sequence` as diagnostic                                  |
+| Strictness           | An added key is a decode failure, not a silent pass                                                                 |
+| Freshness boundaries | Exact threshold values, with an injected clock, at both edges                                                       |
+| Freshness invariant  | `withFreshness` alters one field and nothing else                                                                   |
+| Excluded fields      | An envelope carrying `sequence` or `rawPayload` is rejected                                                         |
+| History invariants   | Window bounds, chronological order, count reconciliation, and the 60-point budget are decode failures when violated |
+| Public surface       | `index.test.ts` asserts the export list                                                                             |
 
-103 tests.
+174 tests.
 
 ## 11. Implementation status
 
-**Complete.** All four modules are implemented and tested; lint, typecheck and build pass.
+**Complete.** All five modules are implemented and tested; lint, typecheck and build pass.
 
 **Decision consequence.** Contracts exposes a strict pre-freshness `AdapterEnvelope`,
 derives it and `CanonicalEnvelope` from one field list, and permits only `withFreshness`
@@ -272,4 +294,6 @@ entity selector.
 - A change to a capability payload type is a change in `packages/adapters` (producer) and
   `packages/web/src/entities/robot/model.ts` (read-model mirror) in the same commit.
 - Changing `SCHEMA_VERSION` requires a migration story for the server's stored state and
-  the web store, and its own ADR.
+  the web store, and its own ADR. The advance to `"2"` was made by ADR 31, with every
+  in-repository producer, fixture, and consumer updated in the same change and no
+  compatibility fallback.

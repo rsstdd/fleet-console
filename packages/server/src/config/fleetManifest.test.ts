@@ -18,30 +18,59 @@ const COMMITTED_MANIFEST = fileURLToPath(
   new URL("../../../../config/fleet-manifest.json", import.meta.url),
 );
 
+const SITE = { siteId: "site-a", label: "Site A" };
+
 const ROBOT = { robotId: "R-001", siteId: "site-a", vendorId: "A", model: "Carrier 1" };
 
 describe("parseFleetManifest", () => {
-  it("strictly parses a fleet roster", () => {
-    expect(parseFleetManifest({ robots: [ROBOT] })).toEqual({ robots: [ROBOT] });
+  it("strictly parses the site directory and fleet roster", () => {
+    expect(parseFleetManifest({ sites: [SITE], robots: [ROBOT] })).toEqual({
+      sites: [SITE],
+      robots: [ROBOT],
+    });
   });
 
   it("rejects duplicates, missing fields, extra fields, and unsupported vendors", () => {
     for (const input of [
-      { robots: [ROBOT, ROBOT] },
-      { robots: [{ robotId: "R-001" }] },
-      { robots: [{ ...ROBOT, region: "north" }] },
-      { robots: [{ ...ROBOT, vendorId: "D" }] },
+      { sites: [SITE], robots: [ROBOT, ROBOT] },
+      { sites: [SITE], robots: [{ robotId: "R-001" }] },
+      { sites: [SITE], robots: [{ ...ROBOT, region: "north" }] },
+      { sites: [SITE], robots: [{ ...ROBOT, vendorId: "D" }] },
     ]) {
       expect(() => parseFleetManifest(input)).toThrow(ConfigValidationError);
     }
   });
 
-  it("accepts the roster this repository ships", () => {
+  it("rejects a manifest without a site directory", () => {
+    // ADR 34: the roster's site ids get their labels here, so a manifest with
+    // robots and no sites cannot produce a valid snapshot.
+    expect(() => parseFleetManifest({ robots: [ROBOT] })).toThrow(ConfigValidationError);
+  });
+
+  it("rejects duplicate site ids", () => {
+    expect(() => parseFleetManifest({ sites: [SITE, SITE], robots: [ROBOT] })).toThrow(
+      ConfigValidationError,
+    );
+  });
+
+  it("rejects a robot referencing a site the directory does not define", () => {
+    expect(() =>
+      parseFleetManifest({ sites: [SITE], robots: [{ ...ROBOT, siteId: "site-b" }] }),
+    ).toThrow(ConfigValidationError);
+  });
+
+  it("accepts the configuration this repository ships", () => {
     const committed: unknown = JSON.parse(readFileSync(COMMITTED_MANIFEST, "utf8"));
 
     const manifest = parseFleetManifest(committed);
 
     expect(manifest.robots).toHaveLength(50);
+    // The shipped directory, in the simulator's emission order (ADR 14, ADR 34).
+    expect(manifest.sites).toEqual([
+      { siteId: "SITE-NORTH", label: "North site" },
+      { siteId: "SITE-SOUTH", label: "South site" },
+      { siteId: "SITE-EAST", label: "East site" },
+    ]);
     // Not a smoke test: the schema is strict, so this fails if the shipped file
     // ever gains a wrapper key, loses `vendorId`, or names a vendor no adapter
     // supports — the three ways the simulator's output used to be invalid here.

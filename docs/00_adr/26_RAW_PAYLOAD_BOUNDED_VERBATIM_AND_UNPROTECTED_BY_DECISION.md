@@ -2,7 +2,7 @@
 
 **Decision:** The server caps the ingest request body at 64 KiB before parsing it, retains the latest accepted payload per robot exactly as received with no redaction, deep-copies it in both directions so retained evidence cannot be mutated, and states plainly in the ADR and in the console that the diagnostic endpoint has no access rule.
 **Group:** Data / security posture (what is retained, how much, and who can read it).
-**Status:** Decided · 2026-08-19 · Partial
+**Status:** Decided · 2026-08-19 · Implemented 2026-08-20
 
 ## Issue
 
@@ -60,7 +60,7 @@ The two-guard structure is the other non-obvious part. It is tempting to check `
 
 ## Implications
 
-- **The ingest handler must call both guards before `JSON.parse`.** They are pure functions today because there is no handler; wiring them in the wrong order — after decode — would leave the cap protecting only the store, which was never the expensive part. Recorded as server TODO **D8**.
+- **The ingest handler calls both guards before `JSON.parse`.** Wiring them in the wrong order — after decode — would leave the cap protecting only the store, which was never the expensive part. The live HTTP tests pin declared and streamed-body limits.
 - **`structuredClone` runs once per accepted upsert**, in the ingest path, bounded by the cap. If that ever shows up in ADR 2's harness, the alternative is documenting decoded input as immutable and dropping the inbound copy — but not the outbound one.
 - **`payload_too_large` demonstrated ADR 20's claim exactly.** Adding it to `ERROR_KINDS` broke `errorResponse.ts`'s two exhaustive tables at compile time, and the server could not build until it decided a status and a summary. That is the mechanism working as designed, on the first kind added after the ADR predicted it.
 - **`ErrorStatus` widened to include 413.** Any consumer switching on status sees a new value; none exists yet, which is why this was cheap now.
@@ -87,7 +87,7 @@ The two-guard structure is the other non-obvious part. It is tempting to check `
 - **ADR 6** (bounded in-memory history, no database) — explicitly deferred raw-payload retention to this decision, and supplies the memory budget the 31.25 MiB figure is checked against.
 - **ADR 20** (one issue vocabulary end to end) — predicted this ADR's error kind by name in its Implications, and its exhaustive tables are what forced the status and summary to be decided rather than defaulted.
 - **ADR 2** (HTTP ingest, WebSocket fan-out) — owns the batching mitigation that would break the request-equals-retention identity noted in Open questions.
-- **ADR 8** (server transport) — owns the ingest handler that must call these guards in the right order; it does not exist, which is why this ADR is Partial.
+- **ADR 8** (server transport) — owns the implemented ingest handler that calls these guards in the required order.
 - **Register D18** — resolved by this ADR; it was the last open stub.
 - **Principle 7** (the UI never authorizes) — the reason the technician toggle is named as presentation rather than allowed to read as a permission.
 - **Principle 12** (performance is product behaviour, budgets are measured) — the reason the cap is derived from real fixture sizes and its consequence asserted as arithmetic.

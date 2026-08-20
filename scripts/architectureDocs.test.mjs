@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
   checkArchitectureDocs,
   loadAdrs,
+  loadPlans,
   parseAdrMetadata,
   parsePlanMetadata,
   validateDecisionRouting,
@@ -36,6 +40,24 @@ test("trigger-deferred plans require an explicit activation condition", () => {
       ),
     /Trigger-deferred.*Trigger/,
   );
+});
+
+test("the plan template is not treated as an executable plan", async (context) => {
+  const root = await mkdtemp(path.join(tmpdir(), "fleet-plan-template-"));
+  context.after(async () => rm(root, { recursive: true, force: true }));
+  const plans = path.join(root, "docs", "05_plans");
+  await mkdir(plans, { recursive: true });
+  await Promise.all([
+    writeFile(path.join(plans, "00_TEMPLATE.md"), "# Plan title\n\n**Updated:** YYYY-MM-DD\n"),
+    writeFile(
+      path.join(plans, "WORK.md"),
+      "# Work\n\n**Authority:** Planning only.\n**Status:** Active\n**Updated:** 2026-08-20\n",
+    ),
+  ]);
+
+  assert.deepEqual(await loadPlans(root), [
+    { status: "Active", updated: "2026-08-20", trigger: null, file: "WORK.md" },
+  ]);
 });
 
 test("decision routing separates open next steps from resolved ADR mappings", () => {

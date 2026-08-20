@@ -2,7 +2,7 @@
  * The shape every vendor adapter presents to the dispatch registry.
  *
  * Two arguments and nothing else, which is the signature
- * `docs/03_package-specs/02_ADAPTERS.md` § 1 states and `TODO_E2E_JOIN.md` A-1
+ * `docs/03_package-specs/02_ADAPTERS.md` § 1 states and archived joining-plan A-1
  * settled: the payload is untrusted, and receipt time is injected because ADR 3
  * gives the only clock this package may trust to the server boundary.
  *
