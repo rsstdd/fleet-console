@@ -272,14 +272,33 @@ not themselves an ADR 3 violation; adding a client freshness timer would be.
 The web uses MUI and CSS custom-property tokens and has no competing CSS framework.
 Remaining alignment work is concrete:
 
-- `FreshnessLabel` duplicates class styling with inline style objects and stale CSS —
-  **open**;
+- ~~`FreshnessLabel` duplicates class styling with inline style objects and stale CSS~~ —
+  **closed 20 August 2026, with one residual named below.** The inline style objects are
+  gone and the component renders classes only; `global.css` now styles the class names it
+  actually renders. The stylesheet's old rules were worse than duplicated — they were
+  **dead and contradictory**, targeting `.state` and `.age` (never rendered) and colouring
+  freshness from the status palette, three lines under a comment saying freshness "does not
+  share the status palette. It is carried by emphasis". The inline styles followed the
+  comment; the CSS did not, and nothing failed because nothing matched.
+
+  _Residual:_ one test got weaker. `freshnessLabel.test.tsx` asserted
+  `text-decoration: underline dotted` on a stale timestamp, which it could only do because
+  the component set it inline. jsdom loads no external stylesheet, so with the rule in CSS
+  the test now asserts the modifier class instead, and **nothing checks that the stylesheet
+  still carries the rule**. That is a real trade — duplicated-and-overriding styling for one
+  unasserted CSS rule — and it is named here rather than glossed;
+
 - ~~JavaScript `TENANT_PALETTE` duplicates values in `tokens.css`~~ — **closed 20 August 2026.** The duplication is unavoidable without a build step (CSS custom properties are
   the design source; MUI needs JavaScript values), so it is pinned instead:
   `scripts/checkTokens.mjs` fails CI if any of the nine colours disagrees between the two
   files, and fails if a new palette key is added that the check does not cover;
-- the stylelint selector rule rejects spec-required BEM element names, requiring local
-  suppressions — **open**;
+- ~~the stylelint selector rule rejects spec-required BEM element names, requiring local
+  suppressions~~ — **closed 20 August 2026.** `selector-class-pattern` admitted
+  `block` and `block--modifier` but not `block__element`, while
+  `docs/02_component-specs/02_FRESHNESS_LABEL.md` writes the markup the stylesheet has to
+  match and uses `__` throughout. Widened once, centrally, with the reason in the rule's own
+  message — the alternative was a suppression on every rule that styles an element, which is
+  the workaround this bullet objected to;
 - ~~contrast/forced-colors evidence is not recorded~~ — **contrast closed 20 August 2026;
   forced-colors open.** The same script computes every WCAG ratio and gates on them: 4.5:1
   for text tokens on both backgrounds, 3:1 for status colours as non-text UI (1.4.11). It

@@ -66,16 +66,25 @@ describe("FreshnessLabel", () => {
     expect(label().querySelector(".freshness__received")).toBeNull();
   });
 
-  it("applies the dotted underline only to a stale age", () => {
+  it("marks a stale label with the modifier the stylesheet keys off", () => {
+    // This used to assert `text-decoration: underline dotted` directly. It could, because
+    // the component set it inline — duplicating the stylesheet and overriding it. With the
+    // rule where it belongs (`.freshness--stale .freshness__asOf` in `global.css`), jsdom
+    // cannot evaluate it: it loads no external stylesheet, so asserting the declaration
+    // here would have been asserting the test's own fixture.
+    //
+    // What is left to assert is the component's actual contract — the modifier class — and
+    // that is genuinely less coverage than before: nothing now checks that the stylesheet
+    // still carries the rule this class keys off. That residual is recorded in
+    // `packages/FIXME.md` **F8** rather than papered over, because the honest trade was
+    // duplicated-and-overriding styling for one unasserted CSS rule.
     const { rerender } = render(<FreshnessLabel state="stale" asOf="2026-08-19T10:20:30.000Z" />);
-    expect(label().querySelector(".freshness__asOf")).toHaveStyle({
-      textDecoration: "underline dotted",
-    });
+    expect(label()).toHaveClass("freshness--stale");
+    expect(label().querySelector(".freshness__asOf")).not.toBeNull();
 
     rerender(<FreshnessLabel state="live" asOf="2026-08-19T10:20:30.000Z" />);
-    expect(label().querySelector(".freshness__asOf")).not.toHaveStyle({
-      textDecoration: "underline dotted",
-    });
+    expect(label()).toHaveClass("freshness--live");
+    expect(label()).not.toHaveClass("freshness--stale");
   });
 
   it("throws for an invalid timestamp in development", () => {
