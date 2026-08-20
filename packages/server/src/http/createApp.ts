@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 
 import { errorResponse } from "../ingest/errorResponse.ts";
+import type { FleetSnapshotWire } from "./fleetResponse.ts";
 import { evaluateOriginPolicy } from "./originPolicy.ts";
 
 /**
@@ -29,6 +30,15 @@ export interface HttpAppOptions {
    * policies in one run.
    */
   readonly allowedOrigins: readonly string[];
+  /**
+   * Produces the current fleet snapshot.
+   *
+   * A function rather than the store, so the router never learns what state looks like
+   * and cannot grow a state transition inside a handler (Principle 1, package spec § 12).
+   * It is synchronous because reading in-memory state is (ADR 6): making it a promise
+   * would invite a handler that awaits something the store cannot actually do.
+   */
+  readonly readFleet: () => FleetSnapshotWire;
 }
 
 /** Status for a preflight that is answered rather than routed. */
@@ -72,6 +82,12 @@ export function createHttpApp(options: HttpAppOptions): Hono {
     }
     return undefined;
   });
+
+  // ADR 2 gives a joining console its initial picture over HTTP rather than as the
+  // socket's first frame, so this is the whole cold start and the socket carries one
+  // message shape for its lifetime. No raw vendor payload appears here — that is served
+  // only by `GET /api/robots/:id` (ADR 1), and the snapshot type is what enforces it.
+  app.get("/api/fleet", (c) => c.json(options.readFleet()));
 
   app.notFound((c) => {
     const { status, body } = errorResponse("not_found");

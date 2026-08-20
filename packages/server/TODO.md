@@ -24,7 +24,7 @@ Landed with this bootstrap, verified from `packages/server`:
 | `pnpm typecheck` | passes                           |
 | `pnpm lint:js`   | passes                           |
 | `pnpm lint`      | passes (`lint:js` + `typecheck`) |
-| `pnpm test`      | passes — 19 files, 124 tests     |
+| `pnpm test`      | passes — 20 files, 128 tests     |
 | `pnpm build`     | passes (`tsc --noEmit`)          |
 
 ```
@@ -49,6 +49,7 @@ packages/server/
     ├── http/createApp.ts           the Hono router, policy mounted ahead of it (B1a)
     ├── http/listener.ts            one port for HTTP and /ws, ordered shutdown (B1a)
     ├── observability/logger.ts     one JSON object per line on stdout (I1, part)
+    ├── http/fleetResponse.ts       server state translated into the wire snapshot (G1)
     ├── runServer.ts                decoded configuration in, a running server out
     ├── main.ts                     the process: real env, real paths, real signals
     ├── config/freshnessPolicy.ts   validated sweep thresholds (ADR 3, Principle 13)
@@ -57,11 +58,12 @@ packages/server/
     └── config/serverConfiguration.ts  the two files loaded together, strictly
 ```
 
-**This listens.** `pnpm --filter @fleet/server start` reads the repository-root
-configuration, binds loopback, announces the freshness policy and roster size it is
-actually running, answers, and shuts down on a signal — verified by running it, not only
-by unit test. What does not exist is any **route**: every request is the router's 404, so
-the server is reachable and empty. Sections 4, 7 and 8 are that work.
+**This listens, and serves one route.** `pnpm --filter @fleet/server start` reads the
+repository-root configuration, binds loopback, announces the policy and roster it is
+actually running, serves `GET /api/fleet` with all fifty manifest robots as UNKNOWN, and
+shuts down on a signal — verified by running it, not only by unit test. Ingest, the
+single-robot read, health and the socket are still 404 or absent. Sections 4, 7 and 8 are
+that work.
 
 On the four earliest pieces, whose reasoning is worth keeping:
 
@@ -361,8 +363,27 @@ guarantee depends on it, and the demo script's steps 4 and 5 exist to show it wo
 
 ## Section 7 — HTTP read endpoints
 
-- [ ] **G1 — `GET /api/fleet`** — canonical read model for every registered robot. No raw
-      payloads. Fields per `docs/01_page-specs/02_FLEET.md` § 6.
+- [x] **G1 — `GET /api/fleet`. Done 20 August 2026.** `encodeFleetSnapshot` in
+      `src/http/fleetResponse.ts` translates `CurrentStateStore.list()` into the
+      contract-owned `fleetSnapshotSchema` shape, and the route is `c.json` over it. The
+      store is seeded from the manifest in `startServer`, so a robot that has never
+      reported is a row rather than an absence (ADR 3, ADR 14) — fifty of them against the
+      committed roster, confirmed by running it. `flushSequence` is zero until fan-out owns
+      the counter (**H3a**); a cold snapshot discards nothing, which is what zero means.
+      The translation is not a serialization, and that is the finding worth carrying:
+      server state is a **superset** of the wire contract in two places that
+      `JSON.stringify` accepts and `parseFleetSnapshot` rejects — an observed robot's
+      capabilities are the runtime record rather than the wire array, and an unobserved
+      robot carries the manifest's `model`, which `registeredRobotStateSchema` is strict
+      against and no fleet row uses. A test round-trips the encoder through the contract's
+      own decoder rather than asserting a shape by eye, because a body only
+      `JSON.stringify` accepts reaches the console as a parse failure that reads like a
+      network problem. **Ordering constraint this creates — do not land ingest without the
+      sweep.** Every robot is `unknown` today because nothing reports, so the snapshot
+      cannot be stale. The moment **D1** stores an observed envelope, `freshness` on it is
+      whatever the upsert wrote, and a read hours later would serve that value as current,
+      which is the exact failure Principle 4 forbids. **F1**-**F5** must land before or
+      with Section 4, never after.
 - [ ] **G2 — `GET /api/robots/:id`** — the same canonical robot plus the retained raw
       payload as a separate field, plus the diagnostics the robot-detail spec § 6 lists:
       adapter id/version, sequence, sequence gaps (total since start, or not-evaluated),
@@ -664,7 +685,7 @@ is missing is everything that needs a socket.
 1. A new ADR records the HTTP and WebSocket implementation choice, and the server listens.
 2. `config/freshness.json` and `config/fleet-manifest.json` exist, are strictly validated at startup, and an invalid file stops the process with a message naming the field. The same holds for the environment: `FLEET_SERVER_HOST`, `FLEET_SERVER_PORT` and `FLEET_ALLOWED_ORIGINS` are decoded once by `loadRuntimeEndpoints()`, an invalid value stops the process naming the key (done, ADR 21), and the listener binds what it returns rather than a literal (**B1a**).
 3. Ingest stamps `receivedAt` from the injected clock, dispatches through the adapter registry, and rejects malformed input with a counted, defined error.
-4. Current state is seeded from the manifest, so a robot that has never reported reads UNKNOWN rather than being absent.
+4. Current state is seeded from the manifest, so a robot that has never reported reads UNKNOWN rather than being absent. **Done 20 August 2026** — `startServer` builds the store from `configuration.manifest.robots`, and `GET /api/fleet` serves all fifty committed robots as UNKNOWN.
 5. The sweep runs on its own interval, calls the contracts freshness function, and a freshness-only transition arrives at a connected client as a delta.
 6. Late ticks, malformed ingest, unsupported vendors and per-adapter unknown fields are all visible on `GET /api/health`, each at its true scope.
 7. No raw vendor payload appears in a fleet response, a delta, or history — asserted by a test, not by inspection.

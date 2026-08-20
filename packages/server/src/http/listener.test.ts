@@ -2,6 +2,7 @@ import { WebSocket } from "ws";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createHttpApp } from "./createApp.ts";
+import { encodeFleetSnapshot } from "./fleetResponse.ts";
 import { startListener, type RunningListener } from "./listener.ts";
 
 /**
@@ -14,6 +15,8 @@ import { startListener, type RunningListener } from "./listener.ts";
  * port here would make the suite fail on a machine that happens to be using it.
  */
 describe("startListener", () => {
+  const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
+    encodeFleetSnapshot({ robots: [], capturedAt: 0, flushSequence: 0 });
   let listener: RunningListener | null = null;
 
   afterEach(async () => {
@@ -23,7 +26,7 @@ describe("startListener", () => {
 
   async function start(allowedOrigins: readonly string[] = []): Promise<RunningListener> {
     listener = await startListener({
-      app: createHttpApp({ allowedOrigins }),
+      app: createHttpApp({ allowedOrigins, readFleet }),
       host: "127.0.0.1",
       port: 0,
     });
@@ -108,7 +111,7 @@ describe("startListener", () => {
     // socket is still held is exactly the shutdown bug that leaves `pnpm dev` unable to
     // restart.
     const rebound = await startListener({
-      app: createHttpApp({ allowedOrigins: [] }),
+      app: createHttpApp({ allowedOrigins: [], readFleet }),
       host: "127.0.0.1",
       port,
     });

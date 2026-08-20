@@ -1,8 +1,11 @@
 import type { ServerConfiguration } from "./config/serverConfiguration.ts";
 import type { RuntimeEndpoints } from "./config/runtimeEndpoints.ts";
 import { createHttpApp } from "./http/createApp.ts";
+import { encodeFleetSnapshot } from "./http/fleetResponse.ts";
 import { startListener } from "./http/listener.ts";
 import type { Logger } from "./observability/logger.ts";
+import type { Clock } from "./runtime/clock.ts";
+import { CurrentStateStore } from "./state/currentStateStore.ts";
 
 /**
  * The composition step: validated configuration in, a running server out.
@@ -19,12 +22,16 @@ export interface StartServerOptions {
   readonly endpoints: RuntimeEndpoints;
   readonly configuration: ServerConfiguration;
   readonly logger: Logger;
+  /** The one clock; every timestamp this server puts on the wire comes through it. */
+  readonly clock: Clock;
 }
 
 /** A running server and the only supported way to stop it. */
 export interface RunningServer {
   /** The bound port, which is what a caller that asked for `0` needs back. */
   readonly port: number;
+  /** Seeded fleet state, exposed so a test can observe what the routes serve. */
+  readonly store: CurrentStateStore;
   stop(): Promise<void>;
 }
 
@@ -36,16 +43,29 @@ export interface RunningServer {
  * deployed is the failure Principle 13 names — and a line proving *which* policy is live is
  * how that claim survives contact with a deployment.
  *
- * No route is mounted yet, so every request is the router's 404 (`TODO.md` **D1**,
- * **G1**–**G3**). That is why the record says `routes: 0`: a server answering 404 for a
+ * `routes` counts what is mounted. Only `GET /api/fleet` is (**G1**); ingest and the other
+ * reads are still 404 (`TODO.md` **D1**, **G2**–**G3**). A server answering 404 for a
  * reason is different from one answering 404 because it is broken, and only the log can
  * tell an operator which they have.
  */
 export async function startServer(options: StartServerOptions): Promise<RunningServer> {
-  const { endpoints, configuration, logger } = options;
+  const { endpoints, configuration, logger, clock } = options;
+
+  // Seeded from the manifest, so a robot that has never reported reads UNKNOWN in the
+  // fleet snapshot rather than being absent from it (ADR 3, ADR 14).
+  const store = new CurrentStateStore(configuration.manifest.robots);
 
   const listener = await startListener({
-    app: createHttpApp({ allowedOrigins: endpoints.allowedOrigins }),
+    app: createHttpApp({
+      allowedOrigins: endpoints.allowedOrigins,
+      readFleet: () =>
+        encodeFleetSnapshot({
+          robots: store.list(),
+          capturedAt: clock.now(),
+          // Zero until fan-out owns the counter (**H3a**); a cold snapshot discards nothing.
+          flushSequence: 0,
+        }),
+    }),
     host: endpoints.host,
     port: endpoints.port,
   });
@@ -58,11 +78,12 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
     allowedOrigins: endpoints.allowedOrigins.length,
     robots: configuration.manifest.robots.length,
     freshness: configuration.freshness,
-    routes: 0,
+    routes: 1,
   });
 
   return {
     port: listener.port,
+    store,
     stop: async () => {
       await listener.close();
       logger.log("info", "server.stopped", { port: listener.port });

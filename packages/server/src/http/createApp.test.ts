@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import { SCHEMA_VERSION } from "@fleet/contracts";
 
 import { createHttpApp } from "./createApp.ts";
+import { encodeFleetSnapshot } from "./fleetResponse.ts";
+
+/** An empty fleet: these cases are about the policy and the routes, not about state. */
+const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
+  encodeFleetSnapshot({ robots: [], capturedAt: 0, flushSequence: 0 });
 
 /**
  * The half of **L8** a unit test of `evaluateOriginPolicy` cannot give: evidence that the
@@ -12,7 +17,7 @@ import { createHttpApp } from "./createApp.ts";
  */
 describe("createHttpApp", () => {
   const ALLOWED = "https://console.example.com";
-  const app = createHttpApp({ allowedOrigins: [ALLOWED] });
+  const app = createHttpApp({ allowedOrigins: [ALLOWED], readFleet });
 
   it("echoes an allowed origin on a response no route produced", async () => {
     // The 404 path specifically: a browser has to be able to read the failure, so the
@@ -41,7 +46,7 @@ describe("createHttpApp", () => {
   });
 
   it("grants nothing at all when the allow-list is empty", async () => {
-    const closed = createHttpApp({ allowedOrigins: [] });
+    const closed = createHttpApp({ allowedOrigins: [], readFleet });
 
     const response = await closed.request("/api/nothing", { headers: { origin: ALLOWED } });
 
@@ -81,7 +86,7 @@ describe("createHttpApp", () => {
   });
 
   it("reveals nothing about a thrown error", async () => {
-    const throwing = createHttpApp({ allowedOrigins: [] });
+    const throwing = createHttpApp({ allowedOrigins: [], readFleet });
     throwing.get("/boom", () => {
       throw new Error('robot-7 payload: {"secret":"vendor-internal"}');
     });

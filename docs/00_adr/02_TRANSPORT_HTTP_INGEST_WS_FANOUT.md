@@ -69,6 +69,7 @@ Worker-thread validation requires transferring the payload across a structured-c
 
 ## Observed consequences
 
+- **20 August 2026 — the HTTP half of the cold start exists.** `GET /api/fleet` serves `fleetSnapshotSchema` with every manifest robot, which is the initial-state choice this ADR was amended to (M5): the socket keeps one message shape for its lifetime and pays for it with `flushSequence`. That counter is `0` on every snapshot today because nothing flushes, so a joining client discards nothing — correct, and the reason it is safe to ship the read before the socket. The ordering the client must follow is unchanged and untested until fan-out lands: open the socket, buffer, _then_ fetch (server TODO **H3b**).
 - 19 August 2026: the flush sequence this ADR's initial-state contract requires landed in
   `packages/contracts`, decided as [ADR 18](./18_FLUSH_SEQUENCE_NOW_DELTA_GRANULARITY_WHEN_MEASURED.md)
   (register D10). `telemetryBatchSchema` gained a required `flushSequence`; the fleet

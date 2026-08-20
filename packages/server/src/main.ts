@@ -6,6 +6,7 @@ import { loadRuntimeEndpoints } from "./config/runtimeEndpoints.ts";
 import { loadServerConfiguration } from "./config/serverConfiguration.ts";
 import { createJsonLogger } from "./observability/logger.ts";
 import { startServer } from "./runServer.ts";
+import { systemClock } from "./runtime/clock.ts";
 
 /**
  * The process: read configuration, start the server, stop it on a signal.
@@ -38,7 +39,7 @@ async function main(): Promise<void> {
     path.join(CONFIG_DIR, "fleet-manifest.json"),
   );
 
-  const server = await startServer({ endpoints, configuration, logger });
+  const server = await startServer({ endpoints, configuration, logger, clock: systemClock });
 
   let stopping = false;
   const stop = (signal: string): void => {

@@ -66,6 +66,7 @@ src/
   http/createApp            the Hono router, with that policy mounted ahead of every route
   http/listener             HTTP and /ws on one port, closed in the order ADR 8 requires
   observability/logger      one JSON object per line, injected sink
+  http/fleetResponse        server state translated into the wire snapshot (not serialized)
   runServer.ts              decoded configuration in, a running server out
   main.ts                   the process: real environment, real paths, real signals
   __boundary-violation__/   deliberate lint violations that prove the rules fire
@@ -77,8 +78,8 @@ a route segment, a header or a byte count, decided before anything reads a body,
 ordering guarantees are properties of the signatures rather than rules a handler has to
 remember (ADR 8 § Observed consequences).
 
-Planned and not yet present: every route, the ingest handler, the adapter registry
-dispatch, and the fan-out that writes to a connected stream.
+Planned and not yet present: the ingest handler, the adapter registry dispatch, the
+single-robot and health reads, and the fan-out that writes to a connected stream.
 
 ## 5. Contracts owned and consumed
 
@@ -256,13 +257,19 @@ configuration loaders are covered.
 validation, the current-state store with manifest seeding, the bounded ring buffer, the
 freshness sweep, the pending-delta set, health metrics, and the clock.
 
-**Not built:** every route wrapper, adapter-registry ingest composition, health-response
-composition, and delta fan-out onto a connected stream. The server now **runs**:
+**Not built:** ingest, adapter-registry composition, the single-robot and health reads,
+and delta fan-out onto a connected stream. The server **runs and serves the fleet read**:
 `http/createApp` routes with the cross-origin policy mounted, `http/listener` binds it and
-`/ws` to one port with an ordered shutdown, and `main.ts` composes them from repository-root
-configuration under `pnpm dev`/`pnpm start`. Because no route is mounted, every request is
-the canonical `not_found` envelope — the server is reachable and empty, which is a different
-state from absent and is why the startup record reports `routes: 0`.
+`/ws` to one port with an ordered shutdown, `main.ts` composes them from repository-root
+configuration under `pnpm dev`/`pnpm start`, and `GET /api/fleet` returns every manifest
+robot as UNKNOWN. Anything else is the canonical `not_found` envelope, and the startup
+record's `routes` count says how many are mounted so a deliberate 404 is distinguishable
+from a broken one.
+
+Server state is a superset of the wire contract, so responses are **translated** rather
+than serialized: `http/fleetResponse` drops the manifest-only `model` and encodes
+capabilities into their wire array. A test round-trips its output through
+`parseFleetSnapshot`, because `JSON.stringify` accepts both leaks.
 
 Ingest composition is intentionally deferred: ADR 10 has not resolved runtime
 re-validation of adapter output, and ADR 11 has not decided how a server ingest test may

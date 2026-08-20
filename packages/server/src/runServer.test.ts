@@ -4,6 +4,7 @@ import { ADR3_BASELINE_FRESHNESS_POLICY } from "./config/freshnessPolicy.ts";
 import type { RuntimeEndpoints } from "./config/runtimeEndpoints.ts";
 import type { ServerConfiguration } from "./config/serverConfiguration.ts";
 import { createJsonLogger } from "./observability/logger.ts";
+import { fixedClock } from "./runtime/clock.ts";
 import { startServer, type RunningServer } from "./runServer.ts";
 
 /**
@@ -15,6 +16,10 @@ import { startServer, type RunningServer } from "./runServer.ts";
  * unable to address the server. A test that reads the bound port back does not.
  */
 describe("startServer", () => {
+  // A literal instant, so `capturedAt` is an assertable value rather than "recently".
+  const CAPTURED_AT = 1_755_000_000_000;
+  const CLOCK = fixedClock(CAPTURED_AT);
+
   const CONFIGURATION: ServerConfiguration = {
     freshness: ADR3_BASELINE_FRESHNESS_POLICY,
     manifest: {
@@ -40,6 +45,7 @@ describe("startServer", () => {
       endpoints: { host: "127.0.0.1", port: 0, allowedOrigins: [], ...endpoints },
       configuration: CONFIGURATION,
       logger,
+      clock: CLOCK,
     });
     return server;
   }
@@ -57,16 +63,39 @@ describe("startServer", () => {
       allowedOrigins: 0,
       robots: 2,
       freshness: ADR3_BASELINE_FRESHNESS_POLICY,
-      routes: 0,
+      routes: 1,
     });
   });
 
-  it("serves the router at the port it announced", async () => {
+  it("serves every manifest robot as UNKNOWN before any telemetry arrives", async () => {
+    // ADR 3 created this population deliberately: a registered robot that has never
+    // reported must render a fleet row, not be absent from the response.
     const running = await start();
 
     const response = await fetch(`http://127.0.0.1:${String(running.port)}/api/fleet`);
 
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toStrictEqual({
+      schemaVersion: "1",
+      flushSequence: 0,
+      capturedAt: CAPTURED_AT,
+      robots: [
+        {
+          schemaVersion: "1",
+          robotId: "rbt-1",
+          siteId: "site-a",
+          vendorId: "A",
+          freshness: "unknown",
+        },
+        {
+          schemaVersion: "1",
+          robotId: "rbt-2",
+          siteId: "site-a",
+          vendorId: "B",
+          freshness: "unknown",
+        },
+      ],
+    });
   });
 
   it("carries the configured origins into the mounted policy", async () => {
@@ -97,6 +126,7 @@ describe("startServer", () => {
       endpoints: { host: "127.0.0.1", port, allowedOrigins: [] },
       configuration: CONFIGURATION,
       logger,
+      clock: CLOCK,
     });
     expect(rebound.port).toBe(port);
     await rebound.stop();
