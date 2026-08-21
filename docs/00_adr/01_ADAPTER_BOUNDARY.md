@@ -32,7 +32,7 @@ The canonical status enum is `idle`, `busy`, `charging`, `fault`, `unknown`. Hea
 
 ## Positions
 
-1. **A universal schema, with every field any vendor might report present on the canonical model, populated when available and null otherwise.** Rejected: this is the specific failure Budylskii's framing warned against, and it fails in both directions at once. It pretends every robot is the same shape. That forces the UI either to render meaningless fields for robots that do not have them, or to maintain its own vendor-awareness to know which nulls to hide — silently reintroducing the vendor conditionals this design exists to eliminate.
+1. **A universal schema, with every field any vendor might report present on the canonical model, populated when available and null otherwise.** Rejected: this is the specific failure the challenge's problem framing warned against, and it fails in both directions at once. It pretends every robot is the same shape. That forces the UI either to render meaningless fields for robots that do not have them, or to maintain its own vendor-awareness to know which nulls to hide — silently reintroducing the vendor conditionals this design exists to eliminate.
 2. **No normalization at all — the server exposes three parallel vendor-specific APIs and the front end handles the difference.** Rejected: this relocates the problem rather than solving it. Every consumer — table, detail view, freshness machine — would need vendor-awareness independently, which is a worse version of the coupling a shared canonical core removes.
 3. **Capabilities modeled as optional properties directly on the canonical envelope type (e.g., `envelope.dockStatus?: DockCapability`), rather than as a separate declared capability record.** Considered, since TypeScript's optional-property syntax makes this the path of least resistance. Rejected as the primary mechanism on enforceability grounds. An optional property carries no obligation for any adapter to make an explicit decision about it. A capability model whose purpose is letting the UI ask "can this robot do X" needs that question to have a definite answer derived from an adapter's explicit action, not from a passive absence.
 4. **Canonical core plus a declared capability record, adapters translating vendor-specific payloads into both.** Chosen.
@@ -41,7 +41,7 @@ The canonical status enum is `idle`, `busy`, `charging`, `fault`, `unknown`. Hea
 
 The canonical-core-plus-capabilities model was chosen because it is the only option that makes the front end's capability-driven rendering literally true rather than approximately true. A robot's detail view renders exactly the panels its adapter declared. There is no representable state in which a panel appears for a capability the robot does not have, because absence is a first-class fact rather than an unpopulated optional field.
 
-The universal-schema alternative was rejected because Budylskii named it directly as the wrong answer to this problem, which makes it the position requiring the least additional argument.
+The universal-schema alternative was rejected because the challenge's framing named it directly as the wrong answer to this problem, which makes it the position requiring the least additional argument.
 
 Keeping a separate declared-capability record rather than relying on TypeScript optionality alone is the more debatable call. Optionality removes the obligation for an adapter to make an explicit decision. A mapped record makes a capability's presence an explicit, checkable act by a named adapter.
 
@@ -126,7 +126,7 @@ Keeping a separate declared-capability record rather than relying on TypeScript 
 - **Principle 2** (external contracts are decoded once and evolved deliberately) — this ADR's envelope is that contract, and the boundary where it is decoded.
 - **Principle 3** (the canonical model preserves shared meaning without erasing differences) — this ADR is its direct implementation, and the principle most explicitly tested by the adapter contract fixtures. Vendor-specific behaviour is a capability, never a branch in a component.
 - **Principle 4** (provenance and freshness are explicit where they affect a decision) — indirect; freshness is carried alongside the canonical core rather than as a vendor-specific capability, and the envelope's two timestamps are what make age evaluable at all.
-- **Budylskii's framing** (avoiding a universal schema) — the direct source of Position 1's rejection.
+- **The challenge's problem framing** (avoiding a universal schema) — the direct source of Position 1's rejection.
 - **Artifact `packages/contracts`** (implemented) — the canonical envelope type, the capability record type, and the Zod schemas validating both, including the array-to-record transform.
 - **Artifact `packages/adapters`** (implemented; three vendor modules and a dispatch registry) — one module per vendor dialect, with fixtures.
 - **Artifact `docs/01_page-specs/02_ROBOT_DETAIL.md`** — the capability-driven rendering rule this model makes literally true.

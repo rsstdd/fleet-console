@@ -36,7 +36,11 @@ import here carries an explicit `.ts` extension.
 # Normal — the demo workload: 50 robots, 1 Hz each
 pnpm --filter @fleet/simulator dev
 
-# Load — the documented measurement point: 500 robots, 5 Hz each (~2,500 req/s)
+# Load — the documented measurement point: 500 robots, 5 Hz each (~2,500 req/s).
+# The server accepts only manifested robots, and the committed manifest holds 50:
+# swap in a 500-robot manifest (via --print-manifest) and restart the server first,
+# or the extra 450 robots draw 404s. demo/DEMO.md Act 7 documents the procedure;
+# demo/demo.sh automates it.
 pnpm --filter @fleet/simulator start -- --robots 500 --hz 5
 
 # Silence — three robots stop reporting; everything else stays healthy
@@ -175,9 +179,9 @@ reaches the ceiling, then a flat count. A count that keeps climbing means the se
 not keeping up.
 
 **Numbers from this package describe the simulator, not the server.** Server ingest
-throughput and ingest-to-fan-out latency must come from the complete harness once
-`packages/server` exists; they cannot be inferred from a configured send rate
-(Principle 12).
+throughput comes from `packages/server`'s own suites (`sweepUnderLoad.test.ts`,
+`validationCost.test.ts`, reported in the root README's Measurements section); it
+cannot be inferred from a configured send rate (Principle 12).
 
 ## Graceful shutdown
 

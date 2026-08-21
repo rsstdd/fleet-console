@@ -26,6 +26,22 @@ value fails the build
 tenant-B profile against the live dev stack, run `pnpm dev:tenant-b` from the repository
 root; `pnpm test:e2e:tenant` drives its production bundle in Chromium.
 
+## Routes
+
+The route table lives in `src/app/appRouter.tsx`; every route renders inside `AppShell`.
+
+| Route         | Page                                                                | Server surface it consumes                                                                                                                                                                                |
+| ------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/`           | Fleet table: freshness summary, site/vendor/status/search filters   | `GET /api/fleet` snapshot, then `WS /ws` deltas                                                                                                                                                           |
+| `/map`        | Site map: one site at a time, positions from client-derived extents | Same store as `/` — the snapshot plus deltas; no extra endpoint                                                                                                                                           |
+| `/robots/:id` | Robot detail: capability panels, operator/technician personas       | `GET /api/robots/:id` once per visit, `GET /api/robots/:id/history` for the sparkline, `GET /api/health` for technician diagnostics; live afterwards by overlaying this robot's fleet row from the stream |
+| `/dev/ui`     | Shared component gallery — **development builds only**              | None                                                                                                                                                                                                      |
+| `*`           | Not-found page, inside the shell, with a link back to the fleet     | None                                                                                                                                                                                                      |
+
+All requests are same-origin `/api` and `/ws`, proxied to the server by Vite in
+development (ADR 21). The full server-side surface is documented in
+[`packages/server/README.md`](../server/README.md).
+
 ## Layers, and the rule that matters
 
 ```

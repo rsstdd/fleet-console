@@ -2,7 +2,34 @@
 
 Multi-vendor robot fleet telemetry console. Canonical contracts, vendor adapters, thin simulator/server, React + Material UI console.
 
-**Core guarantees:**
+```bash
+pnpm install
+pnpm dev        # console on http://localhost:5173, server and simulator alongside
+```
+
+See it, don't read it: [`./demo/demo.sh`](demo/demo.sh) is a guided walkthrough that
+starts, faults, and restarts the stack itself; [`demo/DEMO.md`](demo/DEMO.md) is the
+same demo as a narrated script. What to watch in the first thirty seconds is in
+[section 2](#2-run-it).
+
+![Three robots silenced mid-run: their rows degrade LIVE to STALE to UNREACHABLE on the server sweep while the stream stays connected and every other robot stays live.](demo/assets/stale-transition.gif)
+
+_Three robots silenced with `--drop`: their rows degrade `LIVE → STALE → UNREACHABLE` on
+the server's freshness sweep **while the stream stays connected** and the other 47 stay
+live. Caused by message absence, detected by a timer, never recomputed by the client._
+
+**The brief's three questions:**
+
+- **What I chose to build and why** — all three parts, as one vertical slice, with the
+  UI carrying the weight. [Section 5](#5-scope).
+- **What I faked or left out, and why that was the right trade** — nothing is mocked;
+  the simulator and server are real but deliberately thin. The cuts, each with its
+  reason, are [section 9](#9-not-built).
+- **What I would do differently with more time or in production** —
+  [section 10](#10-what-i-would-change), including the mistakes; section 9 names what
+  production would require first (auth, persistence, horizontal scale).
+
+**Project Core:**
 
 1. The UI never presents stale data as current. This is enforced by tooling and intended to survive team turnover/agent-written code (Principle 4).
 2. Vendor differences are normalized where shared. These differences are preserved as declared capabilities where not shared
@@ -10,40 +37,45 @@ Multi-vendor robot fleet telemetry console. Canonical contracts, vendor adapters
 
 Sections 2-3 cover "freshness"; 4 covers normalization; 7 covers scale.
 
-> **Implementation status — 20 August 2026.** This README describes the design in the
-> present tense throughout. Where a section still claims behavior the tree does not have,
-> it is marked inline with **[NOT BUILT]** or **[PARTIAL]**.
->
-> The short version: **the path runs end to end.** `pnpm dev` starts the server, the
-> simulator and the console together; the simulator's readings reach the server's ingest,
-> are decoded by the vendor adapters, enter fleet state, are aged by the freshness sweep,
-> and are fanned out over WebSocket to a console that renders them. All five packages are
-> built.
->
-> Measured on one 40-second `pnpm dev` run: **1,993 readings sent, 1,993 accepted, zero
-> rejected and zero server failures**, at ~50 readings/second across 50 robots and three
-> vendor dialects. `GET /api/health` then reported vendor C's undocumented
-> `telemetry.firmware_channel` counted 235 times, vendor B's ordering as _not evaluated_
-> rather than as zero gaps, and no malformed payloads.
->
-> The console rendering against a live socket is committed browser automation: the
-> Playwright suite drives the real stack in Chromium, Firefox, and (in CI) WebKit,
-> including freshness degradation, stream loss, and automatic restart recovery
-> ([ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)).
-> Section 5 has the per-item table;
-> [`packages/FIXME.md`](packages/FIXME.md) preserves the historical package audit;
-> [`TODO.md`](TODO.md) is the current work queue.
-
 ---
 
 ## 1. Architecture
 
-Fleet operators watch robots from three manufacturers with different wire dialects. The console shows one coherent fleet, explicit about data age and machine capabilities.
+Fleet operators watch robots from three manufacturers with different schemas. The console shows one coherent fleet, explicit about data age and machine capabilities.
 
-Two deliberate hard problems:
+Two problems:
 
-- **Silence is an event:** Freshness derived by a recurring server sweep, not on arrival. Robots degrade LIVE → STALE → UNREACHABLE autonomously. Systems reacting only to arrivals miss silence, showing stale data as current. The console displays what the sweep determined and never recomputes it (ADR 3).
-- **Vendors disagree:** Three awkward dialects normalized into a canonical envelope (core shared data) + declared capabilities. UI renders from declarations, not hard-coded lists.
+- **Silence is an event:** "Freshness" derived by a recurring server sweep, not on arrival. Robots degrade `LIVE` → `STALE` → `UNREACHABLE` autonomously. Systems reacting only to arrivals miss silence, showing stale data as current. The console displays what the sweep determined and never recomputes it (ADR 3).
+- **Vendors disagree:** Three schemas normalized into a canonical envelope (core shared data) + declared capabilities. UI renders from declarations, not hard-coded lists.
+
+```text
+ Vendor Simulators
+         |
+ Vendor-Specific Adapters
+         |
+ Canonical Telemetry Model
+         |
+ Fleet State + Business Rules
+         |
+    +----+----------------+
+    |                     |
+ HTTP Snapshot      WebSocket Updates
+    |                     |
+    +----------+----------+
+               |
+       React Client State
+               |
+      +--------+--------+
+      |        |        |
+    Fleet     Map    Robot Detail
+```
+
+**Surfaces**, in full in [`packages/server/README.md`](packages/server/README.md) and [`packages/web/README.md`](packages/web/README.md):
+
+| Surface          | Routes                                                                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Console (`/web`) | `/` fleet table · `/map` site map · `/robots/:id` robot detail · `/dev/ui` component gallery (dev builds only)                          |
+| API (`/server`)  | `POST /api/telemetry/:vendor` · `GET /api/fleet` · `GET /api/robots/:id` · `GET /api/robots/:id/history` · `GET /api/health` · `WS /ws` |
 
 |             |                                                                                                                                                                                                                                                |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -52,7 +84,7 @@ Two deliberate hard problems:
 | Enforcement | `eslint-plugin-boundaries`, token/hex lint, `strictTypeChecked`, CI (Principle 15)                                                                                                                                                             |
 | Specs       | [`PRINCIPLES.md`](PRINCIPLES.md) · [ADRs](docs/00_adr/) · [decision index](docs/PENDING_ARCHITECTURE_DECISIONS.md) · [page specs](docs/01_page-specs/) · [component specs](docs/02_component-specs/) · [package specs](docs/03_package-specs/) |
 | Design      | [design system](docs/DESIGN_SYSTEM.md) · [wireframes](docs/WIREFRAMES.md)                                                                                                                                                                      |
-| Records     | [architecture audit](docs/ARCHITECTURE_AUDIT.md) · [submission notes](docs/SUBMISSION_NOTES.md) · [archive](docs/04_archive/)                                                                                                                  |
+| Records     | [architecture audit](docs/ARCHITECTURE_AUDIT.md) · [archive](docs/04_archive/)                                                                                                                                                                 |
 
 ```
 /packages
@@ -92,6 +124,30 @@ pnpm install
 pnpm dev
 ```
 
+**One command starts all three, connected.** Root `dev` is
+`pnpm --recursive --parallel --stream dev`, and `server`, `simulator` and `web` each
+define one. Verified on 20 August 2026: the server logs `server.listening` on
+`127.0.0.1:8080` with 5 routes and the shipped freshness policy, the console comes up on
+`http://localhost:5173` and proxies `/api` and `/ws` to the server, and the simulator
+POSTs into the real ingest — 1,993 readings sent and 1,993 accepted over 40 seconds,
+with no rejections and no server failures.
+
+**What to look for in the first thirty seconds**, at `http://localhost:5173`:
+
+1. **Summary strip:** Counts freshness only (`LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN`). Mutually exclusive, totals fleet exactly. No status duplication. Headed "Fleet reporting status" while the stream is connected; during an outage the counts stay visible under "Fleet reporting status · last known", so the group never asserts a currency the socket cannot support (ADR 23).
+2. **Rows:** Show status + freshness. Non-`LIVE` rows use outline status chips (`(last known)`) and em-dash batteries (no stale numbers presented as current). The connection state is supplied by a real socket, so the labels render while the stream is connected and are suppressed while it is not (ADR 3) — watched in a browser by the Playwright outage scenario, which kills the server and asserts the suppression, the retained rows, and the qualified summary heading (ADR 32).
+3. **Vendor column:** Filter to Vendor C vs A. Capability panels differ because robots differ.
+
+Within the first ten seconds the summary counts down from `Unknown: 50` as robots report
+in and rows turn `LIVE`; by thirty seconds the whole fleet is live and the vendor column
+shows all three dialects rendered from one table with no vendor branch.
+
+For the guided demonstration — including the cold-start act that `pnpm dev` skips,
+because it starts the simulator immediately — use `./demo/demo.sh` or the three-terminal
+start in [`demo/DEMO.md`](demo/DEMO.md).
+
+### Tenants, endpoints, CORS
+
 The web tenant is selected at build time with `VITE_TENANT=tenant-a|tenant-b`; omitting
 it selects tenant A. For example, `VITE_TENANT=tenant-b pnpm --filter web build` produces
 the Tenant B bundle. Unknown values fail the build rather than silently falling back
@@ -113,29 +169,19 @@ so CORS is intentionally not exercised there. Serving the console from a differe
 than the API is the decision's falsifier: that deployment must configure the allow-list and
 add integration coverage for accepted and rejected cross-origin requests.
 
-**Starts all three, connected.** Root `dev` is `pnpm --recursive --parallel --stream dev`,
-and `server`, `simulator` and `web` each define one. Verified on 20 August 2026: the server
-logs `server.listening` on `127.0.0.1:8080` with 5 routes and the shipped freshness policy,
-the console comes up on `http://localhost:5173` and proxies `/api` and `/ws` to the server,
-and the simulator POSTs into the real ingest — 1,993 readings sent and 1,993 accepted over
-40 seconds, with no rejections and no server failures.
-
-1. **Summary strip:** Counts freshness only (`LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN`). Mutually exclusive, totals fleet exactly. No status duplication. Headed "Fleet reporting status" while the stream is connected; during an outage the counts stay visible under "Fleet reporting status · last known", so the group never asserts a currency the socket cannot support (ADR 23).
-2. **Rows:** Show status + freshness. Non-`LIVE` rows use outline status chips (`(last known)`) and em-dash batteries (no stale numbers presented as current). The connection state is supplied by a real socket, so the labels render while the stream is connected and are suppressed while it is not (ADR 3) — watched in a browser by the Playwright outage scenario, which kills the server and asserts the suppression, the retained rows, and the qualified summary heading (ADR 32).
-3. **Vendor column:** Filter to Vendor C vs A. Capability panels differ because robots differ.
-
 ---
 
 ## 3. Demo script
 
-A presenter-facing version of this sequence — seven acts with per-act frontend notes,
-plus an interactive driver that starts, faults, and restarts the stack itself — lives in
-[`demo/DEMO.md`](demo/DEMO.md) and [`demo/demo.sh`](demo/demo.sh). The steps below are
-the canonical sequence; the demo guide restates them and must stay consistent with this
-section.
+The canonical demo script is [`demo/DEMO.md`](demo/DEMO.md) — seven acts with per-act
+frontend notes, plus [`demo/demo.sh`](demo/demo.sh), an interactive driver that starts,
+faults, and restarts the stack itself. The sequence below condenses its core (Acts 2–6)
+for a reader who wants the shape without the narration; the two moments that carry the
+submission are the capability comparison (step 2) and the degradation contrast
+(steps 4–5).
 
 **Observed in a browser on 20 August 2026.** Headless Chrome against the running stack, at
-`http://127.0.0.1:5301`:
+`http://localhost:5173`:
 
 | Moment                  | Rendered freshness         | Banner                |
 | ----------------------- | -------------------------- | --------------------- |
@@ -158,7 +204,7 @@ Every step of it is now committed automation
 `pnpm test:e2e` drives the real server, simulator, and built console through these
 scenarios in Chromium, Firefox, and (in CI) WebKit.
 
-Sequence to watch (Steps 2 & 4 are the submission):
+Sequence to watch:
 
 1. Open fleet (50 robots). All `LIVE`.
 2. Compare capability panels across all three vendors: A shows dock + lidar-health, B shows dock alone, C shows dock + water-level. Confirmed against the real adapters on 20 August 2026 — decoding the recorded payloads yields `A: dock+lidarHealth+sequence`, `B: dock`, `C: dock+sequence+waterLevel` — and the console's fixtures were corrected to match, closing `packages/FIXME.md` **F1**. Three vendors, three distinct panel sections. Absence is the interface (no disabled placeholders). Cannot offer unsupported actions.
@@ -184,8 +230,15 @@ pnpm --filter @fleet/simulator start -- --drop R-007,R-023,R-041
 pnpm --filter @fleet/simulator start
 ```
 
-`--hz` is per robot, so the load profile is `--robots 500 --hz 5` (~2,500 req/s). See
-[`packages/simulator/README.md`](packages/simulator/README.md) for every flag.
+`--hz` is per robot, so the load profile is `--robots 500 --hz 5` (~2,500 req/s) — but
+**not verbatim against a default stack**: the server accepts only robots listed in its
+manifest, and the committed `config/fleet-manifest.json` holds 50, so the other 450
+robots would draw 404s (~2,250/s) and the table would never grow past 50. Generate a
+500-robot manifest with `--print-manifest`, swap it in for the committed file, and
+restart the server first — `demo/demo.sh` does exactly this automatically and restores
+the committed manifest on exit, and [`demo/DEMO.md`](demo/DEMO.md) Act 7 documents the
+manual swap. See [`packages/simulator/README.md`](packages/simulator/README.md) for
+every flag.
 
 ---
 
@@ -223,6 +276,31 @@ Adapter contract tests verify normalization: recorded vendor payload → exact c
 
 ## 5. Scope
 
+The brief allowed building any one of the three parts. I built the complete vertical
+slice because the interesting questions are system-level: how telemetry crosses vendor
+boundaries, where business rules live, and how operational state reaches a person who
+has to act on it. Coding agents made the broader scope feasible; they did not remove
+the need for architectural control, and testing that control was part of the point
+(section 8).
+
+The UI carries the most weight because operational state must be understandable, not
+merely available — and because it is the best place to examine scalable component
+architecture, state management, accessibility, and design-system discipline.
+
+Four questions shaped every structural decision:
+
+- How should an application be structured if it may grow into a SaaS platform?
+- Which principles should exist from the first day?
+- How can autonomous agents produce clean, maintainable software instead of slop?
+- Which practices make sense at 4,000 components, even if they appear excessive in a
+  small demo?
+
+Initial goals, all of which survived into the tree: a complete working system;
+multi-vendor telemetry normalized without hiding genuine differences; stale and missing
+telemetry made visible; snapshot plus real-time delivery; a UI independent of vendor
+payload formats; explicit architectural decisions; generated code kept reviewable; and
+limitations documented instead of production readiness implied.
+
 Unequal weighting: console is submission; simulator/server feed it.
 
 | Package                   | Weight      | Why                                                                                 |
@@ -231,7 +309,10 @@ Unequal weighting: console is submission; simulator/server feed it.
 | `/contracts`, `/adapters` | Substantial | Normalization argument & checkable adapter tests.                                   |
 | `/server`, `/simulator`   | Thin        | Produce dialects, inject faults, fan out deltas. No more.                           |
 
-Budget: 10–11 hours / 3 days.
+Hours spent: **10–15**, against a brief that said "a few." The overage is deliberate:
+the exercise, as framed, is about structure that still holds at 4,000 files, and the
+enforcement, contracts, and decision records that argument needs are the slow part —
+the features themselves are not where the time went.
 
 Status as of 20 August 2026, verified against the tree and against one `pnpm dev` run. Cuts go in section 9.
 
@@ -253,18 +334,15 @@ Status as of 20 August 2026, verified against the tree and against one `pnpm dev
 
 ## 6. Principles
 
-[`PRINCIPLES.md`](PRINCIPLES.md) is binding. Every rule names an enforcement mechanism (static check, type, test, runtime, review). Review-only rules are conventions, not guarantees (Principle 15).
+[`PRINCIPLES.md`](PRINCIPLES.md) is binding. Every rule names an enforcement mechanism (static check, type, test, runtime, review). Review-only rules are conventions, not guarantees (Principle 15). The three that shaped this repository most:
 
-- **§3 Canonical model:** Normalizes shared meaning, preserves differences as typed capabilities. Capabilities limit UI offerings, not server authorization or current availability.
 - **§4 Provenance/Freshness:** Values carry source timestamps (`reportedAt` and `receivedAt`). Freshness is derived server-side from `receivedAt` against a configured policy, tested with an injected clock, and delivered as a field (ADR 3). The client displays; it never computes. Rejects absolute version: badges aren't needed everywhere, only at smallest scope needed to act.
-- **§6 Accessibility:** Target WCAG 2.2 AA. Semantic HTML, visible focus, contrast verification.
-- **§7 Security/Privacy:** Server is the authority. UI hides/disables, but never authorizes. Requested ≠ observed.
-- **§8 Design tokens:** Rejects raw hex/px outside `shared/ui`/`config`.
+- **§3 Canonical model:** Normalizes shared meaning, preserves differences as typed capabilities. Capabilities limit UI offerings, not server authorization or current availability.
 - **§9 Boundaries:** `shared/ui` gets display data/callbacks only. No domain imports. No cross-feature imports. Lint-checked.
-- **§10 Tests:** Tests prove behavior at the cheapest reliable boundary. No component snapshots (asserts no-change, not correctness).
-- **§11 State:** State is separated by authority, lifetime, and transition model. Requested ≠ observed.
-- **§12 Performance:** Performance and observability are product behavior. Two budgets are enforced in CI — the console's first-load size and per-message ingest validation cost ([ADR 22](docs/00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md)). Ingest latency and client frame time are measured and reported without budgets (§ 10); a budget without a derivation is the thing ADR 22 exists to refuse.
-- **§14 Agent operability:** `CLAUDE.md`/`AGENTS.md` have hard rules + routing table. Structure makes agent code checkable.
+
+The remaining twelve — accessibility, security posture, design tokens, test discipline,
+state separation, derived performance budgets, agent operability among them — are in the
+document, each stating what it prevents and how it is enforced.
 
 ---
 
@@ -296,19 +374,34 @@ Feature-sliced, not type-sliced (`components/`, `hooks/` smear code across featu
 
 ## 8. AI Usage
 
-> **Evidence not collected, and it cannot be collected from the tree.** This section is
-> supposed to say which files were agent-generated and kept, what agent output was
-> rejected and why, what was written by hand, and what was reviewed line by line.
-> Specific rejections are worth more than general claims. None of that is recoverable
-> from source or Git history after the fact — it is the author's own record — so it is
-> left unwritten rather than reconstructed. **Do not fill this in by inference**: an
-> invented authorship or review claim is the one failure this section exists to avoid,
-> and it would be indistinguishable from a measured one. Tracked as `TODO.md` **P3.4**.
->
-> Nothing below this line is a measurement either; it is the argument for why the
-> structure exists, and it is checkable against the enforcement it names.
+Coding agents wrote a large share of this code, and that was a deliberate part of the
+exercise. The conversation behind this challenge raised a live problem — AI-generated
+code becoming unmaintainable — and I had not worked in a codebase suffering from that
+specific failure, so I used this project to test whether strong constraints could keep
+a largely agent-generated application understandable.
 
-Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing, doc-comments, boundaries are for) (Principle 14). Claim isn't "no AI", it's "structure makes agent code checkable":
+The working rules:
+
+- Agents were used for implementation speed; architectural authority stayed with me.
+- Boundaries were defined before code was generated, and agents got narrow, reviewable
+  tasks rather than open-ended ones.
+- Assumptions had to be explicit, and unsupported abstractions were rejected.
+- Agents could propose decisions but could not silently redefine the system.
+  Significant decisions required recorded reasoning, alternatives, and consequences —
+  that is what the ADRs are.
+- Tests, linting, type checking, and CI were the enforcement mechanism, and the agent
+  instructions (`AGENTS.md`, per-package `CLAUDE.md`) require them: generated code had
+  to satisfy the repository, not merely appear correct.
+- Every accepted line is my responsibility, and I do not accept an abstraction I cannot
+  explain.
+
+What this section does not claim: a per-file authorship ledger. That record was not
+kept during the build, it is not recoverable from source or Git history after the fact,
+and an inferred version would be indistinguishable from a measured one — so it is left
+unwritten rather than reconstructed.
+
+The structure exists to make agent code checkable regardless of who wrote it
+(Principle 14):
 
 - Boundary rule fails build (Principle 9).
 - Token lint rejects agent hex literals (Principle 8).
@@ -333,114 +426,79 @@ Repo assumes agents write large share of code (that's what `CLAUDE.md`, routing,
 
 ---
 
-## 10. Measurements
+## 10. What I Would Change
 
-> **ADR 2's own question is now answered, and the answer is decisive.** ADR 2 estimated
-> that schema validation costs tens of microseconds and that per-request HTTP overhead was
-> the likelier first bottleneck, and committed to a harness that would confirm or falsify
-> it. Measured 20 August 2026 by `packages/server/src/ingest/validationCost.test.ts`:
->
-> | Cost                                              | 50 robots | 500 robots |
-> | ------------------------------------------------- | --------- | ---------- |
-> | Strict canonical decode (`JSON.parse` + Zod)      | 5.8 µs    | 5.8 µs     |
-> | Whole request (route, cap, parse, decode, upsert) | 892 µs    | 926 µs     |
->
-> **Transport dominates validation by roughly 150×**, so ADR 2's estimate holds and its
-> staged mitigation should start with batch ingest rather than with worker-pooled
-> validation. Per-request cost is essentially flat from 50 to 500 robots (+3.8%), which is
-> what the map-keyed store predicted.
->
-> Read the 892 µs honestly: it is a **sequential round trip over loopback including the
-> client's own `fetch`**, so it bounds server-side per-request work from above rather than
-> isolating it — and it is emphatically **not** a capacity figure.
->
-> **Under concurrency, measured 20 August 2026 by `src/freshness/sweepUnderLoad.test.ts`
-> at 500 robots:**
->
-> | Offered concurrency | Accepted    | Sweep ticks late |
-> | ------------------- | ----------- | ---------------- |
-> | 1                   | 1,264 req/s | 0 of 4           |
-> | 16                  | 4,786 req/s | 0 of 4           |
-> | 128                 | 5,971 req/s | 0 of 4           |
->
-> That is **~2.4× ADR 2's 2,500 msg/s design scale**, and the freshness sweep never ran
-> late at any level — which is the measurement that actually matters, because ADR 3's
-> failure under saturation is not slowness but a sweep that stops firing and leaves stale
-> robots reported as LIVE. No degradation point was found on this machine; the honest
-> statement is that saturation was not reached, not that it cannot be.
->
-> **The client half, measured 20 August 2026 by the Playwright scale project**
-> (`packages/web/e2e/scale.spec.ts`,
-> [ADR 32](docs/00_adr/32_BROWSER_EVIDENCE_WITH_PLAYWRIGHT_AGAINST_THE_REAL_STACK.md)):
-> 500 robots at ten WebSocket frames per second (250 robots changing per frame) against
-> the production build in a real Chromium:
->
-> | Client metric at 500 robots, live stream | Measured                                |
-> | ---------------------------------------- | --------------------------------------- |
-> | Frames applied                           | 120 of 120                              |
-> | Achieved frame rate                      | 9.79 Hz of 10 Hz offered                |
-> | Delta to next paint                      | p50 47.3 ms · p95 53.7 ms · max 74.5 ms |
-> | Animation-frame interval                 | p50 16.7 ms · p95 50.1 ms               |
->
-> The un-virtualized table absorbs the documented workload with the frame budget intact,
-> so ADR 24's virtualization deferral now rests on evidence. Integrity is asserted in CI;
-> the numbers are reported, never gated, and each run writes its own `scale-report.json`
-> with the environment attached.
->
-> The contrast table is blocked on nothing at all and is simply not yet done. It needs
-> a person reading ratios off both themes, and it is tracked as `packages/FIXME.md`
-> **F8** and `TODO.md` **P3.3**.
+Not the same list as section 9 — those are things deliberately not built. These are
+judgments about what exists.
 
-### Budgets and gates ([ADR 22](docs/00_adr/22_GATE_THE_BUNDLE_AND_THE_FALSIFIER_REPORT_COVERAGE.md))
+- **The coalescing flush sends whole robot rows, not field-level deltas.** ADR 18 chose
+  flush-sequence semantics first and deferred finer granularity until a measurement
+  demanded it; the scale run then showed the un-virtualized table absorbing full-row
+  deltas with the frame budget intact, so it stayed. It remains the first seam I would
+  revisit if the fleet grew past the measured profile, and ADR 18 already names it.
+- **The 500-robot load profile requires a manifest swap and a server restart.** The
+  server rejecting unmanifested robots is correct; making the demo's own scale profile
+  trip over that rule is friction. A server-side `--manifest` flag (or a committed
+  500-robot manifest variant) would remove it. It stayed because it costs a restart,
+  not correctness — `demo.sh` papers over it, and section 3 documents the manual swap.
+- **`packages/README.md` drifted from the tree during the build** — it still claimed the
+  server had no composition root a day after the composition root landed. In a
+  repository whose thesis is that stale state must never present as current, the prose
+  held itself to a lower standard than the fleet table. It is corrected now, but the
+  honest fix at scale is generating such claims from the tree or not writing them.
 
-Two numbers fail the build, and each carries its derivation in the file that enforces it.
-A third is printed and enforces nothing, because nobody could derive it.
+### Mistakes
 
-| Number                         | Budget                     | Measured (19 Aug 2026) | Enforced in                                                    |
-| ------------------------------ | -------------------------- | ---------------------- | -------------------------------------------------------------- |
-| Console first load (JS + CSS)  | 720 kB raw / 300 kB gzip   | 585.66 kB / 177.13 kB  | `scripts/checkBundleBudget.mjs` — **gate**                     |
-| Ingest validation, per message | 400 µs (ADR 2's falsifier) | 5.8–6.4 µs             | `packages/server/src/ingest/validationCost.test.ts` — **gate** |
-| Adapter test coverage          | none, deliberately         | 94.25% statements      | CI job summary — **reported, not gated**                       |
+- I allowed the project to grow beyond the smallest useful demo, and it became harder
+  to explain because it attempted to prove too much.
+- Some governance arrived before the build had proven it necessary, and some
+  documentation became more detailed than the implementation required.
+- Some abstractions appeared before repeated use justified them.
+- I did not constrain every agent task early enough, and some decisions were reviewed
+  after implementation instead of before it.
 
-The bundle budget is derived from a warehouse-floor tablet on ~3 Mbps of shared site
-Wi-Fi and a 2.0 s target to the fleet table showing data; raising it is a claim that the
-operator's device or network is different from that one. The 400 µs figure is ADR 2's own
-falsification threshold, not a tuned number — at the measured cost, validation consumes
-about 1.5% of one core at 2,500 msg/s, so ADR 2's estimate survives and per-request HTTP
-overhead remains the candidate for the first bottleneck. Coverage is reported because the
-90% threshold this repository once proposed had no derivation and, over today's
-`src/vendors/**`, would have measured nothing.
+### What I learned
 
-The tables below stay empty regardless: they need a receiver, and these two gates do not
-provide one. Adapter coverage was re-measured on 19 August 2026 and is unchanged at
-94.25% of statements — over `src/core` alone, since `src/vendors/**` still holds only
-fixtures.
-
-|                                       | 50 robots @ 1 Hz | 500 robots @ 5 Hz |
-| ------------------------------------- | ---------------- | ----------------- |
-| Ingest throughput (events/s)          |                  |                   |
-| Ingest → fan-out latency (p50 / p95)  |                  |                   |
-| WebSocket messages/s after coalescing |                  |                   |
-| Client frame time under load (p95)    |                  |                   |
-| Table rows rendered / virtualized     |                  |                   |
-| Memory, server / client               |                  |                   |
-
-**Contrast verification** (WCAG 2.2 AA) (Principle 6):
-
-| Pair                           | Dark | Light |
-| ------------------------------ | ---- | ----- |
-| `--ink` on `--bg`              |      |       |
-| `--ink` on `--surface`         |      |       |
-| `--accent-text` on `--surface` |      |       |
-| `--ink-muted` on `--surface`   |      |       |
-| Status label on tint           |      |       |
-
-`--ink-muted` matters most: the "last known" treatment depends on legibility.
-**Virtualization:** Ships unvirtualized, by decision ([ADR 24](docs/00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md)). The table renders one row per robot and is asserted correct at 500 rows — 500 rows, 500 activation links, fleet-wide counts, filter still narrowing to one — in `packages/web/src/features/fleet/fleetScale.test.tsx`. **No ceiling is claimed**, because the number that would set one is delta-apply cost at 500 robots under a live stream, and there is no fan-out to measure against. Absolute positioning also conflicts with the semantic `<table>` layout Principle 6 depends on. When the measurement exists, `@mui/x-data-grid` is evaluated first (ADR 5) and whatever is chosen must fit ADR 22's bundle budget.
+- AI speed increases the cost of weak direction. Control comes from explicit
+  constraints, and contracts are more useful than vague architectural guidance.
+- Tests are effective instructions for humans and agents alike, and small tasks produce
+  more reviewable changes.
+- Decision records preserve context that code cannot, and maintainability depends on
+  comprehension, not documentation volume.
+- Real-time systems require explicit recovery behavior, and missing telemetry is still
+  meaningful information.
+- Normalization should preserve genuine differences, and production readiness consists
+  of explicit engineering decisions — every accepted line and abstraction remains my
+  responsibility.
 
 ---
 
-## Testing
+## 11. Measurements
+
+Every number below comes from a committed harness against the real stack; the full
+tables, derivations, and caveats live in [`docs/MEASUREMENTS.md`](docs/MEASUREMENTS.md).
+The headlines:
+
+| What                                    | Measured                                                                | Harness                                                 |
+| --------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------- |
+| Ingest under concurrency, 500 robots    | 5,971 req/s at concurrency 128 — **zero late sweep ticks** at any level | `packages/server/src/freshness/sweepUnderLoad.test.ts`  |
+| Validation cost per message             | 5.8 µs — transport dominates validation ~150×                           | `validationCost.test.ts` — **gate** at ADR 2's 400 µs   |
+| Client at 500 robots, 10 Hz live stream | 120/120 frames applied at 9.78 Hz, delta-to-paint p95 50.5 ms           | `pnpm test:e2e:scale` (real Chromium, production build) |
+| Console first load (JS + CSS)           | 182.52 kB gzip against a 300 kB budget                                  | `pnpm check:bundle` — **gate**                          |
+| WCAG 2.2 AA contrast, every token       | all ratios clear 4.5:1 text / 3:1 non-text in both themes               | `pnpm check:tokens` — **gate**                          |
+
+**The degradation point was not found on this machine, and that is stated as "not
+reached," never "does not exist."** Ingest held zero late sweep ticks at 2.4× ADR 2's
+design scale — the measurement that matters, because the freshness sweep stopping is
+what would let stale robots report as LIVE — and the un-virtualized table held the frame
+budget at 500 robots, which is the evidence ADR 24's virtualization deferral rests on.
+What remains unmeasured (end-to-end ingest-to-paint latency, coalesced WebSocket rate
+under real load, server memory over time) is named in
+[`docs/MEASUREMENTS.md`](docs/MEASUREMENTS.md) rather than left as blank cells.
+
+---
+
+## 12. Testing
 
 ### Contributing: run the CI gates locally
 
@@ -458,6 +516,7 @@ pnpm install --frozen-lockfile
 pnpm check:architecture-docs
 pnpm check:type-safety
 pnpm check:doc-comments
+pnpm check:tokens
 pnpm check:dependencies
 pnpm audit --audit-level=high --ignore-registry-errors
 pnpm lint
@@ -502,6 +561,6 @@ Named in the scope and now built:
 
 Still explicitly **manual**: real screen-reader output and subjective forced-colors inspection (ADR 32 keeps them named rather than claimed).
 
-## Licence
+## 13. Licence
 
 [MIT.](./LICENSE)

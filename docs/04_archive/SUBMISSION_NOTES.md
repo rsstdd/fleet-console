@@ -20,7 +20,7 @@ This file holds the material that is genuinely about the evaluation: what a give
 
 Two references stay inside the ADRs because the decision does not stand without them:
 
-- **ADR 1, Position 1.** Budylskii's framing — a universal schema that flattens capability differences "deletes the product" — is the direct source of the rejection, not a supporting flourish.
+- **ADR 1, Position 1.** The challenge's framing — a universal schema that flattens capability differences "deletes the product" — is the direct source of the rejection, not a supporting flourish.
 - **ADR 5, Argument and Related.** The stated pain point, inconsistency in practice rather than in intent, is the business justification for the enforcement half of the decision.
 
 ---
