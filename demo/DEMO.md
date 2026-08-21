@@ -6,6 +6,7 @@ Run the full sequence interactively with `demo/demo.sh`. If you prefer to contro
 
 **Duration:** About 12 minutes for Acts 1–6. Act 7 is optional.
 **Companion script:** [`demo/demo.sh`](./demo.sh)
+**Architecture and UI companion:** [`demo/PROJECT_GUIDE.md`](./PROJECT_GUIDE.md)
 
 ---
 
