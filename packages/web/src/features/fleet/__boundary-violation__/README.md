@@ -1,3 +1,5 @@
+# Boundary-violation fixtures
+
 This directory proves the dependency rule is enforced rather than documented.
 
 `violation.ts` deliberately imports one feature from another. The test asserts

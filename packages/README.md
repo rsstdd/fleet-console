@@ -237,8 +237,8 @@ the console's own blindness.
 Where that stream will connect is settled. Both tenant profiles carry
 `endpoints: { apiBaseUrl: "/api", streamUrl: "/ws" }` — same-origin paths that
 Vite's dev proxy forwards to the server, so the console never learns a host and
-nothing it sends is cross-origin (ADR 21). Nothing reads those values yet; the
-transport client that will is `features/fleet/TODO.md` **A3**.
+nothing it sends is cross-origin (ADR 21). The transport client that reads them
+landed 20 August 2026 (below).
 
 Robot detail renders exactly the panels a robot's adapter declared. Absence is
 the interface — no disabled placeholders. `if (vendor === …)` in a component is
@@ -280,10 +280,9 @@ Development is a separate root fan-out:
 pnpm dev         # in parallel, for packages that define a dev script
 ```
 
-Only `simulator` and `web` currently define `dev`. `contracts` and `adapters` are
-libraries with nothing to start; `server` is intended to be executable but has no
-composition root or runtime script yet. Consequently `pnpm dev` is a two-process start
-today and gains the server only when its composition root lands.
+`simulator`, `server` and `web` define `dev`; `contracts` and `adapters` are
+libraries with nothing to start. `server`'s composition root landed 20 August 2026,
+so `pnpm dev` is a three-process start: server, simulator, and console, connected.
 The four Node packages add `test:coverage`; `simulator` adds `start`; `web` adds
 `lint:css` and `preview`. All five define `test:watch`.
 

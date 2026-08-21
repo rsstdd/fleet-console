@@ -6,7 +6,7 @@
 
 ## Issue
 
-React and Material UI are the confirmed stack. White-label deployment requires per-tenant theming. UI inconsistency is a live pain point Budylskii named directly.
+React and Material UI are the confirmed stack. White-label deployment requires per-tenant theming. UI inconsistency is a live pain point named directly in the problem framing.
 
 Three questions follow, and this ADR resolves them together because they are not independent. How does theming get wired, given that MUI reads from a theme object rather than CSS custom properties? How is tenant variation, which includes dark and light, expressed without becoming scattered conditionals? And what mechanism keeps the inconsistency pain from recurring here, given that lint enforcement is the standing answer to how a rule survives an agent that has not read the document?
 
@@ -46,7 +46,7 @@ Generating the theme from the token module was chosen because the alternative re
 
 The CSS theme variables API is the more correct long-term answer, and the cost-benefit against it is about the reconciliation work its persistence model would demand at this scale rather than about the API being wrong, which is why the cheaper option was taken deliberately and the better one left on record for when the constraint changes. Nothing here is load-bearing against it.
 
-The enforcement half — two lint tools covering two file types neither covers alone — exists because Budylskii's stated pain was inconsistency in practice, not inconsistency in intent. A token layer nobody is required to use is decoration. The same "documented rule is a suggestion" argument that governs ADR 4's dependency rule governs this one.
+The enforcement half — two lint tools covering two file types neither covers alone — exists because the stated pain point was inconsistency in practice, not inconsistency in intent. A token layer nobody is required to use is decoration. The same "documented rule is a suggestion" argument that governs ADR 4's dependency rule governs this one.
 
 ## Implications
 
@@ -72,7 +72,7 @@ The enforcement half — two lint tools covering two file types neither covers a
 - Principle 9 (boundaries are enforced in the build) — why `StatusChip` prop unions are presentational tokens rather than contract types.
 - Principle 8 (design tokens represent repeated decisions; raw literals are lint violations) — this ADR is its primary implementation for the front end.
 - Principle 13 (configuration expresses deployment policy; code expresses stable behavior) — governs the dark/light-as-tenant-not-preference half of this decision.
-- Budylskii's stated pain point — direct business justification for the enforcement half of this decision.
+- The stated UI-inconsistency pain point — direct business justification for the enforcement half of this decision.
 - Artifact `packages/web/src/styles/tokens.ts` — the single source of design literal values.
 - Artifact `packages/web/src/styles/tokens.css`, `global.css` — the generated token layer.
 - Artifact `packages/web/eslint.config.js` — the `no-restricted-syntax` hex/pixel rule, scoped to `app`, `features`, `entities`, and `shared/ui` with `tokens.ts` as the sole exemption.
