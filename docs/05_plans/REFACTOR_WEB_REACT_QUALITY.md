@@ -65,7 +65,7 @@ the ADR 22 bundle budget and the ADR 24 fleet-table scale evidence.
 
 **Recommendation** (a plan cannot ratify): register a D-id — "Enable the React Compiler
 build transform in `packages/web`" — and decide it with bundle-size and scale-run
-evidence. **Checklist item 4 (remove redundant memoization) is gated on that decision**:
+evidence. **Registered as open stub D27 (2026-08-21)** in `docs/decisions.json`. **Checklist item 4 (remove redundant memoization) is gated on that decision**:
 without the compiler, the `useMemo`s in `fleetPage.tsx:133–147` and
 `robotDetailPage.tsx:475` are load-bearing on a surface measured at 500 robots × 10 Hz,
 and removing them now would be a perf behavior change on a gated surface. Until decided,
@@ -158,16 +158,23 @@ gallery is excluded from this plan's scope.
 
 ## Acceptance criteria
 
-- [ ] Store/transport identity is guaranteed by construction (F1) with a test.
-- [ ] No inline object/function literals on the fleet-row or map-row render paths (F5).
-- [ ] Site/positioned filtering has one authoritative implementation in selectors (F6).
-- [ ] No component in the fleet feature exceeds ~200 lines or mixes concerns (F3).
-- [ ] The F2 compiler conflict is recorded as a decision recommendation, not silently
-      worked around; memoization untouched until it is decided.
-- [ ] `pnpm --filter web test && pnpm --filter web lint && pnpm --filter web build` green
+- [x] Store/transport identity is guaranteed by construction (F1) with a test.
+      Merged via PR #23.
+- [x] No inline object/function literals on the fleet-row or map-row render paths (F5).
+      Merged via PR #24.
+- [x] Site/positioned filtering has one authoritative implementation in selectors (F6).
+      Merged via PR #24.
+- [x] No component in the fleet feature exceeds ~200 lines or mixes concerns (F3).
+      Merged via PRs #25/#26 (FleetSummary 27 / FleetFilters 87 / FleetTable 122 /
+      FleetPage 185 lines).
+- [x] The F2 compiler conflict is recorded as a decision recommendation, not silently
+      worked around; memoization untouched until it is decided. Open stub D27.
+- [x] `pnpm --filter web test && pnpm --filter web lint && pnpm --filter web build` green
       after every slice; `pnpm test:e2e` after F3 (user-facing surface), plus
-      `pnpm test:e2e:scale`.
-- [ ] Unverified items recorded here honestly at completion.
+      `pnpm test:e2e:scale` (120/120 frames applied at 9.76 Hz, delta→paint p95 50.9 ms).
+- [ ] Unverified items recorded here honestly at completion. Known so far: the e2e
+      webkit project cannot launch on the development WSL host (missing system
+      libraries); smoke evidence covers chromium and firefox only.
 
 ## Documentation synchronization
 
