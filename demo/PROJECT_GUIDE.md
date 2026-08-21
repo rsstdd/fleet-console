@@ -565,7 +565,7 @@ The fleet page is the operator’s dense scanning surface.
 1. One `h1`, “Fleet overview”.
 2. Resource-state alert or loading treatment where applicable.
 3. A fleet-wide freshness summary.
-4. Site, vendor, freshness, and free-text filters.
+4. Site, vendor, reporting-status, and free-text filters.
 5. An explicit empty state when no robots are registered or no robots match.
 6. A semantic table.
 7. A provenance footer naming snapshot and latest-frame times.
@@ -582,14 +582,14 @@ not require adding it to a UI constant.
 
 ### Table semantics
 
-The columns are Robot id, Vendor, Status, Freshness, Site, Battery, and Last seen.
+The columns are Robot id, Vendor, Status, Reporting status, Site, Battery, and Last seen.
 
 - Robot id is the only link and activation path in a row.
 - Rows are not given click handlers or tab stops.
 - Status and health severity determine chip treatment.
 - Non-Live status chips are outlined and labelled “last known.”
 - Battery is an em dash unless the observation is Live.
-- Freshness text is suppressed whenever the stream is not connected.
+- Reporting-status text is suppressed whenever the stream is not connected.
 - “Last seen” uses the vendor-reported time for operator provenance; it is not used to
   derive freshness.
 - No row container is an `aria-live` region, so ten frames per second do not become a

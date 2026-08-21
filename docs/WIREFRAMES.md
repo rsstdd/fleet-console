@@ -67,10 +67,10 @@ Vendor A and Vendor B declare `dock` and `lidarHealth`. Vendor C declares `dock`
 │  │ of 50   │  │         │  │             │  │         │                      │
 │  └─────────┘  └─────────┘  └─────────────┘  └─────────┘                      │
 │                                                                              │
-│  Site [ All ▾ ]  Vendor [ All ▾ ]  Freshness [ All ▾ ]  Search [_________]   │
+│  Site [ All ▾ ] Vendor [ All ▾ ] Reporting status [ All ▾ ] Search [_____]   │
 │                                                                              │
 │  ┌──────────────────────────────────────────────────────────────────────────┐│
-│  │ ROBOT   VENDOR  STATUS            FRESHNESS      SITE     BATT  LAST SEEN││
+│  │ ROBOT   VENDOR  STATUS            REPORTING STAT. SITE    BATT  LAST SEEN││
 │  ├──────────────────────────────────────────────────────────────────────────┤│
 │  │ R-118   A       ● Busy            ● Live         Zone A   91%  09:41:18Z ││
 │  │ R-055   B       ● Charging        ● Live         Dock A3  34%  09:40:55Z ││

@@ -159,7 +159,7 @@ describe("FleetPage", () => {
       "Robot id",
       "Vendor",
       "Status",
-      "Freshness",
+      "Reporting status",
       "Site",
       "Battery",
       "Last seen",
@@ -249,10 +249,12 @@ describe("FleetPage", () => {
     expect(connected.every((text) => text !== "")).toBe(true);
   });
 
-  it("labels the summary Fleet freshness, without qualification, while connected (ADR 23)", () => {
+  it("labels the summary Fleet reporting status, without qualification, while connected (ADR 23)", () => {
     renderPage("connected");
 
-    expect(screen.getByRole("heading", { level: 2, name: "Fleet freshness" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Fleet reporting status" }),
+    ).toBeInTheDocument();
     // Scoped to headings: rows legitimately say "(last known)" per non-live status chip.
     expect(screen.queryByRole("heading", { name: /last known/ })).not.toBeInTheDocument();
   });
@@ -264,7 +266,7 @@ describe("FleetPage", () => {
     renderPage("disconnected");
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "Fleet freshness · last known" }),
+      screen.getByRole("heading", { level: 2, name: "Fleet reporting status · last known" }),
     ).toBeInTheDocument();
   });
 
@@ -272,7 +274,7 @@ describe("FleetPage", () => {
     renderPage("reconnecting");
 
     expect(
-      screen.getByRole("heading", { level: 2, name: "Fleet freshness · last known" }),
+      screen.getByRole("heading", { level: 2, name: "Fleet reporting status · last known" }),
     ).toBeInTheDocument();
   });
 
@@ -293,7 +295,7 @@ describe("FleetPage", () => {
     expect(within(fleetTable()).getAllByRole("row")).toHaveLength(2);
     expect(summaryCounts()).toEqual(before);
     expect(
-      screen.getByRole("heading", { level: 2, name: "Fleet freshness · last known" }),
+      screen.getByRole("heading", { level: 2, name: "Fleet reporting status · last known" }),
     ).toBeInTheDocument();
   });
 
@@ -303,7 +305,7 @@ describe("FleetPage", () => {
     const headings = screen.getAllByRole("heading");
     expect(headings[0]).toHaveTextContent("Fleet overview");
     expect(headings[0]?.tagName).toBe("H1");
-    expect(headings[1]).toHaveTextContent("Fleet freshness");
+    expect(headings[1]).toHaveTextContent("Fleet reporting status");
     expect(headings[1]?.tagName).toBe("H2");
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
@@ -341,6 +343,20 @@ describe("FleetPage", () => {
 
     const rows = within(fleetTable()).getAllByRole("row");
     expect(rows).toHaveLength(3);
+  });
+
+  it("filters by reporting status under the operator-facing label", async () => {
+    // The filter's visible label is operator copy ("Reporting status"); the
+    // state values it filters on stay the ADR 3 freshness vocabulary.
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByLabelText("Reporting status"));
+    await user.click(screen.getByRole("option", { name: "Stale" }));
+
+    const rows = within(fleetTable()).getAllByRole("row");
+    expect(rows).toHaveLength(2);
+    expect(within(fleetTable()).getByRole("row", { name: /R-204/ })).toBeInTheDocument();
   });
 
   it("offers a clear action when filters exclude every robot", async () => {

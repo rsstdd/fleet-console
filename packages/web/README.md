@@ -93,8 +93,8 @@ makes them distinguishable at all.
   rather than a shortcut.
 - **Non-live rows do not show live numbers.** Battery renders as an em dash and status
   chips go hollow with `(last known)`. While the stream itself is down, per-robot freshness
-  labels are suppressed and the fleet summary's heading reads "Fleet freshness · last
-  known" over unchanged counts (ADR 23).
+  labels are suppressed and the fleet summary's heading reads "Fleet reporting status ·
+  last known" over unchanged counts (ADR 23).
 - **A robot that never reported has `null`, not zero.** No health severity, no battery, no
   last-seen. `nominal` for a machine nobody has heard from is a fabricated reassurance.
 - **Tokens, not literals.** Colours live in `styles/tokens.css`; `scripts/checkTokens.mjs`

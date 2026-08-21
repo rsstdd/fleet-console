@@ -120,7 +120,7 @@ the console comes up on `http://localhost:5173` and proxies `/api` and `/ws` to 
 and the simulator POSTs into the real ingest — 1,993 readings sent and 1,993 accepted over
 40 seconds, with no rejections and no server failures.
 
-1. **Summary strip:** Counts freshness only (`LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN`). Mutually exclusive, totals fleet exactly. No status duplication. Headed "Fleet freshness" while the stream is connected; during an outage the counts stay visible under "Fleet freshness · last known", so the group never asserts a currency the socket cannot support (ADR 23).
+1. **Summary strip:** Counts freshness only (`LIVE`, `STALE`, `UNREACHABLE`, `UNKNOWN`). Mutually exclusive, totals fleet exactly. No status duplication. Headed "Fleet reporting status" while the stream is connected; during an outage the counts stay visible under "Fleet reporting status · last known", so the group never asserts a currency the socket cannot support (ADR 23).
 2. **Rows:** Show status + freshness. Non-`LIVE` rows use outline status chips (`(last known)`) and em-dash batteries (no stale numbers presented as current). The connection state is supplied by a real socket, so the labels render while the stream is connected and are suppressed while it is not (ADR 3) — watched in a browser by the Playwright outage scenario, which kills the server and asserts the suppression, the retained rows, and the qualified summary heading (ADR 32).
 3. **Vendor column:** Filter to Vendor C vs A. Capability panels differ because robots differ.
 

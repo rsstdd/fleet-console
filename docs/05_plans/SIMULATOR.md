@@ -309,7 +309,7 @@ git add -A -- \
 docs/05_plans/FLEET_COUNTS.md \
 docs/04_archive/FLEET_COUNTS.md
 
-# Select the "Fleet freshness · last known" assertions only.
+# Select the "Fleet reporting status · last known" assertions only.
 
 git add -p packages/web/e2e/smoke.spec.ts
 
