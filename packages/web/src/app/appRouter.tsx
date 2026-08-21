@@ -4,6 +4,7 @@ import { Link, Route, Routes } from "react-router";
 import { AppShell } from "@/app/appShell";
 import { ComponentGallery } from "@/app/dev/componentGallery";
 import { FleetPage } from "@/features/fleet/fleetPage";
+import { MapPage } from "@/features/map/mapPage";
 import { RobotDetailPage } from "@/features/robot/robotDetailPage";
 import { EmptyState } from "@/shared/ui/emptyState";
 import { useFleetTransport } from "@/app/useFleetTransport";
@@ -46,6 +47,7 @@ export function AppRouter(): ReactNode {
             }
           >
             <Route path="/" element={<FleetPage />} />
+            <Route path="/map" element={<MapPage />} />
             <Route path="/robots/:id" element={<RobotDetailPage />} />
             {import.meta.env.DEV ? <Route path="/dev/ui" element={<ComponentGallery />} /> : null}
             <Route

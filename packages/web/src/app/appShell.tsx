@@ -121,6 +121,14 @@ export function AppShell({
                   >
                     Fleet
                   </Typography>
+                  {/* The second primary destination (app-shell spec § 2 revision 5, page spec 04). */}
+                  <Typography
+                    component={NavLink}
+                    to="/map"
+                    sx={{ color: "text.primary", textDecoration: "none" }}
+                  >
+                    Map
+                  </Typography>
                   <Typography
                     component="span"
                     variant="caption"

@@ -26,6 +26,13 @@ describe("AppRouter", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "main");
   });
 
+  it("renders the map page inside the shell at /map", () => {
+    renderAt("/map");
+
+    expect(screen.getByRole("heading", { level: 1, name: "Map" })).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveAttribute("id", "main");
+  });
+
   it("puts the skip link before the content it skips", () => {
     renderAt("/");
 

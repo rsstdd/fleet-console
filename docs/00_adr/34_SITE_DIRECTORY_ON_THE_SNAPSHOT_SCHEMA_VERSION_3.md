@@ -63,6 +63,7 @@ The version bump is honest labeling. A version-2 consumer reading a version-3 bo
 ## Observed consequences
 
 - **20 August 2026 — the parity chain absorbed the change with no new mechanism.** The committed manifest, the simulator's printed document, and the server's schema moved in one change and the existing byte-for-byte test held; the directory rides the same join the roster does.
+- **20 August 2026 — the open question's resolving event arrived, and the answer stayed No.** The map view (page spec 04) is the first console surface that could have asked for a second site attribute (bounds or a map frame); ADR 35 chose to derive spatial extents client-side from observed positions instead, so the directory remains `{ siteId, label }` and no schema version moved.
 
 ## Related
 

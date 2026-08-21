@@ -26,6 +26,12 @@
   /* The battery-history sparkline's rendered height (ADR 33); its drawn
    * coordinate space is fixed in the component and scales into this. */
   --sparkline-height: 6rem;
+  /* The map canvas's rendered height (page spec 04 § 4, ADR 35); like the
+   * sparkline, its drawn coordinate space is derived in selectors and scales
+   * into this. Marker geometry is viewBox-unit constants in the component,
+   * as the sparkline's stroke width is, because a CSS length cannot describe
+   * a coordinate-space radius. */
+  --map-height: 24rem;
 
   --space-1: 4px;
   --space-2: 8px;
