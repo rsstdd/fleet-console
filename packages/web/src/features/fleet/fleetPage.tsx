@@ -112,7 +112,7 @@ function FleetSummary({
   return (
     <Box component="section" aria-labelledby="fleet-summary-heading" sx={{ mb: 3 }}>
       <Typography id="fleet-summary-heading" variant="h2" component="h2" sx={{ mb: 2 }}>
-        {streamConnected ? "Fleet freshness" : "Fleet freshness · last known"}
+        {streamConnected ? "Fleet reporting status" : "Fleet reporting status · last known"}
       </Typography>
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: "wrap" }}>
         <Stat label="Live" value={summary.live} hint={`of ${String(total)}`} />
@@ -197,10 +197,10 @@ function FleetFilters({
       </FormControl>
 
       <FormControl size="small" sx={{ minWidth: 160 }}>
-        <InputLabel id="freshness-filter-label">Freshness</InputLabel>
+        <InputLabel id="freshness-filter-label">Reporting status</InputLabel>
         <Select
           labelId="freshness-filter-label"
-          label="Freshness"
+          label="Reporting status"
           value={filters.freshness}
           onChange={onFreshnessChange}
         >
@@ -253,7 +253,7 @@ function FleetTable({
               <TableCell>Robot id</TableCell>
               <TableCell>Vendor</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell>Freshness</TableCell>
+              <TableCell>Reporting status</TableCell>
               <TableCell>Site</TableCell>
               <TableCell align="right">Battery</TableCell>
               <TableCell align="right">Last seen</TableCell>

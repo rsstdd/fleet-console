@@ -151,7 +151,9 @@ test.describe("fleet console against the real stack", () => {
     await openFleet(page, stack.consoleUrl);
     const fleetTable = page.getByRole("table", { name: "Fleet" });
     await expect(fleetTable.getByText("Live").first()).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByRole("heading", { name: "Fleet freshness", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Fleet reporting status", exact: true }),
+    ).toBeVisible();
 
     await stack.stopServer();
 
@@ -165,8 +167,8 @@ test.describe("fleet console against the real stack", () => {
 
     // The summary keeps its four counts but withdraws the currency claim: one shared
     // heading qualifies the whole group as last known (ADR 23, fleet spec § 2).
-    const summary = page.getByRole("region", { name: "Fleet freshness · last known" });
-    await expect(summary.getByRole("heading")).toHaveText("Fleet freshness · last known");
+    const summary = page.getByRole("region", { name: "Fleet reporting status · last known" });
+    await expect(summary.getByRole("heading")).toHaveText("Fleet reporting status · last known");
     for (const label of ["Live", "Stale", "Unreachable", "Unknown"]) {
       await expect(summary.getByText(label, { exact: true })).toBeVisible();
     }

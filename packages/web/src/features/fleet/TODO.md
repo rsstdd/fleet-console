@@ -25,8 +25,9 @@ browser.
   **Escalation after repeated failures remains trigger-deferred**: no threshold has been
   derived, and the surface now exists to observe one from.
 - **A7 — qualify disconnected fleet counts — done (ADR 23 amendment, 20 August 2026).**
-  The four counts sit in a section under a visible h2 that reads "Fleet freshness" while
-  connected and "Fleet freshness · last known" in any other state, derived from the same
+  The four counts sit in a section under a visible h2 that reads "Fleet reporting status"
+  while connected and "Fleet reporting status · last known" in any other state (operator
+  copy renamed from "Fleet freshness" on 21 August 2026), derived from the same
   `isStreamConnected` that suppresses the rows. No per-metric tag, no aria-live, no client
   timestamp. Six unit tests and the Playwright outage scenario hold it; fleet spec § 2/§ 8
   record it.

@@ -405,7 +405,7 @@ browser "watch the banner change to 'Stream reconnecting' within a few seconds."
 say "Once the stream is down, every per-robot freshness label disappears."
 say "Without a live connection, the console will not present old readings as current."
 say "The rows remain visible, but only as last-known data."
-say "The summary makes that clear with the heading 'Fleet freshness · last known'."
+say "The summary makes that clear with the heading 'Fleet reporting status · last known'."
 pause
 
 act "$GREEN" "ACT 6" "Recovery without a reload"

@@ -61,7 +61,7 @@ The connection moves through `connecting → connected → reconnecting → disc
 
 Reconnection uses a full-jitter schedule. When the server restarts, the client detects the new `serverSessionId` and replaces its state from the new snapshot without reloading the page (ADR 31). The terminal `disconnected` state names the cause and provides a **Retry now** action.
 
-Whenever the stream is not connected, the console suppresses per-robot freshness labels and changes the summary heading to **Fleet freshness · last known**. The socket cannot support a current claim, so the console does not make one.
+Whenever the stream is not connected, the console suppresses per-robot freshness labels and changes the summary heading to **Fleet reporting status · last known**. The socket cannot support a current claim, so the console does not make one.
 
 ## 4. Three deliberately incompatible adapter dialects
 
@@ -200,7 +200,7 @@ pnpm --filter @fleet/simulator start -- --drop R-007,R-023,R-041
 
 - The banner changes to `Stream reconnecting`, and the client begins jittered reconnect attempts.
 - Every per-robot freshness label disappears. The console has no current answer about any robot, so it makes no claim at the row level.
-- The table retains last-known identity, battery, and status data. The summary heading changes to **Fleet freshness · last known**.
+- The table retains last-known identity, battery, and status data. The summary heading changes to **Fleet reporting status · last known**.
 
 **Say:** “Compare this with Act 4. There, three freshness labels changed while the connection remained healthy. Here, every label disappears and the banner explains why. Both failures involve missing messages, but the operator can distinguish them because the server owns freshness.”
 
