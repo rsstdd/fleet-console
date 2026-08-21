@@ -58,6 +58,9 @@ ADR 11 and ADR 12 are implemented.
 None. This package is an application; its entry point is `src/main.tsx` and its surface is
 the rendered UI plus the routes in `src/app/appRouter.tsx`.
 
+Routes today: `/` (fleet), `/map` (map, page spec 04 / ADR 35), `/robots/:id` (robot
+detail), and the dev-only `/dev/ui` gallery.
+
 Internal layer boundaries take the place of a public API, and they are enforced rather
 than conventional — see § 7.
 
@@ -104,6 +107,7 @@ or feature directories.
 | `src/app`            | Providers, router, shell, theme bridge, dev gallery                       | Domain rules, presentational primitives    |
 | `src/features/fleet` | Fleet table, site grouping, summary                                       | Robot-detail components, domain derivation |
 | `src/features/robot` | Robot detail, capability panels, persona views, battery-history sparkline | Fleet components, domain derivation        |
+| `src/features/map`   | Map page, site facet, and marker SVG canvas (page spec 04, ADR 35)        | Fleet components, domain derivation        |
 | `src/entities/robot` | Robot read model, selectors, hooks                                        | JSX, MUI imports                           |
 | `src/entities/site`  | Site model, grouping                                                      | JSX, MUI imports                           |
 | `src/shared/ui`      | Pure presentational primitives                                            | Any domain reference                       |
@@ -319,20 +323,21 @@ The rules that matter most:
 
 ## 10. Verification matrix
 
-| Concern                    | Check                                                                                                    |
-| -------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Selector rules             | Pure unit tests with injected time, no React                                                             |
-| Freshness display          | Never recomputed; label suppressed when the stream is down                                               |
-| Capability rendering       | Fixture robot without a capability renders no panel                                                      |
-| Core/capability separation | Core fields never appear under the Capabilities section                                                  |
-| No vendor branches         | No vendor `if` anywhere in features; panels resolve through the registry                                 |
-| Accessibility              | Names, roles, state; keyboard flows; heading outline never skips a level                                 |
-| Boundaries                 | Every fixture violation is reported; the control stays silent                                            |
-| Tokens                     | No raw hex or px outside `shared/ui` and `config`                                                        |
-| Development endpoints      | Tenant paths match proxy keys; HTTP and WebSocket proxy end to end                                       |
-| First-load bundle          | JS + CSS stay within 720 kB raw and 300 kB gzip (`pnpm check:bundle`)                                    |
-| Large lists                | Fleet table usable at several hundred robots                                                             |
-| Battery history            | Section state matrix, sparkline coordinates and accessible name, and failure isolation from robot detail |
+| Concern                    | Check                                                                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Selector rules             | Pure unit tests with injected time, no React                                                                               |
+| Freshness display          | Never recomputed; label suppressed when the stream is down                                                                 |
+| Capability rendering       | Fixture robot without a capability renders no panel                                                                        |
+| Core/capability separation | Core fields never appear under the Capabilities section                                                                    |
+| No vendor branches         | No vendor `if` anywhere in features; panels resolve through the registry                                                   |
+| Accessibility              | Names, roles, state; keyboard flows; heading outline never skips a level                                                   |
+| Boundaries                 | Every fixture violation is reported; the control stays silent                                                              |
+| Tokens                     | No raw hex or px outside `shared/ui` and `config`                                                                          |
+| Development endpoints      | Tenant paths match proxy keys; HTTP and WebSocket proxy end to end                                                         |
+| First-load bundle          | JS + CSS stay within 720 kB raw and 300 kB gzip (`pnpm check:bundle`)                                                      |
+| Large lists                | Fleet table usable at several hundred robots                                                                               |
+| Battery history            | Section state matrix, sparkline coordinates and accessible name, and failure isolation from robot detail                   |
+| Map                        | Projection selectors as pure geometry; state matrix; selected-site-only markers and one link per robot at 500 (`mapScale`) |
 
 No snapshot tests — a snapshot asserts output did not change, which is not the same as
 asserting it is correct. (Test counts are recorded in dated audit evidence, not here,
@@ -351,6 +356,10 @@ server deltas with no client timer involved.
 robot detail with capability panels and the persona toggle; all eight `shared/ui`
 primitives with their specs; the robot and site entity layers with selectors and hooks; the
 full token layer; the boundary enforcement fixtures; and a development component gallery.
+
+**Built, 20 August 2026.** The map view: `src/features/map` renders one site at a time
+over client-derived extents per page spec 04 and ADR 35, verified by `mapPage.test.tsx`,
+`mapScale.test.tsx`, and a smoke browser scenario.
 
 **Wired to live data.** `useFleetRobots` subscribes to the decoded fleet store populated by
 the app-owned socket-first, snapshot-second transport, and returns the complete resource

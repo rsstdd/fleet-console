@@ -55,13 +55,16 @@ describe("AppShell", () => {
     expect(main).toHaveAttribute("tabindex", "-1");
   });
 
-  it("reads the wordmark from tenant config and provides primary Fleet navigation", () => {
+  it("reads the wordmark from tenant config and provides primary Fleet and Map navigation", () => {
     renderShell();
 
     expect(screen.getByRole("link", { name: TENANT.wordmark })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("navigation", { name: "Primary" })).toContainElement(
-      screen.getByRole("link", { name: "Fleet" }),
-    );
+    const nav = screen.getByRole("navigation", { name: "Primary" });
+    expect(nav).toContainElement(screen.getByRole("link", { name: "Fleet" }));
+    // The second primary destination (app-shell spec § 2 revision 5).
+    const mapLink = screen.getByRole("link", { name: "Map" });
+    expect(nav).toContainElement(mapLink);
+    expect(mapLink).toHaveAttribute("href", "/map");
   });
 
   it("always mounts the connection live region above main content", () => {

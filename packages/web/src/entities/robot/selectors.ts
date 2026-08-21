@@ -3,6 +3,7 @@ import { OPERATOR_CAPABILITY_NAMES } from "@fleet/contracts";
 import type {
   Freshness,
   PanelCapabilityName,
+  Position,
   Robot,
   RobotDetail,
   RobotHealth,
@@ -232,4 +233,198 @@ export function selectSequenceDuplicateDisplay(robot: RobotDetail): string {
     return "Not evaluated";
   }
   return String(health.duplicates);
+}
+
+/*
+ * ------------------------------------------------------------------ map --
+ * Pure projection pipeline for the map view (page spec 04, ADR 35).
+ * Coupling: `features/map/mapPage.tsx` composes these and owns the
+ * per-session extents state (Principle 11).
+ */
+
+/** Axis-aligned bounds of one site frame, in metres (ADR 35). */
+export interface SiteExtents {
+  readonly minX: number;
+  readonly maxX: number;
+  readonly minY: number;
+  readonly maxY: number;
+}
+
+/** The SVG coordinate space a projection targets, in user units. */
+export interface ViewBoxSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+/** A robot the map can plot: its `position` is proven non-null by selection. */
+export interface PlottableRobot extends Robot {
+  readonly position: Position;
+}
+
+/** One fully derived marker; the canvas computes nothing (page spec 04 § 7). */
+export interface MapMarker {
+  readonly robotId: string;
+  /** ViewBox coordinates, already projected and y-inverted. */
+  readonly x: number;
+  readonly y: number;
+  readonly variant: StatusPresentationVariant;
+  /** Hollow when freshness is not live or the stream is not connected. */
+  readonly hollow: boolean;
+}
+
+/** Fraction of each axis span added on both sides of a derived bounding box. */
+const EXTENTS_PAD_RATIO = 0.1;
+
+/** Smallest axis span in metres; guards against a degenerate box (ADR 35). */
+const MIN_EXTENT_SPAN_METRES = 10;
+
+/**
+ * The site's robots the canvas can plot: membership by `siteId`, with a
+ * position (page spec 04 § 6).
+ */
+export function selectPlottableRobots(
+  robots: readonly Robot[],
+  siteId: string,
+): readonly PlottableRobot[] {
+  return robots.filter(
+    (robot): robot is PlottableRobot => robot.siteId === siteId && robot.position !== null,
+  );
+}
+
+/** Widens one axis to the pad ratio, then to the minimum span, around its centre. */
+function padAxis(min: number, max: number): { readonly min: number; readonly max: number } {
+  const pad = (max - min) * EXTENTS_PAD_RATIO;
+  let lower = min - pad;
+  let upper = max + pad;
+  if (upper - lower < MIN_EXTENT_SPAN_METRES) {
+    const centre = (lower + upper) / 2;
+    lower = centre - MIN_EXTENT_SPAN_METRES / 2;
+    upper = centre + MIN_EXTENT_SPAN_METRES / 2;
+  }
+  return { min: lower, max: upper };
+}
+
+/**
+ * Padded bounding box of the given positions, or null when there are none
+ * (ADR 35, Principle 4).
+ */
+export function computeSiteExtents(positions: readonly Position[]): SiteExtents | null {
+  const first = positions[0];
+  if (first === undefined) {
+    return null;
+  }
+  let minX = first.x;
+  let maxX = first.x;
+  let minY = first.y;
+  let maxY = first.y;
+  for (const position of positions) {
+    minX = Math.min(minX, position.x);
+    maxX = Math.max(maxX, position.x);
+    minY = Math.min(minY, position.y);
+    maxY = Math.max(maxY, position.y);
+  }
+  const x = padAxis(minX, maxX);
+  const y = padAxis(minY, maxY);
+  return { minX: x.min, maxX: x.max, minY: y.min, maxY: y.max };
+}
+
+/**
+ * Union of two extents, so the box only widens within a session (ADR 35).
+ * Null on either side yields the other; a union that widens nothing returns
+ * `previous` by reference so callers can detect "unchanged".
+ */
+export function mergeExtents(
+  previous: SiteExtents | null,
+  next: SiteExtents | null,
+): SiteExtents | null {
+  if (previous === null) {
+    return next;
+  }
+  if (next === null) {
+    return previous;
+  }
+  const minX = Math.min(previous.minX, next.minX);
+  const maxX = Math.max(previous.maxX, next.maxX);
+  const minY = Math.min(previous.minY, next.minY);
+  const maxY = Math.max(previous.maxY, next.maxY);
+  if (
+    minX === previous.minX &&
+    maxX === previous.maxX &&
+    minY === previous.minY &&
+    maxY === previous.maxY
+  ) {
+    return previous;
+  }
+  return { minX, maxX, minY, maxY };
+}
+
+/** ViewBox dimensions matching the extents' aspect ratio at the given width. */
+export function computeViewBoxSize(extents: SiteExtents, width: number): ViewBoxSize {
+  const spanX = extents.maxX - extents.minX;
+  const spanY = extents.maxY - extents.minY;
+  return { width, height: roundCoordinate((width * spanY) / spanX) };
+}
+
+/**
+ * Projects a position into the viewBox, inverting y (SVG y grows downward).
+ * Extents must have positive spans; `computeSiteExtents`' floor guarantees it.
+ */
+export function projectToViewBox(
+  position: Position,
+  extents: SiteExtents,
+  viewBox: ViewBoxSize,
+): { readonly x: number; readonly y: number } {
+  const fractionX = (position.x - extents.minX) / (extents.maxX - extents.minX);
+  const fractionY = (position.y - extents.minY) / (extents.maxY - extents.minY);
+  return {
+    x: roundCoordinate(fractionX * viewBox.width),
+    y: roundCoordinate((1 - fractionY) * viewBox.height),
+  };
+}
+
+/** Rounds to 2 dp so SVG attributes stay readable and referentially stable. */
+function roundCoordinate(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * Everything the canvas needs for one marker: colour from the shared status
+ * selector, fill encoding freshness, forced hollow while the stream is down
+ * (ADR 3).
+ */
+export function selectMapMarker(
+  robot: PlottableRobot,
+  extents: SiteExtents,
+  viewBox: ViewBoxSize,
+  streamConnected: boolean,
+): MapMarker {
+  const { x, y } = projectToViewBox(robot.position, extents, viewBox);
+  return {
+    robotId: robot.id,
+    x,
+    y,
+    variant: selectStatusPresentation(robot).variant,
+    hollow: !streamConnected || robot.freshness !== "live",
+  };
+}
+
+/** The "N of M robots positioned" accounting for one site (page spec 04 § 2). */
+export interface PositionedSummary {
+  readonly positioned: number;
+  readonly total: number;
+}
+
+/**
+ * Counts a site's robots and how many carry a position, so the surface can
+ * state the unplottable rest (Principle 4).
+ */
+export function selectPositionedSummary(
+  robots: readonly Robot[],
+  siteId: string,
+): PositionedSummary {
+  const siteRobots = robots.filter((robot) => robot.siteId === siteId);
+  return {
+    positioned: siteRobots.filter((robot) => robot.position !== null).length,
+    total: siteRobots.length,
+  };
 }

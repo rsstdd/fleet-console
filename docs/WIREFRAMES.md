@@ -1,5 +1,7 @@
 # Wireframes — `canonical-fleet` console
 
+**Revision 7.** § 7 promoted from "optional, only if time remains" to the scheduled Map view (page spec 04, ADR 35). The sketch gained what the decision requires: a site toggle (one site at a time — frames are mutually incomparable), the "N of M robots positioned" accounting line, the derived-bounds caption, a legend, and a side list as the sole interactive path. Marker fill encodes freshness (filled = LIVE, hollow otherwise); stream loss hollows every marker under a "· last known" heading. § 8's Map row flipped to required.
+
 **Revision 6.** § 6 gained the three states ADR 31 added to the banner: `connecting` (a first attempt, with no last-event fragment because nothing was ever received), and the two named terminal disconnects — initial probe exhausted, and stream integrity error. Copy is the exact string the component renders (component spec 07 revision 3).
 
 **Revision 5.** § 0 and the § 3 annotation reconciled with ADR 19, which they had lagged: capabilities now split `operator` / `diagnostic` in `@fleet/contracts`, so the rule for § 3's panels is the operator set rather than "non-core", and `sequence` is listed as the declared capability it is instead of appearing only as envelope metadata. Page spec 03 revision 6 had already made this change; these screens had not.
@@ -248,19 +250,39 @@ Status chips take the last-known treatment, battery values go to em dash, and th
 
 ---
 
-## 7. Optional map, only if time remains
+## 7. Map
 
 ```
-│  Fleet · Map                                                                  │
-│  ┌─────────────────────────────────────────────────────┐  ┌─────────────────┐ │
-│  │     · R-118                                         │  │ R-118  Busy     │ │
-│  │           ○ R-204                                   │  │ R-055  Charging │ │
-│  │     · R-301                                         │  │ R-301  Fault    │ │
-│  │  positioned markers · site-map frame · no floor plan│  └─────────────────┘ │
-│  └─────────────────────────────────────────────────────┘                      │
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Map                                                                          │
+│                                                                              │
+│  Site  [ North site ]   South site    East site                              │
+│                                                                              │
+│  Positions · North site                                                      │
+│  5 of 6 robots positioned                                                    │
+│                                                                              │
+│  ┌────────────────────────────────────────────────┐  ┌─────────────────────┐ │
+│  │        ● R-118                                 │  │ Robots              │ │
+│  │                      ○ R-204                   │  │ R-118  Busy    Live │ │
+│  │   ● R-301                        ● R-055       │  │ R-204  Busy   Stale │ │
+│  │                                                │  │ R-301  Fault   Live │ │
+│  │              ○ R-087                           │  │ R-055  Charging Live│ │
+│  │                                                │  │ R-087  Idle Unreach.│ │
+│  │  derived site frame · metres · no floor plan   │  │ No position         │ │
+│  └────────────────────────────────────────────────┘  │ R-142  Unknown    — │ │
+│  ● filled = Live   ○ hollow = not Live               └─────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Markers encode status colour and use the hollow treatment when freshness is not LIVE. The table remains the source of truth. First to cut.
+**Annotations**
+
+- One site at a time. Position frames are per-site and mutually incomparable, so a shared canvas would superimpose unrelated maps (ADR 35). The site toggle's options and labels come from the snapshot directory (ADR 34); the first entry is the default.
+- Marker colour encodes canonical status through the status tokens; marker fill encodes freshness: filled when LIVE, hollow in every other state. The legend and the side list carry the same facts as text, so colour never stands alone (Principle 6).
+- The canvas is a single labelled image, not an interactive surface. The side list is the activation path — each robot id links to its detail page, one path per robot, the same rule the fleet table enforces. Marker id labels are sketch shorthand; identity lives in the list.
+- The bounds are derived from observed positions, padded, and only widen within a session (ADR 35). The caption says the frame is derived — this surface claims relative geometry, never architecture.
+- "5 of 6 robots positioned": a robot that has never reported has no position. It is counted, and listed under "No position" with an em dash, never silently absent.
+- Stream disconnected: the heading becomes "Positions · North site · last known", every marker goes hollow, and per-robot freshness text is suppressed in the list. The connection banner remains the single announcing authority (ADR 3, component spec 07).
+- Narrow screens stack in reading order: site toggle, summary, canvas, list.
 
 ---
 
@@ -274,7 +296,7 @@ Markers encode status colour and use the hollow treatment when freshness is not 
 | Robot detail, operator, two vendors            | Yes      | The capability contrast is the point                 |
 | Robot detail, technician                       | Yes      | Toggle, same layout                                  |
 | Disconnected and reconnecting                  | Yes      | Banner carries currency; per-robot labels suppressed |
-| Map                                            | No       | Only if time remains                                 |
+| Map                                            | Yes      | Scheduled — page spec 04, ADR 35                     |
 
 ---
 

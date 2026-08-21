@@ -26,7 +26,7 @@ component specs, design system, wireframes, manifests, package TODOs, and source
 | Active blockers         | Submission-specific AI authorship/review record (**P3.4**)                                                                                                                                                                                                                                                                                      | The tree cannot establish who generated, rejected, or reviewed which work. It needs the author's own record and must not be inferred. No registered architecture stub is open: D22 and D23 resolved as ADRs 31 and 32. |
 | Actionable non-blockers | Complete fleet resource-state modeling; robot-detail delta subscription and placeholder-boundary cleanup; site-label authority; WebSocket origin policy; remaining server/stream measurements; real screen-reader, responsive-theme, and forced-colors review; dead-code/export, consumer-fixture, mutation, static-security, and hygiene gates | These have enough evidence or a named decision point to schedule. ADR 32 keeps assistive-technology and subjective forced-colors evidence manual; planning is not authority to change a contract or product policy.    |
 | Trigger-deferred        | Repeated malformed-frame escalation; slow-client drain limits; regressions health counter; cross-layer testing-fixture location; batch ingest/process scaling; fleet-table virtualization                                                                                                                                                       | Activate only when the documented diagnostics, deployment, consumer, duplication, saturation, or measured-churn trigger occurs.                                                                                        |
-| Deliberate cuts         | Authentication/authorization UI, commands, database, broker/MQTT, commissioning/discovery, map route, schema-driven configuration forms, alerting                                                                                                                                                                                               | Keep visible as non-goals or release risks; unauthenticated raw diagnostics remain a deployment blocker by ADR 26, not an authorization feature supplied by the technician toggle.                                     |
+| Deliberate cuts         | Authentication/authorization UI, commands, database, broker/MQTT, commissioning/discovery, schema-driven configuration forms, alerting                                                                                                                                                                                                          | Keep visible as non-goals or release risks; unauthenticated raw diagnostics remain a deployment blocker by ADR 26, not an authorization feature supplied by the technician toggle.                                     |
 
 Planning documents under `docs/05_plans/` are proposals. They do not reserve D-ids or ADR
 numbers and do not turn recommendations into decisions.
@@ -544,7 +544,8 @@ police dependencies, and neither answers the vetting question.
 Keep these documented in README “Not Built”; they are cuts, not active tasks:
 
 - discovery/commissioning;
-- map/floor-plan calibration;
+- floor-plan calibration (the map view itself is built — page spec 04, ADR 35; only the
+  robot-map-to-building-drawing transform stays cut);
 - commands/dispatch (requires authorization and requested-state transitions);
 - auth, settings, and tenant administration UI;
 - persisted history/database and horizontal broker scale;

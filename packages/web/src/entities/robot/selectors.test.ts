@@ -1,15 +1,30 @@
 import { describe, expect, it } from "vitest";
 
-import type { Freshness, Robot, RobotDetail, RobotDiagnostics, RobotStatus } from "./model";
+import type {
+  Freshness,
+  Position,
+  Robot,
+  RobotDetail,
+  RobotDiagnostics,
+  RobotStatus,
+} from "./model";
 import {
+  computeSiteExtents,
+  computeViewBoxSize,
+  mergeExtents,
+  projectToViewBox,
   selectBatteryDisplay,
   selectClockDeltaDisplay,
   selectFreshnessSummary,
+  selectMapMarker,
   selectPanelCapabilities,
+  selectPlottableRobots,
   selectPositionDisplay,
+  selectPositionedSummary,
   selectSequenceDuplicateDisplay,
   selectSequenceGapDisplay,
   selectStatusPresentation,
+  type PlottableRobot,
 } from "./selectors";
 
 /**
@@ -410,5 +425,143 @@ describe("selectSequenceDuplicateDisplay", () => {
 
     expect(selectSequenceDuplicateDisplay(unevaluated)).toBe("Not evaluated");
     expect(selectSequenceGapDisplay(unevaluated)).toBe("Not evaluated");
+  });
+});
+
+/*
+ * Map projection selectors (page spec 04 § 11 "Projection purity", ADR 35).
+ * Pure geometry over the read model: no React, no clock, no store.
+ */
+
+function position(x: number, y: number, frame = "site-1"): Position {
+  return { frame, x, y };
+}
+
+describe("selectPlottableRobots", () => {
+  it("keeps only the selected site's robots that carry a position", () => {
+    const robots = [
+      robot({ id: "r-1", siteId: "site-1", position: position(1, 2) }),
+      robot({ id: "r-2", siteId: "site-1", position: null }),
+      robot({ id: "r-3", siteId: "site-2", position: position(3, 4, "site-2") }),
+    ];
+
+    const plottable = selectPlottableRobots(robots, "site-1");
+
+    expect(plottable.map((entry) => entry.id)).toEqual(["r-1"]);
+  });
+});
+
+describe("computeSiteExtents", () => {
+  it("returns null for no positions rather than inventing a frame", () => {
+    expect(computeSiteExtents([])).toBeNull();
+  });
+
+  it("pads the bounding box by ten percent per axis", () => {
+    const extents = computeSiteExtents([position(0, 0), position(100, 50)]);
+
+    expect(extents).toEqual({ minX: -10, maxX: 110, minY: -5, maxY: 55 });
+  });
+
+  it("floors a single robot's degenerate box to the minimum span, centred", () => {
+    const extents = computeSiteExtents([position(7, -3)]);
+
+    expect(extents).toEqual({ minX: 2, maxX: 12, minY: -8, maxY: 2 });
+  });
+});
+
+describe("mergeExtents", () => {
+  const a = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
+  const b = { minX: -5, maxX: 20, minY: -30, maxY: 5 };
+
+  it("yields the other side when one is null", () => {
+    expect(mergeExtents(null, a)).toEqual(a);
+    expect(mergeExtents(a, null)).toEqual(a);
+    expect(mergeExtents(null, null)).toBeNull();
+  });
+
+  it("takes the union so the box never shrinks", () => {
+    const merged = mergeExtents(a, b);
+
+    expect(merged).toEqual({ minX: -10, maxX: 20, minY: -30, maxY: 10 });
+    // Merging a tighter box back in changes nothing — and returns the same
+    // object, which is what lets a caller detect "unchanged" by reference.
+    expect(mergeExtents(merged, a)).toBe(merged);
+  });
+});
+
+describe("computeViewBoxSize", () => {
+  it("matches the extents' aspect ratio at the given width", () => {
+    const size = computeViewBoxSize({ minX: 0, maxX: 100, minY: 0, maxY: 50 }, 600);
+
+    expect(size).toEqual({ width: 600, height: 300 });
+  });
+});
+
+describe("projectToViewBox", () => {
+  const extents = { minX: -40, maxX: 40, minY: -40, maxY: 40 };
+  const viewBox = { width: 600, height: 600 };
+
+  it("maps the corners exactly, inverting the y axis", () => {
+    // Bottom-left of the site frame lands at the SVG's bottom-left.
+    expect(projectToViewBox(position(-40, -40), extents, viewBox)).toEqual({ x: 0, y: 600 });
+    // Top-right of the site frame lands at the SVG's top-right.
+    expect(projectToViewBox(position(40, 40), extents, viewBox)).toEqual({ x: 600, y: 0 });
+  });
+
+  it("maps the centre to the centre", () => {
+    expect(projectToViewBox(position(0, 0), extents, viewBox)).toEqual({ x: 300, y: 300 });
+  });
+});
+
+describe("selectMapMarker", () => {
+  const extents = { minX: 0, maxX: 100, minY: 0, maxY: 100 };
+  const viewBox = { width: 100, height: 100 };
+  const plottable = (overrides: Partial<Robot> = {}): PlottableRobot => {
+    const built = robot({ position: position(50, 50), ...overrides });
+    if (built.position === null) {
+      throw new Error("test robot must carry a position");
+    }
+    return built as PlottableRobot;
+  };
+
+  it("is filled only when the robot is live and the stream is connected", () => {
+    expect(selectMapMarker(plottable({ freshness: "live" }), extents, viewBox, true).hollow).toBe(
+      false,
+    );
+  });
+
+  it("is hollow for every non-live freshness", () => {
+    for (const freshness of NOT_LIVE) {
+      const marker = selectMapMarker(plottable({ freshness }), extents, viewBox, true);
+      expect(marker.hollow).toBe(true);
+    }
+  });
+
+  it("is hollow while the stream is down, whatever the freshness says", () => {
+    const marker = selectMapMarker(plottable({ freshness: "live" }), extents, viewBox, false);
+
+    expect(marker.hollow).toBe(true);
+  });
+
+  it("carries the same status variant the side list's chip renders", () => {
+    const marker = selectMapMarker(plottable({ status: "fault" }), extents, viewBox, true);
+
+    expect(marker.variant).toBe("fault");
+    expect(marker.robotId).toBe("r-1");
+    expect(marker.x).toBe(50);
+    expect(marker.y).toBe(50);
+  });
+});
+
+describe("selectPositionedSummary", () => {
+  it("counts the site's robots and how many carry a position", () => {
+    const robots = [
+      robot({ id: "r-1", siteId: "site-1", position: position(1, 1) }),
+      robot({ id: "r-2", siteId: "site-1", position: null }),
+      robot({ id: "r-3", siteId: "site-2", position: position(2, 2, "site-2") }),
+    ];
+
+    expect(selectPositionedSummary(robots, "site-1")).toEqual({ positioned: 1, total: 2 });
+    expect(selectPositionedSummary(robots, "site-3")).toEqual({ positioned: 0, total: 0 });
   });
 });

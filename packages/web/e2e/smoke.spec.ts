@@ -320,4 +320,42 @@ test.describe("fleet console against the real stack", () => {
     const before = await lastSeen.textContent();
     await expect(lastSeen).not.toHaveText(before ?? "", { timeout: 10_000 });
   });
+
+  test("plots the selected site's robots on the map and activates through the side list", async ({
+    page,
+    stack,
+  }) => {
+    await openFleet(page, stack.consoleUrl);
+
+    // The second primary destination (page spec 04): reached by its nav link.
+    await page
+      .getByRole("navigation", { name: "Primary" })
+      .getByRole("link", { name: "Map" })
+      .click();
+    await expect(page.getByRole("heading", { level: 1, name: "Map" })).toBeVisible();
+
+    // The canvas is one labelled image for the default (first directory) site,
+    // named with the manifest label and the positioned accounting (ADR 34, ADR 35).
+    const canvas = page.getByRole("img", {
+      name: /^Map of North site: \d+ of \d+ robots positioned$/,
+    });
+    await expect(canvas).toBeVisible({ timeout: 15_000 });
+
+    // Live robots are drawn as markers; the count matches the accounting line.
+    const accounting = page.getByText(/^\d+ of \d+ robots positioned$/);
+    await expect(accounting).toBeVisible();
+    const positioned = Number(/^(\d+) of/.exec((await accounting.textContent()) ?? "")?.[1]);
+    expect(positioned).toBeGreaterThan(0);
+    await expect(canvas.locator("circle")).toHaveCount(positioned);
+
+    // The side list is the activation path: a robot link opens its detail page.
+    const list = page.getByRole("region", { name: "Robots" });
+    await list
+      .getByRole("link", { name: /^R-\d{3}$/ })
+      .first()
+      .click();
+    await expect(page.getByRole("heading", { name: /^Robot R-\d{3}$/ })).toBeVisible({
+      timeout: 10_000,
+    });
+  });
 });

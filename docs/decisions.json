@@ -124,6 +124,11 @@
       "id": "D25",
       "question": "Site labels: directory on the snapshot, schema version 3",
       "adr": 34
+    },
+    {
+      "id": "D26",
+      "question": "Map spatial context when the wire carries no bounds",
+      "adr": 35
     }
   ],
   "mechanicalRules": [
@@ -240,6 +245,14 @@
       "adr": 33
     },
     {
+      "path": "packages/web/src/entities/robot/selectors.ts",
+      "adr": 35
+    },
+    {
+      "path": "packages/web/src/features/map/mapPage.tsx",
+      "adr": 35
+    },
+    {
       "path": "packages/contracts/src/envelope/envelopeSchema.ts",
       "adr": 34
     },
@@ -259,7 +272,8 @@
       "docs/ARCHITECTURE_AUDIT.md",
       "packages/FIXME.md",
       "docs/04_archive/WEB_UI_PLAN.md",
-      "docs/04_archive/WEB_ALIGNMENT_PLAN.md"
+      "docs/04_archive/WEB_ALIGNMENT_PLAN.md",
+      "docs/04_archive/MAP_VIEW_PLAN.md"
     ],
     "planning": [
       "TODO.md",
