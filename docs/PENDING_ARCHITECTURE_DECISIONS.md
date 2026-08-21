@@ -34,7 +34,10 @@ This file is intentionally short: resolved entries are tombstones linking to the
 | D24 | Implemented | [ADR 33](./00_adr/33_BATTERY_HISTORY_RETAINED_COMPACT_AND_SERVED_DECIMATED.md)    | Battery-history response shape and retention capacity                            |
 | D25 | Implemented | [ADR 34](./00_adr/34_SITE_DIRECTORY_ON_THE_SNAPSHOT_SCHEMA_VERSION_3.md)          | Site labels: directory on the snapshot, schema version 3                         |
 | D26 | Implemented | [ADR 35](./00_adr/35_MAP_SPATIAL_CONTEXT_DERIVED_CLIENT_SIDE.md)                  | Map spatial context when the wire carries no bounds                              |
+| D27 | Open        | —                                                                                 | Enable the React Compiler build transform in web                                 |
 
 ## Open stubs
 
-None. Every stub D1–D26 routes to a numbered ADR; see the table above for each one's implementation status.
+### D27 — Enable the React Compiler build transform in web
+
+Spike `babel-plugin-react-compiler` through `@vitejs/plugin-react` on a branch (dependency admission per ADR 29), then measure the ADR 22 bundle budget and the ADR 24 scale run against current baselines. Maintainer decides with that evidence; if accepted, the memo-removal sweep in docs/05_plans/REFACTOR_WEB_REACT_QUALITY.md ships as its own slice. Until decided, packages/web/AGENTS.md's "Enable React Compiler" instruction is unimplemented and the manual memoization on the measured fleet surfaces stays.

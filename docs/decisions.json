@@ -129,6 +129,12 @@
       "id": "D26",
       "question": "Map spatial context when the wire carries no bounds",
       "adr": 35
+    },
+    {
+      "id": "D27",
+      "question": "Enable the React Compiler build transform in web",
+      "adr": null,
+      "next": "Spike `babel-plugin-react-compiler` through `@vitejs/plugin-react` on a branch (dependency admission per ADR 29), then measure the ADR 22 bundle budget and the ADR 24 scale run against current baselines. Maintainer decides with that evidence; if accepted, the memo-removal sweep in docs/05_plans/REFACTOR_WEB_REACT_QUALITY.md ships as its own slice. Until decided, packages/web/AGENTS.md's \"Enable React Compiler\" instruction is unimplemented and the manual memoization on the measured fleet surfaces stays."
     }
   ],
   "mechanicalRules": [
