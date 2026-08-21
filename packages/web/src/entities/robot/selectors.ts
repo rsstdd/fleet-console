@@ -291,6 +291,22 @@ export function selectPlottableRobots(
   );
 }
 
+/**
+ * One site's robots, positioned or not — the roster a site-scoped surface
+ * starts from (page spec 04 § 2).
+ */
+export function selectSiteRobots(robots: readonly Robot[], siteId: string): readonly Robot[] {
+  return robots.filter((robot) => robot.siteId === siteId);
+}
+
+/**
+ * The robots in the given roster that never reported a position, so a surface
+ * can account for them rather than silently dropping them (Principle 4).
+ */
+export function selectUnpositionedRobots(robots: readonly Robot[]): readonly Robot[] {
+  return robots.filter((robot) => robot.position === null);
+}
+
 /** Widens one axis to the pad ratio, then to the minimum span, around its centre. */
 function padAxis(min: number, max: number): { readonly min: number; readonly max: number } {
   const pad = (max - min) * EXTENTS_PAD_RATIO;

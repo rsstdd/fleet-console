@@ -23,7 +23,9 @@ import {
   selectPositionedSummary,
   selectSequenceDuplicateDisplay,
   selectSequenceGapDisplay,
+  selectSiteRobots,
   selectStatusPresentation,
+  selectUnpositionedRobots,
   type PlottableRobot,
 } from "./selectors";
 
@@ -448,6 +450,30 @@ describe("selectPlottableRobots", () => {
     const plottable = selectPlottableRobots(robots, "site-1");
 
     expect(plottable.map((entry) => entry.id)).toEqual(["r-1"]);
+  });
+});
+
+describe("selectSiteRobots", () => {
+  it("keeps the site's robots whether or not they carry a position", () => {
+    const robots = [
+      robot({ id: "r-1", siteId: "site-1", position: position(1, 2) }),
+      robot({ id: "r-2", siteId: "site-1", position: null }),
+      robot({ id: "r-3", siteId: "site-2", position: position(3, 4, "site-2") }),
+    ];
+
+    expect(selectSiteRobots(robots, "site-1").map((entry) => entry.id)).toEqual(["r-1", "r-2"]);
+    expect(selectSiteRobots(robots, "site-3")).toEqual([]);
+  });
+});
+
+describe("selectUnpositionedRobots", () => {
+  it("keeps only the robots that never reported a position", () => {
+    const robots = [
+      robot({ id: "r-1", position: position(1, 2) }),
+      robot({ id: "r-2", position: null }),
+    ];
+
+    expect(selectUnpositionedRobots(robots).map((entry) => entry.id)).toEqual(["r-2"]);
   });
 });
 
