@@ -91,6 +91,21 @@ describe("useFleetTransport", () => {
     expect(control.opened).toBe(1);
   });
 
+  it("keeps store and retry identities stable across re-renders", () => {
+    // The store holds all fleet state and the retry closure reaches the open
+    // socket's transport; either changing identity on a re-render would mean
+    // fleet state or the banner's control silently detached from the socket.
+    const { openSocket, fetchLike } = ports();
+    const { result, rerender } = renderHook(() => useFleetTransport({ openSocket, fetchLike }));
+
+    const first = result.current;
+    rerender();
+    rerender();
+
+    expect(result.current.store).toBe(first.store);
+    expect(result.current.retry).toBe(first.retry);
+  });
+
   it("closes the socket when the console unmounts", () => {
     const { control, openSocket, fetchLike } = ports();
     const { unmount } = renderHook(() => useFleetTransport({ openSocket, fetchLike }));
