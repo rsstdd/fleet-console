@@ -116,7 +116,11 @@ function FleetSummary({
       </Typography>
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: "wrap" }}>
         <Stat label="Live" value={summary.live} hint={`of ${String(total)}`} />
-        <Stat label="Stale" value={summary.stale} tone={summary.stale > 0 ? "warning" : "default"} />
+        <Stat
+          label="Stale"
+          value={summary.stale}
+          tone={summary.stale > 0 ? "warning" : "default"}
+        />
         <Stat
           label="Unreachable"
           value={summary.unreachable}
