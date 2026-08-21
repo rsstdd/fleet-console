@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { TENANT } from "@/config/tenant";
 import { createFleetStore, type FleetStore } from "@/entities/robot/fleetStore";
@@ -100,13 +100,16 @@ export function useFleetTransport(
     readonly random?: () => number;
   } = {},
 ): FleetTransportState {
-  const store = useMemo(() => createFleetStore(), []);
+  // Lazy `useState`, not `useMemo`: the store and transport are identity-critical
+  // (all fleet state, the one open socket), and React reserves the right to drop a
+  // `useMemo` cache; only state guarantees they survive every re-render.
+  const [store] = useState(() => createFleetStore());
   // One piece of state, because the published value and the attempt count are two views
   // of one fact and holding them separately is how they come to disagree.
   const [streamState, setStreamState] = useState<StreamState>(INITIAL_STREAM_STATE);
   const [rejectedFrames, setRejectedFrames] = useState(0);
 
-  const transport = useMemo<FleetTransport>(() => {
+  const [transport] = useState<FleetTransport>(() => {
     // Named before creation so the retry closure handed to the store can call
     // back into the transport it belongs to; the closure only runs on a
     // banner click, long after this factory has returned.
@@ -155,16 +158,21 @@ export function useFleetTransport(
       },
     });
     return created;
-    // Built once per mount. Rebuilding on a state change would drop the open socket and
-    // restart the joining sequence on every frame.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store]);
+    // Built once per mount, capturing the first render's ports. Rebuilding on a state
+    // change would drop the open socket and restart the joining sequence on every frame.
+  });
 
   useEffect(() => {
     transport.connect();
     return () => {
       transport.disconnect();
     };
+  }, [transport]);
+
+  // Stable per mount (transport never changes identity), so the banner's retry
+  // control does not re-render on every stream-state change.
+  const retry = useCallback(() => {
+    transport.connect();
   }, [transport]);
 
   return {
@@ -174,8 +182,6 @@ export function useFleetTransport(
     attempt: streamState.attempt,
     terminalCause: streamState.terminalCause,
     rejectedFrames,
-    retry: () => {
-      transport.connect();
-    },
+    retry,
   };
 }
