@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router";
 import {
   Box,
@@ -21,6 +21,17 @@ import { selectSiteLabel } from "@/utils/siteLabel";
 import type { Site } from "@/types/site";
 
 import { formatTimeUtc } from "@/utils/time";
+
+// Module constant, not an inline literal: a fresh object per row per render on
+// the 500-row × 10 Hz measured path would defeat row memoization (ADR 24).
+const ROW_LINK_STYLE: CSSProperties = {
+  display: "block",
+  width: "100%",
+  fontFamily: "var(--font-mono)",
+  fontVariantNumeric: "tabular-nums",
+  color: "inherit",
+  textDecoration: "none",
+};
 
 /**
  * The fleet table plus its provenance plate, rendering exactly the rows it is
@@ -74,17 +85,7 @@ export function FleetTable({
                       would still leave no keyboard path, because a <tr> is
                       not focusable (Principle 6).
                     */}
-                    <Link
-                      to={`/robots/${robot.id}`}
-                      style={{
-                        display: "block",
-                        width: "100%",
-                        fontFamily: "var(--font-mono)",
-                        fontVariantNumeric: "tabular-nums",
-                        color: "inherit",
-                        textDecoration: "none",
-                      }}
-                    >
+                    <Link to={`/robots/${robot.id}`} style={ROW_LINK_STYLE}>
                       {robot.id}
                     </Link>
                   </TableCell>

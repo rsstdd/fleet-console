@@ -161,7 +161,10 @@ gallery is excluded from this plan's scope.
 - [x] Store/transport identity is guaranteed by construction (F1) with a test.
       Merged via PR #23.
 - [x] No inline object/function literals on the fleet-row or map-row render paths (F5).
-      Merged via PR #24.
+      Merged via PR #24. 2026-08-23: found reintroduced on both row links (origin
+      unclear from history); re-hoisted to module constants during the ADR 36 final
+      audit, with the rationale now commented at each constant so the next
+      reintroduction is visible in review.
 - [x] Site/positioned filtering has one authoritative implementation in selectors (F6).
       Merged via PR #24.
 - [x] No component in the fleet feature exceeds ~200 lines or mixes concerns (F3).

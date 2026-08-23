@@ -147,7 +147,7 @@ table {
 
 /* ---------- Status chip ----------
    Six variants, matching the canonical status enum plus health severity.
-   The variant is chosen by a tested selector in entities/robot; this file
+   The variant is chosen by a tested selector in utils/robotSelectors; this file
    never learns what a robot is.
    ------------------------------------------------------------------ */
 .status {
