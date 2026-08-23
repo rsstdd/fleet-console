@@ -248,7 +248,7 @@
       "adr": 33
     },
     {
-      "path": "packages/web/src/entities/robot/useRobotHistory.ts",
+      "path": "packages/web/src/hooks/useRobotHistory.ts",
       "adr": 33
     },
     {
@@ -256,7 +256,7 @@
       "adr": 33
     },
     {
-      "path": "packages/web/src/entities/robot/selectors.ts",
+      "path": "packages/web/src/utils/robotSelectors.ts",
       "adr": 35
     },
     {
@@ -292,7 +292,7 @@
       "packages/contracts/TODO.md",
       "packages/server/TODO.md",
       "packages/simulator/TODO.md",
-      "packages/web/src/entities/robot/TODO.md",
+      "packages/web/src/hooks/TODO.md",
       "packages/web/src/features/fleet/TODO.md",
       "packages/web/src/features/robot/TODO.md"
     ]

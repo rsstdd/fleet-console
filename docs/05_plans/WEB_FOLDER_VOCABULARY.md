@@ -77,18 +77,24 @@ pnpm --filter web build` green after every slice, an unchanged collected-test co
 
 ## Acceptance criteria
 
-- [ ] Tree matches the ADR 36 Decision table; no `tests/` subdirectories remain
+- [x] Tree matches the ADR 36 Decision table; no `tests/` subdirectories remain
       (`src/test/setup.ts` and `__boundary-violation__/` excepted).
-- [ ] Every feature file exports one component; `fleetPage.tsx` composes
-      summary/filters/table from sibling files.
-- [ ] Boundaries lint enforces the same edge set as before over the new element names;
-      the boundary-violation suite passes with relocated fixtures.
-- [ ] All five moved `decisions.json` pins resolve; `pnpm check:architecture-docs` green.
-- [ ] Collected-test count unchanged (35 files / 391 tests); test/lint/build green per
-      slice; e2e smoke green after PR 5.
-- [ ] README carries the folder map; spec, agent guides, and coupling comments name only
-      new paths.
-- [ ] Unverified items recorded honestly at completion.
+- [x] Every feature file exports one component; `fleetPage.tsx` composes
+      summary/filters/table from sibling files (240 lines over four files).
+- [x] Boundaries lint enforces the same edge set as before over the new element names
+      (plus the two documented edges the code already carried: `lib → context`,
+      `context → config`); the boundary-violation suite passes with relocated fixtures,
+      having failed once mid-migration on the reworded message — the rule shown live.
+- [x] All five moved `decisions.json` pins resolve, plus the TODO authority marker;
+      `pnpm check:architecture-docs` green.
+- [x] Collected-test count unchanged (35 files / 391 tests); test/lint/build green per
+      slice; e2e smoke 24/24 (chromium + firefox) after PR 5.
+- [x] Both READMEs carry the folder map; spec, agent guides, and coupling comments name
+      only new paths.
+- [x] Unverified items recorded honestly: webkit e2e cannot launch on the development
+      WSL host (CI covers it); two pushed commits on the series hold pure renames whose
+      content edits landed in (or must be amended into) their successors — see the
+      Completion note.
 
 ## Documentation synchronization
 
@@ -106,5 +112,8 @@ Per-slice, in the same PR as the code it describes: `packages/web/AGENTS.md`,
 
 ## Completion
 
-Archive under `docs/04_archive/` once merged, naming ADR 36 (then marked Implemented)
-and the PR series as replacement evidence.
+All slices implemented 2026-08-23 on `refactor/reorganize-web`; ADR 36 is marked
+Implemented. Archive under `docs/04_archive/` once the branch merges, naming ADR 36 and
+the PR series as replacement evidence. Note for the merge: commit `63b9fad` was pushed
+holding only the entity-layer renames; its content edits ride in the following commit
+(or an amended, force-pushed replacement) — squash-merge makes this moot.

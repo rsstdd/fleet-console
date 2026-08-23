@@ -1,7 +1,7 @@
 # ADR 36 — Conventional React Folder Vocabulary in Web
 
 **Decision:** `packages/web/src` adopts the community-standard React folder vocabulary — `features/`, `components/`, `hooks/`, `stores/`, `context/`, `lib/`, `utils/`, `types/`, `config/` — with unit tests colocated beside their sources, while the existing one-directional dependency rules stay mechanically enforced over the renamed elements.
-**Status:** Decided · 2026-08-23 · Not started
+**Status:** Decided · 2026-08-23 · Implemented
 **Group:** Presentation / code organization (what an external React reviewer finds when they open the package cold).
 
 ## Issue
@@ -115,7 +115,11 @@ optimization target (the audience changed) from thrash.
 
 ## Observed consequences
 
--
+- 2026-08-23 — Implemented across six slices on `refactor/reorganize-web` with the
+  collected suite identical throughout (35 files / 391 tests), lint/build green per
+  slice, and e2e smoke 24/24 on chromium + firefox after the final move. The
+  boundary-violation suite failed once mid-migration on the reworded ban message and
+  passed after the assertion followed it — the enforcement rule demonstrated live.
 
 ## Related
 
