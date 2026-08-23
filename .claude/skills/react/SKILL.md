@@ -11,10 +11,16 @@ performance, and test integrity.
 
 Load the `clean-code` skill alongside this one for the style and structure rules.
 
-> **Scope note for this repository.** `technical-tts` is a Rust workspace, and ADR-0001 records
-> "Desktop or web UI — Do not build." Nothing here is React today. This skill exists so the
-> review standard is version-controlled and ready; if a frontend is ever introduced it requires
-> a new ADR first. Do not treat the presence of this skill as authorization to add one.
+> **Scope note for this repository.** `fleet-console` is a TypeScript monorepo whose one
+> frontend is `packages/web`: a React 19 + Vite + MUI operator console. `PRINCIPLES.md` and
+> accepted ADRs are binding and outrank this skill and every `AGENTS.md`; on conflict, stop
+> and surface it. Review web changes against `packages/web/AGENTS.md` and the page/component
+> specs under `docs/`. Questions already decided — do not re-flag: the fleet table is
+> deliberately not virtualized (ADR 24, on measured evidence, with a recorded reopening
+> condition); bundle size and scale behavior are measured gates (ADR 22, ADR 24) — optimize
+> only from evidence; freshness is server-derived and never client-timed (ADR 3); product
+> code carries zero `eslint-disable` escapes, and a disable anywhere else states its reason
+> inline.
 
 ## Non-negotiables
 

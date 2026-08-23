@@ -6,25 +6,27 @@ description: Clean Code (Robert C. Martin) rules as applied in this repository, 
 # Clean Code in this repository
 
 These rules govern all code written or edited here. They are style and structure guidance,
-not authority: **`AGENTS.md`, and the accepted ADRs win
-on any genuine conflict.** Where they conflict, apply Clean Code inside the repo convention's
-frame and say so in the summary — never resolve the conflict silently.
+not authority: **`PRINCIPLES.md`, the accepted ADRs, and `AGENTS.md` win on any genuine
+conflict.** Where they conflict, apply Clean Code inside the repo convention's frame and say
+so in the summary — never resolve the conflict silently.
 
 ## Conflict order
 
-1. Newest accepted ADR that explicitly supersedes
-2. `AGENTS.md`, then nested `AGENTS.md`
-3. `PRINCIPLES.md`
+1. `PRINCIPLES.md` (binding, all fifteen — repo `AGENTS.md` states it outranks everything below)
+2. Accepted ADRs, the sole normative decision records
+3. Repo `AGENTS.md`, then path-scoped `AGENTS.md`
 4. These Clean Code rules
 
 ## Known conflicts, already settled
 
-Do not re-litigate these. Flag anything new.
+Do not re-litigate these. Flag anything new. (Recorded in
+`docs/05_plans/WEB_TEST_LAYOUT_AND_DECOMPOSITION.md`, Code quality standard.)
 
 | Clean Code rule | Repo convention that wins | Why |
 |---|---|---|
-| One assert per test | Loop-over-variants tests with several assertions | Test names are copied character for character from `DELIVERY-PLAN.md`; splitting a named test breaks traceability. Keep one *behavior* per test and put the failing case in the assertion message. |
-| Prefer polymorphism to if/else | Exhaustive `enum` + `match` for domain rules | Serde parse-rejection of unknown values is load-bearing for fail-closed gating; a trait object cannot refuse an unknown variant at the boundary. Traits stay for real seams (`SegmentSynthesizer`), not closed rule sets. |
+| One assert per test | One *behavior* per test; existing multi-assertion suites stay | Rewriting a green suite that serves as behavior-preservation evidence is churn that destroys the evidence. New tests are written one behavior per test. |
+| Prefer polymorphism to if/else | Exhaustive `switch` over discriminated unions for state and domain rules | `switch-exhaustiveness-check` makes a new union member a compile error at every consumer; a class hierarchy cannot refuse an unknown variant at the decode boundary. Polymorphism applies at real seams — the capability-panel registry instead of vendor branches — not closed unions. |
+| Boy scout rule, unbounded | Bounded by ADR 27's ~300-line reviewable-diff gate | Campground = files the change already touches; cleanups beyond them go on a plan's follow-up list rather than into the diff. |
 | Avoid comments; explain in code | Two-sided coupling comments to governance docs | A mirror between code and a ratified policy cannot be expressed in code. Both ends must name each other. |
 
 ## General
@@ -45,14 +47,16 @@ Do not re-litigate these. Flag anything new.
 
 - Be consistent: one idea, one spelling, one shape.
 - Use explanatory variables. Encapsulate boundary conditions.
-- Prefer dedicated value objects to bare primitives — a `VoiceUse` enum, not a `&str` compared
-  ad hoc at each call site. Scope compared by string equality is scope that stops being enforced.
+- Prefer dedicated types to bare primitives for closed vocabularies — a `Freshness` union
+  decoded once at the boundary, not a bare string compared ad hoc at each call site. (Open
+  identifiers from the wire stay `string`, validated once at the boundary — inventing a nominal
+  type for one call site is over-configurability, a recorded KISS decision.)
 - Avoid logical dependency between methods. Avoid negative conditionals.
 
 ## Names
 
 - Descriptive, unambiguous, pronounceable, searchable, meaningfully distinct.
-- Named constants over magic numbers (`BLAKE3_HEX_LENGTH`, not `64`).
+- Named constants over magic numbers (`IDENTIFIER_MAX_LENGTH`, not `64`).
 - No encodings, no type prefixes, no Hungarian notation.
 
 ## Functions
@@ -88,15 +92,17 @@ Do not re-litigate these. Flag anything new.
 
 - Readable, fast, independent, repeatable. One concept per test.
 - **A test must not re-derive the implementation.** Expected values are a table a reviewer reads
-  against the controlling document, not a second copy of the code under test — a copied
-  `matches!` passes for any policy, including a wrong one.
-- Prefer an exhaustive `match` in the expectation table so a new enum variant is a compile error
+  against the controlling document, not a second copy of the code under test — an expectation
+  computed by the same logic passes for any policy, including a wrong one.
+- Prefer an exhaustive `switch` in an expectation table so a new union member is a compile error
   in the test rather than an untested one.
-- A test that needs an external binary for a claim that does not require one is not independent.
+- A test that needs the running stack for a claim that does not require one is not independent —
+  browser evidence belongs to the e2e projects (ADR 32), everything else to the unit suite.
 
 ## Smells to refuse
 
 Rigidity, fragility, immobility, needless complexity, needless repetition, opacity.
 
-In this repo, "opacity" specifically includes returning a catch-all error variant where the
-failing subsystem is known and could be named.
+In this repo, "opacity" specifically includes collapsing a failure whose cause is known into a
+generic error: the one failure vocabulary is `ContractIssue` plus the recoverable/terminal
+distinction (ADR 20), and a surface that could name the path and code but doesn't is opaque.
