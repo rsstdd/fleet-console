@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isStreamConnected } from "../connectionContext";
+import { isStreamConnected } from "@/context/connectionContext";
 import {
   INITIAL_PROBE_ATTEMPT_LIMIT,
   INITIAL_STREAM_STATE,
@@ -11,7 +11,7 @@ import {
   retryDelayMs,
   type StreamEvent,
   type StreamState,
-} from "../streamLifecycle";
+} from "./streamLifecycle";
 
 /**
  * The state matrix Principle 5 requires to exist before the transport does, plus the

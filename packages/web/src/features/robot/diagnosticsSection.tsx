@@ -7,8 +7,8 @@ import {
   selectSequenceDuplicateDisplay,
   selectSequenceGapDisplay,
 } from "@/entities/robot/selectors";
-import { useStreamDiagnostics } from "@/shared/lib/streamDiagnosticsContext";
-import { formatTimeUtc } from "@/shared/lib/time";
+import { useStreamDiagnostics } from "@/context/streamDiagnosticsContext";
+import { formatTimeUtc } from "@/utils/time";
 
 import { Field, Section } from "./detailSection";
 

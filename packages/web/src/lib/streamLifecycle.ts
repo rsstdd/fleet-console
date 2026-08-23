@@ -1,4 +1,4 @@
-import type { StreamConnectionState } from "./connectionContext";
+import type { StreamConnectionState } from "@/context/connectionContext";
 
 /**
  * The stream's complete state, its retry schedule, and the vocabulary the console

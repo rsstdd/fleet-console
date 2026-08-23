@@ -2,9 +2,9 @@ import type { ReactElement } from "react";
 import { Box, Container, Stack, Typography } from "@mui/material";
 import { NavLink, Outlet } from "react-router";
 
-import { TenantConfigContext } from "@/app/tenantConfigContext";
+import { TenantConfigContext } from "@/context/tenantConfigContext";
 import { TENANT } from "@/config/tenant";
-import { ConnectionContext } from "@/shared/lib/connectionContext";
+import { ConnectionContext } from "@/context/connectionContext";
 import {
   ConnectionBanner,
   type ConnectionBannerProps,
@@ -50,7 +50,7 @@ const CONNECTION_COLOR: Readonly<Record<ConnectionState, string>> = {
  *
  * Also the single provider of `ConnectionContext`, which is how the routes below `Outlet`
  * learn the same fact this shell renders in its banner. They cannot import it from here —
- * `features` may not import `app` (ADR 4) — so `shared/lib` carries it instead (ADR 23).
+ * `features` may not import `app` (ADR 4) — so `context` carries it instead (ADR 23).
  */
 export function AppShell({
   connectionState = "disconnected",

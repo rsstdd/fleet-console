@@ -74,7 +74,9 @@ export default tseslint.config(
         { type: "feature", pattern: "src/features/*/**", capture: ["feature"] },
         { type: "entity", pattern: "src/entities/*/**", capture: ["entity"] },
         { type: "components", pattern: "src/components/**" },
-        { type: "shared-lib", pattern: "src/shared/lib/**" },
+        { type: "lib", pattern: "src/lib/**" },
+        { type: "context", pattern: "src/context/**" },
+        { type: "utils", pattern: "src/utils/**" },
         { type: "config", pattern: "src/config/**" },
         { type: "test", pattern: "src/test/**" },
       ],
@@ -109,7 +111,9 @@ export default tseslint.config(
                 { to: { element: { type: "feature" } } },
                 { to: { element: { type: "entity" } } },
                 { to: { element: { type: "components" } } },
-                { to: { element: { type: "shared-lib" } } },
+                { to: { element: { type: "lib" } } },
+                { to: { element: { type: "context" } } },
+                { to: { element: { type: "utils" } } },
                 { to: { element: { type: "config" } } },
                 { to: { module: { origin: "external" } } },
               ],
@@ -127,7 +131,9 @@ export default tseslint.config(
                 },
                 { to: { element: { type: "entity" } } },
                 { to: { element: { type: "components" } } },
-                { to: { element: { type: "shared-lib" } } },
+                { to: { element: { type: "lib" } } },
+                { to: { element: { type: "context" } } },
+                { to: { element: { type: "utils" } } },
                 { to: { element: { type: "config" } } },
                 { to: { module: { origin: "external" } } },
               ],
@@ -143,7 +149,8 @@ export default tseslint.config(
                     },
                   },
                 },
-                { to: { element: { type: "shared-lib" } } },
+                { to: { element: { type: "lib" } } },
+                { to: { element: { type: "utils" } } },
                 { to: { module: { origin: "external" } } },
               ],
             },
@@ -155,9 +162,30 @@ export default tseslint.config(
               ],
             },
             {
-              from: { element: { type: "shared-lib" } },
+              // `lib → context` carries exactly one dependency today: the transport
+              // and its retry schedule import the `StreamConnectionState` type from
+              // `context/connectionContext`, the one authority on that union (ADR 23).
+              from: { element: { type: "lib" } },
               allow: [
-                { to: { element: { type: "shared-lib" } } },
+                { to: { element: { type: "lib" } } },
+                { to: { element: { type: "context" } } },
+                { to: { module: { origin: "external" } } },
+              ],
+            },
+            {
+              // `context → config` exists for `tenantConfigContext`, which carries
+              // the typed tenant configuration down to the shell (ADR 17).
+              from: { element: { type: "context" } },
+              allow: [
+                { to: { element: { type: "context" } } },
+                { to: { element: { type: "config" } } },
+                { to: { module: { origin: "external" } } },
+              ],
+            },
+            {
+              from: { element: { type: "utils" } },
+              allow: [
+                { to: { element: { type: "utils" } } },
                 { to: { module: { origin: "external" } } },
               ],
             },
@@ -175,7 +203,9 @@ export default tseslint.config(
                 { to: { element: { type: "feature" } } },
                 { to: { element: { type: "entity" } } },
                 { to: { element: { type: "components" } } },
-                { to: { element: { type: "shared-lib" } } },
+                { to: { element: { type: "lib" } } },
+                { to: { element: { type: "context" } } },
+                { to: { element: { type: "utils" } } },
                 { to: { element: { type: "config" } } },
                 { to: { module: { origin: "external" } } },
               ],

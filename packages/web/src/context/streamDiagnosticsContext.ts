@@ -6,7 +6,7 @@ import { createContext, useContext } from "react";
  * The rejected-frame count is produced at the transport boundary in `app`, and
  * the diagnostics section that shows it lives in `features/robot`. `features`
  * may not import `app` (ADR 4), so the value travels down through a context in
- * `shared/lib` — the same constraint and the same solution as connection state
+ * `context` — the same constraint and the same solution as connection state
  * (ADR 23).
  *
  * Scoped to stream diagnostics and nothing else, for ADR 23's reason: a

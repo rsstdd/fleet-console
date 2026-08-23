@@ -7,15 +7,15 @@ import {
   type FleetTransport,
   type OpenSocket,
   type RetryTimer,
-} from "@/shared/lib/fleetTransport";
-import type { StreamConnectionState } from "@/shared/lib/connectionContext";
+} from "@/lib/fleetTransport";
+import type { StreamConnectionState } from "@/context/connectionContext";
 import {
   INITIAL_STREAM_STATE,
   publishedConnectionState,
   type StreamState,
   type StreamTerminalCause,
-} from "@/shared/lib/streamLifecycle";
-import type { FetchLike } from "@/shared/lib/transportDecoding";
+} from "@/lib/streamLifecycle";
+import type { FetchLike } from "@/lib/transportDecoding";
 
 /**
  * The transport boundary: the one place the console owns a socket.

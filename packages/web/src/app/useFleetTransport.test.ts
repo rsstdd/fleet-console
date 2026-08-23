@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 
 import { SCHEMA_VERSION } from "@fleet/contracts";
 
-import type { OpenSocket } from "@/shared/lib/fleetTransport";
-import type { FetchLike } from "@/shared/lib/transportDecoding";
+import type { OpenSocket } from "@/lib/fleetTransport";
+import type { FetchLike } from "@/lib/transportDecoding";
 
 import { resolveStreamUrl, useFleetTransport } from "./useFleetTransport";
 

@@ -196,7 +196,7 @@
       "adr": 22
     },
     {
-      "path": "packages/web/src/shared/lib/connectionContext.ts",
+      "path": "packages/web/src/context/connectionContext.ts",
       "adr": 23
     },
     {
@@ -220,7 +220,7 @@
       "adr": 31
     },
     {
-      "path": "packages/web/src/shared/lib/streamLifecycle.ts",
+      "path": "packages/web/src/lib/streamLifecycle.ts",
       "adr": 31
     },
     {

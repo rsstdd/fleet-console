@@ -4,7 +4,7 @@ import {
   fetchBatteryHistory,
   type BatteryHistoryFailure,
   type FetchLike,
-} from "@/shared/lib/transportDecoding";
+} from "@/lib/transportDecoding";
 
 import { useFetchedResource, type FetchedResourceContext } from "./useFetchedResource";
 

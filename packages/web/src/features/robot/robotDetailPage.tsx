@@ -21,7 +21,7 @@ import { DiagnosticsSection } from "./diagnosticsSection";
 import { RawPayloadSection } from "./rawPayloadSection";
 import { SummarySection } from "./summarySection";
 
-import { formatTimeUtc } from "@/shared/lib/time";
+import { formatTimeUtc } from "@/utils/time";
 
 /**
  * The footer's source line: which adapter produced what is on screen, and

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import type { FetchLike } from "@/shared/lib/transportDecoding";
+import type { FetchLike } from "@/lib/transportDecoding";
 
 /**
  * What a loader is told about the request it is answering: the id being loaded,

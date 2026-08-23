@@ -17,11 +17,13 @@ Does **not**: normalize vendor input, derive freshness, authorize commands, own 
 ## Layers
 
 ```
-app        → feature, entity, components, shared-lib, config
-feature    → own feature, entity, components, shared-lib, config
-entity     → own entity, shared-lib
-components  → components
-shared-lib → shared-lib
+app        → feature, entity, components, lib, context, utils, config
+feature    → own feature, entity, components, lib, context, utils, config
+entity     → own entity, lib, utils
+components → components
+lib        → lib, context
+context    → context, config
+utils      → utils
 config     → config
 ```
 
@@ -136,7 +138,7 @@ Read one matching row, then its narrow follow-up. Do not preload all web source,
 | Map, site facet, markers               | `src/features/map/mapPage.tsx`           | `src/entities/robot/selectors.ts`; `docs/01_page-specs/04_MAP.md`; ADR 35             |
 | Envelope → browser model               | `src/entities/robot/fromEnvelope.ts`     | `model.ts`, `selectors.ts`; `packages/contracts/src/index.ts`                         |
 | Fleet/robot resource state             | `src/entities/robot/useFleetRobots.ts`   | `useRobotDetail.ts`; feature consumer                                                 |
-| Connection / transport util            | `src/shared/lib/connectionContext.ts`    | ADR 23; domain interpretation stays in entities                                       |
+| Connection / transport util            | `src/context/connectionContext.ts`    | ADR 23; domain interpretation stays in entities                                       |
 | Presentational primitive               | matching `docs/02_component-specs/`      | same-named module in `src/components/`                                                 |
 | Tenant, theme, flags, endpoints, proxy | `src/config/tenant.ts`                   | `tenantTheme.ts`, `tenantSelection.ts`, `devServerTarget.ts`, or `vite.config.ts`     |
 | Tokens / global style                  | `docs/DESIGN_SYSTEM.md`                  | `src/styles/`, `src/app/theme.ts`                                                     |

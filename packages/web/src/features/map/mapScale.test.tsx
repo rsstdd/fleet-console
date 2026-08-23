@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { Robot } from "@/entities/robot/model";
 import type { FleetResourceState } from "@/entities/robot/fleetStore";
-import { ConnectionContext } from "@/shared/lib/connectionContext";
+import { ConnectionContext } from "@/context/connectionContext";
 
 /** The scale point ADR 2 commits to measuring, and the one Principle 12 names. */
 const FLEET_SIZE = 500;

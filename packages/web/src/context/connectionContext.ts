@@ -8,7 +8,7 @@ import { createContext, use } from "react";
  * lifecycle; it is needed in `features/fleet` and `features/robot`, which must stop
  * rendering per-robot freshness while the stream is down (ADR 3). `features` may not
  * import `app` (ADR 4), so the value cannot travel down the import graph — and
- * `shared/lib` is the only layer both `app` and `features` are allowed to import.
+ * `context` is a layer both `app` and `features` are allowed to import.
  *
  * **Scoped to connection state and nothing else, deliberately.** The risk this module
  * carries is not that it is wrong; it is that it becomes the place a general application
@@ -31,7 +31,7 @@ import { createContext, use } from "react";
  * Connection states the console distinguishes.
  *
  * Declared here rather than imported from `components/connectionBanner`, which holds a
- * structurally identical union. `shared/lib` and `components` are siblings and neither may
+ * structurally identical union. `context` and `components` are siblings and neither may
  * import the other (ADR 4), so the two are restated and TypeScript's structural typing
  * makes a value of either assignable to the other with no adapter. The same reasoning is
  * already written on `StatusPresentationVariant` in `entities/robot/selectors.ts`.

@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 
 import type { Robot } from "@/entities/robot/model";
 import type { FleetData, FleetResourceState } from "@/entities/robot/fleetStore";
-import { ConnectionContext, type StreamConnectionState } from "@/shared/lib/connectionContext";
+import { ConnectionContext, type StreamConnectionState } from "@/context/connectionContext";
 
 /**
  * Contract test for docs/01_page-specs/02_FLEET.md §2, §9, §10 and §11.

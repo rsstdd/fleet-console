@@ -10,7 +10,7 @@ import {
   fetchHealth,
   fetchRobotDetail,
   type FetchLike,
-} from "../transportDecoding";
+} from "./transportDecoding";
 
 /**
  * The console's one decode. What these cases guard is the distinction Principle 5 needs

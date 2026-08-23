@@ -69,21 +69,27 @@ than conventional — see § 7.
 Feature-sliced (ADR 4). The dependency rule, stated exactly as
 `eslint-plugin-boundaries` enforces it rather than as the informal summary:
 
-| From         | May import                                                      |
-| ------------ | --------------------------------------------------------------- |
-| `app`        | everything, plus external                                       |
-| `feature`    | **its own feature only**, entity, components, shared-lib, config |
-| `entity`     | **its own entity only**, **shared-lib only**, external          |
-| `components`  | components, external                                             |
-| `shared-lib` | shared-lib, external                                            |
-| `config`     | config, external                                                |
-| `test`       | setup files under `src/test/**`: everything, plus external      |
+| From         | May import                                                            |
+| ------------ | --------------------------------------------------------------------- |
+| `app`        | everything, plus external                                             |
+| `feature`    | **its own feature only**, entity, components, lib, context, utils, config |
+| `entity`     | **its own entity only**, lib, utils, external                         |
+| `components` | components, external                                                  |
+| `lib`        | lib, context (one typed edge, see below), external                    |
+| `context`    | context, config, external                                             |
+| `utils`      | utils, external                                                       |
+| `config`     | config, external                                                      |
+| `test`       | setup files under `src/test/**`: everything, plus external            |
 
 Three consequences the informal "entities → shared" summary hides, each load-bearing:
 
-- **`entity` may import `shared-lib` but not `components`.** That is what keeps JSX and MUI
-  out of the entity layer, which is in turn what lets the capability-to-panel mapping be
-  tested as pure domain logic (ADR 4).
+- **`entity` may import `lib` and `utils` but not `components`.** That is what keeps JSX
+  and MUI out of the entity layer, which is in turn what lets the capability-to-panel
+  mapping be tested as pure domain logic (ADR 4).
+- **`lib → context` carries exactly one dependency**: the transport and its retry
+  schedule import the `StreamConnectionState` type from `context/connectionContext`,
+  the single authority on that union (ADR 23). `context → config` exists for
+  `tenantConfigContext` (ADR 17).
 - **`entity` may not import `config`.** A selector that read tenant configuration would
   make a domain rule vary by deployment.
 - **Same-slice only.** `features/fleet` may not import `features/robot`, and
@@ -113,7 +119,9 @@ layers or feature directories.
 | `src/entities/robot` | Robot read model, selectors, hooks                                        | JSX, MUI imports                           |
 | `src/entities/site`  | Site model, grouping                                                      | JSX, MUI imports                           |
 | `src/components`      | Pure presentational primitives                                            | Any domain reference                       |
-| `src/shared/lib`     | Formatting, time helpers, transport client                                | Domain rules, payload interpretation       |
+| `src/lib`            | Transport client, wire decoding, retry schedule, cold start               | Domain rules, payload interpretation       |
+| `src/context`        | Connection, stream-diagnostics, and tenant-config contexts                | Domain rules, JSX                          |
+| `src/utils`          | Formatting helpers (`time`)                                               | Domain rules, payload interpretation       |
 | `src/config`         | Tenant themes, feature flags, thresholds                                  | Logic of any kind                          |
 | `src/styles`         | `tokens.css`, `global.css`, `utilities.css`                               | Component-level hex or raw px              |
 
@@ -248,7 +256,7 @@ delta, and frames naming other robots do not re-render the page (the store keeps
 unrelated rows' identity, and the per-id snapshot bails out on it).
 
 **Stream diagnostics.** The transport's session-wide rejected-frame count travels through
-`StreamDiagnosticsContext` in `shared/lib` (the ADR 23 pattern) to the technician
+`StreamDiagnosticsContext` in `context` (the ADR 23 pattern) to the technician
 Diagnostics section, which states its scope: console session, all robots. Whether a run
 of rejections should escalate to a terminal state remains trigger-deferred (fleet TODO
 A4).
@@ -419,7 +427,7 @@ flags and validated build-time selection are implemented (ADR 17).
 | Principle                              | Enforcement / evidence in this package                                                                 |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | 1 — one authoritative implementation   | Selectors own display rules; contracts own decoding; `reconcileDeltaWithSnapshot` imported, not copied |
-| 2 — validate at the boundary           | `shared/lib/transportDecoding.ts` is the only decode site; everything downstream takes decoded values  |
+| 2 — validate at the boundary           | `lib/transportDecoding.ts` is the only decode site; everything downstream takes decoded values  |
 | 3 — vendor differences as capabilities | Panel registry over declared keys; no vendor `if` in features; open vendor filter options              |
 | 4 — freshness first-class              | Server-derived labels, suppression while disconnected, decoded footer provenance, no client timer      |
 | 5 — complete async states              | `FleetResourceState`, `RobotDetailState`, history state unions; page tests drive every member          |

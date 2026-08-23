@@ -19,7 +19,7 @@ import { selectBatteryDisplay, selectStatusPresentation } from "@/entities/robot
 import type { Robot } from "@/entities/robot/model";
 import { selectSiteLabel, type Site } from "@/entities/site/model";
 
-import { formatTimeUtc } from "@/shared/lib/time";
+import { formatTimeUtc } from "@/utils/time";
 
 /**
  * The fleet table plus its provenance plate, rendering exactly the rows it is

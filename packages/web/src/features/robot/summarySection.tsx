@@ -7,7 +7,7 @@ import {
   selectPositionDisplay,
   selectStatusPresentation,
 } from "@/entities/robot/selectors";
-import { formatTimeUtc } from "@/shared/lib/time";
+import { formatTimeUtc } from "@/utils/time";
 
 import { Field, Section } from "./detailSection";
 

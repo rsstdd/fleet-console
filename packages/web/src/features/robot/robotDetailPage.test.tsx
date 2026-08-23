@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ConnectionContext, type StreamConnectionState } from "@/shared/lib/connectionContext";
-import { StreamDiagnosticsContext } from "@/shared/lib/streamDiagnosticsContext";
+import { ConnectionContext, type StreamConnectionState } from "@/context/connectionContext";
+import { StreamDiagnosticsContext } from "@/context/streamDiagnosticsContext";
 import { SCHEMA_VERSION, type CanonicalEnvelope } from "@fleet/contracts";
 import { createFleetStore } from "@/entities/robot/fleetStore";
 import { FleetStoreContext } from "@/entities/robot/fleetStoreContext";

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatTimeUtc } from "../time";
+import { formatTimeUtc } from "./time";
 
 describe("formatTimeUtc", () => {
   it("formats an ISO timestamp as UTC HH:MM:SSZ", () => {

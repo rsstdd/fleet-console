@@ -9,7 +9,7 @@ import { RobotDetailPage } from "@/features/robot/robotDetailPage";
 import { EmptyState } from "@/components/emptyState";
 import { useFleetTransport } from "@/app/useFleetTransport";
 import { FleetStoreContext } from "@/entities/robot/fleetStoreContext";
-import { StreamDiagnosticsContext } from "@/shared/lib/streamDiagnosticsContext";
+import { StreamDiagnosticsContext } from "@/context/streamDiagnosticsContext";
 
 /**
  * Route table for the console. Every route renders inside `AppShell`, so the

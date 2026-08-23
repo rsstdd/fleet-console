@@ -13,7 +13,7 @@ import {
 
 import { DataPlate } from "@/components/dataPlate";
 import { EmptyState } from "@/components/emptyState";
-import { isStreamConnected, useConnectionState } from "@/shared/lib/connectionContext";
+import { isStreamConnected, useConnectionState } from "@/context/connectionContext";
 
 import type { FleetData } from "@/entities/robot/fleetStore";
 import {

@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { describe, expect, it } from "vitest";
 
 import { TENANT } from "@/config/tenant";
-import { useConnectionState } from "@/shared/lib/connectionContext";
+import { useConnectionState } from "@/context/connectionContext";
 
 import { AppShell } from "./appShell";
 
@@ -113,7 +113,7 @@ describe("AppShell", () => {
 
   it("publishes its connection state to routed children (ADR 23)", () => {
     // The dependency rule forbids `features` importing `app`, so the routes below
-    // `Outlet` cannot read this shell's prop. `ConnectionContext` in `shared/lib` is
+    // `Outlet` cannot read this shell's prop. `ConnectionContext` in `context` is
     // the only legal channel, and this asserts the shell is actually providing it —
     // the banner rendering correctly proves nothing about what the children see.
     renderShell("reconnecting", <ConnectionProbe />);

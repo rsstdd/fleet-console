@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { Box, Stack, Typography } from "@mui/material";
 
-import { isStreamConnected, useConnectionState } from "@/shared/lib/connectionContext";
+import { isStreamConnected, useConnectionState } from "@/context/connectionContext";
 import { FreshnessLabel } from "@/components/freshnessLabel";
 import { PersonaToggle, type Persona } from "@/components/personaToggle";
 import { StatusChip } from "@/components/statusChip";

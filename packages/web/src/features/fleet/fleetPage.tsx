@@ -9,7 +9,7 @@ import {
 } from "@mui/material";
 
 import { EmptyState } from "@/components/emptyState";
-import { isStreamConnected, useConnectionState } from "@/shared/lib/connectionContext";
+import { isStreamConnected, useConnectionState } from "@/context/connectionContext";
 
 import type { FleetData } from "@/entities/robot/fleetStore";
 import { selectFreshnessSummary } from "@/entities/robot/selectors";
@@ -60,7 +60,7 @@ export function FleetPage(): ReactNode {
   /*
    * Whether per-robot freshness may be shown at all. Read once here rather than per row:
    * it is one fact about the console's own socket, not a property of any robot, and
-   * Principle 11 keeps the two apart. The rule itself lives in `shared/lib` so this page
+   * Principle 11 keeps the two apart. The rule itself lives in `context` so this page
    * and robot detail cannot drift into suppressing on different conditions (ADR 3, ADR 23).
    */
   const streamConnected = isStreamConnected(useConnectionState());

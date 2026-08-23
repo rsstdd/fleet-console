@@ -2,7 +2,7 @@ import { reconcileDeltaWithSnapshot } from "@fleet/contracts";
 import type { ContractIssue, FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
 
 import { createColdStart } from "./coldStart";
-import type { StreamConnectionState } from "./connectionContext";
+import type { StreamConnectionState } from "@/context/connectionContext";
 import {
   INITIAL_PROBE_ATTEMPT_LIMIT,
   INITIAL_STREAM_STATE,

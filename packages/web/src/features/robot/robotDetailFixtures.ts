@@ -2,7 +2,7 @@ import { SCHEMA_VERSION, type CapabilityWireEntry } from "@fleet/contracts";
 
 import type { AdapterHealthCounters } from "@/entities/robot/fromEnvelope";
 import type { HealthSeverity, Robot, SequenceHealth } from "@/entities/robot/model";
-import type { FetchLike } from "@/shared/lib/transportDecoding";
+import type { FetchLike } from "@/lib/transportDecoding";
 
 /**
  * The wire responses `GET /api/robots/:id` and `GET /api/health` would serve, for tests

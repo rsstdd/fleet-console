@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Robot } from "@/entities/robot/model";
 import type { FleetData, FleetResourceState } from "@/entities/robot/fleetStore";
-import { ConnectionContext, type StreamConnectionState } from "@/shared/lib/connectionContext";
+import { ConnectionContext, type StreamConnectionState } from "@/context/connectionContext";
 
 /**
  * Contract test for docs/01_page-specs/04_MAP.md §§ 2, 9, 10 and 11. The hook

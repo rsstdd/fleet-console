@@ -6,7 +6,7 @@ import {
   type FetchLike,
   type RobotDetailFailure,
   type RobotDetailResponse,
-} from "@/shared/lib/transportDecoding";
+} from "@/lib/transportDecoding";
 
 import { toRegisteredRobotDetail, toRobotDetail } from "./fromEnvelope";
 import type { RobotDetail } from "./model";

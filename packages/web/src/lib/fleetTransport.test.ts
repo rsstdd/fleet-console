@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { SCHEMA_VERSION } from "@fleet/contracts";
 import type { FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
 
-import { createFleetTransport, type OpenSocket, type RetryTimer } from "../fleetTransport";
-import { RETRY_DELAY_CEILING_MS } from "../streamLifecycle";
-import type { FetchLike } from "../transportDecoding";
+import { createFleetTransport, type OpenSocket, type RetryTimer } from "./fleetTransport";
+import { RETRY_DELAY_CEILING_MS } from "./streamLifecycle";
+import type { FetchLike } from "./transportDecoding";
 
 /**
  * The sequencing and the recovery schedule, which are the parts of the transport no pure

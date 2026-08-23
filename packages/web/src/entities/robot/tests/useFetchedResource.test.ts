@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import type { FetchLike } from "@/shared/lib/transportDecoding";
+import type { FetchLike } from "@/lib/transportDecoding";
 
 import {
   useFetchedResource,

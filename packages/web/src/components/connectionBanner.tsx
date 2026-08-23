@@ -12,7 +12,7 @@ import type { ReactNode } from "react";
  * this component is necessary but not sufficient for that rule.
  *
  * It does not own the socket, does not implement retry policy (that is
- * transport policy in `shared/lib` or the app layer), and computes no
+ * transport policy in `lib` or the app layer), and computes no
  * freshness. It reflects state passed from the app layer and invokes `onRetry`.
  *
  * Every visual decision comes from the `.connection-banner` rules in
@@ -23,7 +23,7 @@ export type ConnectionState = "connecting" | "connected" | "reconnecting" | "dis
 
 /**
  * Why the transport stopped retrying, when it has (ADR 31). Structurally restated from
- * `shared/lib/streamLifecycle`'s `StreamTerminalCause` for the same sibling-layer reason
+ * `lib/streamLifecycle`'s `StreamTerminalCause` for the same sibling-layer reason
  * as `ConnectionState` below.
  */
 export type ConnectionTerminalCause = "handshake-exhausted" | "contract" | "session-mismatch";
