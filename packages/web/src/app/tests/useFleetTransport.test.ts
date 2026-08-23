@@ -6,7 +6,7 @@ import { SCHEMA_VERSION } from "@fleet/contracts";
 import type { OpenSocket } from "@/shared/lib/fleetTransport";
 import type { FetchLike } from "@/shared/lib/transportDecoding";
 
-import { resolveStreamUrl, useFleetTransport } from "./useFleetTransport";
+import { resolveStreamUrl, useFleetTransport } from "../useFleetTransport";
 
 /**
  * The transport boundary as the shell sees it. The sequencing itself is covered by

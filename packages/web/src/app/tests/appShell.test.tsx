@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { TENANT } from "@/config/tenant";
 import { useConnectionState } from "@/shared/lib/connectionContext";
 
-import { AppShell } from "./appShell";
+import { AppShell } from "../appShell";
 
 /** Renders the connection state a routed child actually receives from the shell. */
 function ConnectionProbe(): React.ReactElement {
