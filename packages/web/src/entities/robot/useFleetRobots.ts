@@ -40,12 +40,9 @@ export function useFleetRobots(): FleetResourceState {
  * `reconcileDetailWithRow` in `fromEnvelope.ts` is what merges the returned
  * row into a fetched detail without refetching diagnostics or history.
  */
-export function useFleetRobot(robotId: string | undefined): Robot | undefined {
+export function useFleetRobot(robotId: string): Robot | undefined {
   const store = useFleetStore();
-  const read = useCallback(
-    () => (robotId === undefined ? undefined : store.getRobot(robotId)),
-    [store, robotId],
-  );
+  const read = useCallback(() => store.getRobot(robotId), [store, robotId]);
   return useSyncExternalStore(store.subscribe, read);
 }
 

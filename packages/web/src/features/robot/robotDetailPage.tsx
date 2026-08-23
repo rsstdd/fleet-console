@@ -460,6 +460,28 @@ function DetailSkeleton(): ReactNode {
  */
 export function RobotDetailPage(): ReactNode {
   const { id } = useParams<{ id: string }>();
+  // The one boundary condition on the address, resolved here so every data hook
+  // below takes a robot id that exists — none reasons about an absent id mid-render.
+  const isAddressedRobot = typeof id === "string" && id !== "";
+
+  return (
+    <Box>
+      <BackToFleet />
+      {isAddressedRobot ? (
+        <ResolvedRobotDetail id={id} />
+      ) : (
+        <EmptyState
+          title="Robot not found"
+          description="That address does not name a robot."
+          action={<Link to="/">Back to fleet</Link>}
+        />
+      )}
+    </Box>
+  );
+}
+
+/** The addressed half of the page: `id` is guaranteed, so every data hook runs unconditionally. */
+function ResolvedRobotDetail({ id }: { readonly id: string }): ReactNode {
   // The address is deployment configuration; this layer may read it and the entity may
   // not (ADR 4, ADR 21).
   const fetched: RobotDetailState = useRobotDetail(id, {
@@ -483,12 +505,7 @@ export function RobotDetailPage(): ReactNode {
     return fetched;
   }, [fetched, live]);
 
-  return (
-    <Box>
-      <BackToFleet />
-      {renderState(state)}
-    </Box>
-  );
+  return renderState(state);
 }
 
 /**
