@@ -387,7 +387,7 @@ remains, for the terminal states.
 Virtualization of the fleet table is **deferred by decision**
 ([ADR 24](../00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md), register D14).
 The table renders one row per robot and is asserted correct at 500 rows in
-`features/fleet/fleetScale.test.tsx` — 500 rows, 500 activation links, fleet-wide counts, and a
+`features/fleet/tests/fleetScale.test.tsx` — 500 rows, 500 activation links, fleet-wide counts, and a
 filter that still narrows to one. No ceiling is claimed. ADR 32 captured the reopening
 workload in committed browser automation: at 500 robots and ten frames per second,
 120/120 frames applied with delta-to-next-paint p95 53.7 ms. ADR 24 records that this
