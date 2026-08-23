@@ -7,38 +7,31 @@ import { EmptyState } from "@/shared/ui/emptyState";
 import { isStreamConnected, useConnectionState } from "@/shared/lib/connectionContext";
 import { FreshnessLabel } from "@/shared/ui/freshnessLabel";
 import { PersonaToggle, type Persona } from "@/shared/ui/personaToggle";
-import { SectionLabel } from "@/shared/ui/sectionLabel";
 import { StatusChip } from "@/shared/ui/statusChip";
 
-import type { RobotDetail, RobotHealth } from "@/entities/robot/model";
+import type { RobotDetail } from "@/entities/robot/model";
 import {
-  selectBatteryDisplay,
   selectClockDeltaDisplay,
   selectPanelCapabilities,
-  selectPositionDisplay,
   selectSequenceDuplicateDisplay,
   selectSequenceGapDisplay,
   selectStatusPresentation,
 } from "@/entities/robot/selectors";
 import { useRobotDetail, type RobotDetailState } from "@/entities/robot/useRobotDetail";
-import { useRobotHistory } from "@/entities/robot/useRobotHistory";
 import { useFleetRobot, useFleetSites } from "@/entities/robot/useFleetRobots";
 import { reconcileDetailWithRow } from "@/entities/robot/fromEnvelope";
 import { useStreamDiagnostics } from "@/shared/lib/streamDiagnosticsContext";
 
 import { TENANT } from "@/config/tenant";
 
-import { BatteryHistoryContent } from "./batteryHistorySection";
+import { BatteryHistorySection } from "./batteryHistorySection";
 import { CapabilityPanel } from "./capabilityPanels";
+import { Field, MONO, Section } from "./detailSection";
 import { disabledPanelsFor } from "./panelVisibility";
+import { SummarySection } from "./summarySection";
 import { selectSiteLabel } from "@/entities/site/model";
 
 import { formatTimeUtc } from "@/shared/lib/time";
-
-const MONO = {
-  fontFamily: "var(--font-mono)",
-  fontVariantNumeric: "tabular-nums",
-} as const;
 
 /** Back to the fleet, per spec §2. A link, not a history-popping button. */
 function BackToFleet(): ReactNode {
@@ -46,49 +39,6 @@ function BackToFleet(): ReactNode {
     <Typography component={Link} to="/" variant="body2" sx={{ color: "var(--accent-text)" }}>
       ← Fleet
     </Typography>
-  );
-}
-
-/** One labelled value in a definition list. */
-function Field({ label, value }: { readonly label: string; readonly value: string }): ReactNode {
-  return (
-    <Stack direction="row" spacing={2} sx={{ justifyContent: "space-between" }}>
-      <Typography variant="body2" component="dt" sx={{ color: "text.secondary" }}>
-        {label}
-      </Typography>
-      <Typography variant="body2" component="dd" sx={{ m: 0, ...MONO }}>
-        {value}
-      </Typography>
-    </Stack>
-  );
-}
-
-/**
- * Section index plus the real `h2` it introduces. `SectionLabel` is not a
- * heading (component spec 03), so every section pairs the two and the page
- * has a heading outline rather than one `h1` and four decorative strings
- * (spec §9, Principle 6).
- */
-function Section({
-  index,
-  title,
-  children,
-}: {
-  readonly index: string;
-  readonly title: string;
-  readonly children: ReactNode;
-}): ReactNode {
-  const id = `section-${title.toLowerCase().replace(/\s+/g, "-")}`;
-  return (
-    <Box component="section" aria-labelledby={id} sx={{ mt: 4 }}>
-      <SectionLabel>
-        {index} — {title}
-      </SectionLabel>
-      <Typography id={id} variant="h2" component="h2" sx={{ mt: 1, mb: 2 }}>
-        {title}
-      </Typography>
-      {children}
-    </Box>
   );
 }
 
@@ -158,63 +108,6 @@ function DetailHeader({
       </Box>
       <PersonaToggle value={persona} onChange={onPersonaChange} />
     </Stack>
-  );
-}
-
-/**
- * Health as one string: severity, plus the vendor's prose when there is any.
- * A robot that has never reported has no health to state, and says so rather
- * than borrowing `nominal` from the severity vocabulary (Principle 4).
- */
-function formatHealth(health: RobotHealth | null): string {
-  if (health === null) {
-    return "Not reported";
-  }
-  return health.description === undefined
-    ? health.severity
-    : `${health.severity} — ${health.description}`;
-}
-
-/** Core fields only. Capability payloads never appear here, and vice versa. */
-function SummarySection({ robot }: { readonly robot: RobotDetail }): ReactNode {
-  const presentation = selectStatusPresentation(robot);
-
-  return (
-    <Section index="01" title="Summary">
-      <Paper sx={{ p: 3 }}>
-        <Stack component="dl" spacing={1.5} sx={{ m: 0 }}>
-          <Field label="Battery" value={selectBatteryDisplay(robot)} />
-          <Field label="Position" value={selectPositionDisplay(robot)} />
-          <Field label="Status" value={presentation.label} />
-          {/*
-            Health is its own field, not text appended to status: a degraded
-            robot that is idle is two facts, and collapsing them loses one
-            (spec §6, revision 3).
-          */}
-          <Field label="Health" value={formatHealth(robot.health)} />
-          <Field
-            label="Connectivity"
-            value={robot.connectivity === null ? "Not reported" : robot.connectivity}
-          />
-          <Field label="Last seen" value={formatTimeUtc(robot.lastSeenAt)} />
-        </Stack>
-      </Paper>
-    </Section>
-  );
-}
-
-/**
- * The last minute of battery, fetched once per visit as its own resource
- * (ADR 33). Operator-visible and placed after Summary, per the spec's section
- * order; its failure degrades this section inline and never blanks the page.
- */
-function BatteryHistorySection({ robotId }: { readonly robotId: string }): ReactNode {
-  const state = useRobotHistory(robotId, { apiBaseUrl: TENANT.endpoints.apiBaseUrl });
-
-  return (
-    <Section index="02" title="Battery history">
-      <BatteryHistoryContent state={state} />
-    </Section>
   );
 }
 
