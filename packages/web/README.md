@@ -47,7 +47,7 @@ development (ADR 21). The full server-side surface is documented in
 One folder per concern, community-standard names (ADR 36), one exported component per
 file, tests colocated beside their sources:
 
-```
+```text
 src/
   app/         transport lifecycle, routing, shell, theme, dev gallery
   features/    fleet · map · robot — the three pages and their section components
@@ -61,9 +61,10 @@ src/
   config/      tenant profiles, flags, endpoints
 ```
 
-Dependencies point **downward only** — features never import features, and nothing below
-`features/` renders JSX — enforced by `eslint-plugin-boundaries` with deliberate
-violation fixtures proving the rules fire. `features` may not import `app`, and
+Dependencies point **downward only** — features never import features; below `features/`,
+only `components/` renders JSX (domain-free primitives), and the data layers (`hooks/`,
+`stores/`, `utils/`, `types/`) render nothing and route nothing — enforced by
+`eslint-plugin-boundaries` with deliberate violation fixtures proving the rules fire. `features` may not import `app`, and
 that single constraint explains two designs that otherwise look ornate: connection state
 travels through a context in `context/`
 ([ADR 23](../../docs/00_adr/23_CONNECTION_STATE_TRAVELS_THROUGH_SHARED_LIB.md)) and the
