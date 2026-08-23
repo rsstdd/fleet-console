@@ -14,13 +14,12 @@ import type { FetchLike } from "@/shared/lib/transportDecoding";
  * map with `fromEnvelope` — and mocking the hook instead would have deleted that coverage
  * rather than moved it.
  *
- * It lives in this feature's `tests/` directory rather than under `src/test/**` because
- * tests inherit their production layer: the boundaries config classifies everything under
- * `features/robot/`, this directory included, as the robot feature, and a feature may not
- * import `test`. Nothing but the sibling suites imports this, so it is absent from the
- * bundle. This same-feature location remains authoritative until fixture construction is
- * materially copied across layers or feature directories
- * (`docs/03_package-specs/05_WEB.md` § 4).
+ * It sits beside the page rather than under `src/test/**` because tests inherit their
+ * production layer: the boundaries config classifies everything under `features/robot/`
+ * as the robot feature, and a feature may not import `test`. Nothing but the sibling
+ * suites imports this, so it is absent from the bundle. This same-feature location
+ * remains authoritative until fixture construction is materially copied across layers
+ * or feature directories (`docs/03_package-specs/05_WEB.md` § 4, ADR 36).
  */
 
 /** The per-vendor half of a fixture response: what the dialect declares. */

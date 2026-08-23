@@ -9,7 +9,7 @@ import { SCHEMA_VERSION, type CanonicalEnvelope } from "@fleet/contracts";
 import { createFleetStore } from "@/entities/robot/fleetStore";
 import { FleetStoreContext } from "@/entities/robot/fleetStoreContext";
 
-import { RobotDetailPage } from "../robotDetailPage";
+import { RobotDetailPage } from "./robotDetailPage";
 import { createFixtureFetch } from "./robotDetailFixtures";
 
 /**

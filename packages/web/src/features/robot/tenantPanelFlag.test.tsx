@@ -38,7 +38,7 @@ vi.mock("@/config/tenant", async (importOriginal) => {
   return { ...actual, TENANT: actual.TENANT_PROFILES["tenant-b"] };
 });
 
-const { RobotDetailPage } = await import("../robotDetailPage");
+const { RobotDetailPage } = await import("./robotDetailPage");
 
 /**
  * Renders and waits for the fetch to settle.

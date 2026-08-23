@@ -50,7 +50,7 @@ e2e smoke suite stay green with only the copy assertions updated.
 
 ## Execution
 
-1. Update `packages/web/src/features/fleet/tests/fleetPage.test.tsx` first: the column-header
+1. Update `packages/web/src/features/fleet/fleetPage.test.tsx` first: the column-header
    list, the four summary-heading assertions (connected, reconnecting, disconnected,
    heading order), and new filter coverage via `getByLabelText("Reporting status")`.
 2. Update `packages/web/e2e/smoke.spec.ts`: the connected heading assertion and the

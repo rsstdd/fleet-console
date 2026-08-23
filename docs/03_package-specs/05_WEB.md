@@ -94,12 +94,12 @@ Three consequences the informal "entities → shared" summary hides, each load-b
 The default is `disallow`, so a new layer is denied until someone writes its policy — the
 opposite of a default-allow list where an omission silently permits.
 
-Test files inherit the production layer containing them: unit tests live in a `tests/`
-subdirectory beside the sources they cover, and the boundaries patterns classify those
-directories as their parent layer. The `test` element in the lint configuration names only
-`src/test/**` setup infrastructure; it is not a universal escape from
-feature/entity/shared direction. The robot-detail suites therefore share
-`features/robot/tests/robotDetailFixtures.ts` inside their own feature. Multiple imports
+Test files inherit the production layer containing them: unit tests are colocated beside
+the sources they cover (`foo.test.tsx` next to `foo.tsx`, ADR 36), and the boundaries
+patterns classify them as the layer of the directory they sit in. The `test` element in
+the lint configuration names only `src/test/**` setup infrastructure; it is not a
+universal escape from feature/entity/shared direction. The robot-detail suites therefore
+share `features/robot/robotDetailFixtures.ts` inside their own feature. Multiple imports
 of that same-feature helper are reuse, not cross-layer duplication. Reconsider a narrowly
 scoped fixture location only if fixture construction or data is copied across production
 layers or feature directories.
@@ -387,7 +387,7 @@ remains, for the terminal states.
 Virtualization of the fleet table is **deferred by decision**
 ([ADR 24](../00_adr/24_NARROW_THE_SCALE_CLAIM_NOW_VIRTUALIZE_ON_MEASURED_CHURN.md), register D14).
 The table renders one row per robot and is asserted correct at 500 rows in
-`features/fleet/tests/fleetScale.test.tsx` — 500 rows, 500 activation links, fleet-wide counts, and a
+`features/fleet/fleetScale.test.tsx` — 500 rows, 500 activation links, fleet-wide counts, and a
 filter that still narrows to one. No ceiling is claimed. ADR 32 captured the reopening
 workload in committed browser automation: at 500 robots and ten frames per second,
 120/120 frames applied with delta-to-next-paint p95 53.7 ms. ADR 24 records that this

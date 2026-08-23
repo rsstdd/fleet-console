@@ -26,7 +26,7 @@ vi.mock("@/entities/robot/useFleetRobots", () => ({
   useFleetRobots: (): FleetResourceState => fleet.state,
 }));
 
-const { FleetPage } = await import("../fleetPage");
+const { FleetPage } = await import("./fleetPage");
 
 function robot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
   return {

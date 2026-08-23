@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 
-import { AppRouter } from "../appRouter";
+import { AppRouter } from "./appRouter";
 
 /**
  * Proves the router is the application. Until 19 August 2026 `main.tsx` rendered

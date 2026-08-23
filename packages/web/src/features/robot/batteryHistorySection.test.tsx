@@ -6,7 +6,7 @@ import type { RobotBatteryHistory } from "@fleet/contracts";
 
 import type { RobotHistoryState } from "@/entities/robot/useRobotHistory";
 
-import { BatteryHistoryContent } from "../batteryHistorySection";
+import { BatteryHistoryContent } from "./batteryHistorySection";
 
 /** A window ending at a round instant, so expected coordinates are readable. */
 const CAPTURED_AT = 120_000;

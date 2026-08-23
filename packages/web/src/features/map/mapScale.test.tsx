@@ -23,7 +23,7 @@ vi.mock("@/entities/robot/useFleetRobots", () => ({
   useFleetRobots: (): FleetResourceState => fleet.state,
 }));
 
-const { MapPage } = await import("../mapPage");
+const { MapPage } = await import("./mapPage");
 
 /**
  * A fleet of `size` robots round-robin across three sites, every robot

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { TENANT_PROFILES } from "@/config/tenant";
-import { disabledPanelsFor } from "../panelVisibility";
+import { disabledPanelsFor } from "./panelVisibility";
 
 describe("disabledPanelsFor", () => {
   it("disables nothing when every panel flag is on", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { DEV_SERVER_DEFAULTS, DEV_SERVER_ENV_KEYS, devServerTarget } from "../devServerTarget";
+import { DEV_SERVER_DEFAULTS, DEV_SERVER_ENV_KEYS, devServerTarget } from "./devServerTarget";
 
 describe("devServerTarget", () => {
   it("aims at the server's own defaults when nothing is set", () => {

@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
-import { ComponentGallery } from "../componentGallery";
+import { ComponentGallery } from "./componentGallery";
 
 describe("ComponentGallery", () => {
   it("documents every shared UI component as a named section", () => {
