@@ -85,11 +85,6 @@ function matchesFilters(robot: Robot, filters: Filters): boolean {
   return true;
 }
 
-/** Epoch milliseconds to the ISO string `formatTimeUtc` renders. */
-function toIso(epochMs: number): string {
-  return new Date(epochMs).toISOString();
-}
-
 /**
  * The fleet-wide freshness strip. The counts stay on screen during an outage
  * because a frozen tally is still operationally useful — but only under a
@@ -344,8 +339,8 @@ function FleetTable({
           render time, which moves while the data does not.
         */}
         <DataPlate>
-          Fleet snapshot captured {formatTimeUtc(toIso(capturedAt))} · latest stream frame{" "}
-          {latestFrameAt === null ? "none yet" : formatTimeUtc(toIso(latestFrameAt))}
+          Fleet snapshot captured {formatTimeUtc(capturedAt)} · latest stream frame{" "}
+          {latestFrameAt === null ? "none yet" : formatTimeUtc(latestFrameAt)}
         </DataPlate>
       </Box>
     </Paper>
@@ -565,5 +560,3 @@ export function FleetPage(): ReactNode {
     </Box>
   );
 }
-
-export default FleetPage;

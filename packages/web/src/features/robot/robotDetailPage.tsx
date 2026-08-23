@@ -143,15 +143,12 @@ function renderState(state: RobotDetailState): ReactNode {
 
     case "not-found":
       // Not an error banner: an unknown id is a navigation outcome, not a
-      // failure of the console (spec §10).
+      // failure of the console (spec §10). The id is never empty here: the
+      // route boundary answers an absent address before any fetch can run.
       return (
         <EmptyState
           title="Robot not found"
-          description={
-            state.id === ""
-              ? "That address does not name a robot."
-              : `No robot with id ${state.id} is registered.`
-          }
+          description={`No robot with id ${state.id} is registered.`}
           action={<Link to="/">Back to fleet</Link>}
         />
       );
@@ -185,5 +182,3 @@ function renderState(state: RobotDetailState): ReactNode {
       );
   }
 }
-
-export default RobotDetailPage;
