@@ -3,8 +3,12 @@ import { Alert, Button, Paper, Skeleton, Stack, Typography } from "@mui/material
 
 import type { RobotBatteryHistory } from "@fleet/contracts";
 
-import type { RobotHistoryState } from "@/entities/robot/useRobotHistory";
+import { useRobotHistory, type RobotHistoryState } from "@/entities/robot/useRobotHistory";
 import { DataPlate } from "@/shared/ui/dataPlate";
+
+import { TENANT } from "@/config/tenant";
+
+import { Section } from "./detailSection";
 
 /**
  * The battery-history section's body: a fixed-axis inline SVG sparkline over
@@ -144,12 +148,28 @@ function ReadyContent({ history }: { readonly history: RobotBatteryHistory }): R
 }
 
 /**
+ * The last minute of battery, fetched once per visit as its own resource
+ * (ADR 33). Operator-visible and placed after Summary, per the spec's section
+ * order; its failure degrades this section inline and never blanks the page.
+ */
+export function BatteryHistorySection({ robotId }: { readonly robotId: string }): ReactNode {
+  const state = useRobotHistory(robotId, { apiBaseUrl: TENANT.endpoints.apiBaseUrl });
+
+  return (
+    <Section index="02" title="Battery history">
+      <BatteryHistoryContent state={state} />
+    </Section>
+  );
+}
+
+/**
  * Renders one `RobotHistoryState` exhaustively, inside whatever section frame
- * the page provides.
+ * the caller provides.
  *
- * Coupling: `robotDetailPage.tsx` mounts this under its "Battery history"
- * `Section` and owns the fetch through `useRobotHistory`; this component is
- * deliberately fetch-free so the full state matrix is testable by construction.
+ * Coupling: `BatteryHistorySection` above mounts this under the page's
+ * "Battery history" `Section` and owns the fetch through `useRobotHistory`;
+ * this component is deliberately fetch-free so the full state matrix is
+ * testable by construction.
  */
 export function BatteryHistoryContent({ state }: { readonly state: RobotHistoryState }): ReactNode {
   switch (state.status) {
