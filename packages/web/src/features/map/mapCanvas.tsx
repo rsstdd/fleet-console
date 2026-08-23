@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Typography } from "@mui/material";
 
-import type { MapMarker, ViewBoxSize } from "@/entities/robot/selectors";
+import type { MapMarker, ViewBoxSize } from "@/utils/robotSelectors";
 
 /*
  * Computation-free SVG canvas: every marker arrives projected and coloured

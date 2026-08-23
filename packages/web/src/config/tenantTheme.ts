@@ -3,7 +3,7 @@
 // and PRINCIPLES.md 13 puts tenant branding in typed configuration rather than
 // in components. Consumed by src/App.tsx via buildMuiTheme.
 //
-// This module holds data only, no logic (see packages/web/CLAUDE.md). The
+// This module holds data only, no logic (see packages/web/AGENTS.md). The
 // validation PRINCIPLES.md 13 also calls for lives in `tenant.ts`, which decodes
 // every shipped profile at module load against a schema built from the theme
 // names below (ADR 17).

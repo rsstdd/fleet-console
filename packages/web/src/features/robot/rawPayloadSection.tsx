@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
 import { Box, Paper, Typography } from "@mui/material";
 
-import type { RobotDetail } from "@/entities/robot/model";
+import type { RobotDetail } from "@/types/robot";
 
-import { MONO, Section } from "./detailSection";
+import { Section } from "./detailSection";
+import { MONO } from "./detailStyles";
 
 /** Technician only. States the absence rather than rendering an empty block. */
 export function RawPayloadSection({ robot }: { readonly robot: RobotDetail }): ReactNode {
@@ -22,11 +23,7 @@ export function RawPayloadSection({ robot }: { readonly robot: RobotDetail }): R
           that must be replaced by a real access rule before this ships anywhere a
           stranger can reach. Do not soften it to make the panel look finished.
         */}
-        <Typography
-          variant="body2"
-          sx={{ color: "text.secondary", mb: 2 }}
-          data-testid="raw-payload-exposure"
-        >
+        <Typography variant="body2" sx={{ color: "text.secondary", mb: 2 }}>
           Shown exactly as the vendor sent it, with nothing removed. This view is not
           access-controlled — anyone who can reach this console can read it.
         </Typography>

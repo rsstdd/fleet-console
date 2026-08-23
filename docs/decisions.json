@@ -135,6 +135,11 @@
       "question": "Enable the React Compiler build transform in web",
       "adr": null,
       "next": "Spike `babel-plugin-react-compiler` through `@vitejs/plugin-react` on a branch (dependency admission per ADR 29), then measure the ADR 22 bundle budget and the ADR 24 scale run against current baselines. Maintainer decides with that evidence; if accepted, the memo-removal sweep in docs/05_plans/REFACTOR_WEB_REACT_QUALITY.md ships as its own slice. Until decided, packages/web/AGENTS.md's \"Enable React Compiler\" instruction is unimplemented and the manual memoization on the measured fleet surfaces stays."
+    },
+    {
+      "id": "D28",
+      "question": "Web folder vocabulary and test placement for external readability",
+      "adr": 36
     }
   ],
   "mechanicalRules": [
@@ -191,11 +196,11 @@
       "adr": 22
     },
     {
-      "path": "packages/web/src/shared/lib/connectionContext.ts",
+      "path": "packages/web/src/context/connectionContext.ts",
       "adr": 23
     },
     {
-      "path": "packages/web/src/features/fleet/tests/fleetScale.test.tsx",
+      "path": "packages/web/src/features/fleet/fleetScale.test.tsx",
       "adr": 24
     },
     {
@@ -215,7 +220,7 @@
       "adr": 31
     },
     {
-      "path": "packages/web/src/shared/lib/streamLifecycle.ts",
+      "path": "packages/web/src/lib/streamLifecycle.ts",
       "adr": 31
     },
     {
@@ -243,7 +248,7 @@
       "adr": 33
     },
     {
-      "path": "packages/web/src/entities/robot/useRobotHistory.ts",
+      "path": "packages/web/src/hooks/useRobotHistory.ts",
       "adr": 33
     },
     {
@@ -251,7 +256,7 @@
       "adr": 33
     },
     {
-      "path": "packages/web/src/entities/robot/selectors.ts",
+      "path": "packages/web/src/utils/robotSelectors.ts",
       "adr": 35
     },
     {
@@ -287,7 +292,7 @@
       "packages/contracts/TODO.md",
       "packages/server/TODO.md",
       "packages/simulator/TODO.md",
-      "packages/web/src/entities/robot/TODO.md",
+      "packages/web/src/hooks/TODO.md",
       "packages/web/src/features/fleet/TODO.md",
       "packages/web/src/features/robot/TODO.md"
     ]

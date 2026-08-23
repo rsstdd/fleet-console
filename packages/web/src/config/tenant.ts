@@ -1,6 +1,6 @@
 // Tenant identity, branding and feature flags for one deployment.
 //
-// Data plus one validation step, no domain logic (packages/web/CLAUDE.md).
+// Data plus one validation step, no domain logic (packages/web/AGENTS.md).
 //
 // 01_APP_SHELL.md section 2 requires the wordmark to come from here so that no
 // brand string is hardcoded in the shell, and requires theme, wordmark and
@@ -34,7 +34,7 @@ const tenantFlagsSchema = z.strictObject({
    * Whether robot detail offers the lidar-health capability panel.
    *
    * Coupling: consumed by `features/robot/panelVisibility.ts`, which turns it
-   * into the panel list `entities/robot` filters against. A robot must declare
+   * into the panel list `utils/robotSelectors` filters against. A robot must declare
    * the capability **and** the tenant must enable it (ADR 17).
    */
   lidarHealthPanel: z.boolean(),
@@ -78,7 +78,7 @@ const endpointUrlSchema = z
 /**
  * Where this deployment's console reaches its server.
  *
- * In typed tenant configuration because `CLAUDE.md` puts tenant endpoints there beside
+ * In typed tenant configuration because `AGENTS.md` puts tenant endpoints there beside
  * branding and flags, and because a component must never name a host. Baked at build time
  * like the rest of the profile (ADR 17), which is why the development story is a proxy
  * rather than a second value: with `/api` and `/ws` the console talks to its own origin and

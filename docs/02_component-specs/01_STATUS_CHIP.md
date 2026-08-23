@@ -3,13 +3,13 @@
 - **Status:** implementation-ready
 - **Revision 2:** the variant union is replaced. The seven-value set (`online`, `offline`, `degraded`, `critical`, `charging`, `maintenance`, `info`) predates the canonical status enum and named states no adapter can produce; `maintenance` and `info` are removed, and the remainder is re-derived from `RobotStatus` plus health severity per ADR 1. Adds the required `current` prop, which carries the freshness qualification the design profile and wireframes both depend on. Token mapping updated to the `--status-*` role names; the `--online` / `--offline` family no longer exists.
 
-Implementation: `shared/ui/statusChip.tsx`
+Implementation: `components/statusChip.tsx`
 
 ## 1. Responsibility
 
 `StatusChip` displays a semantic robot or system status as a labelled chip, and shows whether that status is current or last-known. It is the only approved way to render status in the product UI.
 
-It does not decide status from telemetry, map vendor enums, compute freshness, or act as a button or link. The mapping from `RobotStatus` and `HealthSeverity` to a variant is a tested selector in `entities/robot` (Principle 1).
+It does not decide status from telemetry, map vendor enums, compute freshness, or act as a button or link. The mapping from `RobotStatus` and `HealthSeverity` to a variant is a tested selector in `utils/robotSelectors` (Principle 1).
 
 ## 2. Dependencies
 
@@ -122,7 +122,7 @@ Non-interactive. No hover or focus styles of its own. If placed inside a row lin
 | Concern  | Check                                                                                          |
 | -------- | ---------------------------------------------------------------------------------------------- |
 | API      | `label` and `current` required; variant union exhaustive against `RobotStatus` plus `degraded` |
-| Mapping  | `selectStatusPresentation` unit test in `entities/robot` (Principle 10)                        |
+| Mapping  | `selectStatusPresentation` unit test in `utils/robotSelectors` (Principle 10)                  |
 | Currency | `current: false` renders the last-known treatment and the caller's qualified label             |
 | Tokens   | No raw hex in the component file (Principle 8)                                                 |
 | A11y     | Colour is not the sole indicator; dot absent from the accessibility tree (Principle 6)         |

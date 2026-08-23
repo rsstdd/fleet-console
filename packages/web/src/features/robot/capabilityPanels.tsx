@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Paper, Stack, Typography } from "@mui/material";
 
-import type { CapabilitySet, PanelCapabilityName } from "@/entities/robot/model";
+import type { CapabilitySet, PanelCapabilityName } from "@/types/robot";
 
 /**
  * Capability panels for robot detail, resolved through a registry rather than
@@ -46,7 +46,7 @@ function PanelRow({ label, value }: { label: string; value: string }): ReactNode
 /**
  * The registry. Keyed by `PanelCapabilityName`, so a capability added to the
  * canonical model either gets a panel here or is explicitly carved out as
- * diagnostic-only in `entities/robot` — it cannot be forgotten silently.
+ * diagnostic-only in `utils/robotSelectors` — it cannot be forgotten silently.
  *
  * Module-private: callers reach it only through `CapabilityPanel`, so no
  * caller can iterate it and render a panel for a capability a robot never

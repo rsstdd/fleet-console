@@ -72,9 +72,13 @@ export default tseslint.config(
       "boundaries/elements": [
         { type: "app", pattern: "src/app/**" },
         { type: "feature", pattern: "src/features/*/**", capture: ["feature"] },
-        { type: "entity", pattern: "src/entities/*/**", capture: ["entity"] },
-        { type: "shared-ui", pattern: "src/shared/ui/**" },
-        { type: "shared-lib", pattern: "src/shared/lib/**" },
+        { type: "hooks", pattern: "src/hooks/**" },
+        { type: "stores", pattern: "src/stores/**" },
+        { type: "types", pattern: "src/types/**" },
+        { type: "components", pattern: "src/components/**" },
+        { type: "lib", pattern: "src/lib/**" },
+        { type: "context", pattern: "src/context/**" },
+        { type: "utils", pattern: "src/utils/**" },
         { type: "config", pattern: "src/config/**" },
         { type: "test", pattern: "src/test/**" },
       ],
@@ -107,9 +111,13 @@ export default tseslint.config(
               allow: [
                 { to: { element: { type: "app" } } },
                 { to: { element: { type: "feature" } } },
-                { to: { element: { type: "entity" } } },
-                { to: { element: { type: "shared-ui" } } },
-                { to: { element: { type: "shared-lib" } } },
+                { to: { element: { type: "hooks" } } },
+                { to: { element: { type: "stores" } } },
+                { to: { element: { type: "types" } } },
+                { to: { element: { type: "components" } } },
+                { to: { element: { type: "lib" } } },
+                { to: { element: { type: "context" } } },
+                { to: { element: { type: "utils" } } },
                 { to: { element: { type: "config" } } },
                 { to: { module: { origin: "external" } } },
               ],
@@ -125,39 +133,77 @@ export default tseslint.config(
                     },
                   },
                 },
-                { to: { element: { type: "entity" } } },
-                { to: { element: { type: "shared-ui" } } },
-                { to: { element: { type: "shared-lib" } } },
+                { to: { element: { type: "hooks" } } },
+                { to: { element: { type: "stores" } } },
+                { to: { element: { type: "types" } } },
+                { to: { element: { type: "components" } } },
+                { to: { element: { type: "lib" } } },
+                { to: { element: { type: "context" } } },
+                { to: { element: { type: "utils" } } },
                 { to: { element: { type: "config" } } },
                 { to: { module: { origin: "external" } } },
               ],
             },
             {
-              from: { element: { type: "entity" } },
+              from: { element: { type: "hooks" } },
               allow: [
-                {
-                  to: {
-                    element: {
-                      type: "entity",
-                      captured: { entity: "{{from.captured.entity}}" },
-                    },
-                  },
-                },
-                { to: { element: { type: "shared-lib" } } },
+                { to: { element: { type: "hooks" } } },
+                { to: { element: { type: "stores" } } },
+                { to: { element: { type: "types" } } },
+                { to: { element: { type: "lib" } } },
+                { to: { element: { type: "utils" } } },
                 { to: { module: { origin: "external" } } },
               ],
             },
             {
-              from: { element: { type: "shared-ui" } },
+              from: { element: { type: "stores" } },
               allow: [
-                { to: { element: { type: "shared-ui" } } },
+                { to: { element: { type: "stores" } } },
+                { to: { element: { type: "types" } } },
+                { to: { element: { type: "utils" } } },
                 { to: { module: { origin: "external" } } },
               ],
             },
             {
-              from: { element: { type: "shared-lib" } },
+              from: { element: { type: "types" } },
               allow: [
-                { to: { element: { type: "shared-lib" } } },
+                { to: { element: { type: "types" } } },
+                { to: { module: { origin: "external" } } },
+              ],
+            },
+            {
+              from: { element: { type: "components" } },
+              allow: [
+                { to: { element: { type: "components" } } },
+                { to: { module: { origin: "external" } } },
+              ],
+            },
+            {
+              // `lib → context` carries exactly one dependency today: the transport
+              // and its retry schedule import the `StreamConnectionState` type from
+              // `context/connectionContext`, the one authority on that union (ADR 23).
+              from: { element: { type: "lib" } },
+              allow: [
+                { to: { element: { type: "lib" } } },
+                { to: { element: { type: "context" } } },
+                { to: { module: { origin: "external" } } },
+              ],
+            },
+            {
+              // `context → config` exists for `tenantConfigContext`, which carries
+              // the typed tenant configuration down to the shell (ADR 17).
+              from: { element: { type: "context" } },
+              allow: [
+                { to: { element: { type: "context" } } },
+                { to: { element: { type: "config" } } },
+                { to: { module: { origin: "external" } } },
+              ],
+            },
+            {
+              from: { element: { type: "utils" } },
+              allow: [
+                { to: { element: { type: "utils" } } },
+                { to: { element: { type: "types" } } },
                 { to: { module: { origin: "external" } } },
               ],
             },
@@ -173,9 +219,13 @@ export default tseslint.config(
               allow: [
                 { to: { element: { type: "app" } } },
                 { to: { element: { type: "feature" } } },
-                { to: { element: { type: "entity" } } },
-                { to: { element: { type: "shared-ui" } } },
-                { to: { element: { type: "shared-lib" } } },
+                { to: { element: { type: "hooks" } } },
+                { to: { element: { type: "stores" } } },
+                { to: { element: { type: "types" } } },
+                { to: { element: { type: "components" } } },
+                { to: { element: { type: "lib" } } },
+                { to: { element: { type: "context" } } },
+                { to: { element: { type: "utils" } } },
                 { to: { element: { type: "config" } } },
                 { to: { module: { origin: "external" } } },
               ],
@@ -186,17 +236,17 @@ export default tseslint.config(
             // matching policy wins, so the blanket external allowance each
             // layer carries is narrowed here rather than replaced.
             //
-            // ADR 4, amended 19 August 2026: bare "react" is no longer
-            // disallowed for entities. Hooks belong in the entity layer per
-            // CLAUDE.md's own directory table, and a hook needs `react` for
+            // ADR 4, amended 19 August 2026 (layer names per ADR 36): bare
+            // "react" is allowed in the data layers — a hook needs `react` for
             // useMemo/useSyncExternalStore without producing JSX. JSX itself
-            // is already blocked by the entity layer's .ts-only file
-            // convention (a .ts file cannot contain JSX syntax; Vite rejects
-            // it as a parse error independent of this rule). The real
-            // framework-coupling risk — rendering and routing — is still
-            // forbidden below via react-dom, @mui/*, and react-router*.
+            // is already blocked by these layers' .ts-only file convention
+            // (a .ts file cannot contain JSX syntax; Vite rejects it as a
+            // parse error independent of this rule). The real
+            // framework-coupling risk — rendering and routing — is forbidden
+            // below via react-dom, @mui/*, and react-router*, for each of the
+            // four non-JSX data layers the former entity layer became.
             {
-              from: { element: { type: "entity" } },
+              from: { element: { type: "hooks" } },
               disallow: {
                 to: {
                   module: {
@@ -210,10 +260,49 @@ export default tseslint.config(
                 },
               },
               message:
-                "The entity layer renders nothing and routes nothing. No react-dom, no MUI, no router (PRINCIPLES.md 1; ADR 4, amended 19 Aug 2026).",
+                "The data layers render nothing and route nothing. No react-dom, no MUI, no router (PRINCIPLES.md 1; ADR 4; ADR 36).",
             },
             {
-              from: { element: { type: "shared-ui" } },
+              from: { element: { type: "stores" } },
+              disallow: {
+                to: {
+                  module: {
+                    origin: "external",
+                    source: ["react-dom", "@mui/*", "react-router*"],
+                  },
+                },
+              },
+              message:
+                "The data layers render nothing and route nothing. No react-dom, no MUI, no router (PRINCIPLES.md 1; ADR 4; ADR 36).",
+            },
+            {
+              from: { element: { type: "utils" } },
+              disallow: {
+                to: {
+                  module: {
+                    origin: "external",
+                    source: ["react-dom", "@mui/*", "react-router*"],
+                  },
+                },
+              },
+              message:
+                "The data layers render nothing and route nothing. No react-dom, no MUI, no router (PRINCIPLES.md 1; ADR 4; ADR 36).",
+            },
+            {
+              from: { element: { type: "types" } },
+              disallow: {
+                to: {
+                  module: {
+                    origin: "external",
+                    source: ["react-dom", "@mui/*", "react-router*"],
+                  },
+                },
+              },
+              message:
+                "The data layers render nothing and route nothing. No react-dom, no MUI, no router (PRINCIPLES.md 1; ADR 4; ADR 36).",
+            },
+            {
+              from: { element: { type: "components" } },
               disallow: {
                 to: {
                   module: { origin: "external", source: "@fleet/contracts" },
@@ -221,7 +310,7 @@ export default tseslint.config(
               },
               message:
                 "Presentational primitives take presentational unions, never contract types. " +
-                "The mapping is a tested selector in entities/robot (PRINCIPLES.md 9).",
+                "The mapping is a tested selector in utils/robotSelectors (PRINCIPLES.md 9).",
             },
             {
               from: { element: { type: "config" } },
@@ -247,7 +336,7 @@ export default tseslint.config(
        *
        * Not expressed through `boundaries/dependencies`, deliberately. That
        * rule classifies a file by the element it sits in, so
-       * `entities/robot/fromEnvelope.test.ts` is an `entity` like its
+       * `utils/fromEnvelope.test.ts` is a `utils` module like its
        * neighbours — there is no way to say "except in tests" without
        * inventing a test-file element type and reclassifying every existing
        * test. ESLint's own file scoping says it in one line instead: the ban
@@ -255,7 +344,7 @@ export default tseslint.config(
        * for `*.test.*`, which is where the end-to-end contract path joins the
        * vendor half (ADR 12 § Decision).
        *
-       * Both fixtures under `src/entities/robot/__boundary-violation__/` are
+       * Both fixtures under `src/utils/__boundary-violation__/` are
        * asserted by `features/fleet/__boundary-violation__/violation.test.ts`:
        * one proves the ban fires, the other proves the exception holds.
        */
@@ -305,7 +394,7 @@ export default tseslint.config(
   },
 
   {
-    files: ["src/shared/ui/**/*.{ts,tsx}", "src/config/**/*.{ts,tsx}"],
+    files: ["src/components/**/*.{ts,tsx}", "src/config/**/*.{ts,tsx}"],
     rules: { "no-restricted-syntax": "off" },
   },
 

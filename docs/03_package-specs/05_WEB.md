@@ -25,9 +25,9 @@ branch on vendor, or authorize anything.
 
 Two non-responsibilities are absolute:
 
-- **It never derives freshness.** Not in a component, not in `entities`, not on a timer.
-  Freshness arrives as a field on the envelope. The entity layer maps it onto presentation
-  (`selectStatusPresentation`, `selectBatteryDisplay`) and holds no clock. A second
+- **It never derives freshness.** Not in a component, not in the data layers, not on a timer.
+  Freshness arrives as a field on the envelope. `utils/robotSelectors` maps it onto
+  presentation (`selectStatusPresentation`, `selectBatteryDisplay`) and holds no clock. A second
   derivation here is a second authority that can disagree with the server's (ADR 3).
 - **It never authorizes.** The UI may hide or disable an action for clarity; the server
   authenticates and authorizes every protected operation (Principle 7).
@@ -45,7 +45,7 @@ console had started interpreting vendor data.
 package-wide in production code by `no-restricted-imports`, with the ban lifted only for
 test files that join a raw vendor fixture to the browser read model. Both the legal test
 import and the illegal production import have enforcement fixtures under
-`entities/robot/__boundary-violation__/`.
+`utils/__boundary-violation__/`.
 
 ADR 12 ratifies this test-only dependency, and ADR 11 supplies its public
 `@fleet/adapters/testing` fixture surface. The subpath loads under jsdom and is covered by
@@ -69,37 +69,43 @@ than conventional — see § 7.
 Feature-sliced (ADR 4). The dependency rule, stated exactly as
 `eslint-plugin-boundaries` enforces it rather than as the informal summary:
 
-| From         | May import                                                      |
-| ------------ | --------------------------------------------------------------- |
-| `app`        | everything, plus external                                       |
-| `feature`    | **its own feature only**, entity, shared-ui, shared-lib, config |
-| `entity`     | **its own entity only**, **shared-lib only**, external          |
-| `shared-ui`  | shared-ui, external                                             |
-| `shared-lib` | shared-lib, external                                            |
-| `config`     | config, external                                                |
-| `test`       | setup files under `src/test/**`: everything, plus external      |
+| From         | May import                                                                              |
+| ------------ | --------------------------------------------------------------------------------------- |
+| `app`        | everything, plus external                                                               |
+| `feature`    | **its own feature only**, hooks, stores, types, components, lib, context, utils, config |
+| `hooks`      | hooks, stores, types, lib, utils, external                                              |
+| `stores`     | stores, types, utils, external                                                          |
+| `types`      | types, external                                                                         |
+| `components` | components, external                                                                    |
+| `lib`        | lib, context (one typed edge, see below), external                                      |
+| `context`    | context, config, external                                                               |
+| `utils`      | utils, types, external                                                                  |
+| `config`     | config, external                                                                        |
+| `test`       | setup files under `src/test/**`: everything, plus external                              |
 
-Three consequences the informal "entities → shared" summary hides, each load-bearing:
+Three consequences the informal "features over data layers" summary hides, each load-bearing:
 
-- **`entity` may import `shared-lib` but not `shared-ui`.** That is what keeps JSX and MUI
-  out of the entity layer, which is in turn what lets the capability-to-panel mapping be
-  tested as pure domain logic (ADR 4).
-- **`entity` may not import `config`.** A selector that read tenant configuration would
-  make a domain rule vary by deployment.
-- **Same-slice only.** `features/fleet` may not import `features/robot`, and
-  `entities/robot` may not import `entities/site`. The `captured` matcher in the policy is
-  what makes the second half of that true; a rule allowing `entity → entity` generally
-  would let the two entities grow a cycle.
+- **The data layers (`hooks`, `stores`, `utils`, `types`) may not import `components`.**
+  That is what keeps JSX and MUI out of the data code, which is in turn what lets the
+  capability-to-panel mapping be tested as pure domain logic (ADR 4).
+- **`lib → context` carries exactly one dependency**: the transport and its retry
+  schedule import the `StreamConnectionState` type from `context/connectionContext`,
+  the single authority on that union (ADR 23). `context → config` exists for
+  `tenantConfigContext` (ADR 17).
+- **The data layers may not import `config`.** A selector that read tenant configuration
+  would make a domain rule vary by deployment.
+- **Same-slice only.** `features/fleet` may not import `features/robot`; the `captured`
+  matcher in the policy is what enforces it, so two features cannot grow a cycle.
 
 The default is `disallow`, so a new layer is denied until someone writes its policy — the
 opposite of a default-allow list where an omission silently permits.
 
-Test files inherit the production layer containing them: unit tests live in a `tests/`
-subdirectory beside the sources they cover, and the boundaries patterns classify those
-directories as their parent layer. The `test` element in the lint configuration names only
-`src/test/**` setup infrastructure; it is not a universal escape from
-feature/entity/shared direction. The robot-detail suites therefore share
-`features/robot/tests/robotDetailFixtures.ts` inside their own feature. Multiple imports
+Test files inherit the production layer containing them: unit tests are colocated beside
+the sources they cover (`foo.test.tsx` next to `foo.tsx`, ADR 36), and the boundaries
+patterns classify them as the layer of the directory they sit in. The `test` element in
+the lint configuration names only `src/test/**` setup infrastructure; it is not a
+universal escape from the layer direction. The robot-detail suites therefore
+share `features/robot/robotDetailFixtures.ts` inside their own feature. Multiple imports
 of that same-feature helper are reuse, not cross-layer duplication. Reconsider a narrowly
 scoped fixture location only if fixture construction or data is copied across production
 layers or feature directories.
@@ -110,21 +116,24 @@ layers or feature directories.
 | `src/features/fleet` | Fleet table, site grouping, summary                                       | Robot-detail components, domain derivation |
 | `src/features/robot` | Robot detail, capability panels, persona views, battery-history sparkline | Fleet components, domain derivation        |
 | `src/features/map`   | Map page, site facet, and marker SVG canvas (page spec 04, ADR 35)        | Fleet components, domain derivation        |
-| `src/entities/robot` | Robot read model, selectors, hooks                                        | JSX, MUI imports                           |
-| `src/entities/site`  | Site model, grouping                                                      | JSX, MUI imports                           |
-| `src/shared/ui`      | Pure presentational primitives                                            | Any domain reference                       |
-| `src/shared/lib`     | Formatting, time helpers, transport client                                | Domain rules, payload interpretation       |
+| `src/hooks`          | Fleet/robot resource hooks, shared fetch lifecycle                        | JSX, MUI imports                           |
+| `src/stores`         | Fleet store state machine and its context                                 | JSX, MUI imports                           |
+| `src/types`          | Robot and site read-model types                                           | JSX, MUI imports, logic                    |
+| `src/components`     | Pure presentational primitives                                            | Any domain reference                       |
+| `src/lib`            | Transport client, wire decoding, retry schedule, cold start               | Domain rules, payload interpretation       |
+| `src/context`        | Connection, stream-diagnostics, and tenant-config contexts                | Domain rules, JSX                          |
+| `src/utils`          | Formatting helpers (`time`)                                               | Domain rules, payload interpretation       |
 | `src/config`         | Tenant themes, feature flags, thresholds                                  | Logic of any kind                          |
 | `src/styles`         | `tokens.css`, `global.css`, `utilities.css`                               | Component-level hex or raw px              |
 
 Cross-layer movement is downward only. Shared behaviour between two features moves **down**
-into `entities` or `shared`, never sideways.
+into the data layers (`hooks`, `stores`, `utils`, `types`), never sideways.
 
 ## 5. Contracts owned and consumed
 
 **Consumed:** the canonical envelope and capability payload types from `@fleet/contracts`.
-`src/entities/robot/model.ts` mirrors the capability payload types as a read model, and
-`src/entities/robot/fromEnvelope.ts` maps envelope → read model at the boundary.
+`src/types/robot.ts` mirrors the capability payload types as a read model, and
+`src/utils/fromEnvelope.ts` maps envelope → read model at the boundary.
 
 The read model keeps `vendor` as open as the contract keeps `vendorId` (ADR 1): there is
 no closed `Vendor` union and no `VENDORS` constant. The fleet filter derives its vendor
@@ -132,13 +141,13 @@ options from the robots it was given, so a fourth vendor is an adapter change, n
 console change.
 
 **Sites.** The snapshot's required `sites` directory (ADR 34) is the only source of a site
-label. `entities/site` holds no fixture table — `selectSiteLabel(siteId, sites)` resolves
+label. `types/site` holds no fixture table — `selectSiteLabel(siteId, sites)` resolves
 against the decoded directory and falls back to the raw identifier only on surfaces that
 render before the first snapshot has arrived. The contract's referential check guarantees
 a decoded fleet always resolves.
 
 **Owned — the selector layer.** Every rule that turns canonical data into something
-displayable lives in `entities/robot/selectors.ts` and is tested as pure domain logic:
+displayable lives in `utils/robotSelectors.ts` and is tested as pure domain logic:
 
 | Selector                   | Rule it owns                                                       |
 | -------------------------- | ------------------------------------------------------------------ |
@@ -177,7 +186,7 @@ and raises no error; a registered panel with no declaration is never reached.
   connection-level state. It does not fall back to a client timer: a label sourced from a
   dead socket asserts a currency the client cannot support, and a client-side fallback
   degrading every row would blame the robots for the console's own blindness.
-- **ADR 4** — feature-sliced structure; the entity layer's ban on React and MUI imports
+- **ADR 4** — feature-sliced structure; the data layers' ban on React and MUI imports
   exists so the capability-to-panel mapping is testable as pure domain logic.
 - **ADR 5** — MUI plus the token layer. No second styling system: no Tailwind, no
   styled-components, no CSS modules.
@@ -193,15 +202,15 @@ and raises no error; a registered panel with no declaration is never reached.
 
 ## 7. Enforcement
 
-| Rule                                             | Mechanism     | Where                                             |
-| ------------------------------------------------ | ------------- | ------------------------------------------------- |
-| Layer dependency rule                            | Static        | `eslint-plugin-boundaries`, `default: "disallow"` |
-| No cross-feature import                          | Static        | boundaries `feature → feature` denied except self |
-| Module resolution for the above                  | Static        | `eslint-import-resolver-typescript` (ADR 7)       |
-| No raw hex / px outside `shared/ui` and `config` | Static        | stylelint + eslint                                |
-| No `@fleet/adapters` or `@fleet/server` import   | Static        | `no-restricted-imports`                           |
-| Accessibility                                    | Static + Test | a11y lint; component tests for name, role, state  |
-| **The rules above still fire**                   | Test          | `__boundary-violation__` fixtures                 |
+| Rule                                              | Mechanism     | Where                                             |
+| ------------------------------------------------- | ------------- | ------------------------------------------------- |
+| Layer dependency rule                             | Static        | `eslint-plugin-boundaries`, `default: "disallow"` |
+| No cross-feature import                           | Static        | boundaries `feature → feature` denied except self |
+| Module resolution for the above                   | Static        | `eslint-import-resolver-typescript` (ADR 7)       |
+| No raw hex / px outside `components` and `config` | Static        | stylelint + eslint                                |
+| No `@fleet/adapters` or `@fleet/server` import    | Static        | `no-restricted-imports`                           |
+| Accessibility                                     | Static + Test | a11y lint; component tests for name, role, state  |
+| **The rules above still fire**                    | Test          | `__boundary-violation__` fixtures                 |
 
 Boundaries are declared with `default: "disallow"`, so every allowance is explicit and a
 new layer is denied until someone writes the rule for it — the opposite of a default-allow
@@ -212,7 +221,7 @@ reached by a test that constructs ESLint with `ignore: false`:
 
 - `features/fleet/__boundary-violation__/violation.ts` — feature → feature import.
 - `features/fleet/__boundary-violation__/legal.ts` — the control, violating nothing.
-- `entities/robot/__boundary-violation__/adapterImport.ts` — entity → adapters import.
+- `utils/__boundary-violation__/adapterImport.ts` — production → adapters import.
 
 The cross-feature fixture imports the real `RobotDetailPage` export from
 `features/robot/index.ts` — the actual public surface, not a placeholder — to prove the
@@ -225,13 +234,13 @@ State is separated by authority, lifetime and transition model (Principle 11):
 
 | Kind           | Owner            | Notes                                                     |
 | -------------- | ---------------- | --------------------------------------------------------- |
-| Fleet resource | `entities/robot` | `FleetResourceState` union owned by the fleet store       |
-| Observed live  | `entities/robot` | Delta stream, normalized by robot id                      |
-| Requested      | `entities/robot` | Command acknowledgements, kept **separate** from observed |
+| Fleet resource | `stores`         | `FleetResourceState` union owned by the fleet store       |
+| Observed live  | `stores`         | Delta stream, normalized by robot id                      |
+| Requested      | `stores`         | Command acknowledgements, kept **separate** from observed |
 | Workflow       | creating feature | In-progress user intent, short-lived                      |
 | Local view     | features         | Filter inputs, selections, persona toggle                 |
 
-**Resource-state ownership.** The entity-owned fleet store is a state machine, not a bag
+**Resource-state ownership.** The fleet store is a state machine, not a bag
 of rows: the app transport reports what happened — `snapshotStart`, `applySnapshot`,
 `applyBatch`, `recoverableFailure`, `terminalFailure` — and the store owns what that means
 for the fleet surface. `useFleetRobots()` returns the full `FleetResourceState` union:
@@ -248,7 +257,7 @@ delta, and frames naming other robots do not re-render the page (the store keeps
 unrelated rows' identity, and the per-id snapshot bails out on it).
 
 **Stream diagnostics.** The transport's session-wide rejected-frame count travels through
-`StreamDiagnosticsContext` in `shared/lib` (the ADR 23 pattern) to the technician
+`StreamDiagnosticsContext` in `context` (the ADR 23 pattern) to the technician
 Diagnostics section, which states its scope: console session, all robots. Whether a run
 of rejections should escalate to a terminal state remains trigger-deferred (fleet TODO
 A4).
@@ -334,7 +343,7 @@ The rules that matter most:
 | No vendor branches         | No vendor `if` anywhere in features; panels resolve through the registry                                                   |
 | Accessibility              | Names, roles, state; keyboard flows; heading outline never skips a level                                                   |
 | Boundaries                 | Every fixture violation is reported; the control stays silent                                                              |
-| Tokens                     | No raw hex or px outside `shared/ui` and `config`                                                                          |
+| Tokens                     | No raw hex or px outside `components` and `config`                                                                         |
 | Development endpoints      | Tenant paths match proxy keys; HTTP and WebSocket proxy end to end                                                         |
 | First-load bundle          | JS + CSS stay within 720 kB raw and 300 kB gzip (`pnpm check:bundle`)                                                      |
 | Large lists                | Fleet table usable at several hundred robots                                                                               |
@@ -355,8 +364,8 @@ server deltas with no client timer involved.
 ## 11. Implementation status
 
 **Substantially built.** App shell, router, theme bridge and tenant config; the fleet page;
-robot detail with capability panels and the persona toggle; all eight `shared/ui`
-primitives with their specs; the robot and site entity layers with selectors and hooks; the
+robot detail with capability panels and the persona toggle; all eight `components`
+primitives with their specs; the robot data layers (types, selectors, stores, hooks); the
 full token layer; the boundary enforcement fixtures; and a development component gallery.
 
 **Built, 20 August 2026.** The map view: `src/features/map` renders one site at a time
@@ -394,7 +403,7 @@ workload in committed browser automation: at 500 robots and ten frames per secon
 evidence did not trigger virtualization. Nothing here should be read as an assumption that
 the table is windowed; a test fails if it becomes so without revisiting that ADR.
 
-The joining test in `entities/robot/fromEnvelope.test.ts` now makes the test-only
+The joining test in `utils/fromEnvelope.test.ts` now makes the test-only
 `@fleet/adapters` dependency earn its keep for all three dialects (ADR 12). Tenant feature
 flags and validated build-time selection are implemented (ADR 17).
 
@@ -405,7 +414,7 @@ flags and validated build-time selection are implemented (ADR 17).
 - A new shared primitive gets a component spec in `docs/02_component-specs/` in the same
   change; a feature must not redefine a primitive's API, token mapping or accessibility
   contract.
-- Shared behaviour between two features moves **down** to `entities` or `shared`. A
+- Shared behaviour between two features moves **down** to the data layers. A
   cross-feature import is never the fix.
 - A missing token is added to `tokens.css`; a raw literal is never the workaround.
 - Changing `aria-pressed` to radio semantics on the persona toggle — or any equivalent
@@ -419,13 +428,13 @@ flags and validated build-time selection are implemented (ADR 17).
 | Principle                              | Enforcement / evidence in this package                                                                 |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | 1 — one authoritative implementation   | Selectors own display rules; contracts own decoding; `reconcileDeltaWithSnapshot` imported, not copied |
-| 2 — validate at the boundary           | `shared/lib/transportDecoding.ts` is the only decode site; everything downstream takes decoded values  |
+| 2 — validate at the boundary           | `lib/transportDecoding.ts` is the only decode site; everything downstream takes decoded values         |
 | 3 — vendor differences as capabilities | Panel registry over declared keys; no vendor `if` in features; open vendor filter options              |
 | 4 — freshness first-class              | Server-derived labels, suppression while disconnected, decoded footer provenance, no client timer      |
 | 5 — complete async states              | `FleetResourceState`, `RobotDetailState`, history state unions; page tests drive every member          |
 | 6 — accessibility                      | Roles/names asserted in component tests; keyboard smoke test in three engines                          |
 | 7 — server authorizes                  | The console renders and never authorizes; ADR 26's demo-only exposure is stated on the surface         |
-| 8 — one styling system                 | MUI + tokens; stylelint/eslint reject raw literals outside `shared/ui` and `config`                    |
+| 8 — one styling system                 | MUI + tokens; stylelint/eslint reject raw literals outside `components` and `config`                   |
 | 9 — enforced boundaries                | `eslint-plugin-boundaries` default-disallow plus live `__boundary-violation__` fixtures                |
 | 10 — test-first, verified in browser   | Focused unit suites plus the ADR 32 Playwright evidence against the real stack                         |
 | 11 — state separated by authority      | Store transitions are explicit; observed and requested never collapse; view state stays in features    |

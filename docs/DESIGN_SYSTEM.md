@@ -33,7 +33,7 @@ Dark and light are not a user preference. They are the two tenant profiles, and 
 
 Attribute `data-theme="dark" | "light"` on `<html>`, set from tenant configuration at boot. No `localStorage` persistence and no `prefers-color-scheme`, because a user preference store is a third kind of state and buys nothing for the argument.
 
-Nothing in `features` or `entities` reads a colour, a wordmark or a flag directly. All three come from `config`.
+Nothing in `features` or the data layers reads a colour, a wordmark or a flag directly. All three come from `config`.
 
 The flag is `flags.lidarHealthPanel`, `false` for Tenant B ([ADR 17](./00_adr/17_BUILD_TIME_TENANT_CONFIGURATION.md)). A capability panel renders when the robot **declared** the capability and the tenant **enables** it, so a Tenant B build shows no lidar panel even for a robot that reports lidar health. Flags are named for what they control, never for the tenant that sets them — `tenantB…` in a flag name is the same defect as a tenant conditional in a component.
 
@@ -179,7 +179,7 @@ Verify before Friday and record the result in the README:
 
 ## 7. Implementation notes
 
-Single token set at `:root` with a `[data-theme="light"]` override block. No component-level hex or raw pixel spacing outside `shared/ui` and `config`; lint enforces this and a missing token is added rather than worked around.
+Single token set at `:root` with a `[data-theme="light"]` override block. No component-level hex or raw pixel spacing outside `components` and `config`; lint enforces this and a missing token is added rather than worked around.
 
 Real-time values update in place with tabular numerals and no layout shift.
 

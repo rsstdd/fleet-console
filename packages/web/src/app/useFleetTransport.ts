@@ -1,21 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { TENANT } from "@/config/tenant";
-import { createFleetStore, type FleetStore } from "@/entities/robot/fleetStore";
+import { createFleetStore, type FleetStore } from "@/stores/fleetStore";
 import {
   createFleetTransport,
   type FleetTransport,
   type OpenSocket,
   type RetryTimer,
-} from "@/shared/lib/fleetTransport";
-import type { StreamConnectionState } from "@/shared/lib/connectionContext";
+} from "@/lib/fleetTransport";
+import type { StreamConnectionState } from "@/context/connectionContext";
 import {
   INITIAL_STREAM_STATE,
   publishedConnectionState,
   type StreamState,
   type StreamTerminalCause,
-} from "@/shared/lib/streamLifecycle";
-import type { FetchLike } from "@/shared/lib/transportDecoding";
+} from "@/lib/streamLifecycle";
+import type { FetchLike } from "@/lib/transportDecoding";
 
 /**
  * The transport boundary: the one place the console owns a socket.
@@ -27,7 +27,7 @@ import type { FetchLike } from "@/shared/lib/transportDecoding";
  * This is also where the fleet store receives its explicit resource
  * transitions — snapshot-start, snapshot-success, recoverable-failure,
  * terminal-failure, and batches. The transport reports what happened; the
- * entity-owned store decides what that means for the fleet surface, and no
+ * fleet store decides what that means for the fleet surface, and no
  * other layer writes to it (Principle 11).
  *
  * The ports are injectable because a hook that constructed a real `WebSocket` could only

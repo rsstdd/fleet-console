@@ -178,23 +178,25 @@ A package matches its specification when:
 - `pnpm lint`, `pnpm test`, `pnpm typecheck` and `pnpm build` pass in that package;
 - the package's `AGENTS.md` and this specification do not contradict each other.
 
-## 8. Current state — 20 August 2026
+## 8. Current state — 23 August 2026
 
 | Package   | Tests | Lint | Typecheck | Runtime status                                                                                 |
 | --------- | ----- | ---- | --------- | ---------------------------------------------------------------------------------------------- |
-| contracts | 174   | pass | pass      | Complete, including the battery-history response (ADR 33)                                      |
+| contracts | 180   | pass | pass      | Complete, including the battery-history response (ADR 33)                                      |
 | adapters  | 227   | pass | pass      | Complete, including dispatch and joining evidence                                              |
 | simulator | 211   | pass | pass      | Complete and runnable                                                                          |
-| server    | 186   | pass | pass      | Runnable HTTP ingest, reads (battery history included) and WebSocket fan-out                   |
-| web       | 313   | pass | pass      | Live decoded store, transport, automatic recovery, and the battery-history sparkline are built |
+| server    | 193   | pass | pass      | Runnable HTTP ingest, reads (battery history included) and WebSocket fan-out                   |
+| web       | 402   | pass | pass      | Live decoded store, transport, automatic recovery, and the battery-history sparkline are built |
 
 The live simulator-to-console path is implemented, including automatic stream recovery and
 server-restart reconciliation (ADR 31, register D22), and is proven end to end in real
 browsers by the committed Playwright suite (ADR 32, register D23).
 
-No registered cross-package decision remains open in
-`docs/PENDING_ARCHITECTURE_DECISIONS.md`. **D17 is resolved by ADR 22 as Option 3:** gate
+One registered decision remains open in `docs/PENDING_ARCHITECTURE_DECISIONS.md`:
+**D27**, enable the React Compiler build transform in web (registered 21 August 2026;
+waits on bundle-size and scale evidence per ADR 22 and ADR 24, and gates the
+memoization-removal sweep). **D17 is resolved by ADR 22 as Option 3:** gate
 the first-load bundle and ADR 2's defensible validation falsifier, while reporting adapter
 coverage without a threshold. The 90% proposal is retired because it was underived and
 would have measured an empty vendor-source set. The decision register remains the
-authoritative status summary for all fourteen retired stubs.
+authoritative status summary for every registered stub.

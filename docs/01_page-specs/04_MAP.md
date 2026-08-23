@@ -55,7 +55,7 @@ same store the fleet table reads — the map adds projection, not transport:
 
 ```
 HTTP snapshot + WS deltas → fromEnvelope → fleetStore → useFleetRobots()
-  → entities/robot selectors: plottable(site) → extents(pad, floor) → project(viewBox)
+  → utils/robotSelectors: plottable(site) → extents(pad, floor) → project(viewBox)
     → MapCanvas (SVG markers)                      → side list (Link per robot)
 ```
 
@@ -68,14 +68,14 @@ HTTP snapshot + WS deltas → fromEnvelope → fleetStore → useFleetRobots()
 | `robot.freshness`   | Server-derived, arrives on the envelope (ADR 3). Drives marker fill and the list `FreshnessLabel`. Never computed in this feature             |
 | `sites[]`           | `{ siteId, label }` from the snapshot directory (ADR 34). The schema's referential refinement guarantees every robot's site is labelled       |
 | `lastSeenAt`        | Feeds `FreshnessLabel`'s as-of fragment in the side list, exactly as on the fleet table. Display only; never an input to any derivation       |
-| `isStreamConnected` | From `shared/lib/connectionContext` — the one boolean behind the heading qualifier and the hollow-all treatment                               |
+| `isStreamConnected` | From `context/connectionContext` — the one boolean behind the heading qualifier and the hollow-all treatment                                  |
 
 **Freshness is never derived here.** No timer, no `Date.now()`, no client judgment; a
 marker's fill changes when a delta says the freshness changed (ADR 3).
 
 **Extents are view state, not domain state** (Principle 11). The pure computation —
 plottable filtering, bounding box with pad and floor, monotonic merge, position-to-viewBox
-projection with SVG's y-axis inversion — lives in `entities/robot` selectors; the feature
+projection with SVG's y-axis inversion — lives in `utils/robotSelectors`; the feature
 holds only the running per-session extents value and the selected site.
 
 Updates apply as deltas keyed by `robotId` on a scheduled frame (ADR 2). The simulator
@@ -96,9 +96,9 @@ teleport; markers move by re-render, with no animation at v1.
 | Empty              | `EmptyState` (component spec 06)                            |
 | List row link      | Router `Link`, mono robot id                                |
 
-`MapCanvas` is deliberately **not** a `shared/ui` primitive and gets no
+`MapCanvas` is deliberately **not** a `components` primitive and gets no
 `docs/02_component-specs/` file: markers are domain-flavoured (status, freshness,
-position), and `shared/ui` is domain-free by rule. Its component contract lives here
+position), and `components` is domain-free by rule. Its component contract lives here
 instead:
 
 ```ts

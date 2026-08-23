@@ -42,22 +42,33 @@ All requests are same-origin `/api` and `/ws`, proxied to the server by Vite in
 development (ADR 21). The full server-side surface is documented in
 [`packages/server/README.md`](../server/README.md).
 
-## Layers, and the rule that matters
+## Navigating the code
 
-```
-app       transport lifecycle, routing, theme, providers
-features  fleet · robot            composition only
-entities  robot · site             domain model, selectors, the store — no JSX
-shared    ui (presentational) · lib (time, connection state, the transport)
-config    tenant profiles, flags, endpoints
+One folder per concern, community-standard names (ADR 36), one exported component per
+file, tests colocated beside their sources:
+
+```text
+src/
+  app/         transport lifecycle, routing, shell, theme, dev gallery
+  features/    fleet · map · robot — the three pages and their section components
+  components/  presentational primitives (StatusChip, FreshnessLabel, Stat, …) — domain-free
+  hooks/       useFleetRobots · useRobotDetail · useRobotHistory — the data boundary
+  stores/      the fleet store state machine and its React context
+  context/     connection, stream-diagnostics, and tenant-config contexts
+  lib/         the transport: socket client, wire decoding, retry schedule, cold start
+  utils/       envelope → read-model mapping (fromEnvelope), selectors, formatting
+  types/       the robot and site read models
+  config/      tenant profiles, flags, endpoints
 ```
 
-Dependencies point **downward only**, enforced by `eslint-plugin-boundaries` with
-deliberate violation fixtures proving the rules fire. `features` may not import `app`, and
+Dependencies point **downward only** — features never import features; below `features/`,
+only `components/` renders JSX (domain-free primitives), and the data layers (`hooks/`,
+`stores/`, `utils/`, `types/`) render nothing and route nothing — enforced by
+`eslint-plugin-boundaries` with deliberate violation fixtures proving the rules fire. `features` may not import `app`, and
 that single constraint explains two designs that otherwise look ornate: connection state
-travels through a context in `shared/lib`
+travels through a context in `context/`
 ([ADR 23](../../docs/00_adr/23_CONNECTION_STATE_TRAVELS_THROUGH_SHARED_LIB.md)) and the
-fleet store travels through one in `entities/robot`, because neither can be passed down the
+fleet store travels through one in `stores/`, because neither can be passed down the
 import graph.
 
 ## How data arrives
@@ -65,18 +76,18 @@ import graph.
 Open the socket → buffer → fetch the snapshot → discard what the snapshot covers → replay
 the rest. **In that order.** Fetching before opening loses every delta emitted in the gap,
 and the symptom is a row that quietly stops updating rather than an error — so the ordering
-lives in its own tested module (`shared/lib/coldStart.ts`) rather than inside the transport
+lives in its own tested module (`lib/coldStart.ts`) rather than inside the transport
 that would be tempted to inline it.
 
-- `shared/lib/transportDecoding.ts` — the **one** decode. A failed request is recoverable;
+- `lib/transportDecoding.ts` — the **one** decode. A failed request is recoverable;
   a body the contract refuses is terminal, because retrying returns the same bytes.
-- `shared/lib/streamLifecycle.ts` — the complete state matrix, as a pure reducer.
-- `entities/robot/fleetStore.ts` — robots keyed by id, **replaced whole, never merged**,
-  under the entity-owned `FleetResourceState` machine: the transport reports what
+- `lib/streamLifecycle.ts` — the complete state matrix, as a pure reducer.
+- `stores/fleetStore.ts` — robots keyed by id, **replaced whole, never merged**,
+  under the store-owned `FleetResourceState` machine: the transport reports what
   happened (snapshot start/success, recoverable or terminal failure, a frame) and the
   store owns what the fleet surface shows — loading, ready, refreshing, a recoverable
   error with the one Retry, or a terminal contract failure naming issue paths and codes.
-- `entities/robot/fromEnvelope.ts` — the one place a canonical envelope becomes a read
+- `utils/fromEnvelope.ts` — the one place a canonical envelope becomes a read
   model. No component ever reaches into a response. Its `reconcileDetailWithRow` is what
   keeps robot detail live: one fetch per visit, then core values and freshness update by
   overlaying this robot's fleet row, with no refetch and no re-render for other robots'
@@ -121,7 +132,7 @@ makes them distinguishable at all.
 ## Site labels
 
 Site labels come from the manifest's `sites` directory, carried on the fleet snapshot
-(ADR 34): the console holds no fixture table and invents no label. `entities/site`
+(ADR 34): the console holds no fixture table and invents no label. `utils/siteLabel`
 resolves labels against the decoded directory and falls back to the raw id only before
 the first snapshot arrives.
 
@@ -142,7 +153,7 @@ screenshots on failure. Automatic reconnection (landed 20 August 2026 under
 is proven there against a really-restarted server. Real screen-reader output and
 subjective forced-colors inspection remain manual.
 
-Remaining work lives in three per-slice TODOs under `src/entities/robot`,
+Remaining work lives in three per-slice TODOs under `src/hooks`,
 `src/features/fleet` and `src/features/robot`. (The historical `UI_PLAN.md` is archived
 at `docs/04_archive/WEB_UI_PLAN.md`; it is not current remaining work.)
 [`AGENTS.md`](./AGENTS.md) is the scoped guide and has the task routing table.

@@ -1,12 +1,21 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Link } from "react-router";
 import { Stack, Typography } from "@mui/material";
 
-import { FreshnessLabel } from "@/shared/ui/freshnessLabel";
-import { StatusChip } from "@/shared/ui/statusChip";
+import { FreshnessLabel } from "@/components/freshnessLabel";
+import { StatusChip } from "@/components/statusChip";
 
-import type { Robot } from "@/entities/robot/model";
-import { selectStatusPresentation } from "@/entities/robot/selectors";
+import type { Robot } from "@/types/robot";
+import { selectStatusPresentation } from "@/utils/robotSelectors";
+
+// Module constant, not an inline literal: a fresh object per row per render
+// would defeat row memoization on the live-updating list (ADR 24 discipline).
+const ROW_LINK_STYLE: CSSProperties = {
+  fontFamily: "var(--font-mono)",
+  fontVariantNumeric: "tabular-nums",
+  color: "inherit",
+  textDecoration: "none",
+};
 
 /**
  * One row per robot with the id link as the sole activation path
@@ -35,15 +44,7 @@ export function RobotList({
             spacing={2}
             sx={{ alignItems: "center" }}
           >
-            <Link
-              to={`/robots/${robot.id}`}
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontVariantNumeric: "tabular-nums",
-                color: "inherit",
-                textDecoration: "none",
-              }}
-            >
+            <Link to={`/robots/${robot.id}`} style={ROW_LINK_STYLE}>
               {robot.id}
             </Link>
             <StatusChip

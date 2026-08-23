@@ -41,8 +41,9 @@ visible during stream loss only when they are unambiguously historical.
 ## Settled test placement
 
 Test files inherit their production layer and obey the same feature/entity/shared import
-direction. `robotDetailFixtures.ts` therefore stays inside `features/robot`, in the
-feature's `tests/` directory beside its only consumers — the `robotDetailPage.test.tsx`
-and `tenantPanelFlag.test.tsx` suites. That is same-feature reuse, not duplication, and
-`src/test` is not a universal permissive layer. Revisit only if fixture construction or
-data is materially copied across production layers or feature directories.
+direction. `robotDetailFixtures.ts` therefore stays inside `features/robot`, colocated
+beside its only consumers — the `robotDetailPage.test.tsx` and `tenantPanelFlag.test.tsx`
+suites (ADR 36 settled colocation package-wide). That is same-feature reuse, not
+duplication, and `src/test` is not a universal permissive layer. Revisit only if fixture
+construction or data is materially copied across production layers or feature
+directories.

@@ -4,7 +4,7 @@
 - **Revision 4:** `asOf` widens to `string | null`. A robot registered but never seen has freshness `unknown` and no observation time at all (ADR 3), which a required string could only satisfy by inventing one — the failure Principle 4 exists to prevent. `null` means never observed and is not the same as a missing prop. Adds the disconnected-stream rule from ADR 3. Conditional rendering switched from `&&` to explicit ternaries.
 - **Revision 3:** `asOf` required rather than optional; `receivedAt` added for receipt time where transport delay matters (Principle 4). Token mapping moved to the `--status-*` / `--ink-*` role names; the `--online` / `--offline` family no longer exists.
 
-Implementation: `shared/ui/freshnessLabel.tsx`
+Implementation: `components/freshnessLabel.tsx`
 
 ## 1. Responsibility
 
@@ -15,7 +15,7 @@ It does not compute freshness from timestamps (entity/selector owns that, per Pr
 ## 2. Dependencies
 
 - Design tokens (see § 6 for the current mapping)
-- Optional: relative-time formatting from `shared/lib` (pure function only)
+- Optional: relative-time formatting from `utils` (pure function only)
 - No domain entity imports (Principle 9)
 
 ## 3. Public contract

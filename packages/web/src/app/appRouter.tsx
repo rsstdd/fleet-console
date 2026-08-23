@@ -6,10 +6,10 @@ import { ComponentGallery } from "@/app/dev/componentGallery";
 import { FleetPage } from "@/features/fleet/fleetPage";
 import { MapPage } from "@/features/map/mapPage";
 import { RobotDetailPage } from "@/features/robot/robotDetailPage";
-import { EmptyState } from "@/shared/ui/emptyState";
+import { EmptyState } from "@/components/emptyState";
 import { useFleetTransport } from "@/app/useFleetTransport";
-import { FleetStoreContext } from "@/entities/robot/fleetStoreContext";
-import { StreamDiagnosticsContext } from "@/shared/lib/streamDiagnosticsContext";
+import { FleetStoreContext } from "@/stores/fleetStoreContext";
+import { StreamDiagnosticsContext } from "@/context/streamDiagnosticsContext";
 
 /**
  * Route table for the console. Every route renders inside `AppShell`, so the

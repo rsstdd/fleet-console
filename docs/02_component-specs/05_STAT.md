@@ -1,7 +1,7 @@
 # 05 — Stat
 
 Status: implementation-ready
-Implementation: `shared/ui/stat.tsx`
+Implementation: `components/stat.tsx`
 
 ## 1. Responsibility
 

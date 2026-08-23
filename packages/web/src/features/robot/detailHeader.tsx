@@ -2,17 +2,17 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { Box, Stack, Typography } from "@mui/material";
 
-import { isStreamConnected, useConnectionState } from "@/shared/lib/connectionContext";
-import { FreshnessLabel } from "@/shared/ui/freshnessLabel";
-import { PersonaToggle, type Persona } from "@/shared/ui/personaToggle";
-import { StatusChip } from "@/shared/ui/statusChip";
+import { isStreamConnected, useConnectionState } from "@/context/connectionContext";
+import { FreshnessLabel } from "@/components/freshnessLabel";
+import { PersonaToggle, type Persona } from "@/components/personaToggle";
+import { StatusChip } from "@/components/statusChip";
 
-import type { RobotDetail } from "@/entities/robot/model";
-import { selectStatusPresentation } from "@/entities/robot/selectors";
-import { useFleetSites } from "@/entities/robot/useFleetRobots";
-import { selectSiteLabel } from "@/entities/site/model";
+import type { RobotDetail } from "@/types/robot";
+import { selectStatusPresentation } from "@/utils/robotSelectors";
+import { useFleetSites } from "@/hooks/useFleetRobots";
+import { selectSiteLabel } from "@/utils/siteLabel";
 
-import { MONO } from "./detailSection";
+import { MONO } from "./detailStyles";
 
 /** Back to the fleet, per spec §2. A link, not a history-popping button. */
 export function BackToFleet(): ReactNode {

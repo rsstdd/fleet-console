@@ -10,10 +10,10 @@ import {
   Typography,
 } from "@mui/material";
 
-import { ConnectionBanner, type ConnectionState } from "@/shared/ui/connectionBanner";
-import { EmptyState } from "@/shared/ui/emptyState";
-import { PersonaToggle, type Persona } from "@/shared/ui/personaToggle";
-import { SectionLabel } from "@/shared/ui/sectionLabel";
+import { ConnectionBanner, type ConnectionState } from "@/components/connectionBanner";
+import { EmptyState } from "@/components/emptyState";
+import { PersonaToggle, type Persona } from "@/components/personaToggle";
+import { SectionLabel } from "@/components/sectionLabel";
 
 /** Section 04: the persona switch live, its view consequence, and its disabled state. */
 export function PersonaToggleSection({
@@ -30,14 +30,14 @@ export function PersonaToggleSection({
         PersonaToggle states
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-        Compare the selected-state treatment here against the tenant switch above: same
-        underlying MUI component, deliberately different appearance. The global theme gives{" "}
+        Compare the selected-state treatment here against the tenant switch above: same underlying
+        MUI component, deliberately different appearance. The global theme gives{" "}
         <Box component="code" sx={{ fontFamily: "var(--font-mono)" }}>
           .Mui-selected
         </Box>{" "}
-        a filled accent background — correct for the tenant switch, wrong for persona, which
-        is identity rather than a primary action. This component's local <code>sx</code>{" "}
-        override wins over the theme and renders a subtle outline instead.
+        a filled accent background — correct for the tenant switch, wrong for persona, which is
+        identity rather than a primary action. This component's local <code>sx</code> override wins
+        over the theme and renders a subtle outline instead.
       </Typography>
       <Stack spacing={2}>
         <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
@@ -88,9 +88,8 @@ export function ConnectionBannerSection({
         ConnectionBanner states and retry
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-        The live region remains mounted while connected. Reconnecting shows attempt and last
-        event metadata; retry increments the visible attempt. Disconnected uses fixed
-        last-known copy.
+        The live region remains mounted while connected. Reconnecting shows attempt and last event
+        metadata; retry increments the visible attempt. Disconnected uses fixed last-known copy.
       </Typography>
       <ToggleButtonGroup
         exclusive

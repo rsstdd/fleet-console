@@ -13,13 +13,19 @@ import {
   Typography,
 } from "@mui/material";
 
-import { DataPlate } from "@/shared/ui/dataPlate";
-import { FreshnessLabel } from "@/shared/ui/freshnessLabel";
-import { SectionLabel } from "@/shared/ui/sectionLabel";
-import { Stat } from "@/shared/ui/stat";
-import { StatusChip } from "@/shared/ui/statusChip";
+import { DataPlate } from "@/components/dataPlate";
+import { FreshnessLabel } from "@/components/freshnessLabel";
+import { SectionLabel } from "@/components/sectionLabel";
+import { Stat } from "@/components/stat";
+import { StatusChip } from "@/components/statusChip";
 
-import { COMPONENT_PROPS, FLEET_ROWS, FRESHNESS_STATES, NOW, STATUS_VARIANTS } from "./galleryFixtures";
+import {
+  COMPONENT_PROPS,
+  FLEET_ROWS,
+  FRESHNESS_STATES,
+  NOW,
+  STATUS_VARIANTS,
+} from "./galleryFixtures";
 
 /** The gallery's opening reference table: each primitive's public props at a glance. */
 export function PropsIndexSection(): ReactNode {
@@ -30,8 +36,8 @@ export function PropsIndexSection(): ReactNode {
           Public props index
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Required props are unmarked; optional props carry ?. Interactive and semantic
-          branches are demonstrated in the sections below.
+          Required props are unmarked; optional props carry ?. Interactive and semantic branches are
+          demonstrated in the sections below.
         </Typography>
       </Box>
       <TableContainer>
@@ -69,8 +75,8 @@ export function StatusChipSection(): ReactNode {
         StatusChip variants
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-        Five map to the canonical status enum; degraded maps to health severity. There is no
-        seventh variant — no token exists for a state no adapter can produce.
+        Five map to the canonical status enum; degraded maps to health severity. There is no seventh
+        variant — no token exists for a state no adapter can produce.
       </Typography>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
         {STATUS_VARIANTS.map(({ variant, label }) => (
@@ -82,9 +88,9 @@ export function StatusChipSection(): ReactNode {
         Current vs. last known
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-        Same variant, rendered twice. Filled and solid means current. Outline and hollow means
-        the robot stopped reporting and this is the last thing it said — the caller supplies
-        the wording.
+        Same variant, rendered twice. Filled and solid means current. Outline and hollow means the
+        robot stopped reporting and this is the last thing it said — the caller supplies the
+        wording.
       </Typography>
       <Stack direction="row" spacing={1} useFlexGap>
         <StatusChip variant="active" label="Busy" current />
@@ -114,8 +120,8 @@ export function FreshnessLabelSection(): ReactNode {
         FreshnessLabel states
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-        Compact (table cell) beside full (detail / technician). The source time is required as
-        a prop but nullable only for a registered robot that has never reported.
+        Compact (table cell) beside full (detail / technician). The source time is required as a
+        prop but nullable only for a registered robot that has never reported.
       </Typography>
       <Stack divider={<Divider sx={{ borderColor: "var(--line)" }} />} spacing={2}>
         {FRESHNESS_STATES.map((state) => {
@@ -160,8 +166,8 @@ export function StatSection(): ReactNode {
         Stat tones and values
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-        Freshness counts only — mutually exclusive, totalling the fleet. Status distribution
-        belongs in the table and its filters, not duplicated here as a second set of counts.
+        Freshness counts only — mutually exclusive, totalling the fleet. Status distribution belongs
+        in the table and its filters, not duplicated here as a second set of counts.
       </Typography>
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: "wrap" }}>
         <Stat label="Live" value={44} hint="of 50" />
@@ -184,9 +190,9 @@ export function CombinedFleetTableSection(): ReactNode {
           Fleet table
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Status and freshness read together. A row whose freshness is not LIVE shows its
-          status chip in the last-known treatment and its battery value as an em dash, never a
-          stale number presented as current.
+          Status and freshness read together. A row whose freshness is not LIVE shows its status
+          chip in the last-known treatment and its battery value as an em dash, never a stale number
+          presented as current.
         </Typography>
       </Box>
       <Divider sx={{ borderColor: "var(--line)" }} />
@@ -260,8 +266,8 @@ export function DataPlateSection(): ReactNode {
         DataPlate semantic elements
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-        The same metadata treatment supports its default div, a page footer, or a figure
-        caption. Children may contain any React content.
+        The same metadata treatment supports its default div, a page footer, or a figure caption.
+        Children may contain any React content.
       </Typography>
       <Stack spacing={2}>
         <DataPlate className="gallery-data-plate-div">
@@ -289,8 +295,8 @@ export function SectionLabelSection(): ReactNode {
         SectionLabel composition
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
-        This is a visual index, never a heading. The caller supplies the real heading
-        immediately after it.
+        This is a visual index, never a heading. The caller supplies the real heading immediately
+        after it.
       </Typography>
       <SectionLabel className="gallery-section-label">03 — Capabilities</SectionLabel>
       <Typography variant="h3" component="h3" sx={{ mt: 1 }}>

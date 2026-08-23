@@ -161,12 +161,19 @@ gallery is excluded from this plan's scope.
 - [x] Store/transport identity is guaranteed by construction (F1) with a test.
       Merged via PR #23.
 - [x] No inline object/function literals on the fleet-row or map-row render paths (F5).
-      Merged via PR #24.
+      Merged via PR #24. 2026-08-23: found reintroduced on both row links (origin
+      unclear from history); re-hoisted to module constants during the ADR 36 final
+      audit, with the rationale now commented at each constant so the next
+      reintroduction is visible in review.
 - [x] Site/positioned filtering has one authoritative implementation in selectors (F6).
-      Merged via PR #24.
+      Merged via PR #24. 2026-08-23: found reintroduced inline in `mapPage.tsx` (the
+      selectors survived, tested but unconsumed); re-wired during the ADR 36 final
+      audit — same reintroduction event as the F5 note above.
 - [x] No component in the fleet feature exceeds ~200 lines or mixes concerns (F3).
       Merged via PRs #25/#26 (FleetSummary 27 / FleetFilters 87 / FleetTable 122 /
-      FleetPage 185 lines).
+      FleetPage 185 lines). 2026-08-23: ADR 36 extended F3's in-file decomposition to
+      one-component-per-file (`fleetSummary.tsx` / `fleetFilters.tsx` / `fleetTable.tsx`);
+      the components themselves are unchanged.
 - [x] The F2 compiler conflict is recorded as a decision recommendation, not silently
       worked around; memoization untouched until it is decided. Open stub D27.
 - [x] `pnpm --filter web test && pnpm --filter web lint && pnpm --filter web build` green
