@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
-
 import type { ContractIssue, RobotBatteryHistory } from "@fleet/contracts";
 
 import {
@@ -7,6 +5,8 @@ import {
   type BatteryHistoryFailure,
   type FetchLike,
 } from "@/shared/lib/transportDecoding";
+
+import { useFetchedResource, type FetchedResourceContext } from "./useFetchedResource";
 
 /**
  * One robot's battery history, fetched from `GET /api/robots/:id/history` once
@@ -45,50 +45,31 @@ function failureState(failure: BatteryHistoryFailure, retry: () => void): RobotH
     : { status: "error", recoverable: false, message: describeIssues(failure.issues) };
 }
 
+/** Loads the history window, mapping the one outcome onto the section's state union. */
+async function loadHistory(
+  request: FetchLike,
+  { id, apiBaseUrl, retry }: FetchedResourceContext,
+): Promise<RobotHistoryState> {
+  const outcome = await fetchBatteryHistory(
+    request,
+    `${apiBaseUrl}/robots/${encodeURIComponent(id)}/history`,
+  );
+  return outcome.ok
+    ? { status: "ready", history: outcome.history }
+    : failureState(outcome.failure, retry);
+}
+
 /**
  * Loads one robot's battery history, re-loading when the id changes and
  * offering a retry when the request (not the contract) fails.
  *
- * `apiBaseUrl` is a parameter because `entities` may not import `config`
- * (ADR 4); `fetchLike` is injectable for the same reason `useRobotDetail`'s is.
+ * The fetch lifecycle — loading by derivation, stale-answer discard, retry —
+ * lives in `useFetchedResource`; this facade owns only the URL and the
+ * outcome-to-state mapping.
  */
 export function useRobotHistory(
   id: string,
   ports: { readonly apiBaseUrl: string; readonly fetchLike?: FetchLike },
 ): RobotHistoryState {
-  // The loaded state and the id it describes, together, so switching robots
-  // derives `loading` instead of flashing the previous robot's chart.
-  const [loaded, setLoaded] = useState<{ forId: string; value: RobotHistoryState } | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  const { apiBaseUrl, fetchLike } = ports;
-
-  const retry = useCallback(() => {
-    setAttempt((count) => count + 1);
-  }, []);
-
-  useEffect(() => {
-    const request: FetchLike = fetchLike ?? ((url) => fetch(url));
-    const cancellation = new AbortController();
-
-    void (async () => {
-      const outcome = await fetchBatteryHistory(
-        request,
-        `${apiBaseUrl}/robots/${encodeURIComponent(id)}/history`,
-      );
-      if (cancellation.signal.aborted) return;
-
-      setLoaded({
-        forId: id,
-        value: outcome.ok
-          ? { status: "ready", history: outcome.history }
-          : failureState(outcome.failure, retry),
-      });
-    })();
-
-    return () => {
-      cancellation.abort();
-    };
-  }, [id, attempt, apiBaseUrl, fetchLike, retry]);
-
-  return loaded !== null && loaded.forId === id ? loaded.value : { status: "loading" };
+  return useFetchedResource(id, ports, loadHistory);
 }

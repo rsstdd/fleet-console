@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
-
 import type { ContractIssue } from "@fleet/contracts";
 
 import {
@@ -12,6 +10,7 @@ import {
 
 import { toRegisteredRobotDetail, toRobotDetail } from "./fromEnvelope";
 import type { RobotDetail } from "./model";
+import { useFetchedResource, type FetchedResourceContext } from "./useFetchedResource";
 
 /**
  * One robot, fetched from `GET /api/robots/:id` and decoded at the boundary.
@@ -109,79 +108,42 @@ function failureState(
   }
 }
 
+/** Loads the robot and its health decoration together, mapping both outcomes onto the page's state union. */
+async function loadDetail(
+  request: FetchLike,
+  { id, apiBaseUrl, retry }: FetchedResourceContext,
+): Promise<RobotDetailState> {
+  const [robot, health] = await Promise.all([
+    fetchRobotDetail(request, `${apiBaseUrl}/robots/${encodeURIComponent(id)}`),
+    fetchHealth(request, `${apiBaseUrl}/health`),
+  ]);
+
+  if (robot.ok) {
+    const vendorId = robot.robot.observed
+      ? robot.robot.envelope.vendorId
+      : robot.robot.registered.vendorId;
+    // Null rather than zero when health could not be read: zero is a measurement, and
+    // claiming one nobody took is the failure Principle 4 names.
+    const unknownFieldCount = health.ok
+      ? (health.health.byAdapter[vendorId]?.unknownFields.total ?? null)
+      : null;
+    return { status: "ready", robot: toDetail(robot.robot, unknownFieldCount) };
+  }
+
+  return failureState(robot.failure, id, retry);
+}
+
 /**
  * Loads one robot, re-loading when the id changes and offering a retry when it fails.
  *
- * `apiBaseUrl` is a parameter rather than a `TENANT` read because `entities` may not import
- * `config` (ADR 4) — the address is deployment configuration and belongs to a layer that is
- * allowed to know it. `fetchLike` is injectable so a test can assert which outcome maps to
- * which state without a network; the default is the platform `fetch`.
+ * `id` is a real id by signature: the route boundary validates the address before this
+ * hook can run on it, so no state here describes an absent id. The fetch lifecycle —
+ * loading by derivation, stale-answer discard, retry — lives in `useFetchedResource`;
+ * this facade owns only the URLs and the outcome-to-state mapping.
  */
 export function useRobotDetail(
-  id: string | undefined,
+  id: string,
   ports: { readonly apiBaseUrl: string; readonly fetchLike?: FetchLike },
 ): RobotDetailState {
-  /**
-   * The loaded state **and the id it describes**, together.
-   *
-   * Two fields rather than one, so switching robots shows `loading` by derivation instead
-   * of by a `setState` inside the effect — which React's own lint rule rejects as a
-   * cascading render, and which would also flash the previous robot's data under the new
-   * robot's heading for one frame.
-   */
-  const [loaded, setLoaded] = useState<{ forId: string; value: RobotDetailState } | null>(null);
-  const [attempt, setAttempt] = useState(0);
-  const { apiBaseUrl, fetchLike } = ports;
-
-  const retry = useCallback(() => {
-    setAttempt((count) => count + 1);
-  }, []);
-
-  useEffect(() => {
-    if (id === undefined || id === "") return;
-
-    const request: FetchLike = fetchLike ?? ((url) => fetch(url));
-    // An `AbortController` rather than a captured boolean: the compiler cannot see that a
-    // cleanup closure flips a `let` across an await, so it narrows the flag to `true` and
-    // the guard reads as dead code. `signal.aborted` is honest to both the reader and the
-    // analyzer, and it is the handle a cancelling `fetch` would want anyway.
-    const cancellation = new AbortController();
-
-    void (async () => {
-      const [robot, health] = await Promise.all([
-        fetchRobotDetail(request, `${apiBaseUrl}/robots/${encodeURIComponent(id)}`),
-        fetchHealth(request, `${apiBaseUrl}/health`),
-      ]);
-      // The id changed or the page unmounted while these were in flight, so this describes
-      // a robot nobody is looking at any more.
-      if (cancellation.signal.aborted) return;
-
-      if (robot.ok) {
-        const vendorId = robot.robot.observed
-          ? robot.robot.envelope.vendorId
-          : robot.robot.registered.vendorId;
-        // Null rather than zero when health could not be read: zero is a measurement, and
-        // claiming one nobody took is the failure Principle 4 names.
-        const unknownFieldCount = health.ok
-          ? (health.health.byAdapter[vendorId]?.unknownFields.total ?? null)
-          : null;
-        setLoaded({
-          forId: id,
-          value: { status: "ready", robot: toDetail(robot.robot, unknownFieldCount) },
-        });
-        return;
-      }
-
-      setLoaded({ forId: id, value: failureState(robot.failure, id, retry) });
-    })();
-
-    return () => {
-      cancellation.abort();
-    };
-  }, [id, attempt, apiBaseUrl, fetchLike, retry]);
-
-  // An absent id never had a robot to fetch, and a result for a different robot is not
-  // this robot's answer — both are derived rather than written.
-  if (id === undefined || id === "") return { status: "not-found", id: "" };
-  return loaded !== null && loaded.forId === id ? loaded.value : { status: "loading" };
+  return useFetchedResource(id, ports, loadDetail);
 }
