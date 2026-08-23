@@ -94,13 +94,15 @@ Three consequences the informal "entities → shared" summary hides, each load-b
 The default is `disallow`, so a new layer is denied until someone writes its policy — the
 opposite of a default-allow list where an omission silently permits.
 
-Test files inherit the production layer containing them. The `test` element in the lint
-configuration names only `src/test/**` setup infrastructure; it is not a universal escape
-from feature/entity/shared direction. The two sibling robot-detail suites therefore share
-`features/robot/robotDetailFixtures.ts` inside their own feature. Multiple imports of that
-same-feature helper are reuse, not cross-layer duplication. Reconsider a narrowly scoped
-fixture location only if fixture construction or data is copied across production layers
-or feature directories.
+Test files inherit the production layer containing them: unit tests live in a `tests/`
+subdirectory beside the sources they cover, and the boundaries patterns classify those
+directories as their parent layer. The `test` element in the lint configuration names only
+`src/test/**` setup infrastructure; it is not a universal escape from
+feature/entity/shared direction. The robot-detail suites therefore share
+`features/robot/tests/robotDetailFixtures.ts` inside their own feature. Multiple imports
+of that same-feature helper are reuse, not cross-layer duplication. Reconsider a narrowly
+scoped fixture location only if fixture construction or data is copied across production
+layers or feature directories.
 
 | Directory            | Contents                                                                  | Forbidden                                  |
 | -------------------- | ------------------------------------------------------------------------- | ------------------------------------------ |
