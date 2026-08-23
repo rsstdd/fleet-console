@@ -276,7 +276,10 @@ describe("RobotDetailPage", () => {
     await renderRobot("R-118");
     await showTechnicianView();
 
-    const notice = screen.getByTestId("raw-payload-exposure");
+    // Queried by its visible sentence, not a test id: the notice only does its
+    // job if a person can read it, so the query asserts what the reader sees.
+    const notice = screen.getByText(/Shown exactly as the vendor sent it/);
+    expect(notice).toBeVisible();
     expect(notice).toHaveTextContent("nothing removed");
     expect(notice).toHaveTextContent("not access-controlled");
   });
@@ -285,7 +288,7 @@ describe("RobotDetailPage", () => {
     await renderRobot("R-233");
     await showTechnicianView();
 
-    expect(screen.getByTestId("raw-payload-exposure")).toBeInTheDocument();
+    expect(screen.getByText(/Shown exactly as the vendor sent it/)).toBeVisible();
     expect(screen.getByText("No payload was retained for this robot.")).toBeInTheDocument();
   });
 
@@ -295,7 +298,7 @@ describe("RobotDetailPage", () => {
     // protected.
     await renderRobot("R-118");
 
-    expect(screen.queryByTestId("raw-payload-exposure")).toBeNull();
+    expect(screen.queryByText(/Shown exactly as the vendor sent it/)).toBeNull();
   });
 
   it("fabricates nothing for a robot that has never reported", async () => {
