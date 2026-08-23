@@ -7,7 +7,7 @@ import {
   TenantConfigError,
   parseTenantConfig,
   resolveTenantId,
-} from "./tenant";
+} from "../tenant";
 
 /** A profile that is valid, used as the base for the rejection cases below. */
 function validProfile(): Record<string, unknown> {

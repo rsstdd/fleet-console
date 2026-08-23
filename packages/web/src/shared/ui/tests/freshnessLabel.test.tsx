@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { FreshnessLabel, type FreshnessState } from "./freshnessLabel";
+import { FreshnessLabel, type FreshnessState } from "../freshnessLabel";
 
 const ALL_STATES: readonly FreshnessState[] = ["live", "stale", "unreachable", "unknown"];
 const STATE_LABELS: Readonly<Record<FreshnessState, string>> = {

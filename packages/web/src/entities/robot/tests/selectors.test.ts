@@ -7,7 +7,7 @@ import type {
   RobotDetail,
   RobotDiagnostics,
   RobotStatus,
-} from "./model";
+} from "../model";
 import {
   computeSiteExtents,
   computeViewBoxSize,
@@ -27,7 +27,7 @@ import {
   selectStatusPresentation,
   selectUnpositionedRobots,
   type PlottableRobot,
-} from "./selectors";
+} from "../selectors";
 
 /**
  * Unit tests for the robot presentation selectors, required by

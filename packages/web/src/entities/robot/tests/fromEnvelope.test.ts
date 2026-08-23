@@ -18,7 +18,7 @@ import {
   toRegisteredRobotDetail,
   toRobot,
   toRobotDetail,
-} from "./fromEnvelope";
+} from "../fromEnvelope";
 
 /**
  * The console's half of the canonical contract: decoded envelope in, read model

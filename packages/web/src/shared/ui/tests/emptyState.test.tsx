@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { EmptyState } from "./emptyState";
+import { EmptyState } from "../emptyState";
 
 /**
  * Contract test for docs/02_component-specs/06_EMPTY_STATE.md §4, §9, §10 and
