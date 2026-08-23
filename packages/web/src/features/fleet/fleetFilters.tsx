@@ -19,35 +19,48 @@ const FRESHNESS_FILTER_OPTIONS: ReadonlyArray<{ value: Freshness; label: string 
   { value: "unknown", label: "Unknown" },
 ];
 
-const ALL = "all" as const;
-// Site and vendor ids are open identifiers from the wire, so neither filter can
-// be narrowed to a union with ALL without inventing a nominal type. ALL is the
-// sentinel; the name carries the meaning the type system cannot.
-type SiteFilter = string;
-type VendorFilter = string;
-/** A freshness selection, or the ALL sentinel that passes every state — the one filter dimension the wire's closed enum lets us narrow. */
-export type FreshnessFilter = typeof ALL | Freshness;
+/**
+ * The Select value for the "All …" choice on every dimension. A MUI Select
+ * speaks strings, so "no filter" needs one at that boundary — but site and
+ * vendor ids are open identifiers, and `identifierSchema` permits a site or
+ * vendor literally named `all`. This value starts with an underscore, which
+ * the identifier pattern forbids (alphanumeric first character), so no real
+ * id can ever collide with it. `Filters` itself carries null: the sentinel
+ * exists only where the widget demands a string.
+ */
+export const ALL_FILTER_VALUE = "__all__";
 
-/** The complete filter state the fleet page owns; every dimension defaults to ALL. */
+/** The complete filter state the fleet page owns; null on a dimension means it filters nothing. */
 export interface Filters {
-  readonly site: SiteFilter;
-  readonly vendor: VendorFilter;
-  readonly freshness: FreshnessFilter;
+  readonly site: string | null;
+  readonly vendor: string | null;
+  readonly freshness: Freshness | null;
   readonly search: string;
 }
 
 /** The unfiltered state, shared by first render and the "Clear filters" action. */
-export const EMPTY_FILTERS: Filters = { site: ALL, vendor: ALL, freshness: ALL, search: "" };
+export const EMPTY_FILTERS: Filters = { site: null, vendor: null, freshness: null, search: "" };
 
-/** Whether one robot survives every active filter dimension; ALL dimensions pass everything. */
+/** Maps a site or vendor Select value back to filter state: the All choice becomes null, any real id passes through. */
+export function toIdFilter(value: string): string | null {
+  return value === ALL_FILTER_VALUE ? null : value;
+}
+
+/** Narrows a Reporting-status Select value to a canonical freshness state without a cast; the All choice becomes null. */
+export function toFreshnessFilter(value: string): Freshness | null {
+  const option = FRESHNESS_FILTER_OPTIONS.find((candidate) => candidate.value === value);
+  return option?.value ?? null;
+}
+
+/** Whether one robot survives every active filter dimension; a null dimension passes everything. */
 export function matchesFilters(robot: Robot, filters: Filters): boolean {
-  if (filters.site !== ALL && robot.siteId !== filters.site) {
+  if (filters.site !== null && robot.siteId !== filters.site) {
     return false;
   }
-  if (filters.vendor !== ALL && robot.vendor !== filters.vendor) {
+  if (filters.vendor !== null && robot.vendor !== filters.vendor) {
     return false;
   }
-  if (filters.freshness !== ALL && robot.freshness !== filters.freshness) {
+  if (filters.freshness !== null && robot.freshness !== filters.freshness) {
     return false;
   }
   if (filters.search.trim() !== "") {
@@ -94,10 +107,10 @@ export function FleetFilters({
         <Select
           labelId="site-filter-label"
           label="Site"
-          value={filters.site}
+          value={filters.site ?? ALL_FILTER_VALUE}
           onChange={onSiteChange}
         >
-          <MenuItem value={ALL}>All sites</MenuItem>
+          <MenuItem value={ALL_FILTER_VALUE}>All sites</MenuItem>
           {sites.map((site) => (
             <MenuItem key={site.siteId} value={site.siteId}>
               {site.label}
@@ -111,10 +124,10 @@ export function FleetFilters({
         <Select
           labelId="vendor-filter-label"
           label="Vendor"
-          value={filters.vendor}
+          value={filters.vendor ?? ALL_FILTER_VALUE}
           onChange={onVendorChange}
         >
-          <MenuItem value={ALL}>All vendors</MenuItem>
+          <MenuItem value={ALL_FILTER_VALUE}>All vendors</MenuItem>
           {vendorOptions.map((vendor) => (
             <MenuItem key={vendor} value={vendor}>
               Vendor {vendor}
@@ -128,10 +141,10 @@ export function FleetFilters({
         <Select
           labelId="freshness-filter-label"
           label="Reporting status"
-          value={filters.freshness}
+          value={filters.freshness ?? ALL_FILTER_VALUE}
           onChange={onFreshnessChange}
         >
-          <MenuItem value={ALL}>All</MenuItem>
+          <MenuItem value={ALL_FILTER_VALUE}>All</MenuItem>
           {FRESHNESS_FILTER_OPTIONS.map((option) => (
             <MenuItem key={option.value} value={option.value}>
               {option.label}

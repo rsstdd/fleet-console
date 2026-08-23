@@ -19,8 +19,9 @@ import {
   EMPTY_FILTERS,
   FleetFilters,
   matchesFilters,
+  toFreshnessFilter,
+  toIdFilter,
   type Filters,
-  type FreshnessFilter,
 } from "./fleetFilters";
 import { FleetSummary } from "./fleetSummary";
 import { FleetTable } from "./fleetTable";
@@ -83,15 +84,15 @@ export function FleetPage(): ReactNode {
   );
 
   const handleSiteChange = (event: SelectChangeEvent): void => {
-    setFilters((prev) => ({ ...prev, site: event.target.value }));
+    setFilters((prev) => ({ ...prev, site: toIdFilter(event.target.value) }));
   };
 
   const handleVendorChange = (event: SelectChangeEvent): void => {
-    setFilters((prev) => ({ ...prev, vendor: event.target.value }));
+    setFilters((prev) => ({ ...prev, vendor: toIdFilter(event.target.value) }));
   };
 
   const handleFreshnessChange = (event: SelectChangeEvent): void => {
-    setFilters((prev) => ({ ...prev, freshness: event.target.value as FreshnessFilter }));
+    setFilters((prev) => ({ ...prev, freshness: toFreshnessFilter(event.target.value) }));
   };
 
   const handleSearchChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>): void => {

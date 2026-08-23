@@ -345,6 +345,25 @@ describe("FleetPage", () => {
     expect(rows).toHaveLength(3);
   });
 
+  it("filters to a site literally named 'all' instead of showing the whole fleet", async () => {
+    // `identifierSchema` permits `all` as a site or vendor id, so the "All
+    // sites" choice must not share a value with any identifier a fleet could
+    // contain — the bug this test pins was `all` doing double duty as sentinel.
+    fleet.state = ready(
+      [robot({ id: "R-118", siteId: "zone-a" }), robot({ id: "R-204", siteId: "all" })],
+      { sites: [...SITES, { siteId: "all", label: "Site all" }] },
+    );
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByLabelText("Site"));
+    await user.click(screen.getByRole("option", { name: "Site all" }));
+
+    const rows = within(fleetTable()).getAllByRole("row");
+    expect(rows).toHaveLength(2);
+    expect(within(fleetTable()).getByRole("row", { name: /R-204/ })).toBeInTheDocument();
+  });
+
   it("filters by reporting status under the operator-facing label", async () => {
     // The filter's visible label is operator copy ("Reporting status"); the
     // state values it filters on stay the ADR 3 freshness vocabulary.
