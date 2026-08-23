@@ -166,7 +166,9 @@ gallery is excluded from this plan's scope.
       Merged via PR #24.
 - [x] No component in the fleet feature exceeds ~200 lines or mixes concerns (F3).
       Merged via PRs #25/#26 (FleetSummary 27 / FleetFilters 87 / FleetTable 122 /
-      FleetPage 185 lines).
+      FleetPage 185 lines). 2026-08-23: ADR 36 extended F3's in-file decomposition to
+      one-component-per-file (`fleetSummary.tsx` / `fleetFilters.tsx` / `fleetTable.tsx`);
+      the components themselves are unchanged.
 - [x] The F2 compiler conflict is recorded as a decision recommendation, not silently
       worked around; memoization untouched until it is decided. Open stub D27.
 - [x] `pnpm --filter web test && pnpm --filter web lint && pnpm --filter web build` green
