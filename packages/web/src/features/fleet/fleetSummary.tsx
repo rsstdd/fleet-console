@@ -3,7 +3,7 @@ import { Box, Stack, Typography } from "@mui/material";
 
 import { Stat } from "@/components/stat";
 
-import type { FreshnessSummary } from "@/entities/robot/selectors";
+import type { FreshnessSummary } from "@/utils/robotSelectors";
 
 /**
  * The fleet-wide freshness strip. The counts stay on screen during an outage

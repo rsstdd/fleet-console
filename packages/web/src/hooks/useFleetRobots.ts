@@ -2,9 +2,9 @@ import { useCallback, useSyncExternalStore } from "react";
 
 import type { FleetSite } from "@fleet/contracts";
 
-import { useFleetStore } from "./fleetStoreContext";
-import type { FleetResourceState } from "./fleetStore";
-import type { Robot } from "./model";
+import { useFleetStore } from "@/stores/fleetStoreContext";
+import type { FleetResourceState } from "@/stores/fleetStore";
+import type { Robot } from "@/types/robot";
 
 /**
  * The fleet resource, read from the store the transport fills.

@@ -24,17 +24,17 @@ const RULE = "boundaries/dependencies";
 const FIXTURES = [
   "src/features/fleet/__boundary-violation__/violation.ts",
   "src/features/fleet/__boundary-violation__/legal.ts",
-  "src/entities/robot/__boundary-violation__/violation.ts",
-  "src/entities/robot/__boundary-violation__/adapterImport.ts",
-  "src/entities/robot/__boundary-violation__/adapterImport.fixture.test.ts",
-  "src/entities/robot/__boundary-violation__/adapterTestingImport.ts",
-  "src/entities/robot/__boundary-violation__/adapterTestingImport.fixture.test.ts",
+  "src/utils/__boundary-violation__/violation.ts",
+  "src/utils/__boundary-violation__/adapterImport.ts",
+  "src/utils/__boundary-violation__/adapterImport.fixture.test.ts",
+  "src/utils/__boundary-violation__/adapterTestingImport.ts",
+  "src/utils/__boundary-violation__/adapterTestingImport.fixture.test.ts",
 ];
 
 /**
  * Budget for the one type-aware ESLint run, which builds a TypeScript program
  * over the whole package — since 19 August 2026 that includes
- * `@fleet/contracts` sources, because `entities/robot` imports the canonical
+ * `@fleet/contracts` sources, because the data layers import the canonical
  * types from it.
  *
  * This is a hook budget for a single program build, not a per-assertion
@@ -108,16 +108,16 @@ describe("dependency rule enforcement", () => {
     expect(messages[0]).toBe("feature may not import feature (PRINCIPLES.md 9).");
   });
 
-  it("rejects an entity importing react-dom", () => {
-    const messages = boundaryMessagesFor("src/entities/robot/__boundary-violation__/violation.ts");
+  it("rejects a data-layer module importing react-dom", () => {
+    const messages = boundaryMessagesFor("src/utils/__boundary-violation__/violation.ts");
 
     expect(messages).toHaveLength(1);
-    expect(messages[0]).toContain("renders nothing and routes nothing");
+    expect(messages[0]).toContain("render nothing and route nothing");
   });
 
   // Without this, an inert rule passes both assertions above by reporting
   // nothing for any input.
-  it("permits a feature importing an entity", () => {
+  it("permits a feature importing the types layer", () => {
     const messages = boundaryMessagesFor("src/features/fleet/__boundary-violation__/legal.ts");
 
     expect(messages).toEqual([]);
@@ -127,16 +127,16 @@ describe("dependency rule enforcement", () => {
 /**
  * `@fleet/adapters` is server-side vendor decoding. Production code here must
  * not import it; the end-to-end contract path in
- * `entities/robot/fromEnvelope.test.ts` must be able to. Both halves are
+ * `utils/fromEnvelope.test.ts` must be able to. Both halves are
  * asserted, because the exception is the half most likely to be removed by
  * someone tidying the config (ADR 12, ratifying register stub D3).
  */
 describe("server-only package imports", () => {
   const IMPORT_RULE = "no-restricted-imports";
 
-  it("rejects an entity importing @fleet/adapters", () => {
+  it("rejects a production module importing @fleet/adapters", () => {
     const messages = messagesForRule(
-      "src/entities/robot/__boundary-violation__/adapterImport.ts",
+      "src/utils/__boundary-violation__/adapterImport.ts",
       IMPORT_RULE,
     );
 
@@ -146,20 +146,20 @@ describe("server-only package imports", () => {
 
   it("permits a test file importing @fleet/adapters", () => {
     const messages = messagesForRule(
-      "src/entities/robot/__boundary-violation__/adapterImport.fixture.test.ts",
+      "src/utils/__boundary-violation__/adapterImport.fixture.test.ts",
       IMPORT_RULE,
     );
 
     expect(messages).toEqual([]);
   });
 
-  it("rejects an entity importing the @fleet/adapters/testing subpath", () => {
+  it("rejects a production module importing the @fleet/adapters/testing subpath", () => {
     // The exact-name ban does not match subpaths, so this asserts the pattern
     // entry beside it. Without that entry the test-only surface ADR 11 added
     // would be importable from production code, which is the one thing a
     // test-only surface must not be.
     const messages = messagesForRule(
-      "src/entities/robot/__boundary-violation__/adapterTestingImport.ts",
+      "src/utils/__boundary-violation__/adapterTestingImport.ts",
       IMPORT_RULE,
     );
 
@@ -169,7 +169,7 @@ describe("server-only package imports", () => {
 
   it("permits a test file importing the @fleet/adapters/testing subpath", () => {
     const messages = messagesForRule(
-      "src/entities/robot/__boundary-violation__/adapterTestingImport.fixture.test.ts",
+      "src/utils/__boundary-violation__/adapterTestingImport.fixture.test.ts",
       IMPORT_RULE,
     );
 

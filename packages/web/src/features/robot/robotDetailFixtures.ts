@@ -1,7 +1,7 @@
 import { SCHEMA_VERSION, type CapabilityWireEntry } from "@fleet/contracts";
 
-import type { AdapterHealthCounters } from "@/entities/robot/fromEnvelope";
-import type { HealthSeverity, Robot, SequenceHealth } from "@/entities/robot/model";
+import type { AdapterHealthCounters } from "@/utils/fromEnvelope";
+import type { HealthSeverity, Robot, SequenceHealth } from "@/types/robot";
 import type { FetchLike } from "@/lib/transportDecoding";
 
 /**

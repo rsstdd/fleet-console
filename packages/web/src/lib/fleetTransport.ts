@@ -36,7 +36,7 @@ import { decodeFrameText, fetchFleetSnapshot, type FetchLike } from "./transport
  * compared, which is what lets sequence numbers restart at zero without rows silently
  * freezing.
  *
- * It emits decoded values and never touches a store: `shared` may not import `entities`
+ * It emits decoded values and never touches a store: `lib` may not import `stores`
  * (ADR 4), and that rule is what keeps domain application in the layer that owns the
  * domain. The caller wires the callbacks to `createFleetStore`.
  */

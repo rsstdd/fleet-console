@@ -6,7 +6,7 @@ import type { FetchLike } from "@/lib/transportDecoding";
 import {
   useFetchedResource,
   type FetchedResourceContext,
-} from "../useFetchedResource";
+} from "./useFetchedResource";
 
 /** A test resource: the loaded value names the id and attempt it answered for. */
 type TestState = { readonly status: "loading" } | { readonly status: "ready"; readonly label: string };

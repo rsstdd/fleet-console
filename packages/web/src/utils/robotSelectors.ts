@@ -8,7 +8,7 @@ import type {
   RobotDetail,
   RobotHealth,
   RobotStatus,
-} from "./model";
+} from "@/types/robot";
 
 /**
  * Structurally identical to components/statusChip's StatusVariant, but not
@@ -172,7 +172,7 @@ export function selectPositionDisplay(robot: RobotDetail): string {
  * a local copy of `CAPABILITY_NAMES` that happened to agree with it.
  *
  * `disabled` is injected rather than read from tenant configuration: the
- * dependency rule forbids `entities` importing `config`, and the separation is
+ * dependency rule forbids the data layers importing `config`, and the separation is
  * the right one anyway — whether a panel is *offered* is a deployment decision,
  * whether it is *declared* is a vendor fact. A panel renders only when both
  * hold (ADR 17). Coupling: the list is produced by

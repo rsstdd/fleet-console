@@ -15,7 +15,7 @@ import { DataPlate } from "@/components/dataPlate";
 import { EmptyState } from "@/components/emptyState";
 import { isStreamConnected, useConnectionState } from "@/context/connectionContext";
 
-import type { FleetData } from "@/entities/robot/fleetStore";
+import type { FleetData } from "@/stores/fleetStore";
 import {
   computeSiteExtents,
   computeViewBoxSize,
@@ -24,9 +24,9 @@ import {
   selectPlottableRobots,
   selectPositionedSummary,
   type SiteExtents,
-} from "@/entities/robot/selectors";
-import { useFleetRobots } from "@/entities/robot/useFleetRobots";
-import { selectSiteLabel } from "@/entities/site/model";
+} from "@/utils/robotSelectors";
+import { useFleetRobots } from "@/hooks/useFleetRobots";
+import { selectSiteLabel } from "@/utils/siteLabel";
 
 import { MAP_VIEWBOX_WIDTH, MapCanvas } from "./mapCanvas";
 import { RobotList } from "./robotList";
@@ -35,7 +35,7 @@ import { RobotList } from "./robotList";
  * Map page: one site's positions at a time (page spec 04, ADR 34, ADR 35).
  *
  * Site selection and the per-site running extents are local view state
- * (Principle 11); all computation over them lives in `entities/robot/selectors`
+ * (Principle 11); all computation over them lives in `utils/robotSelectors`
  * (ADR 35). Freshness arrives on the envelope — no timer here (ADR 3).
  */
 export function MapPage(): ReactNode {

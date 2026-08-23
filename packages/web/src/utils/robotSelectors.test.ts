@@ -7,7 +7,7 @@ import type {
   RobotDetail,
   RobotDiagnostics,
   RobotStatus,
-} from "../model";
+} from "@/types/robot";
 import {
   computeSiteExtents,
   computeViewBoxSize,
@@ -27,7 +27,7 @@ import {
   selectStatusPresentation,
   selectUnpositionedRobots,
   type PlottableRobot,
-} from "../selectors";
+} from "./robotSelectors";
 
 /**
  * Unit tests for the robot presentation selectors, required by
@@ -263,7 +263,7 @@ describe("selectPanelCapabilities", () => {
   it("excludes a panel the deployment disabled, even when the robot declares it", () => {
     // ADR 17's gate: declared by the robot AND enabled by the tenant. The
     // disabled list is injected rather than read from `config`, because the
-    // dependency rule forbids entities importing it — and because whether a
+    // dependency rule forbids the data layers importing it — and because whether a
     // panel is offered is a deployment question, not a domain one.
     const robotDetail = detail({
       capabilities: {

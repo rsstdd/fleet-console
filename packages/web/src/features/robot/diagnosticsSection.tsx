@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { Paper, Stack, Typography } from "@mui/material";
 
-import type { RobotDetail } from "@/entities/robot/model";
+import type { RobotDetail } from "@/types/robot";
 import {
   selectClockDeltaDisplay,
   selectSequenceDuplicateDisplay,
   selectSequenceGapDisplay,
-} from "@/entities/robot/selectors";
+} from "@/utils/robotSelectors";
 import { useStreamDiagnostics } from "@/context/streamDiagnosticsContext";
 import { formatTimeUtc } from "@/utils/time";
 

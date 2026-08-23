@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { RobotBatteryHistory } from "@fleet/contracts";
 
-import type { RobotHistoryState } from "@/entities/robot/useRobotHistory";
+import type { RobotHistoryState } from "@/hooks/useRobotHistory";
 
 import { BatteryHistoryContent } from "./batteryHistorySection";
 

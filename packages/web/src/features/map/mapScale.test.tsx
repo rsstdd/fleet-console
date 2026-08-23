@@ -5,8 +5,8 @@ import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
-import type { Robot } from "@/entities/robot/model";
-import type { FleetResourceState } from "@/entities/robot/fleetStore";
+import type { Robot } from "@/types/robot";
+import type { FleetResourceState } from "@/stores/fleetStore";
 import { ConnectionContext } from "@/context/connectionContext";
 
 /** The scale point ADR 2 commits to measuring, and the one Principle 12 names. */
@@ -19,7 +19,7 @@ const fleet = vi.hoisted((): { state: FleetResourceState } => ({
   state: { kind: "loading" },
 }));
 
-vi.mock("@/entities/robot/useFleetRobots", () => ({
+vi.mock("@/hooks/useFleetRobots", () => ({
   useFleetRobots: (): FleetResourceState => fleet.state,
 }));
 

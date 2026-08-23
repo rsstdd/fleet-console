@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConnectionContext, type StreamConnectionState } from "@/context/connectionContext";
 import { StreamDiagnosticsContext } from "@/context/streamDiagnosticsContext";
 import { SCHEMA_VERSION, type CanonicalEnvelope } from "@fleet/contracts";
-import { createFleetStore } from "@/entities/robot/fleetStore";
-import { FleetStoreContext } from "@/entities/robot/fleetStoreContext";
+import { createFleetStore } from "@/stores/fleetStore";
+import { FleetStoreContext } from "@/stores/fleetStoreContext";
 
 import { RobotDetailPage } from "./robotDetailPage";
 import { createFixtureFetch } from "./robotDetailFixtures";
@@ -30,7 +30,7 @@ afterEach(() => {
 /**
  * Verification table from docs/01_page-specs/03_ROBOT_DETAIL.md §11.
  *
- * Fixture ids come from `entities/robot` and are chosen for what they declare:
+ * Fixture ids come from `robotDetailFixtures.ts` and are chosen for what they declare:
  * R-118 (vendor A) declares dock + lidar, R-301 (vendor C) declares dock + water level
  * and omits lidar, R-055 (vendor B) declares dock alone and is sequence-less,
  * and R-233 has never reported. That contrast is the point of the surface — a

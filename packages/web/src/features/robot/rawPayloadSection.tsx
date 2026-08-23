@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Box, Paper, Typography } from "@mui/material";
 
-import type { RobotDetail } from "@/entities/robot/model";
+import type { RobotDetail } from "@/types/robot";
 
 import { MONO, Section } from "./detailSection";
 

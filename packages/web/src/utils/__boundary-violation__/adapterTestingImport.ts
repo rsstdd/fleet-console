@@ -1,4 +1,4 @@
-// entities/robot/__boundary-violation__/adapterTestingImport.ts
+// utils/__boundary-violation__/adapterTestingImport.ts
 //
 // Deliberate violation. `@fleet/adapters/testing` is the recorded-fixture
 // surface ADR 11 made public for tests. Production code importing it would put

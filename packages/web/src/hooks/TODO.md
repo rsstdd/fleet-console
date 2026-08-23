@@ -1,4 +1,4 @@
-# TODO — `entities/robot`
+# TODO — robot data layer (`hooks`, `stores`, `types`, `utils` mapping)
 
 **Authority:** Planning only. Accepted ADRs and the web package specification govern conflicts.
 **Reconciled:** 20 August 2026 against the three-vendor join and live HTTP/WebSocket consumers.

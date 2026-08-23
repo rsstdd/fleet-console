@@ -34,7 +34,7 @@ const tenantFlagsSchema = z.strictObject({
    * Whether robot detail offers the lidar-health capability panel.
    *
    * Coupling: consumed by `features/robot/panelVisibility.ts`, which turns it
-   * into the panel list `entities/robot` filters against. A robot must declare
+   * into the panel list `utils/robotSelectors` filters against. A robot must declare
    * the capability **and** the tenant must enable it (ADR 17).
    */
   lidarHealthPanel: z.boolean(),

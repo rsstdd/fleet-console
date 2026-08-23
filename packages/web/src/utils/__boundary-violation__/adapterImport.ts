@@ -1,4 +1,4 @@
-// entities/robot/__boundary-violation__/adapterImport.ts
+// utils/__boundary-violation__/adapterImport.ts
 //
 // Deliberate violation. `@fleet/adapters` decodes untrusted vendor dialects and
 // is server-side; production code in this package consumes canonical envelopes

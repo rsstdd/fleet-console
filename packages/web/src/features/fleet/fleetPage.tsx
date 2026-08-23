@@ -11,9 +11,9 @@ import {
 import { EmptyState } from "@/components/emptyState";
 import { isStreamConnected, useConnectionState } from "@/context/connectionContext";
 
-import type { FleetData } from "@/entities/robot/fleetStore";
-import { selectFreshnessSummary } from "@/entities/robot/selectors";
-import { useFleetRobots } from "@/entities/robot/useFleetRobots";
+import type { FleetData } from "@/stores/fleetStore";
+import { selectFreshnessSummary } from "@/utils/robotSelectors";
+import { useFleetRobots } from "@/hooks/useFleetRobots";
 
 import {
   EMPTY_FILTERS,

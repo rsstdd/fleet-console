@@ -5,8 +5,8 @@ import { Stack, Typography } from "@mui/material";
 import { FreshnessLabel } from "@/components/freshnessLabel";
 import { StatusChip } from "@/components/statusChip";
 
-import type { Robot } from "@/entities/robot/model";
-import { selectStatusPresentation } from "@/entities/robot/selectors";
+import type { Robot } from "@/types/robot";
+import { selectStatusPresentation } from "@/utils/robotSelectors";
 
 /**
  * One row per robot with the id link as the sole activation path

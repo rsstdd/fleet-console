@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ReactNode } from "react";
 
-import type { Robot } from "@/entities/robot/model";
-import type { FleetData, FleetResourceState } from "@/entities/robot/fleetStore";
+import type { Robot } from "@/types/robot";
+import type { FleetData, FleetResourceState } from "@/stores/fleetStore";
 import { ConnectionContext, type StreamConnectionState } from "@/context/connectionContext";
 
 /**
@@ -22,7 +22,7 @@ const fleet = vi.hoisted((): { state: FleetResourceState } => ({
   state: { kind: "loading" },
 }));
 
-vi.mock("@/entities/robot/useFleetRobots", () => ({
+vi.mock("@/hooks/useFleetRobots", () => ({
   useFleetRobots: (): FleetResourceState => fleet.state,
 }));
 

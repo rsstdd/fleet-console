@@ -3,7 +3,7 @@ import { Alert, Button, Paper, Skeleton, Stack, Typography } from "@mui/material
 
 import type { RobotBatteryHistory } from "@fleet/contracts";
 
-import { useRobotHistory, type RobotHistoryState } from "@/entities/robot/useRobotHistory";
+import { useRobotHistory, type RobotHistoryState } from "@/hooks/useRobotHistory";
 import { DataPlate } from "@/components/dataPlate";
 
 import { TENANT } from "@/config/tenant";

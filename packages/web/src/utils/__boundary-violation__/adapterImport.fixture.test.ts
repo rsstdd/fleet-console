@@ -1,4 +1,4 @@
-// entities/robot/__boundary-violation__/adapterImport.fixture.test.ts
+// utils/__boundary-violation__/adapterImport.fixture.test.ts
 //
 // The legal half of the pair: the same import adapterImport.ts is rejected for,
 // in a file named the way test files are named. The end-to-end contract path

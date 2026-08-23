@@ -1,6 +1,6 @@
 /**
  * Robot read model for the console. Framework-independent — no React, no MUI,
- * no router. See ADR 1 (canonical model), ADR 4 (entity layer boundary).
+ * no router. See ADR 1 (canonical model), ADR 4 (data-layer boundary).
  *
  * Contract types are imported from `@fleet/contracts` and re-exported under the
  * names this package already uses; they are not restated here. A second

@@ -8,7 +8,7 @@ import { MapPage } from "@/features/map/mapPage";
 import { RobotDetailPage } from "@/features/robot/robotDetailPage";
 import { EmptyState } from "@/components/emptyState";
 import { useFleetTransport } from "@/app/useFleetTransport";
-import { FleetStoreContext } from "@/entities/robot/fleetStoreContext";
+import { FleetStoreContext } from "@/stores/fleetStoreContext";
 import { StreamDiagnosticsContext } from "@/context/streamDiagnosticsContext";
 
 /**

@@ -1,4 +1,4 @@
-import type { PanelCapabilityName } from "@/entities/robot/model";
+import type { PanelCapabilityName } from "@/types/robot";
 import type { TenantFlags } from "@/config/tenant";
 
 /**
@@ -6,7 +6,7 @@ import type { TenantFlags } from "@/config/tenant";
  * does not offer.
  *
  * The one place flag names meet panel names, so a component never consults a
- * flag and never mentions a tenant (Principle 13). `entities/robot` applies the
+ * flag and never mentions a tenant (Principle 13). `utils/robotSelectors` applies the
  * result; a panel renders only when the robot declared the capability **and**
  * the tenant enabled it (ADR 17).
  *

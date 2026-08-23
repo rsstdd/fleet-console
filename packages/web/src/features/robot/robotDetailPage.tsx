@@ -6,10 +6,10 @@ import { DataPlate } from "@/components/dataPlate";
 import { EmptyState } from "@/components/emptyState";
 import { type Persona } from "@/components/personaToggle";
 
-import type { RobotDetail } from "@/entities/robot/model";
-import { useRobotDetail, type RobotDetailState } from "@/entities/robot/useRobotDetail";
-import { useFleetRobot } from "@/entities/robot/useFleetRobots";
-import { reconcileDetailWithRow } from "@/entities/robot/fromEnvelope";
+import type { RobotDetail } from "@/types/robot";
+import { useRobotDetail, type RobotDetailState } from "@/hooks/useRobotDetail";
+import { useFleetRobot } from "@/hooks/useFleetRobots";
+import { reconcileDetailWithRow } from "@/utils/fromEnvelope";
 
 import { TENANT } from "@/config/tenant";
 
@@ -102,7 +102,7 @@ export function RobotDetailPage(): ReactNode {
 
 /** The addressed half of the page: `id` is guaranteed, so every data hook runs unconditionally. */
 function ResolvedRobotDetail({ id }: { readonly id: string }): ReactNode {
-  // The address is deployment configuration; this layer may read it and the entity may
+  // The address is deployment configuration; this layer may read it and the hooks may
   // not (ADR 4, ADR 21).
   const fetched: RobotDetailState = useRobotDetail(id, {
     apiBaseUrl: TENANT.endpoints.apiBaseUrl,

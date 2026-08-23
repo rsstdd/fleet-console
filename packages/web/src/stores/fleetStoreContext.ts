@@ -6,7 +6,7 @@ import { createFleetStore, type FleetStore } from "./fleetStore";
  * How the fleet store reaches the hooks that read it.
  *
  * The store is created by the transport boundary in `app`, and the hooks that read it live
- * here in `entities`. `features` may not import `app` (ADR 4), so the value cannot travel
+ * here in `stores`. `features` may not import `app` (ADR 4), so the value cannot travel
  * down the import graph — the same constraint that put connection state in a context
  * (ADR 23), applied to the other half of what the transport produces.
  *

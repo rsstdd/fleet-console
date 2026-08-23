@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Box } from "@mui/material";
 
-import type { RobotDetail } from "@/entities/robot/model";
-import { selectPanelCapabilities } from "@/entities/robot/selectors";
+import type { RobotDetail } from "@/types/robot";
+import { selectPanelCapabilities } from "@/utils/robotSelectors";
 
 import { TENANT } from "@/config/tenant";
 

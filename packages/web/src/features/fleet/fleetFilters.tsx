@@ -9,8 +9,8 @@ import {
   type SelectChangeEvent,
 } from "@mui/material";
 
-import type { Freshness, Robot } from "@/entities/robot/model";
-import type { Site } from "@/entities/site/model";
+import type { Freshness, Robot } from "@/types/robot";
+import type { Site } from "@/types/site";
 
 const FRESHNESS_FILTER_OPTIONS: ReadonlyArray<{ value: Freshness; label: string }> = [
   { value: "live", label: "Live" },

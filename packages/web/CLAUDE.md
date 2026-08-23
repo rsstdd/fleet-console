@@ -1,7 +1,7 @@
 # CLAUDE.md
 
-This package is the React fleet operations console, organized into app, feature, entity,
-shared, and typed configuration layers.
+This package is the React fleet operations console, organized into app, feature, component,
+data (hooks, stores, utils, types), context, lib, and typed configuration layers.
 
 Follow the repository-level [`CLAUDE.md`](../../CLAUDE.md),
 [`PRINCIPLES.md`](../../PRINCIPLES.md), and accepted ADRs. Also follow every web-specific
@@ -13,9 +13,8 @@ relevant page/component spec and mapped ADR.
 
 In particular:
 
-- Keep feature-sliced dependencies moving downward; never import across features or
-  entities.
-- Keep domain mapping and selectors in entities, presentational primitives in `components`,
+- Keep feature-sliced dependencies moving downward; never import across features.
+- Keep domain mapping and selectors in the data layers (`utils`, `types`), presentational primitives in `components`,
   and tenant values in typed config.
 - Display server-derived freshness without a timer, and suppress per-robot freshness while
   the stream is down.

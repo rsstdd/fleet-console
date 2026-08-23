@@ -3,7 +3,7 @@
  * the mono display used throughout the console (fleet table, robot detail
  * diagnostics). Returns an em dash for null — a robot that has never reported
  * has no time to format, and an em dash is the same "not a current value"
- * signal used for battery elsewhere (entities/robot/selectors.ts).
+ * signal used for battery elsewhere (utils/robotSelectors.ts).
  */
 export function formatTimeUtc(value: string | number | null): string {
   if (value === null) {

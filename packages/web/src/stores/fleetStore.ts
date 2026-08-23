@@ -1,7 +1,7 @@
 import type { ContractIssue, FleetSite, FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
 
-import { toRegisteredRobot, toRobot } from "./fromEnvelope";
-import type { Robot } from "./model";
+import { toRegisteredRobot, toRobot } from "@/utils/fromEnvelope";
+import type { Robot } from "@/types/robot";
 
 /**
  * The console's fleet state: the resource-state union the fleet page renders,

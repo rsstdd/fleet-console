@@ -1,13 +1,13 @@
 # AGENTS.md
 
-Vite + MUI fleet ops console. Layers: app, feature, entity, shared, config.
+Vite + MUI fleet ops console. Layers: app, features, components, hooks, stores, context, lib, utils, types, config.
 
 Repo [`AGENTS.md`](../../AGENTS.md), [`PRINCIPLES.md`](../../PRINCIPLES.md), and accepted ADRs bind. This file is web-only; it does not replace them.
 
 ## Responsibilities
 
 - Render fleet list, robot detail, capability panels, connection state, and all async states from canonical data.
-- Map canonical contracts → browser read model at the entity boundary. Never decode vendor dialects or reproduce server rules.
+- Map canonical contracts → browser read model at the data boundary (`utils/fromEnvelope`). Never decode vendor dialects or reproduce server rules.
 - Present server freshness; do not derive it or own a timer (ADR 3).
 - Operator content primary; technician diagnostics behind persona toggle.
 - Tenant branding, endpoints, flags from typed config.
@@ -17,9 +17,11 @@ Does **not**: normalize vendor input, derive freshness, authorize commands, own 
 ## Layers
 
 ```
-app        → feature, entity, components, lib, context, utils, config
-feature    → own feature, entity, components, lib, context, utils, config
-entity     → own entity, lib, utils
+app        → feature, hooks, stores, types, components, lib, context, utils, config
+feature    → own feature, hooks, stores, types, components, lib, context, utils, config
+hooks      → hooks, stores, types, lib, utils
+stores     → stores, types, utils
+types      → types
 components → components
 lib        → lib, context
 context    → context, config
@@ -27,9 +29,9 @@ utils      → utils
 config     → config
 ```
 
-- Features ↛ features. Entities ↛ entities.
-- `components` = domain-free presentation. Robot/site/vendor/capability/freshness → entities.
-- `entities` = mapping + selectors. No JSX/MUI.
+- Features ↛ features.
+- `components` = domain-free presentation. Robot/site/vendor/capability/freshness → the data layers.
+- `hooks`/`stores`/`utils`/`types` = the data layers: resource hooks, the fleet store, mapping + selectors, read-model types. No JSX/MUI.
 - Components consume derived values. Domain calc → selectors.
 - Prod: `@fleet/contracts` only. Never `@fleet/server` or `@fleet/adapters` (adapters in tests only, ADR 12).
 - If it doesn’t fit a layer, stop. Don’t bypass lint.
@@ -40,7 +42,7 @@ config     → config
 - Stream down → hide per-robot freshness; `ConnectionBanner` is connection truth (ADR 3, 23).
 - Keep separate: remote resource, observed live, requested, workflow, local-view. Ack ≠ observed robot state (P11).
 - Normalize observed state by robot id. No denormalized fleet copies.
-- Never branch on vendor in entity/feature/shared. Render declared capabilities via exhaustive panel registry (ADR 1, 19).
+- Never branch on vendor in any layer. Render declared capabilities via exhaustive panel registry (ADR 1, 19).
 - Missing capability → no panel, not a disabled placeholder.
 
 ## React (Rules of React)
@@ -74,7 +76,7 @@ StrictMode + react-hooks + React Compiler lints. Violations = bugs.
 **State**
 
 - Local first; lift only when needed.
-- Server state ≠ client state. Fetch at entity/RSC-equivalent boundary or query layer — not `useEffect`.
+- Server state ≠ client state. Fetch at the hooks boundary or query layer — not `useEffect`.
 - Context only for low-churn. Split state vs actions; never inline context value objects.
 
 ## UI, a11y, config
@@ -133,12 +135,12 @@ Read one matching row, then its narrow follow-up. Do not preload all web source,
 | -------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------- |
 | Status, ownership, layer policy        | `docs/03_package-specs/05_WEB.md`        | `packages/web/eslint.config.js` (imports)                                             |
 | Entry, providers, routes               | `src/main.tsx`                           | `src/app/appRouter.tsx` or `appShell.tsx`; `docs/01_page-specs/01_APP_SHELL.md`       |
-| Fleet page, filter, group, scale       | `src/features/fleet/fleetPage.tsx`       | `src/entities/{robot,site}/`; `docs/01_page-specs/02_FLEET.md`                        |
+| Fleet page, filter, group, scale       | `src/features/fleet/fleetPage.tsx`       | `src/hooks/`, `src/utils/robotSelectors.ts`; `docs/01_page-specs/02_FLEET.md`                        |
 | Robot detail, persona, panels          | `src/features/robot/robotDetailPage.tsx` | `capabilityPanels.tsx`, `panelVisibility.ts`; `docs/01_page-specs/03_ROBOT_DETAIL.md` |
-| Map, site facet, markers               | `src/features/map/mapPage.tsx`           | `src/entities/robot/selectors.ts`; `docs/01_page-specs/04_MAP.md`; ADR 35             |
-| Envelope → browser model               | `src/entities/robot/fromEnvelope.ts`     | `model.ts`, `selectors.ts`; `packages/contracts/src/index.ts`                         |
-| Fleet/robot resource state             | `src/entities/robot/useFleetRobots.ts`   | `useRobotDetail.ts`; feature consumer                                                 |
-| Connection / transport util            | `src/context/connectionContext.ts`    | ADR 23; domain interpretation stays in entities                                       |
+| Map, site facet, markers               | `src/features/map/mapPage.tsx`           | `src/utils/robotSelectors.ts`; `docs/01_page-specs/04_MAP.md`; ADR 35             |
+| Envelope → browser model               | `src/utils/fromEnvelope.ts`              | `types/robot.ts`, `utils/robotSelectors.ts`; `packages/contracts/src/index.ts`                         |
+| Fleet/robot resource state             | `src/hooks/useFleetRobots.ts`            | `useRobotDetail.ts`; feature consumer                                                 |
+| Connection / transport util            | `src/context/connectionContext.ts`    | ADR 23; domain interpretation stays in the data layers                                       |
 | Presentational primitive               | matching `docs/02_component-specs/`      | same-named module in `src/components/`                                                 |
 | Tenant, theme, flags, endpoints, proxy | `src/config/tenant.ts`                   | `tenantTheme.ts`, `tenantSelection.ts`, `devServerTarget.ts`, or `vite.config.ts`     |
 | Tokens / global style                  | `docs/DESIGN_SYSTEM.md`                  | `src/styles/`, `src/app/theme.ts`                                                     |

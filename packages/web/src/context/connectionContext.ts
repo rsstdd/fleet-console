@@ -15,7 +15,7 @@ import { createContext, use } from "react";
  * store grows, because it is the one stateful thing every layer can reach. It exports the
  * stream's connection state, a predicate over that state, and nothing more. Anything that
  * is not "can this browser see the server" belongs elsewhere: robot state is
- * `entities/robot`, deployment configuration is `config`, and view state belongs to the
+ * `utils/robotSelectors`, deployment configuration is `config`, and view state belongs to the
  * feature that owns it (Principle 11).
  *
  * **This is not robot state and must never be merged with it.** Principle 11 separates
@@ -34,7 +34,7 @@ import { createContext, use } from "react";
  * structurally identical union. `context` and `components` are siblings and neither may
  * import the other (ADR 4), so the two are restated and TypeScript's structural typing
  * makes a value of either assignable to the other with no adapter. The same reasoning is
- * already written on `StatusPresentationVariant` in `entities/robot/selectors.ts`.
+ * already written on `StatusPresentationVariant` in `utils/robotSelectors.ts`.
  *
  * Coupling: `docs/02_component-specs/07_CONNECTION_BANNER.md` § API is the authority for
  * this vocabulary. Adding a state is a change in three places — that spec, the banner, and

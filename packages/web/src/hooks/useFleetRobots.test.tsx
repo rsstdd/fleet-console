@@ -4,12 +4,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SCHEMA_VERSION, type FleetSnapshot } from "@fleet/contracts";
 
-import { createFleetStore } from "../fleetStore";
-import { FleetStoreContext } from "../fleetStoreContext";
-import { useFleetRobot, useFleetRobots } from "../useFleetRobots";
+import { createFleetStore } from "@/stores/fleetStore";
+import { FleetStoreContext } from "@/stores/fleetStoreContext";
+import { useFleetRobot, useFleetRobots } from "./useFleetRobots";
 
 /**
- * The join between the transport boundary in `app` and the hooks in `entities`, which
+ * The join between the transport boundary in `app` and the hooks here, which
  * cannot see each other through the import graph (ADR 4).
  */
 describe("useFleetRobots", () => {

@@ -4,7 +4,7 @@ import type {
   RobotDiagnosticEnvelope,
 } from "@fleet/contracts";
 
-import type { Robot, RobotDetail } from "./model";
+import type { Robot, RobotDetail } from "@/types/robot";
 
 /**
  * The one place the canonical envelope becomes the console's read model.

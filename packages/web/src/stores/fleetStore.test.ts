@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SCHEMA_VERSION } from "@fleet/contracts";
 import type { CanonicalEnvelope, FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
 
-import { createFleetStore, type FleetData } from "../fleetStore";
+import { createFleetStore, type FleetData } from "./fleetStore";
 
 /**
  * The store applies whole robots, owns the resource-state machine, and derives

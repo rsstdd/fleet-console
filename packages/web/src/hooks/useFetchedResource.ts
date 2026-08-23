@@ -19,7 +19,7 @@ export interface FetchedResourceContext {
  *
  * `load` must be a module-level function, not an inline closure: it is an
  * effect dependency, and a fresh identity per render would re-fetch on every
- * render. `apiBaseUrl` is a parameter because `entities` may not import
+ * render. `apiBaseUrl` is a parameter because the data layers may not import
  * `config` (ADR 4); `fetchLike` is injectable so tests map outcomes to states
  * without a network.
  */

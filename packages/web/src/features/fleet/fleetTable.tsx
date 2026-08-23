@@ -15,9 +15,10 @@ import { DataPlate } from "@/components/dataPlate";
 import { FreshnessLabel } from "@/components/freshnessLabel";
 import { StatusChip } from "@/components/statusChip";
 
-import { selectBatteryDisplay, selectStatusPresentation } from "@/entities/robot/selectors";
-import type { Robot } from "@/entities/robot/model";
-import { selectSiteLabel, type Site } from "@/entities/site/model";
+import { selectBatteryDisplay, selectStatusPresentation } from "@/utils/robotSelectors";
+import type { Robot } from "@/types/robot";
+import { selectSiteLabel } from "@/utils/siteLabel";
+import type { Site } from "@/types/site";
 
 import { formatTimeUtc } from "@/utils/time";
 

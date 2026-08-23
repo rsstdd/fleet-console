@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import { Paper, Stack } from "@mui/material";
 
-import type { RobotDetail, RobotHealth } from "@/entities/robot/model";
+import type { RobotDetail, RobotHealth } from "@/types/robot";
 import {
   selectBatteryDisplay,
   selectPositionDisplay,
   selectStatusPresentation,
-} from "@/entities/robot/selectors";
+} from "@/utils/robotSelectors";
 import { formatTimeUtc } from "@/utils/time";
 
 import { Field, Section } from "./detailSection";

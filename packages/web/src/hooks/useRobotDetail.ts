@@ -8,8 +8,8 @@ import {
   type RobotDetailResponse,
 } from "@/lib/transportDecoding";
 
-import { toRegisteredRobotDetail, toRobotDetail } from "./fromEnvelope";
-import type { RobotDetail } from "./model";
+import { toRegisteredRobotDetail, toRobotDetail } from "@/utils/fromEnvelope";
+import type { RobotDetail } from "@/types/robot";
 import { useFetchedResource, type FetchedResourceContext } from "./useFetchedResource";
 
 /**

@@ -1,7 +1,7 @@
-// entities/robot/__boundary-violation__/violation.ts
+// utils/__boundary-violation__/violation.ts
 //
 // Deliberate violation of the external-dependency policy, required by ADR 4.
-// The entity layer renders nothing and routes nothing, so react-dom is banned
+// The data layers (hooks, stores, utils, types) render nothing and route nothing, so react-dom is banned
 // there. Exercised by ../../../features/fleet/__boundary-violation__/violation.test.ts,
 // which asserts this file produces a boundaries/dependencies error.
 //
