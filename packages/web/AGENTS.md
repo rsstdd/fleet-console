@@ -67,7 +67,7 @@ StrictMode + react-hooks + React Compiler lints. Violations = bugs.
 
 **Compiler / JSX**
 
-- Enable React Compiler. Don’t sprinkle `memo` / `useMemo` / `useCallback`. Keep only for compiler-unsafe or effect-dep stability. `"use no memo"` rare.
+- React Compiler: required, but **not enabled — gated on open decision D27** (`docs/decisions.json`: dependency spike, then ADR 22 bundle and ADR 24 scale evidence; maintainer decides). Do not enable it, or remove the manual memoization on the measured fleet surfaces, outside that decision. Otherwise don’t sprinkle `memo` / `useMemo` / `useCallback` — keep only for compiler-unsafe or effect-dep stability. `"use no memo"` rare.
 - Keys: stable IDs, never index.
 - No anonymous fns or object/array literals in props.
 - Functions only. One job. Split >~150–200 lines or mixed concerns.
