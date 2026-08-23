@@ -1,7 +1,7 @@
 # 08 — PersonaToggle
 
 Status: implementation-ready
-Implementation: `shared/ui/personaToggle.tsx`
+Implementation: `components/personaToggle.tsx`
 
 ## 1. Responsibility
 

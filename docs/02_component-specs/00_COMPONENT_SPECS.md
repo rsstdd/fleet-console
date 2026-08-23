@@ -2,7 +2,7 @@
 
 Status: implementation-ready component contract index
 Stack: React · TypeScript · MUI · design-token layer
-Layer: `/web/src/shared/ui` only
+Layer: `/web/src/components` only
 
 ## 1. Purpose
 
@@ -14,14 +14,14 @@ This separation keeps domain logic out of primitives (Principle 1), enforces lay
 
 | Component         | Owning specification      | Implementation                   |
 | ----------------- | ------------------------- | -------------------------------- |
-| Status chip       | `01_STATUS_CHIP.md`       | `shared/ui/statusChip.tsx`       |
-| Freshness label   | `02_FRESHNESS_LABEL.md`   | `shared/ui/freshnessLabel.tsx`   |
-| Section label     | `03_SECTION_LABEL.md`     | `shared/ui/sectionLabel.tsx`     |
-| Data plate        | `04_DATA_PLATE.md`        | `shared/ui/dataPlate.tsx`        |
-| Stat              | `05_STAT.md`              | `shared/ui/stat.tsx`             |
-| Empty state       | `06_EMPTY_STATE.md`       | `shared/ui/emptyState.tsx`       |
-| Connection banner | `07_CONNECTION_BANNER.md` | `shared/ui/connectionBanner.tsx` |
-| Persona toggle    | `08_PERSONA_TOGGLE.md`    | `shared/ui/personaToggle.tsx`    |
+| Status chip       | `01_STATUS_CHIP.md`       | `components/statusChip.tsx`       |
+| Freshness label   | `02_FRESHNESS_LABEL.md`   | `components/freshnessLabel.tsx`   |
+| Section label     | `03_SECTION_LABEL.md`     | `components/sectionLabel.tsx`     |
+| Data plate        | `04_DATA_PLATE.md`        | `components/dataPlate.tsx`        |
+| Stat              | `05_STAT.md`              | `components/stat.tsx`             |
+| Empty state       | `06_EMPTY_STATE.md`       | `components/emptyState.tsx`       |
+| Connection banner | `07_CONNECTION_BANNER.md` | `components/connectionBanner.tsx` |
+| Persona toggle    | `08_PERSONA_TOGGLE.md`    | `components/personaToggle.tsx`    |
 
 ## 3. Normative hierarchy
 
@@ -35,7 +35,7 @@ This separation keeps domain logic out of primitives (Principle 1), enforces lay
 - Presentational only: no domain types, no entity/feature imports (Principle 9).
 - Explicit `readonly` prop interfaces; no arbitrary prop spreading onto DOM. A component accepts the props it documents and no others.
 - Native HTML / MUI semantics before ARIA; no redundant roles (Principle 6).
-- Tokens only: no raw hex or raw px outside `/shared/ui` and `/config` (Principle 8, lint-enforced).
+- Tokens only: no raw hex or raw px outside `/components` and `/config` (Principle 8, lint-enforced).
 - Source order equals reading and focus order (Principle 6).
 - Status and freshness never rely on colour alone; text label is required (Principle 6).
 - The tenant accent is identity and primary action only; never status. The token is `--accent`; there is no `--gold`.

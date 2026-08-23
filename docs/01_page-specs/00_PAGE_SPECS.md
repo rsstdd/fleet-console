@@ -32,7 +32,7 @@ Conflict rule: contradictory text is corrected in the same change. Do not implem
 
 - Freshness is visible wherever operational state is shown (Principle 4).
 - Status never relies on colour alone; use `StatusChip` with a text label (Principle 6).
-- Presentational primitives come from `/shared/ui`; features do not redefine their look (Principle 9).
+- Presentational primitives come from `/components`; features do not redefine their look (Principle 9).
 - No feature imports another feature (Principle 9).
 - The tenant accent is identity and primary action only; never status. The token is `--accent` (Principle 8).
 - Connection integrity is visible in the shell when the stream is not healthy (Principle 5).

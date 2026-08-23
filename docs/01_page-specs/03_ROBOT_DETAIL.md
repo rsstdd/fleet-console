@@ -79,7 +79,7 @@ arrive on the stream (ADR 3). The mechanism is reconciliation, not refetching: t
 subscribes to this robot's fleet row and overlays it onto the one fetched detail
 (`reconcileDetailWithRow`), so diagnostics and the retained raw payload stay as fetched
 while battery, position, status, health, connectivity, freshness, and last-seen move with
-the stream. The page holds no timer of its own, and neither does `entities/robot` — a
+the stream. The page holds no timer of its own, and neither do the data layers — a
 header label changes because a delta changed it (Principle 4).
 
 There is no "mission" or "activity" field in the canonical envelope. If a future capability adds one, it is declared and rendered in Capabilities, not assumed into Summary.

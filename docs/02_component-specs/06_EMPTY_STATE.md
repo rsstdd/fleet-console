@@ -1,7 +1,7 @@
 # 06 — EmptyState
 
 Status: implementation-ready
-Implementation: `shared/ui/emptyState.tsx`
+Implementation: `components/emptyState.tsx`
 
 ## 1. Responsibility
 

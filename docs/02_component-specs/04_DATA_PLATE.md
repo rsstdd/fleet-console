@@ -1,7 +1,7 @@
 # 04 — DataPlate
 
 Status: implementation-ready
-Implementation: `shared/ui/dataPlate.tsx`
+Implementation: `components/dataPlate.tsx`
 
 ## 1. Responsibility
 
