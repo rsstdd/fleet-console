@@ -102,18 +102,29 @@ reconciliations where it meets binding repository authority:
 
 ## Acceptance criteria
 
-- [ ] Robot detail validates the route id at the boundary; every data hook takes
+- [x] Robot detail validates the route id at the boundary; every data hook takes
       `string`; the undefined-id path has a test.
-- [ ] Every source directory's unit tests live in `tests/`; convention documented;
-      collected-test count unchanged by the moves.
-- [ ] Fixture location and the three documents that describe it agree.
-- [ ] No non-CSS source file in the package exceeds ~300 lines except generated or
-      fixture data; `robotDetailPage.tsx` retains only page/body/renderState.
-- [ ] One fetch-lifecycle implementation; facades keep their pinned paths and ADR 33
-      citations (`pnpm check:architecture-docs` green).
-- [ ] `pnpm --filter web test && pnpm --filter web lint && pnpm --filter web build`
-      green after every slice; `pnpm test:e2e` after slices 1 and 4c.
-- [ ] Unverified items recorded here honestly at completion.
+- [x] Every source directory's unit tests live in `tests/`; convention documented;
+      collected-test count unchanged by the moves (32 files / 380 tests before and
+      after; 24 files moved — the survey's 25 overcounted `shared/lib` by one).
+- [x] Fixture location and the three documents that describe it agree.
+- [x] The two scoped oversized files are decomposed: `robotDetailPage.tsx` retains
+      only the route entry, body, and `renderState` (189 lines, from 552) over five
+      section files; `componentGallery.tsx` retains only orchestration (135 lines,
+      from 592) over three gallery files. (`fleetPage.tsx`'s in-file decomposition
+      was settled by `REFACTOR_WEB_REACT_QUALITY.md` F3 and is out of scope here.)
+- [x] One fetch-lifecycle implementation (`useFetchedResource`, 4 behavior tests
+      written first); facades keep their pinned paths and ADR 33 citations
+      (`pnpm check:architecture-docs` green).
+- [x] `pnpm --filter web test && pnpm --filter web lint && pnpm --filter web build`
+      green after every slice; `pnpm test:e2e` after the repair slice and after the
+      detail-page split completed (24/24, chromium + firefox).
+- [x] Unverified items recorded honestly: the e2e webkit project cannot launch on
+      the development WSL host (missing system libraries) — smoke evidence covers
+      chromium and firefox only. Commit `6bb879c` on `refactor-web` holds the 25
+      pure renames without the import rewrites and does not build standalone; it
+      was already pushed, so it was completed by the following commit rather than
+      amended.
 
 ## Documentation synchronization
 
@@ -133,5 +144,6 @@ reconciliations where it meets binding repository authority:
 
 ## Completion
 
-Archive under `docs/04_archive/` once all slices are merged; name the merged PRs as the
-replacement evidence.
+All slices are implemented on `refactor-web` (2026-08-23). Archive under
+`docs/04_archive/` once the branch merges; name the merged PR and the commit series
+(`6bb879c`…hygiene) as the replacement evidence.

@@ -247,5 +247,3 @@ export function MapPage(): ReactNode {
     </Box>
   );
 }
-
-export default MapPage;
