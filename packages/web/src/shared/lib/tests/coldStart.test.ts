@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SCHEMA_VERSION } from "@fleet/contracts";
 import type { FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
 
-import { createColdStart } from "./coldStart";
+import { createColdStart } from "../coldStart";
 
 /**
  * The ordering the server's TODO **H3b** says nothing else will catch: fetching before

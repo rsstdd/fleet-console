@@ -50,7 +50,7 @@ vi.mock("@/entities/robot/useFleetRobots", () => ({
   useFleetRobots: (): FleetResourceState => fleet.state,
 }));
 
-const { FleetPage } = await import("./fleetPage");
+const { FleetPage } = await import("../fleetPage");
 
 /**
  * A fleet of `size` robots with a deterministic spread of freshness states.

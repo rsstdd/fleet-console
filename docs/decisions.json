@@ -195,7 +195,7 @@
       "adr": 23
     },
     {
-      "path": "packages/web/src/features/fleet/fleetScale.test.tsx",
+      "path": "packages/web/src/features/fleet/tests/fleetScale.test.tsx",
       "adr": 24
     },
     {

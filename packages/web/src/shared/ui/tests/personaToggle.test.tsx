@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { PersonaToggle } from "./personaToggle";
+import { PersonaToggle } from "../personaToggle";
 
 /**
  * Contract test for docs/02_component-specs/08_PERSONA_TOGGLE.md §11. The

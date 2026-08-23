@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { SectionLabel } from "./sectionLabel";
+import { SectionLabel } from "../sectionLabel";
 
 /**
  * Contract test for docs/02_component-specs/03_SECTION_LABEL.md §4 and §9. The

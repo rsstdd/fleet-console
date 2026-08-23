@@ -5,7 +5,7 @@ import {
   DEFAULT_CONNECTION_STATE,
   type StreamConnectionState,
   isStreamConnected,
-} from "./connectionContext";
+} from "../connectionContext";
 
 describe("DEFAULT_CONNECTION_STATE", () => {
   it("fails closed when no provider is above the consumer", () => {

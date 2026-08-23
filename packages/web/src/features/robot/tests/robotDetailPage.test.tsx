@@ -10,7 +10,7 @@ import { createFleetStore } from "@/entities/robot/fleetStore";
 import { FleetStoreContext } from "@/entities/robot/fleetStoreContext";
 
 import { RobotDetailPage } from "../robotDetailPage";
-import { createFixtureFetch } from "../robotDetailFixtures";
+import { createFixtureFetch } from "./robotDetailFixtures";
 
 /**
  * The page fetches; these tests stub `fetch` rather than the hook.

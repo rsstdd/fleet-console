@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as TenantModule from "@/config/tenant";
-import { createFixtureFetch } from "../robotDetailFixtures";
+import { createFixtureFetch } from "./robotDetailFixtures";
 
 /**
  * The page fetches; these tests stub `fetch` rather than the hook.

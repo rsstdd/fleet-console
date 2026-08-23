@@ -94,6 +94,9 @@ StrictMode + react-hooks + React Compiler lints. Violations = bugs.
 ## Tests
 
 - Focused failing test before behavior change.
+- Unit tests live in a `tests/` subdirectory beside the sources they cover; they inherit
+  the layer of their parent directory. `__boundary-violation__` enforcement suites stay
+  with their fixtures.
 - Selectors as pure fns. Components by role, name, state.
 - No snapshots. No module mocks for adapters unless test-only import (ADR 12).
 - User-facing → running-browser check or documented equivalent.
