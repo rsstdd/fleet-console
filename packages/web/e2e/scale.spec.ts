@@ -26,8 +26,9 @@ import { startStack, type Stack } from "./stack.ts";
  * the same strict decoder the console itself uses. Frames are served through
  * Playwright's WebSocket routing so cadence is controlled and measurable.
  *
- * **Only benchmark integrity is asserted** — 500 rows stay rendered and every sampled
- * frame is applied. Timing and memory numbers are reported, not gated: a threshold
+ * **Only benchmark integrity is asserted** — 500 rows stay rendered, every frame is
+ * received at the socket, and the final frame's content is genuinely rendered (the
+ * application evidence). Timing and memory numbers are reported, not gated: a threshold
  * without a derivation is worse than none (ADR 22), and this report is the input such a
  * derivation would use.
  */
@@ -188,10 +189,15 @@ test.describe("500-robot live-stream measurement", () => {
       globalThis.WebSocket = class extends NativeWebSocket {
         constructor(url: string | URL, protocols?: string | string[]) {
           super(url, protocols);
+          // Receipt is counted synchronously: an animation frame is not
+          // guaranteed to fire (an occluded or throttled page starves rAF),
+          // and a count that depends on one times out the integrity poll
+          // while the UI is provably correct. The rAF callback only samples
+          // receipt-to-next-animation-frame latency.
           this.addEventListener("message", () => {
+            probe.received += 1;
             const receivedAt = performance.now();
             requestAnimationFrame(() => {
-              probe.received += 1;
               probe.paintLatencies.push(performance.now() - receivedAt);
             });
           });
@@ -227,8 +233,9 @@ test.describe("500-robot live-stream measurement", () => {
     }
     const measuredWallMs = performance.now() - measuredStartedAt;
 
-    // 6. Integrity, which is the only thing asserted: every frame applied, all rows
-    //    still present, and the final frame's content genuinely rendered.
+    // 6. Integrity, which is the only thing asserted: every frame received at the
+    //    socket, all rows still present, and the final frame's content genuinely
+    //    rendered — that last assertion, not the count, is the application evidence.
     await expect
       .poll(() => page.evaluate(() => globalThis.__scale.received), { timeout: 10_000 })
       .toBe(totalFrames);
@@ -256,7 +263,7 @@ test.describe("500-robot live-stream measurement", () => {
         renderedRows: ROBOT_COUNT,
         renderedActivationLinks: ROBOT_COUNT,
         framesSent: totalFrames,
-        framesApplied: probe.received,
+        framesReceived: probe.received,
       },
       achievedFrameRateHz: (MEASURED_FRAMES / measuredWallMs) * 1000,
       deltaToNextPaintMs: summarize(measuredLatencies),
@@ -280,7 +287,7 @@ test.describe("500-robot live-stream measurement", () => {
     console.log(
       [
         `500-robot measurement (${report.environment.browser}):`,
-        `  frames applied ${String(report.integrity.framesApplied)}/${String(totalFrames)}`,
+        `  frames received ${String(report.integrity.framesReceived)}/${String(totalFrames)}`,
         `  achieved rate ${report.achievedFrameRateHz.toFixed(2)} Hz`,
         `  delta→paint p50 ${report.deltaToNextPaintMs.p50.toFixed(1)} ms · p95 ${report.deltaToNextPaintMs.p95.toFixed(1)} ms · max ${report.deltaToNextPaintMs.max.toFixed(1)} ms`,
         `  rAF interval p50 ${report.animationFrameIntervalMs.p50.toFixed(1)} ms · p95 ${report.animationFrameIntervalMs.p95.toFixed(1)} ms`,
