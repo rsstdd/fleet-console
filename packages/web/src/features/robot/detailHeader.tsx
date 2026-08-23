@@ -12,7 +12,7 @@ import { selectStatusPresentation } from "@/utils/robotSelectors";
 import { useFleetSites } from "@/hooks/useFleetRobots";
 import { selectSiteLabel } from "@/utils/siteLabel";
 
-import { MONO } from "./detailSection";
+import { MONO } from "./detailStyles";
 
 /** Back to the fleet, per spec §2. A link, not a history-popping button. */
 export function BackToFleet(): ReactNode {

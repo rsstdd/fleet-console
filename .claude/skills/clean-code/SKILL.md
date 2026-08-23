@@ -22,12 +22,12 @@ so in the summary — never resolve the conflict silently.
 Do not re-litigate these. Flag anything new. (Recorded in
 `docs/05_plans/WEB_TEST_LAYOUT_AND_DECOMPOSITION.md`, Code quality standard.)
 
-| Clean Code rule | Repo convention that wins | Why |
-|---|---|---|
-| One assert per test | One *behavior* per test; existing multi-assertion suites stay | Rewriting a green suite that serves as behavior-preservation evidence is churn that destroys the evidence. New tests are written one behavior per test. |
-| Prefer polymorphism to if/else | Exhaustive `switch` over discriminated unions for state and domain rules | `switch-exhaustiveness-check` makes a new union member a compile error at every consumer; a class hierarchy cannot refuse an unknown variant at the decode boundary. Polymorphism applies at real seams — the capability-panel registry instead of vendor branches — not closed unions. |
-| Boy scout rule, unbounded | Bounded by ADR 27's ~300-line reviewable-diff gate | Campground = files the change already touches; cleanups beyond them go on a plan's follow-up list rather than into the diff. |
-| Avoid comments; explain in code | Two-sided coupling comments to governance docs | A mirror between code and a ratified policy cannot be expressed in code. Both ends must name each other. |
+| Clean Code rule                 | Repo convention that wins                                                | Why                                                                                                                                                                                                                                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One assert per test             | One _behavior_ per test; existing multi-assertion suites stay            | Rewriting a green suite that serves as behavior-preservation evidence is churn that destroys the evidence. New tests are written one behavior per test.                                                                                                                                 |
+| Prefer polymorphism to if/else  | Exhaustive `switch` over discriminated unions for state and domain rules | `switch-exhaustiveness-check` makes a new union member a compile error at every consumer; a class hierarchy cannot refuse an unknown variant at the decode boundary. Polymorphism applies at real seams — the capability-panel registry instead of vendor branches — not closed unions. |
+| Boy scout rule, unbounded       | Bounded by ADR 27's ~300-line reviewable-diff gate                       | Campground = files the change already touches; cleanups beyond them go on a plan's follow-up list rather than into the diff.                                                                                                                                                            |
+| Avoid comments; explain in code | Two-sided coupling comments to governance docs                           | A mirror between code and a ratified policy cannot be expressed in code. Both ends must name each other.                                                                                                                                                                                |
 
 ## General
 

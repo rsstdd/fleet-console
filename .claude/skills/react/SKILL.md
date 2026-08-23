@@ -41,16 +41,17 @@ Load the `clean-code` skill alongside this one for the style and structure rules
 
 ## Severity
 
-| Marker | Meaning |
-|---|---|
-| Critical | Broken render, data loss, injected HTML, leaked secret, unhandled auth state |
-| Major | Effect that loops or races, stale closure, missing cleanup, key misuse, a11y blocker |
-| Minor | Naming, prop shape, avoidable re-render, missing type narrowing |
-| Lint | A specific ESLint / `react-hooks` rule that applies |
+| Marker   | Meaning                                                                              |
+| -------- | ------------------------------------------------------------------------------------ |
+| Critical | Broken render, data loss, injected HTML, leaked secret, unhandled auth state         |
+| Major    | Effect that loops or races, stale closure, missing cleanup, key misuse, a11y blocker |
+| Minor    | Naming, prop shape, avoidable re-render, missing type narrowing                      |
+| Lint     | A specific ESLint / `react-hooks` rule that applies                                  |
 
 ## What to review
 
 ### Rendering correctness
+
 - Purity: no side effects, mutation of props or state, or non-deterministic values (`Date.now`,
   `Math.random`, `crypto.randomUUID`) during render. Under StrictMode and concurrent rendering a
   component renders twice — anything impure surfaces as a heisenbug.
@@ -61,6 +62,7 @@ Load the `clean-code` skill alongside this one for the style and structure rules
   instead, or key the component to reset it.
 
 ### Effects
+
 - An effect whose only job is to transform props into state, or to respond to a user event,
   is the wrong tool. Effects are for synchronizing with something outside React.
 - Every subscription, timer, listener, observer, and in-flight request has a cleanup.
@@ -70,6 +72,7 @@ Load the `clean-code` skill alongside this one for the style and structure rules
   newer state. Use an abort signal or an ignore flag.
 
 ### State ownership and data
+
 - State lives at the lowest common owner; server data is not mirrored into local state without
   a reason. Check invalidation on mutation, and what the UI shows while stale.
 - Context holding a new object literal per render re-renders every consumer; check the value is
@@ -77,12 +80,14 @@ Load the `clean-code` skill alongside this one for the style and structure rules
 - Loading, empty, error, and partial states are all handled — not just success.
 
 ### TypeScript
+
 - No `any`, no unexplained `as`, no non-null `!` on values that can genuinely be null.
 - Discriminated unions for mutually exclusive props, so impossible states are unrepresentable.
 - Props typed at the boundary; avoid `React.FC` where it obscures generics or children.
 - Event and ref types are the real DOM types, not `any`.
 
 ### Accessibility
+
 - Semantic elements before ARIA. A `div` with `onClick` is not a button: no focus, no keyboard,
   no role.
 - Every control has an accessible name; every input has a label association.
@@ -92,12 +97,14 @@ Load the `clean-code` skill alongside this one for the style and structure rules
 - Images carry meaningful `alt`, or empty `alt` when decorative.
 
 ### Security
+
 - `dangerouslySetInnerHTML` requires sanitization at the boundary and a comment naming the source.
 - No secrets in client bundles or `NEXT_PUBLIC_*`-style public env vars.
 - User-controlled URLs validated before use in `href`/`src` (`javascript:` and `data:` schemes).
 - Untrusted content is never interpolated into a template that reaches the DOM as markup.
 
 ### Performance
+
 - Measure before optimizing. `memo`, `useMemo`, and `useCallback` on a cheap component cost more
   than they save — flag both missing memoization on a proven hot path and cargo-culted memoization.
 - Look for: work inside render that belongs outside it, new function or object identities passed
@@ -105,6 +112,7 @@ Load the `clean-code` skill alongside this one for the style and structure rules
   and images or fonts without sizing or preload strategy.
 
 ### Tests
+
 - Query by role and accessible name, not by test id or class — the query is itself an a11y assertion.
 - Assert user-visible behavior, not implementation details or internal state.
 - No arbitrary waits; wait for a condition. Deterministic time and network via fake timers and

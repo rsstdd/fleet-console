@@ -8,7 +8,7 @@ import {
   matchesFilters,
   toFreshnessFilter,
   toIdFilter,
-} from "./fleetFilters";
+} from "./fleetFilterModel";
 
 /**
  * Contract test for the filter predicate's sentinel-collision behavior.
@@ -62,9 +62,9 @@ describe("matchesFilters", () => {
   });
 
   it("passes every robot when no dimension is filtered", () => {
-    expect(matchesFilters(robot({ id: "R-118", siteId: "all", vendor: "all" }), EMPTY_FILTERS)).toBe(
-      true,
-    );
+    expect(
+      matchesFilters(robot({ id: "R-118", siteId: "all", vendor: "all" }), EMPTY_FILTERS),
+    ).toBe(true);
   });
 });
 

@@ -3,11 +3,7 @@ import { Box, Stack, Typography } from "@mui/material";
 
 import { SectionLabel } from "@/components/sectionLabel";
 
-/** Monospace tabular styling shared by the identity heading, field values, and the raw-payload block. */
-export const MONO = {
-  fontFamily: "var(--font-mono)",
-  fontVariantNumeric: "tabular-nums",
-} as const;
+import { MONO } from "./detailStyles";
 
 /** One labelled value in a definition list. */
 export function Field({

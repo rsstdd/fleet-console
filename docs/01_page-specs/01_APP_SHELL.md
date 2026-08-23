@@ -57,7 +57,7 @@ Shell does not subscribe to per-robot telemetry (Principle 9).
 | ------------------ | -------------- |
 | Skip link          | App shell      |
 | Header / nav       | App shell      |
-| `ConnectionBanner` | `components`    |
+| `ConnectionBanner` | `components`   |
 | Theme provider     | App shell      |
 | Page content       | Feature routes |
 

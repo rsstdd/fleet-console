@@ -1,12 +1,5 @@
 import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
-import {
-  Alert,
-  Box,
-  Button,
-  Skeleton,
-  Typography,
-  type SelectChangeEvent,
-} from "@mui/material";
+import { Alert, Box, Button, Skeleton, Typography, type SelectChangeEvent } from "@mui/material";
 
 import { EmptyState } from "@/components/emptyState";
 import { isStreamConnected, useConnectionState } from "@/context/connectionContext";
@@ -17,12 +10,12 @@ import { useFleetRobots } from "@/hooks/useFleetRobots";
 
 import {
   EMPTY_FILTERS,
-  FleetFilters,
   matchesFilters,
   toFreshnessFilter,
   toIdFilter,
   type Filters,
-} from "./fleetFilters";
+} from "./fleetFilterModel";
+import { FleetFilters } from "./fleetFilters";
 import { FleetSummary } from "./fleetSummary";
 import { FleetTable } from "./fleetTable";
 

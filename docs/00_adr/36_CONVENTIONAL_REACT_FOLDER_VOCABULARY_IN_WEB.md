@@ -9,7 +9,7 @@
 The web package is organized in Feature-Sliced-Design vocabulary: `entities/`, `shared/ui`,
 `shared/lib`. The layering it expresses is sound and mechanically enforced
 (`eslint-plugin-boundaries`, registered under ADR 12's mechanical rule for
-`packages/web/eslint.config.js`), but the *names* are FSD jargon. An external reviewer
+`packages/web/eslint.config.js`), but the _names_ are FSD jargon. An external reviewer
 reported the package hard to navigate — and this repository's primary audience is exactly
 that reviewer, reading it cold. A React developer looking for data fetching does not guess
 "entities"; one looking for shared UI does not guess "shared/ui" before "components".
@@ -48,17 +48,17 @@ standardized on?
 
 Re-express the existing architecture in standard vocabulary, changing no dependency rule:
 
-| Current | New | Contents |
-|---|---|---|
-| `features/` | `features/` | unchanged; fleet page split to one component per file |
-| `shared/ui` | `components/` | domain-free presentational primitives (rule unchanged) |
-| `entities/robot` hooks | `hooks/` | `useFleetRobots`, `useRobotDetail`, `useRobotHistory`, `useFetchedResource` |
-| `entities/robot` store | `stores/` | `fleetStore`, `fleetStoreContext` |
-| `shared/lib` contexts + `app/tenantConfigContext` | `context/` | `connectionContext`, `streamDiagnosticsContext`, `tenantConfigContext` |
-| `shared/lib` transport | `lib/` | `fleetTransport`, `transportDecoding`, `streamLifecycle`, `coldStart` |
-| `shared/lib/time` + entity mapping/selectors | `utils/` | `time`, `robotSelectors`, `fromEnvelope`, `siteLabel` |
-| entity models | `types/` | `robot.ts`, `site.ts` (pure type modules) |
-| `config/` | `config/` | unchanged |
+| Current                                           | New           | Contents                                                                    |
+| ------------------------------------------------- | ------------- | --------------------------------------------------------------------------- |
+| `features/`                                       | `features/`   | unchanged; fleet page split to one component per file                       |
+| `shared/ui`                                       | `components/` | domain-free presentational primitives (rule unchanged)                      |
+| `entities/robot` hooks                            | `hooks/`      | `useFleetRobots`, `useRobotDetail`, `useRobotHistory`, `useFetchedResource` |
+| `entities/robot` store                            | `stores/`     | `fleetStore`, `fleetStoreContext`                                           |
+| `shared/lib` contexts + `app/tenantConfigContext` | `context/`    | `connectionContext`, `streamDiagnosticsContext`, `tenantConfigContext`      |
+| `shared/lib` transport                            | `lib/`        | `fleetTransport`, `transportDecoding`, `streamLifecycle`, `coldStart`       |
+| `shared/lib/time` + entity mapping/selectors      | `utils/`      | `time`, `robotSelectors`, `fromEnvelope`, `siteLabel`                       |
+| entity models                                     | `types/`      | `robot.ts`, `site.ts` (pure type modules)                                   |
+| `config/`                                         | `config/`     | unchanged                                                                   |
 
 Unit tests colocate beside their sources (`fooPage.test.tsx` beside `fooPage.tsx`),
 reversing the `tests/` subdirectory convention. `src/test/setup.ts` (infrastructure) and

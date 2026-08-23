@@ -122,7 +122,7 @@ Non-interactive. No hover or focus styles of its own. If placed inside a row lin
 | Concern  | Check                                                                                          |
 | -------- | ---------------------------------------------------------------------------------------------- |
 | API      | `label` and `current` required; variant union exhaustive against `RobotStatus` plus `degraded` |
-| Mapping  | `selectStatusPresentation` unit test in `utils/robotSelectors` (Principle 10)                        |
+| Mapping  | `selectStatusPresentation` unit test in `utils/robotSelectors` (Principle 10)                  |
 | Currency | `current: false` renders the last-known treatment and the caller's qualified label             |
 | Tokens   | No raw hex in the component file (Principle 8)                                                 |
 | A11y     | Colour is not the sole indicator; dot absent from the accessibility tree (Principle 6)         |

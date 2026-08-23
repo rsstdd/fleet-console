@@ -73,7 +73,7 @@ Required fields per row (canonical read model):
 | `robotId`             | Stable key                                                                                                                             |
 | `vendor`              | e.g. "A", "B", "C" — displayed, and filterable                                                                                         |
 | `siteId` / site label | Grouping and filter. The label resolves against the snapshot's `sites` directory (ADR 34); the raw id is only a pre-directory fallback |
-| `status`              | Mapped to `StatusChip` variant + label, via `utils/robotSelectors`                                                                  |
+| `status`              | Mapped to `StatusChip` variant + label, via `utils/robotSelectors`                                                                     |
 | `freshness`           | Server-derived, arrives as a field on the envelope (ADR 3). Never computed in this feature                                             |
 | `batteryPercent`      | Normalized 0–100 display; omitted (em dash) when freshness is not LIVE                                                                 |
 | `lastSeenAt`          | Display only (`reportedAt`). The sweep reads `receivedAt` server-side; this value is not an input to any client derivation             |
@@ -139,7 +139,7 @@ Complete asynchronous state set (Principle 5):
 | Concern                        | Check                                                                                                                                                                                           |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Freshness visible per row      | UI test / checklist                                                                                                                                                                             |
-| No client derivation           | Grep the feature and the data layers (`hooks`, `stores`, `utils`) for interval timers and `Date.now()` in freshness paths; must find none (ADR 3)                                                                           |
+| No client derivation           | Grep the feature and the data layers (`hooks`, `stores`, `utils`) for interval timers and `Date.now()` in freshness paths; must find none (ADR 3)                                               |
 | Summary counts total the fleet | Fixture at N robots → four freshness counts sum to N                                                                                                                                            |
 | Vendor filter                  | Options derive from the robots given, including a vendor outside A/B/C (open set, ADR 1)                                                                                                        |
 | Site filter                    | Options and labels derive from the snapshot directory; browser test asserts manifest labels (ADR 34)                                                                                            |

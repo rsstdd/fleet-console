@@ -12,8 +12,8 @@ This separation keeps domain logic out of primitives (Principle 1), enforces lay
 
 ## 2. Ownership
 
-| Component         | Owning specification      | Implementation                   |
-| ----------------- | ------------------------- | -------------------------------- |
+| Component         | Owning specification      | Implementation                    |
+| ----------------- | ------------------------- | --------------------------------- |
 | Status chip       | `01_STATUS_CHIP.md`       | `components/statusChip.tsx`       |
 | Freshness label   | `02_FRESHNESS_LABEL.md`   | `components/freshnessLabel.tsx`   |
 | Section label     | `03_SECTION_LABEL.md`     | `components/sectionLabel.tsx`     |

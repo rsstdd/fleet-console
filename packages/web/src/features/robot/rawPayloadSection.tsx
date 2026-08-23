@@ -3,7 +3,8 @@ import { Box, Paper, Typography } from "@mui/material";
 
 import type { RobotDetail } from "@/types/robot";
 
-import { MONO, Section } from "./detailSection";
+import { Section } from "./detailSection";
+import { MONO } from "./detailStyles";
 
 /** Technician only. States the absence rather than rendering an empty block. */
 export function RawPayloadSection({ robot }: { readonly robot: RobotDetail }): ReactNode {

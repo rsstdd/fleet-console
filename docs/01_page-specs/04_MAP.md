@@ -68,7 +68,7 @@ HTTP snapshot + WS deltas → fromEnvelope → fleetStore → useFleetRobots()
 | `robot.freshness`   | Server-derived, arrives on the envelope (ADR 3). Drives marker fill and the list `FreshnessLabel`. Never computed in this feature             |
 | `sites[]`           | `{ siteId, label }` from the snapshot directory (ADR 34). The schema's referential refinement guarantees every robot's site is labelled       |
 | `lastSeenAt`        | Feeds `FreshnessLabel`'s as-of fragment in the side list, exactly as on the fleet table. Display only; never an input to any derivation       |
-| `isStreamConnected` | From `context/connectionContext` — the one boolean behind the heading qualifier and the hollow-all treatment                               |
+| `isStreamConnected` | From `context/connectionContext` — the one boolean behind the heading qualifier and the hollow-all treatment                                  |
 
 **Freshness is never derived here.** No timer, no `Date.now()`, no client judgment; a
 marker's fill changes when a delta says the freshness changed (ADR 3).

@@ -9,73 +9,15 @@ import {
   type SelectChangeEvent,
 } from "@mui/material";
 
-import type { Freshness, Robot } from "@/types/robot";
 import type { Site } from "@/types/site";
 
-const FRESHNESS_FILTER_OPTIONS: ReadonlyArray<{ value: Freshness; label: string }> = [
-  { value: "live", label: "Live" },
-  { value: "stale", label: "Stale" },
-  { value: "unreachable", label: "Unreachable" },
-  { value: "unknown", label: "Unknown" },
-];
-
-/**
- * The Select value for the "All …" choice on every dimension. A MUI Select
- * speaks strings, so "no filter" needs one at that boundary — but site and
- * vendor ids are open identifiers, and `identifierSchema` permits a site or
- * vendor literally named `all`. This value starts with an underscore, which
- * the identifier pattern forbids (alphanumeric first character), so no real
- * id can ever collide with it. `Filters` itself carries null: the sentinel
- * exists only where the widget demands a string.
- */
-export const ALL_FILTER_VALUE = "__all__";
-
-/** The complete filter state the fleet page owns; null on a dimension means it filters nothing. */
-export interface Filters {
-  readonly site: string | null;
-  readonly vendor: string | null;
-  readonly freshness: Freshness | null;
-  readonly search: string;
-}
-
-/** The unfiltered state, shared by first render and the "Clear filters" action. */
-export const EMPTY_FILTERS: Filters = { site: null, vendor: null, freshness: null, search: "" };
-
-/** Maps a site or vendor Select value back to filter state: the All choice becomes null, any real id passes through. */
-export function toIdFilter(value: string): string | null {
-  return value === ALL_FILTER_VALUE ? null : value;
-}
-
-/** Narrows a Reporting-status Select value to a canonical freshness state without a cast; the All choice becomes null. */
-export function toFreshnessFilter(value: string): Freshness | null {
-  const option = FRESHNESS_FILTER_OPTIONS.find((candidate) => candidate.value === value);
-  return option?.value ?? null;
-}
-
-/** Whether one robot survives every active filter dimension; a null dimension passes everything. */
-export function matchesFilters(robot: Robot, filters: Filters): boolean {
-  if (filters.site !== null && robot.siteId !== filters.site) {
-    return false;
-  }
-  if (filters.vendor !== null && robot.vendor !== filters.vendor) {
-    return false;
-  }
-  if (filters.freshness !== null && robot.freshness !== filters.freshness) {
-    return false;
-  }
-  if (filters.search.trim() !== "") {
-    const needle = filters.search.trim().toLowerCase();
-    if (!robot.id.toLowerCase().includes(needle)) {
-      return false;
-    }
-  }
-  return true;
-}
+import { ALL_FILTER_VALUE, FRESHNESS_FILTER_OPTIONS, type Filters } from "./fleetFilterModel";
 
 /**
  * The filter bar. Filter state is local view state owned by the page
  * (Principle 11); this component only renders the controls and reports
- * changes upward through the handlers it is given.
+ * changes upward through the handlers it is given. The state shape, the
+ * sentinel, and the predicate live in `fleetFilterModel.ts`.
  */
 export function FleetFilters({
   filters,

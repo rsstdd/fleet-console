@@ -69,19 +69,19 @@ than conventional — see § 7.
 Feature-sliced (ADR 4). The dependency rule, stated exactly as
 `eslint-plugin-boundaries` enforces it rather than as the informal summary:
 
-| From         | May import                                                            |
-| ------------ | --------------------------------------------------------------------- |
-| `app`        | everything, plus external                                             |
+| From         | May import                                                                              |
+| ------------ | --------------------------------------------------------------------------------------- |
+| `app`        | everything, plus external                                                               |
 | `feature`    | **its own feature only**, hooks, stores, types, components, lib, context, utils, config |
-| `hooks`      | hooks, stores, types, lib, utils, external                            |
-| `stores`     | stores, types, utils, external                                        |
-| `types`      | types, external                                                       |
-| `components` | components, external                                                  |
-| `lib`        | lib, context (one typed edge, see below), external                    |
-| `context`    | context, config, external                                             |
-| `utils`      | utils, types, external                                                |
-| `config`     | config, external                                                      |
-| `test`       | setup files under `src/test/**`: everything, plus external            |
+| `hooks`      | hooks, stores, types, lib, utils, external                                              |
+| `stores`     | stores, types, utils, external                                                          |
+| `types`      | types, external                                                                         |
+| `components` | components, external                                                                    |
+| `lib`        | lib, context (one typed edge, see below), external                                      |
+| `context`    | context, config, external                                                               |
+| `utils`      | utils, types, external                                                                  |
+| `config`     | config, external                                                                        |
+| `test`       | setup files under `src/test/**`: everything, plus external                              |
 
 Three consequences the informal "features over data layers" summary hides, each load-bearing:
 
@@ -119,7 +119,7 @@ layers or feature directories.
 | `src/hooks`          | Fleet/robot resource hooks, shared fetch lifecycle                        | JSX, MUI imports                           |
 | `src/stores`         | Fleet store state machine and its context                                 | JSX, MUI imports                           |
 | `src/types`          | Robot and site read-model types                                           | JSX, MUI imports, logic                    |
-| `src/components`      | Pure presentational primitives                                            | Any domain reference                       |
+| `src/components`     | Pure presentational primitives                                            | Any domain reference                       |
 | `src/lib`            | Transport client, wire decoding, retry schedule, cold start               | Domain rules, payload interpretation       |
 | `src/context`        | Connection, stream-diagnostics, and tenant-config contexts                | Domain rules, JSX                          |
 | `src/utils`          | Formatting helpers (`time`)                                               | Domain rules, payload interpretation       |
@@ -202,15 +202,15 @@ and raises no error; a registered panel with no declaration is never reached.
 
 ## 7. Enforcement
 
-| Rule                                             | Mechanism     | Where                                             |
-| ------------------------------------------------ | ------------- | ------------------------------------------------- |
-| Layer dependency rule                            | Static        | `eslint-plugin-boundaries`, `default: "disallow"` |
-| No cross-feature import                          | Static        | boundaries `feature → feature` denied except self |
-| Module resolution for the above                  | Static        | `eslint-import-resolver-typescript` (ADR 7)       |
+| Rule                                              | Mechanism     | Where                                             |
+| ------------------------------------------------- | ------------- | ------------------------------------------------- |
+| Layer dependency rule                             | Static        | `eslint-plugin-boundaries`, `default: "disallow"` |
+| No cross-feature import                           | Static        | boundaries `feature → feature` denied except self |
+| Module resolution for the above                   | Static        | `eslint-import-resolver-typescript` (ADR 7)       |
 | No raw hex / px outside `components` and `config` | Static        | stylelint + eslint                                |
-| No `@fleet/adapters` or `@fleet/server` import   | Static        | `no-restricted-imports`                           |
-| Accessibility                                    | Static + Test | a11y lint; component tests for name, role, state  |
-| **The rules above still fire**                   | Test          | `__boundary-violation__` fixtures                 |
+| No `@fleet/adapters` or `@fleet/server` import    | Static        | `no-restricted-imports`                           |
+| Accessibility                                     | Static + Test | a11y lint; component tests for name, role, state  |
+| **The rules above still fire**                    | Test          | `__boundary-violation__` fixtures                 |
 
 Boundaries are declared with `default: "disallow"`, so every allowance is explicit and a
 new layer is denied until someone writes the rule for it — the opposite of a default-allow
@@ -343,7 +343,7 @@ The rules that matter most:
 | No vendor branches         | No vendor `if` anywhere in features; panels resolve through the registry                                                   |
 | Accessibility              | Names, roles, state; keyboard flows; heading outline never skips a level                                                   |
 | Boundaries                 | Every fixture violation is reported; the control stays silent                                                              |
-| Tokens                     | No raw hex or px outside `components` and `config`                                                                          |
+| Tokens                     | No raw hex or px outside `components` and `config`                                                                         |
 | Development endpoints      | Tenant paths match proxy keys; HTTP and WebSocket proxy end to end                                                         |
 | First-load bundle          | JS + CSS stay within 720 kB raw and 300 kB gzip (`pnpm check:bundle`)                                                      |
 | Large lists                | Fleet table usable at several hundred robots                                                                               |
@@ -428,13 +428,13 @@ flags and validated build-time selection are implemented (ADR 17).
 | Principle                              | Enforcement / evidence in this package                                                                 |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 | 1 — one authoritative implementation   | Selectors own display rules; contracts own decoding; `reconcileDeltaWithSnapshot` imported, not copied |
-| 2 — validate at the boundary           | `lib/transportDecoding.ts` is the only decode site; everything downstream takes decoded values  |
+| 2 — validate at the boundary           | `lib/transportDecoding.ts` is the only decode site; everything downstream takes decoded values         |
 | 3 — vendor differences as capabilities | Panel registry over declared keys; no vendor `if` in features; open vendor filter options              |
 | 4 — freshness first-class              | Server-derived labels, suppression while disconnected, decoded footer provenance, no client timer      |
 | 5 — complete async states              | `FleetResourceState`, `RobotDetailState`, history state unions; page tests drive every member          |
 | 6 — accessibility                      | Roles/names asserted in component tests; keyboard smoke test in three engines                          |
 | 7 — server authorizes                  | The console renders and never authorizes; ADR 26's demo-only exposure is stated on the surface         |
-| 8 — one styling system                 | MUI + tokens; stylelint/eslint reject raw literals outside `components` and `config`                    |
+| 8 — one styling system                 | MUI + tokens; stylelint/eslint reject raw literals outside `components` and `config`                   |
 | 9 — enforced boundaries                | `eslint-plugin-boundaries` default-disallow plus live `__boundary-violation__` fixtures                |
 | 10 — test-first, verified in browser   | Focused unit suites plus the ADR 32 Playwright evidence against the real stack                         |
 | 11 — state separated by authority      | Store transitions are explicit; observed and requested never collapse; view state stays in features    |

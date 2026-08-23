@@ -3,13 +3,11 @@ import { describe, expect, it } from "vitest";
 
 import type { FetchLike } from "@/lib/transportDecoding";
 
-import {
-  useFetchedResource,
-  type FetchedResourceContext,
-} from "./useFetchedResource";
+import { useFetchedResource, type FetchedResourceContext } from "./useFetchedResource";
 
 /** A test resource: the loaded value names the id and attempt it answered for. */
-type TestState = { readonly status: "loading" } | { readonly status: "ready"; readonly label: string };
+type TestState =
+  { readonly status: "loading" } | { readonly status: "ready"; readonly label: string };
 
 /** One controllable in-flight load: the test decides when and with what it settles. */
 interface PendingLoad {
