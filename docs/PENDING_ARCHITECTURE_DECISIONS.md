@@ -35,6 +35,7 @@ This file is intentionally short: resolved entries are tombstones linking to the
 | D25 | Implemented | [ADR 34](./00_adr/34_SITE_DIRECTORY_ON_THE_SNAPSHOT_SCHEMA_VERSION_3.md)          | Site labels: directory on the snapshot, schema version 3                         |
 | D26 | Implemented | [ADR 35](./00_adr/35_MAP_SPATIAL_CONTEXT_DERIVED_CLIENT_SIDE.md)                  | Map spatial context when the wire carries no bounds                              |
 | D27 | Open        | —                                                                                 | Enable the React Compiler build transform in web                                 |
+| D28 | Not started | [ADR 36](./00_adr/36_CONVENTIONAL_REACT_FOLDER_VOCABULARY_IN_WEB.md)              | Web folder vocabulary and test placement for external readability                |
 
 ## Open stubs
 
