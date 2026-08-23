@@ -81,6 +81,14 @@ pnpm --filter web build` green after every slice, an unchanged collected-test co
       (`src/test/setup.ts` and `__boundary-violation__/` excepted).
 - [x] Every feature file exports one component; `fleetPage.tsx` composes
       summary/filters/table from sibling files (240 lines over four files).
+      2026-08-23: the parenthetical was wrong when written and is corrected
+      under Principle 14 — the four files measured 592 lines at review, and
+      after the filter-model extraction stand at 541 (`fleetPage` 234,
+      `fleetTable` 151, `fleetFilters` 108, `fleetSummary` 48) plus
+      `fleetFilterModel.ts` (69). "One component per file" now reads with one
+      exception class: pure model modules (`fleetFilterModel.ts`,
+      `detailStyles.ts`) export no component at all, extracted so component
+      files carry only components (Fast Refresh).
 - [x] Boundaries lint enforces the same edge set as before over the new element names
       (plus the two documented edges the code already carried: `lib → context`,
       `context → config`); the boundary-violation suite passes with relocated fixtures,
