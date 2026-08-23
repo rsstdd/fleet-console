@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 
 import { createFleetStore, type FleetStore } from "./fleetStore";
 
@@ -31,5 +31,5 @@ export const FleetStoreContext = createContext<FleetStore>(EMPTY_STORE);
 
 /** Returns the fleet store this console is reading. */
 export function useFleetStore(): FleetStore {
-  return useContext(FleetStoreContext);
+  return use(FleetStoreContext);
 }

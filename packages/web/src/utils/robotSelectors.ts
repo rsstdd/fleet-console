@@ -12,8 +12,8 @@ import type {
 
 /**
  * Structurally identical to components/statusChip's StatusVariant, but not
- * imported from it. Entities may import lib and utils only, never components
- * (ADR 4) — and more fundamentally, importing the type here would be
+ * imported from it. The data layers may never import components
+ * (ADR 4; ADR 36) — and more fundamentally, importing the type here would be
  * exactly the unification the component-set spec's own prose forbids:
  * "they are not the same types and must not be unified." Declaring the
  * same string-literal union independently, rather than importing it, is

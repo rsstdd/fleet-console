@@ -23,6 +23,8 @@ import {
   selectMapMarker,
   selectPlottableRobots,
   selectPositionedSummary,
+  selectSiteRobots,
+  selectUnpositionedRobots,
   type SiteExtents,
 } from "@/utils/robotSelectors";
 import { useFleetRobots } from "@/hooks/useFleetRobots";
@@ -62,8 +64,8 @@ export function MapPage(): ReactNode {
   const siteLabel = siteId === null ? "" : selectSiteLabel(siteId, sites);
 
   const plottable = siteId === null ? [] : selectPlottableRobots(robots, siteId);
-  const siteRobots = robots.filter((robot) => robot.siteId === siteId);
-  const unpositioned = siteRobots.filter((robot) => robot.position === null);
+  const siteRobots = siteId === null ? [] : selectSiteRobots(robots, siteId);
+  const unpositioned = selectUnpositionedRobots(siteRobots);
   const summary =
     siteId === null ? { positioned: 0, total: 0 } : selectPositionedSummary(robots, siteId);
 

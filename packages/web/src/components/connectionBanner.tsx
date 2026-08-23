@@ -60,7 +60,9 @@ export interface ConnectionBannerProps {
  * Formats a stream event time as UTC `HH:MM:SSZ`, or null when the value is
  * missing or unparseable.
  *
- * Returns null rather than throwing, which is the opposite of `FreshnessLabel`'s
+ * Not `utils/time`'s `formatTimeUtc`, for the same sibling-layer reason as the
+ * unions above — and the semantics genuinely differ: null-and-omit here, em dash
+ * there. Returns null rather than throwing, which is the opposite of `FreshnessLabel`'s
  * dev-time throw on a bad timestamp, and deliberately so: spec § 10 requires the
  * fragment to be omitted. A banner that crashes the shell during a reconnect
  * storm removes the one surface still telling the operator the truth about

@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, use } from "react";
 
 /**
  * How the transport's stream diagnostics reach the technician surfaces.
@@ -38,5 +38,5 @@ export const StreamDiagnosticsContext = createContext<StreamDiagnostics>(NO_DIAG
 
 /** Returns the diagnostics of this console's own stream. */
 export function useStreamDiagnostics(): StreamDiagnostics {
-  return useContext(StreamDiagnosticsContext);
+  return use(StreamDiagnosticsContext);
 }

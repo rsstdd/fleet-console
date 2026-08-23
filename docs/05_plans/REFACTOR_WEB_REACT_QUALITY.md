@@ -166,7 +166,9 @@ gallery is excluded from this plan's scope.
       audit, with the rationale now commented at each constant so the next
       reintroduction is visible in review.
 - [x] Site/positioned filtering has one authoritative implementation in selectors (F6).
-      Merged via PR #24.
+      Merged via PR #24. 2026-08-23: found reintroduced inline in `mapPage.tsx` (the
+      selectors survived, tested but unconsumed); re-wired during the ADR 36 final
+      audit — same reintroduction event as the F5 note above.
 - [x] No component in the fleet feature exceeds ~200 lines or mixes concerns (F3).
       Merged via PRs #25/#26 (FleetSummary 27 / FleetFilters 87 / FleetTable 122 /
       FleetPage 185 lines). 2026-08-23: ADR 36 extended F3's in-file decomposition to

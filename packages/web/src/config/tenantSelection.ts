@@ -5,7 +5,7 @@
 // build, which is where the selection has to be checked. `tenant.ts` does the
 // env read and holds the profiles (ADR 17).
 //
-// Data and one guard, no domain logic (packages/web/CLAUDE.md).
+// Data and one guard, no domain logic (packages/web/AGENTS.md).
 
 /** Every tenant this console can be built for. */
 export const TENANT_IDS = ["tenant-a", "tenant-b"] as const;

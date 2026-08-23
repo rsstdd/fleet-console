@@ -133,7 +133,7 @@ export interface Robot {
    * robot that has never reported at all.
    *
    * Carried whatever the freshness, and **suppressed at presentation**:
-   * `formatBattery` in `selectors.ts` refuses to render a number for a robot
+   * `selectBatteryDisplay` in `utils/robotSelectors.ts` refuses to render a number for a robot
    * that is not live, because the last reading is not a current reading (fleet
    * page spec §6). The value survives so the detail view can show a last-known
    * figure with its age beside it; nulling it here would destroy that and put
