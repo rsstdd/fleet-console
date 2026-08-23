@@ -13,11 +13,11 @@ import {
   Typography,
 } from "@mui/material";
 
-import { DataPlate } from "@/shared/ui/dataPlate";
-import { FreshnessLabel } from "@/shared/ui/freshnessLabel";
-import { SectionLabel } from "@/shared/ui/sectionLabel";
-import { Stat } from "@/shared/ui/stat";
-import { StatusChip } from "@/shared/ui/statusChip";
+import { DataPlate } from "@/components/dataPlate";
+import { FreshnessLabel } from "@/components/freshnessLabel";
+import { SectionLabel } from "@/components/sectionLabel";
+import { Stat } from "@/components/stat";
+import { StatusChip } from "@/components/statusChip";
 
 import { COMPONENT_PROPS, FLEET_ROWS, FRESHNESS_STATES, NOW, STATUS_VARIANTS } from "./galleryFixtures";
 

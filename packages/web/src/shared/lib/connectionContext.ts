@@ -30,8 +30,8 @@ import { createContext, use } from "react";
 /**
  * Connection states the console distinguishes.
  *
- * Declared here rather than imported from `shared/ui/connectionBanner`, which holds a
- * structurally identical union. `shared/lib` and `shared/ui` are siblings and neither may
+ * Declared here rather than imported from `components/connectionBanner`, which holds a
+ * structurally identical union. `shared/lib` and `components` are siblings and neither may
  * import the other (ADR 4), so the two are restated and TypeScript's structural typing
  * makes a value of either assignable to the other with no adapter. The same reasoning is
  * already written on `StatusPresentationVariant` in `entities/robot/selectors.ts`.

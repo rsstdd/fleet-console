@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { ConnectionBanner } from "../connectionBanner";
+import { ConnectionBanner } from "./connectionBanner";
 
 /**
  * Contract test for docs/02_component-specs/07_CONNECTION_BANNER.md §4, §5,

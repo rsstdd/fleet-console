@@ -10,10 +10,10 @@ import {
   Typography,
 } from "@mui/material";
 
-import { ConnectionBanner, type ConnectionState } from "@/shared/ui/connectionBanner";
-import { EmptyState } from "@/shared/ui/emptyState";
-import { PersonaToggle, type Persona } from "@/shared/ui/personaToggle";
-import { SectionLabel } from "@/shared/ui/sectionLabel";
+import { ConnectionBanner, type ConnectionState } from "@/components/connectionBanner";
+import { EmptyState } from "@/components/emptyState";
+import { PersonaToggle, type Persona } from "@/components/personaToggle";
+import { SectionLabel } from "@/components/sectionLabel";
 
 /** Section 04: the persona switch live, its view consequence, and its disabled state. */
 export function PersonaToggleSection({

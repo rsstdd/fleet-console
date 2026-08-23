@@ -4,7 +4,7 @@ import { Alert, Button, Paper, Skeleton, Stack, Typography } from "@mui/material
 import type { RobotBatteryHistory } from "@fleet/contracts";
 
 import { useRobotHistory, type RobotHistoryState } from "@/entities/robot/useRobotHistory";
-import { DataPlate } from "@/shared/ui/dataPlate";
+import { DataPlate } from "@/components/dataPlate";
 
 import { TENANT } from "@/config/tenant";
 

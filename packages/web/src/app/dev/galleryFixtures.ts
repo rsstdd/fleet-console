@@ -1,5 +1,5 @@
-import type { FreshnessState } from "@/shared/ui/freshnessLabel";
-import type { StatusVariant } from "@/shared/ui/statusChip";
+import type { FreshnessState } from "@/components/freshnessLabel";
+import type { StatusVariant } from "@/components/statusChip";
 
 /** One capture instant, so every relative fixture timestamp in the gallery agrees. */
 export const NOW = new Date();

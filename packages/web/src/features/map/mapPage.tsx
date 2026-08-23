@@ -11,8 +11,8 @@ import {
   Typography,
 } from "@mui/material";
 
-import { DataPlate } from "@/shared/ui/dataPlate";
-import { EmptyState } from "@/shared/ui/emptyState";
+import { DataPlate } from "@/components/dataPlate";
+import { EmptyState } from "@/components/emptyState";
 import { isStreamConnected, useConnectionState } from "@/shared/lib/connectionContext";
 
 import type { FleetData } from "@/entities/robot/fleetStore";

@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Stat } from "../stat";
+import { Stat } from "./stat";
 
 function stat(): HTMLElement {
   const element = document.querySelector<HTMLElement>(".stat");

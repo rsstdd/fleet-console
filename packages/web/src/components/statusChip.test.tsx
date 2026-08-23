@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { StatusChip, type StatusVariant } from "../statusChip";
+import { StatusChip, type StatusVariant } from "./statusChip";
 
 /**
  * Contract test for the required output in

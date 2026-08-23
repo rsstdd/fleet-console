@@ -73,7 +73,7 @@ export default tseslint.config(
         { type: "app", pattern: "src/app/**" },
         { type: "feature", pattern: "src/features/*/**", capture: ["feature"] },
         { type: "entity", pattern: "src/entities/*/**", capture: ["entity"] },
-        { type: "shared-ui", pattern: "src/shared/ui/**" },
+        { type: "components", pattern: "src/components/**" },
         { type: "shared-lib", pattern: "src/shared/lib/**" },
         { type: "config", pattern: "src/config/**" },
         { type: "test", pattern: "src/test/**" },
@@ -108,7 +108,7 @@ export default tseslint.config(
                 { to: { element: { type: "app" } } },
                 { to: { element: { type: "feature" } } },
                 { to: { element: { type: "entity" } } },
-                { to: { element: { type: "shared-ui" } } },
+                { to: { element: { type: "components" } } },
                 { to: { element: { type: "shared-lib" } } },
                 { to: { element: { type: "config" } } },
                 { to: { module: { origin: "external" } } },
@@ -126,7 +126,7 @@ export default tseslint.config(
                   },
                 },
                 { to: { element: { type: "entity" } } },
-                { to: { element: { type: "shared-ui" } } },
+                { to: { element: { type: "components" } } },
                 { to: { element: { type: "shared-lib" } } },
                 { to: { element: { type: "config" } } },
                 { to: { module: { origin: "external" } } },
@@ -148,9 +148,9 @@ export default tseslint.config(
               ],
             },
             {
-              from: { element: { type: "shared-ui" } },
+              from: { element: { type: "components" } },
               allow: [
-                { to: { element: { type: "shared-ui" } } },
+                { to: { element: { type: "components" } } },
                 { to: { module: { origin: "external" } } },
               ],
             },
@@ -174,7 +174,7 @@ export default tseslint.config(
                 { to: { element: { type: "app" } } },
                 { to: { element: { type: "feature" } } },
                 { to: { element: { type: "entity" } } },
-                { to: { element: { type: "shared-ui" } } },
+                { to: { element: { type: "components" } } },
                 { to: { element: { type: "shared-lib" } } },
                 { to: { element: { type: "config" } } },
                 { to: { module: { origin: "external" } } },
@@ -213,7 +213,7 @@ export default tseslint.config(
                 "The entity layer renders nothing and routes nothing. No react-dom, no MUI, no router (PRINCIPLES.md 1; ADR 4, amended 19 Aug 2026).",
             },
             {
-              from: { element: { type: "shared-ui" } },
+              from: { element: { type: "components" } },
               disallow: {
                 to: {
                   module: { origin: "external", source: "@fleet/contracts" },
@@ -305,7 +305,7 @@ export default tseslint.config(
   },
 
   {
-    files: ["src/shared/ui/**/*.{ts,tsx}", "src/config/**/*.{ts,tsx}"],
+    files: ["src/components/**/*.{ts,tsx}", "src/config/**/*.{ts,tsx}"],
     rules: { "no-restricted-syntax": "off" },
   },
 

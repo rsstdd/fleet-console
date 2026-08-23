@@ -17,16 +17,16 @@ Does **not**: normalize vendor input, derive freshness, authorize commands, own 
 ## Layers
 
 ```
-app        → feature, entity, shared-ui, shared-lib, config
-feature    → own feature, entity, shared-ui, shared-lib, config
+app        → feature, entity, components, shared-lib, config
+feature    → own feature, entity, components, shared-lib, config
 entity     → own entity, shared-lib
-shared-ui  → shared-ui
+components  → components
 shared-lib → shared-lib
 config     → config
 ```
 
 - Features ↛ features. Entities ↛ entities.
-- `shared/ui` = domain-free presentation. Robot/site/vendor/capability/freshness → entities.
+- `components` = domain-free presentation. Robot/site/vendor/capability/freshness → entities.
 - `entities` = mapping + selectors. No JSX/MUI.
 - Components consume derived values. Domain calc → selectors.
 - Prod: `@fleet/contracts` only. Never `@fleet/server` or `@fleet/adapters` (adapters in tests only, ADR 12).
@@ -137,7 +137,7 @@ Read one matching row, then its narrow follow-up. Do not preload all web source,
 | Envelope → browser model               | `src/entities/robot/fromEnvelope.ts`     | `model.ts`, `selectors.ts`; `packages/contracts/src/index.ts`                         |
 | Fleet/robot resource state             | `src/entities/robot/useFleetRobots.ts`   | `useRobotDetail.ts`; feature consumer                                                 |
 | Connection / transport util            | `src/shared/lib/connectionContext.ts`    | ADR 23; domain interpretation stays in entities                                       |
-| Presentational primitive               | matching `docs/02_component-specs/`      | same-named module in `src/shared/ui/`                                                 |
+| Presentational primitive               | matching `docs/02_component-specs/`      | same-named module in `src/components/`                                                 |
 | Tenant, theme, flags, endpoints, proxy | `src/config/tenant.ts`                   | `tenantTheme.ts`, `tenantSelection.ts`, `devServerTarget.ts`, or `vite.config.ts`     |
 | Tokens / global style                  | `docs/DESIGN_SYSTEM.md`                  | `src/styles/`, `src/app/theme.ts`                                                     |
 | Boundary / a11y / style lint           | `eslint.config.js`                       | `src/**/__boundary-violation__/` or `.stylelintrc.json`                               |

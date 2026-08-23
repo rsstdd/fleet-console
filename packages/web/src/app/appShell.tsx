@@ -9,7 +9,7 @@ import {
   ConnectionBanner,
   type ConnectionBannerProps,
   type ConnectionState,
-} from "@/shared/ui/connectionBanner";
+} from "@/components/connectionBanner";
 
 /** Connection snapshot displayed by the shell without owning transport policy. */
 export interface AppShellProps {

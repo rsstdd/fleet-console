@@ -15,7 +15,7 @@ In particular:
 
 - Keep feature-sliced dependencies moving downward; never import across features or
   entities.
-- Keep domain mapping and selectors in entities, presentational primitives in `shared/ui`,
+- Keep domain mapping and selectors in entities, presentational primitives in `components`,
   and tenant values in typed config.
 - Display server-derived freshness without a timer, and suppress per-robot freshness while
   the stream is down.

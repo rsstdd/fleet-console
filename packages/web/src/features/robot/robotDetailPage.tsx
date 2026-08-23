@@ -2,9 +2,9 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { Alert, Box, Button } from "@mui/material";
 
-import { DataPlate } from "@/shared/ui/dataPlate";
-import { EmptyState } from "@/shared/ui/emptyState";
-import { type Persona } from "@/shared/ui/personaToggle";
+import { DataPlate } from "@/components/dataPlate";
+import { EmptyState } from "@/components/emptyState";
+import { type Persona } from "@/components/personaToggle";
 
 import type { RobotDetail } from "@/entities/robot/model";
 import { useRobotDetail, type RobotDetailState } from "@/entities/robot/useRobotDetail";

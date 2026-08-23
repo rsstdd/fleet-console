@@ -11,8 +11,8 @@ import type {
 } from "./model";
 
 /**
- * Structurally identical to shared/ui/statusChip's StatusVariant, but not
- * imported from it. Entities may import shared-lib only, never shared-ui
+ * Structurally identical to components/statusChip's StatusVariant, but not
+ * imported from it. Entities may import shared-lib only, never components
  * (ADR 4) — and more fundamentally, importing the type here would be
  * exactly the unification the component-set spec's own prose forbids:
  * "they are not the same types and must not be unified." Declaring the

@@ -72,16 +72,16 @@ Feature-sliced (ADR 4). The dependency rule, stated exactly as
 | From         | May import                                                      |
 | ------------ | --------------------------------------------------------------- |
 | `app`        | everything, plus external                                       |
-| `feature`    | **its own feature only**, entity, shared-ui, shared-lib, config |
+| `feature`    | **its own feature only**, entity, components, shared-lib, config |
 | `entity`     | **its own entity only**, **shared-lib only**, external          |
-| `shared-ui`  | shared-ui, external                                             |
+| `components`  | components, external                                             |
 | `shared-lib` | shared-lib, external                                            |
 | `config`     | config, external                                                |
 | `test`       | setup files under `src/test/**`: everything, plus external      |
 
 Three consequences the informal "entities → shared" summary hides, each load-bearing:
 
-- **`entity` may import `shared-lib` but not `shared-ui`.** That is what keeps JSX and MUI
+- **`entity` may import `shared-lib` but not `components`.** That is what keeps JSX and MUI
   out of the entity layer, which is in turn what lets the capability-to-panel mapping be
   tested as pure domain logic (ADR 4).
 - **`entity` may not import `config`.** A selector that read tenant configuration would
@@ -112,7 +112,7 @@ layers or feature directories.
 | `src/features/map`   | Map page, site facet, and marker SVG canvas (page spec 04, ADR 35)        | Fleet components, domain derivation        |
 | `src/entities/robot` | Robot read model, selectors, hooks                                        | JSX, MUI imports                           |
 | `src/entities/site`  | Site model, grouping                                                      | JSX, MUI imports                           |
-| `src/shared/ui`      | Pure presentational primitives                                            | Any domain reference                       |
+| `src/components`      | Pure presentational primitives                                            | Any domain reference                       |
 | `src/shared/lib`     | Formatting, time helpers, transport client                                | Domain rules, payload interpretation       |
 | `src/config`         | Tenant themes, feature flags, thresholds                                  | Logic of any kind                          |
 | `src/styles`         | `tokens.css`, `global.css`, `utilities.css`                               | Component-level hex or raw px              |
@@ -198,7 +198,7 @@ and raises no error; a registered panel with no declaration is never reached.
 | Layer dependency rule                            | Static        | `eslint-plugin-boundaries`, `default: "disallow"` |
 | No cross-feature import                          | Static        | boundaries `feature → feature` denied except self |
 | Module resolution for the above                  | Static        | `eslint-import-resolver-typescript` (ADR 7)       |
-| No raw hex / px outside `shared/ui` and `config` | Static        | stylelint + eslint                                |
+| No raw hex / px outside `components` and `config` | Static        | stylelint + eslint                                |
 | No `@fleet/adapters` or `@fleet/server` import   | Static        | `no-restricted-imports`                           |
 | Accessibility                                    | Static + Test | a11y lint; component tests for name, role, state  |
 | **The rules above still fire**                   | Test          | `__boundary-violation__` fixtures                 |
@@ -334,7 +334,7 @@ The rules that matter most:
 | No vendor branches         | No vendor `if` anywhere in features; panels resolve through the registry                                                   |
 | Accessibility              | Names, roles, state; keyboard flows; heading outline never skips a level                                                   |
 | Boundaries                 | Every fixture violation is reported; the control stays silent                                                              |
-| Tokens                     | No raw hex or px outside `shared/ui` and `config`                                                                          |
+| Tokens                     | No raw hex or px outside `components` and `config`                                                                          |
 | Development endpoints      | Tenant paths match proxy keys; HTTP and WebSocket proxy end to end                                                         |
 | First-load bundle          | JS + CSS stay within 720 kB raw and 300 kB gzip (`pnpm check:bundle`)                                                      |
 | Large lists                | Fleet table usable at several hundred robots                                                                               |
@@ -355,7 +355,7 @@ server deltas with no client timer involved.
 ## 11. Implementation status
 
 **Substantially built.** App shell, router, theme bridge and tenant config; the fleet page;
-robot detail with capability panels and the persona toggle; all eight `shared/ui`
+robot detail with capability panels and the persona toggle; all eight `components`
 primitives with their specs; the robot and site entity layers with selectors and hooks; the
 full token layer; the boundary enforcement fixtures; and a development component gallery.
 
@@ -425,7 +425,7 @@ flags and validated build-time selection are implemented (ADR 17).
 | 5 — complete async states              | `FleetResourceState`, `RobotDetailState`, history state unions; page tests drive every member          |
 | 6 — accessibility                      | Roles/names asserted in component tests; keyboard smoke test in three engines                          |
 | 7 — server authorizes                  | The console renders and never authorizes; ADR 26's demo-only exposure is stated on the surface         |
-| 8 — one styling system                 | MUI + tokens; stylelint/eslint reject raw literals outside `shared/ui` and `config`                    |
+| 8 — one styling system                 | MUI + tokens; stylelint/eslint reject raw literals outside `components` and `config`                    |
 | 9 — enforced boundaries                | `eslint-plugin-boundaries` default-disallow plus live `__boundary-violation__` fixtures                |
 | 10 — test-first, verified in browser   | Focused unit suites plus the ADR 32 Playwright evidence against the real stack                         |
 | 11 — state separated by authority      | Store transitions are explicit; observed and requested never collapse; view state stays in features    |

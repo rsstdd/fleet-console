@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { DataPlate } from "../dataPlate";
+import { DataPlate } from "./dataPlate";
 
 describe("DataPlate", () => {
   it("renders its children in a div by default", () => {

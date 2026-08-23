@@ -323,7 +323,7 @@ table {
 }
 
 /* ---------- Connection banner ----------
-   Token mapping for shared/ui/connectionBanner.tsx; component spec 07 § 6.
+   Token mapping for components/connectionBanner.tsx; component spec 07 § 6.
    Only --warning and --error are used here, never a --status-* token: the
    banner reports transport integrity, not a robot's state.
    ------------------------------------------------------------------ */
@@ -427,7 +427,7 @@ table {
 }
 
 /* ---------- Stat ----------
-   Token mapping for shared/ui/stat.tsx; keep its tone classes aligned with
+   Token mapping for components/stat.tsx; keep its tone classes aligned with
    component spec 05. The parent owns layout and any card surface.
    ------------------------------------------------------------------ */
 /* stylelint-disable selector-class-pattern -- Component spec 05 requires the
@@ -465,7 +465,7 @@ table {
 /* stylelint-enable selector-class-pattern */
 
 /* ---------- Empty state ----------
-   Token mapping for shared/ui/emptyState.tsx (component spec 06 §6). The title
+   Token mapping for components/emptyState.tsx (component spec 06 §6). The title
    is an h2 for the document outline and h3 scale for the visual hierarchy:
    spec §4 fixes the level, spec §6 fixes the size, and they are deliberately
    two different decisions. No surface, border, illustration or accent here —

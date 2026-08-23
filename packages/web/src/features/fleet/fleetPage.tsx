@@ -8,7 +8,7 @@ import {
   type SelectChangeEvent,
 } from "@mui/material";
 
-import { EmptyState } from "@/shared/ui/emptyState";
+import { EmptyState } from "@/components/emptyState";
 import { isStreamConnected, useConnectionState } from "@/shared/lib/connectionContext";
 
 import type { FleetData } from "@/entities/robot/fleetStore";

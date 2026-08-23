@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { Stack, Typography } from "@mui/material";
 
-import { FreshnessLabel } from "@/shared/ui/freshnessLabel";
-import { StatusChip } from "@/shared/ui/statusChip";
+import { FreshnessLabel } from "@/components/freshnessLabel";
+import { StatusChip } from "@/components/statusChip";
 
 import type { Robot } from "@/entities/robot/model";
 import { selectStatusPresentation } from "@/entities/robot/selectors";

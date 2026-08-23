@@ -16,7 +16,7 @@ export interface PersonaToggleProps {
  * Compact-control height from component spec 08 §6. MUI's `size="small"`
  * alone lands near 39px (13px text at the button variant's 1.75 line height
  * plus 7px padding), so the height is stated rather than inherited. Raw px is
- * permitted here because `shared/ui` is where the token mapping lives, and no
+ * permitted here because `components` is where the token mapping lives, and no
  * control-height token exists to reach for (Principle 8).
  */
 const CONTROL_HEIGHT = "32px";

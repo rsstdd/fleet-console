@@ -61,8 +61,8 @@ describe("isStreamConnected", () => {
   });
 
   it("agrees with the banner's vocabulary, which is declared separately", () => {
-    // Coupling: `shared/ui/connectionBanner.tsx` holds a structurally identical
-    // union, restated because `shared/lib` and `shared/ui` may not import each
+    // Coupling: `components/connectionBanner.tsx` holds a structurally identical
+    // union, restated because `shared/lib` and `components` may not import each
     // other (ADR 4, ADR 23). Structural typing is what keeps them interchangeable;
     // this assignment is the check that they still are.
     const fromBanner: "connecting" | "connected" | "reconnecting" | "disconnected" = "reconnecting";

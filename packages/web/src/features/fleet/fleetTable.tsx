@@ -11,9 +11,9 @@ import {
   TableRow,
 } from "@mui/material";
 
-import { DataPlate } from "@/shared/ui/dataPlate";
-import { FreshnessLabel } from "@/shared/ui/freshnessLabel";
-import { StatusChip } from "@/shared/ui/statusChip";
+import { DataPlate } from "@/components/dataPlate";
+import { FreshnessLabel } from "@/components/freshnessLabel";
+import { StatusChip } from "@/components/statusChip";
 
 import { selectBatteryDisplay, selectStatusPresentation } from "@/entities/robot/selectors";
 import type { Robot } from "@/entities/robot/model";

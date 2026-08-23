@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 
-import { SectionLabel } from "@/shared/ui/sectionLabel";
+import { SectionLabel } from "@/components/sectionLabel";
 
 /** Monospace tabular styling shared by the identity heading, field values, and the raw-payload block. */
 export const MONO = {

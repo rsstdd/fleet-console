@@ -3,9 +3,9 @@ import { Link } from "react-router";
 import { Box, Stack, Typography } from "@mui/material";
 
 import { isStreamConnected, useConnectionState } from "@/shared/lib/connectionContext";
-import { FreshnessLabel } from "@/shared/ui/freshnessLabel";
-import { PersonaToggle, type Persona } from "@/shared/ui/personaToggle";
-import { StatusChip } from "@/shared/ui/statusChip";
+import { FreshnessLabel } from "@/components/freshnessLabel";
+import { PersonaToggle, type Persona } from "@/components/personaToggle";
+import { StatusChip } from "@/components/statusChip";
 
 import type { RobotDetail } from "@/entities/robot/model";
 import { selectStatusPresentation } from "@/entities/robot/selectors";

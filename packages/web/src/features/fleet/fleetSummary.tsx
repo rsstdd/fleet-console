@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Box, Stack, Typography } from "@mui/material";
 
-import { Stat } from "@/shared/ui/stat";
+import { Stat } from "@/components/stat";
 
 import type { FreshnessSummary } from "@/entities/robot/selectors";
 
