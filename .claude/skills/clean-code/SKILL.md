@@ -17,6 +17,11 @@ so in the summary — never resolve the conflict silently.
 3. Repo `AGENTS.md`, then path-scoped `AGENTS.md`
 4. These Clean Code rules
 
+`CLAUDE.md` files hold no rank in this order, at any nesting level: each is a compatibility
+pointer to its directory's `AGENTS.md` (root `CLAUDE.md`: "Authority: Compatibility only").
+A `CLAUDE.md` that disagrees with its `AGENTS.md` is a drift bug to fix, not a precedence
+question to resolve.
+
 ## Known conflicts, already settled
 
 Do not re-litigate these. Flag anything new. (Recorded in
