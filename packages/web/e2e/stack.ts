@@ -225,26 +225,41 @@ export async function startStack(
     processes.push(simulator);
   };
 
-  await spawnServer();
-  if (options.simulator !== false) spawnSimulator();
+  /** Newest first, so nothing writes to a listener that is already gone. */
+  const stopAll = async (): Promise<void> => {
+    for (const managed of [...processes].reverse()) {
+      await managed.stop();
+    }
+  };
 
-  const vite = launch(
-    "vite",
-    path.join(WEB_DIR, "node_modules", ".bin", "vite"),
-    [
-      "preview",
-      "--port",
-      String(ports.vite),
-      "--strictPort",
-      ...(options.outDir === undefined ? [] : ["--outDir", options.outDir]),
-    ],
-    {
-      cwd: WEB_DIR,
-      env: { FLEET_SERVER_HOST: "127.0.0.1", FLEET_SERVER_PORT: String(ports.server) },
-    },
-  );
-  processes.push(vite);
-  await waitForHttp(consoleUrl, processes);
+  // A readiness timeout here rejects before any caller holds a `dispose`, so whatever
+  // already started is unreachable and unkillable. The next test binds these same ports
+  // under `--strictPort`, so the leak fails a later test rather than this one.
+  try {
+    await spawnServer();
+    if (options.simulator !== false) spawnSimulator();
+
+    const vite = launch(
+      "vite",
+      path.join(WEB_DIR, "node_modules", ".bin", "vite"),
+      [
+        "preview",
+        "--port",
+        String(ports.vite),
+        "--strictPort",
+        ...(options.outDir === undefined ? [] : ["--outDir", options.outDir]),
+      ],
+      {
+        cwd: WEB_DIR,
+        env: { FLEET_SERVER_HOST: "127.0.0.1", FLEET_SERVER_PORT: String(ports.server) },
+      },
+    );
+    processes.push(vite);
+    await waitForHttp(consoleUrl, processes);
+  } catch (error) {
+    await stopAll();
+    throw error;
+  }
 
   return {
     consoleUrl,
@@ -267,11 +282,6 @@ export async function startStack(
       if (simulator !== null) return;
       spawnSimulator();
     },
-    dispose: async () => {
-      // Newest first, so nothing writes to a listener that is already gone.
-      for (const managed of [...processes].reverse()) {
-        await managed.stop();
-      }
-    },
+    dispose: stopAll,
   };
 }
