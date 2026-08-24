@@ -140,6 +140,11 @@
       "id": "D28",
       "question": "Web folder vocabulary and test placement for external readability",
       "adr": 36
+    },
+    {
+      "id": "D29",
+      "question": "Which exports require a doc comment",
+      "adr": 37
     }
   ],
   "mechanicalRules": [

@@ -29,7 +29,7 @@ Material UI is the component library at its installed version. A single TypeScri
 
 Dark and light are the two tenant profiles rather than a user preference — Tenant A dark, Tenant B light — switched together with wordmark and feature flags from `config` at boot, with no `localStorage` persistence and no `prefers-color-scheme` fallback. Typography is IBM Plex Sans and IBM Plex Mono, both open-licensed.
 
-UI consistency is enforced, not only described. ESLint rejects raw hex, `px`/`rem` strings, and non-zero numeric dimensions in production TypeScript with `src/styles/tokens.ts` as the authored exemption. Stylelint rejects raw hex, `rgb()`/`hsl()`, and `px`/`rem` in every stylesheet outside generated `tokens.css`. No second styling system — Tailwind, styled-components, CSS Modules — is introduced alongside MUI.
+UI consistency is enforced, not only described. ESLint rejects raw hex and `px`/`rem` strings or templates, plus non-zero numeric values attached to the width/height property family, in production TypeScript with `src/styles/tokens.ts` as the authored exemption. Stylelint rejects raw hex, `rgb()`/`hsl()`, and case-insensitive `px`/`rem` values in every stylesheet outside generated `tokens.css`. Unitless MUI scale values and intrinsic SVG coordinate geometry remain review concerns rather than being mislabeled as CSS lengths. No second styling system — Tailwind, styled-components, CSS Modules — is introduced alongside MUI.
 
 ## Positions
 
@@ -65,7 +65,7 @@ The enforcement half — two lint tools covering two file types neither covers a
 
 - **19 August 2026 — `theme.spacing` stays at MUI's default 8px, reversing this ADR's recorded lean.** The lean ("set `spacing: 4` explicitly, so `sx={{ p: 2 }}` does not render at double the intended value") was written before any UI existed. It now does: `theme.ts` sets no `spacing`, and 108 spacing-unit usages across `packages/web` were authored against the 8px default, concentrated on 1, 2 and 3. Two facts decided it. First, the default already lands on the token scale — `p:1`→8px, `p:2`→16px, `p:3`→24px, `p:4`→32px are all members of the working set (4, 8, 12, 16, 24, 32, 48) — so the feared "double the intended value" does not produce off-scale spacing, only a coarser subset of the scale. Second, switching to `spacing: 4` would halve all 108 values at once and require a visual pass over the whole application to restore its current density, which is a real cost against a mapping nicety. The 4px and 12px steps remain reachable through `var(--space-1)` and `var(--space-3)` for a component that needs them, which is the same escape hatch every other intrinsic value uses.
 
-- **24 August 2026 — the authored token source and generator are implemented.** `tokens.ts` now supplies both MUI and generated `tokens.css`; `pnpm check:tokens` rejects a stale generated artifact and exercises the TypeScript and CSS raw-unit rules. The earlier cross-file drift check remains as contrast and generation evidence rather than as permission for two authored palettes.
+- **24 August 2026 — the authored token source and generator are implemented.** `tokens.ts` now supplies both MUI and generated `tokens.css`; its shared tenant-key type and the generator reject incomplete theme pairs before a light profile can inherit a dark fallback. `pnpm check:tokens` rejects a stale generated artifact and exercises the TypeScript and CSS raw-unit boundary forms. The earlier cross-file drift check remains as contrast and generation evidence rather than as permission for two authored palettes.
 
 ## Related
 

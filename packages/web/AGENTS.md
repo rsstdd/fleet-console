@@ -87,7 +87,7 @@ StrictMode + react-hooks + React Compiler lints. Violations = bugs.
 
 - Every async surface: loading, empty, partial/stale, offline, recoverable error, terminal error as applicable.
 - WCAG 2.2 AA: semantic HTML, keyboard, accessible names, visible logical focus.
-- MUI + existing tokens only. `styles/tokens.ts` is authored configuration data and `tokens.css` generated; no raw visual literals elsewhere (ADR 5).
+- MUI + existing tokens only. `styles/tokens.ts` authors repeated colour and size decisions and generates `tokens.css`; lint rejects raw hex and `px`/`rem` literals plus numeric width/height-family values elsewhere (ADR 5).
 - Tenant identity, theme, flags, endpoints travel together via typed config. Never branch on tenant in a component (ADR 17, 21).
 - UI may hide/disable actions; it never authorizes them.
 - No `dangerouslySetInnerHTML`. No secrets in client env. No sensitive data in localStorage.
@@ -119,10 +119,14 @@ rather than restating it.
 - Default to no comment. If naming or structure can carry the idea, change those first.
 - A comment explains rationale, constraint, edge case, ownership, or a historical
   failure. It never explains the next statement.
-- Export docs stay mandatory (ADR 28): one informative sentence on every exported
-  function, type, and component, saying something the signature does not. A
-  self-documenting declaration is not an exemption — make the summary explain the
-  contract, the constraint, the edge case, or the reason.
+- Export docs are mandatory on this package's public surface (ADR 37): one informative
+  sentence on every function, type, and component that another layer imports — `features`
+  reaching into `components`/`hooks`/`utils`/`types`/`lib`/`config`/`stores`/`context`, or
+  anything the app shell composes. A self-documenting declaration is not an exemption —
+  make the summary explain the contract, the constraint, the edge case, or the reason.
+- Inside a module or feature slice, document an export only where the sentence carries a
+  contract, constraint, edge case, ownership fact, or historical failure. Absence is not a
+  review finding there; a restated comment is one everywhere (ADR 28).
 - Add `@param` / `@returns` only where the contract is complex or ambiguous: outcome
   unions with different retry semantics, identity guarantees a caller depends on,
   injected ports, units, ranges, ordering requirements. Never to raise tag coverage on

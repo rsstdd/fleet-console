@@ -39,19 +39,21 @@ code that type-checks against the wrong major. Read the installed version before
 | Repeated UI                | `styled()` at module scope           | a theme `variants` entry                 | deeply nested `sx`                      |
 | Sub-element of a component | `slotProps`                          | a global state class (`& .Mui-selected`) | bare tag/descendant selectors           |
 | Grid or layout             | `Grid` (v2) / `Stack`                | `Box` with `display: grid`               | manual percentage widths, `<Grid item>` |
-| Per-item dynamic value     | a CSS custom property set in `style` | —                                        | a fresh `sx` object per item            |
+| Per-item dynamic value     | a CSS custom property set in `style` | `sx` for a small, cold list              | unmeasured `sx` work in a hot list      |
 
 ## Rules
 
-### 1. No `sx` inside a map
+### 1. Keep hot-list styling measurable
 
-`sx` is not compiled. Every render, `styleFunctionSx` walks the object, resolves theme keys,
-serializes the result, and hands it to Emotion — per element. A list of 200 rows with an `sx`
-object built in the callback pays that 200 times per render, allocating 200 objects that fail
-Emotion's cache because each one is a new identity.
+`sx` is not compiled: on each rendered instance, `styleFunctionSx` walks the value and resolves
+theme keys before Emotion serializes the resulting styles. Emotion hashes serialized content,
+so equal styles reuse the inserted rule regardless of JavaScript object identity. A module-level
+`styled()` component still serializes during render, but it bypasses `styleFunctionSx` and keeps
+the repeated style contract out of the item callback. Use that distinction only where list size
+or update frequency makes the work material; a small error list does not need an abstraction.
 
 ```tsx
-// ❌ 200 object allocations + 200 serializations per render
+// Repeats sx transformation work in a measured hot list.
 {
   robots.map((robot) => (
     <Box key={robot.id} sx={{ display: "flex", gap: 2, p: 1 }}>
@@ -60,7 +62,7 @@ Emotion's cache because each one is a new identity.
   ));
 }
 
-// ✅ serialized once, at module scope; every row shares the class
+// Keeps the repeated contract outside the callback and bypasses styleFunctionSx.
 const Row = styled("li")(({ theme }) => ({
   display: "flex",
   gap: theme.spacing(2),
@@ -89,9 +91,9 @@ const Bar = styled("div")({ inlineSize: "var(--bar-width)" });
 <Bar style={{ "--bar-width": `${percent}%` } as React.CSSProperties} />;
 ```
 
-- A hoisted module-level `sx` constant is a real improvement over an inline literal — stable
-  identity, one cache entry — but it still runs through `styleFunctionSx` on every render.
-  Use it for a handful of elements; use `styled()` for anything in a loop.
+- A hoisted module-level `sx` constant avoids rebuilding the object and can name a repeated role,
+  but it still runs through `styleFunctionSx` on every render. Use `styled()` in a loop only when
+  the loop is hot or the style is a genuine repeated component contract.
 
 ### 2. Tokens, never raw units
 
@@ -204,10 +206,11 @@ Grid v2 is `gap`-based: no negative margins, no padding compensation, no wrapper
 - `theme.spacing` stays at MUI's default 8px (ADR 5, observed consequence): `p: 1/2/3/4` →
   8/16/24/32px, all on the token scale. `var(--space-1)` and `var(--space-3)` cover 4px and 12px.
 - Rule 2 is enforced, not advisory, by two tools — read `scripts/webTokenLint.mjs` and
-  `packages/web/.stylelintrc.json` rather than assuming the scope. ESLint rejects raw hex,
-  `px`/`rem` strings, and non-zero numeric dimensions in production TypeScript; Stylelint
-  rejects raw colours and `px`/`rem` in stylesheets. Authored `styles/tokens.ts` and generated
-  `tokens.css` are their respective exemptions; tests may state literal expectations.
+  `packages/web/.stylelintrc.json` rather than assuming the scope. ESLint rejects raw hex and
+  `px`/`rem` strings or templates plus non-zero numeric width/height-family values in production
+  TypeScript; Stylelint rejects raw colours and case-insensitive `px`/`rem` values in stylesheets.
+  Authored `styles/tokens.ts` and generated `tokens.css` are their respective exemptions; tests
+  may state literal expectations. Unitless MUI scale values and SVG coordinates remain review.
 - Hand-written classes in these stylesheets are BEM (`block`, `block__element`, `block--modifier`),
   enforced by `selector-class-pattern`.
 - No second styling system — no Tailwind, styled-components, or CSS Modules (ADR 5).

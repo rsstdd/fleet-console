@@ -114,8 +114,10 @@ Binding on every package.
 
 **Source**
 
-- One-sentence doc comment on every exported class, function, type and component
-  (Principle 14).
+- One-sentence doc comment on every class, function, type, and component reachable from
+  the package's public entry point — its `exports` barrel, and in `web` the surface one
+  layer imports from another (ADR 37). Internal exports are documented only where the
+  sentence earns its place.
 - Non-trivial cross-package coupling is commented on **both** sides, naming the other
   file. Agents find related code by search; implied coupling is invisible.
 - `export type` for type-only exports, required by `verbatimModuleSyntax`.
@@ -186,7 +188,7 @@ A package matches its specification when:
 | adapters  | 227   | pass | pass      | Complete, including dispatch and joining evidence                                              |
 | simulator | 211   | pass | pass      | Complete and runnable                                                                          |
 | server    | 193   | pass | pass      | Runnable HTTP ingest, reads (battery history included) and WebSocket fan-out                   |
-| web       | 402   | pass | pass      | Live decoded store, transport, automatic recovery, and the battery-history sparkline are built |
+| web       | 405   | pass | pass      | Live decoded store, transport, automatic recovery, and the battery-history sparkline are built |
 
 The live simulator-to-console path is implemented, including automatic stream recovery and
 server-restart reconciliation (ADR 31, register D22), and is proven end to end in real

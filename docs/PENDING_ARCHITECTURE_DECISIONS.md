@@ -36,6 +36,7 @@ This file is intentionally short: resolved entries are tombstones linking to the
 | D26 | Implemented | [ADR 35](./00_adr/35_MAP_SPATIAL_CONTEXT_DERIVED_CLIENT_SIDE.md)                  | Map spatial context when the wire carries no bounds                              |
 | D27 | Open        | —                                                                                 | Enable the React Compiler build transform in web                                 |
 | D28 | Implemented | [ADR 36](./00_adr/36_CONVENTIONAL_REACT_FOLDER_VOCABULARY_IN_WEB.md)              | Web folder vocabulary and test placement for external readability                |
+| D29 | Implemented | [ADR 37](./00_adr/37_DOC_COMMENTS_MANDATORY_ONLY_ON_A_PACKAGE_PUBLIC_SURFACE.md)  | Which exports require a doc comment                                              |
 
 ## Open stubs
 
