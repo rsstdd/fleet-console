@@ -61,6 +61,16 @@ const READY_TIMEOUT_MS = 30_000;
  */
 const READY_POLL_INTERVAL_MS = 200;
 
+/**
+ * The loopback address every part of the harness agrees on.
+ *
+ * One constant rather than three literals: the server's `FLEET_SERVER_HOST`, Vite's
+ * `--host`, and the origins the probes and the browser are pointed at have to name the
+ * same interface, and a stack whose pieces disagree fails as a readiness timeout that
+ * looks like slowness.
+ */
+const LOOPBACK_HOST = "127.0.0.1";
+
 /** Owns a whole process group so teardown cannot strand `tsx` or Vite children. */
 export interface ManagedProcess {
   readonly name: string;
@@ -194,8 +204,8 @@ export async function startStack(
     readonly outDir?: string;
   } = {},
 ): Promise<Stack> {
-  const serverUrl = `http://127.0.0.1:${String(ports.server)}`;
-  const consoleUrl = `http://127.0.0.1:${String(ports.vite)}`;
+  const serverUrl = `http://${LOOPBACK_HOST}:${String(ports.server)}`;
+  const consoleUrl = `http://${LOOPBACK_HOST}:${String(ports.vite)}`;
   const processes: ManagedProcess[] = [];
   let server: ManagedProcess | null = null;
   let simulator: ManagedProcess | null = null;
@@ -208,7 +218,7 @@ export async function startStack(
       ["src/main.ts"],
       {
         cwd: serverDir,
-        env: { FLEET_SERVER_HOST: "127.0.0.1", FLEET_SERVER_PORT: String(ports.server) },
+        env: { FLEET_SERVER_HOST: LOOPBACK_HOST, FLEET_SERVER_PORT: String(ports.server) },
       },
     );
     processes.push(server);
@@ -247,11 +257,22 @@ export async function startStack(
         "--port",
         String(ports.vite),
         "--strictPort",
+        // Bound to the literal address the readiness probe and the browser use, never
+        // left to Vite's `localhost` default. `localhost` is resolved by Node, which
+        // since v17 returns records verbatim rather than preferring IPv4 — so on a host
+        // whose `/etc/hosts` maps `localhost` to `::1` as well (the GitHub Actions
+        // ubuntu runners do; a WSL box typically does not) preview binds IPv6-only and
+        // every `http://127.0.0.1` probe here gets ECONNREFUSED. That failure reads as
+        // "Timed out waiting for ... (fetch failed)" after the full readiness budget,
+        // with a healthy server and simulator in the attached logs, and it fails every
+        // test in every project at once.
+        "--host",
+        LOOPBACK_HOST,
         ...(options.outDir === undefined ? [] : ["--outDir", options.outDir]),
       ],
       {
         cwd: WEB_DIR,
-        env: { FLEET_SERVER_HOST: "127.0.0.1", FLEET_SERVER_PORT: String(ports.server) },
+        env: { FLEET_SERVER_HOST: LOOPBACK_HOST, FLEET_SERVER_PORT: String(ports.server) },
       },
     );
     processes.push(vite);
