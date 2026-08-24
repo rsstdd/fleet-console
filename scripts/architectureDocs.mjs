@@ -200,8 +200,9 @@ export async function checkArchitectureDocs(root = ROOT) {
   }
   // The registration is the whole path → ADR record. Requiring the file to also spell the
   // number out gave the same fact two homes, and the renumbering that turned ADR 27 into 28
-  // had to chase it through seven files. What is still worth checking is that the registered
-  // path exists, which a registry alone cannot know.
+  // had to chase it through seven files. Sole ownership is only worth having if both halves
+  // are checked: the path, which a registry alone cannot know exists, and the number, which
+  // no longer has a comment anywhere to contradict it if it routes nowhere.
   for (const rule of decisionMap.mechanicalRules) {
     try {
       await access(path.join(root, rule.path));
@@ -209,6 +210,9 @@ export async function checkArchitectureDocs(root = ROOT) {
       errors.push(
         `${rule.path} is registered as an ADR ${rule.adr} enforcement file but is missing.`,
       );
+    }
+    if (!adrs.has(rule.adr)) {
+      errors.push(`${rule.path} is registered under ADR ${rule.adr}, which does not exist.`);
     }
   }
   for (const [authority, paths] of Object.entries(decisionMap.authorityMarkers)) {

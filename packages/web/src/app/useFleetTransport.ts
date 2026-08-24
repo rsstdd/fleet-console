@@ -85,16 +85,24 @@ const openBrowserSocket: OpenSocket = (url, handlers) => {
  * the server's real address is what would make its requests cross-origin, and ADR 21's dev
  * proxy exists precisely so it never has to.
  *
- * @param path - `TENANT.endpoints.streamUrl`. An absolute `ws://` or `wss://` value is
- *   returned unchanged; anything else is resolved as a reference against `origin`, which
- *   is how the shipped `/ws` becomes a same-origin socket address.
- * @param origin - The page's own origin, whose `http` scheme is rewritten to `ws`. Pass
- *   `window.location.origin`, never a configured host — see above.
- * @returns An absolute `ws://` or `wss://` URL, the only form `WebSocket` accepts.
+ * @param path - `TENANT.endpoints.streamUrl`, resolved as a reference against `origin`, so
+ *   the shipped `/ws` becomes a same-origin socket address and an absolute value keeps its
+ *   own host. Its scheme is then mapped to the socket equivalent, because ADR 21's
+ *   cross-origin deployment is configured as an `https://` URL and `WebSocket` rejects one.
+ * @param origin - The page's own origin. Pass `window.location.origin`, never a configured
+ *   host — see above.
+ * @returns An absolute `ws://` or `wss://` URL, the only form `WebSocket` accepts. Coupling:
+ *   that guarantee holds because `endpointUrlSchema` in `config/tenant.ts` admits exactly
+ *   these four schemes; a fifth admitted there needs a case here.
  */
 export function resolveStreamUrl(path: string, origin: string): string {
-  if (path.startsWith("ws://") || path.startsWith("wss://")) return path;
-  return new URL(path, origin.replace(/^http/, "ws")).toString();
+  const resolved = new URL(path, origin);
+  if (resolved.protocol === "http:") {
+    resolved.protocol = "ws:";
+  } else if (resolved.protocol === "https:") {
+    resolved.protocol = "wss:";
+  }
+  return resolved.toString();
 }
 
 /**

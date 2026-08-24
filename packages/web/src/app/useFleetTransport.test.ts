@@ -159,4 +159,15 @@ describe("resolveStreamUrl", () => {
       "wss://stream.example.com/ws",
     );
   });
+
+  it("maps an absolute http(s) endpoint onto the scheme WebSocket accepts", () => {
+    // The cross-origin deployment ADR 21 admits is configured as an http(s) URL, which
+    // `endpointUrlSchema` accepts and `new WebSocket()` throws on. Host and port survive.
+    expect(resolveStreamUrl("https://stream.example.com/ws", "https://a.test")).toBe(
+      "wss://stream.example.com/ws",
+    );
+    expect(resolveStreamUrl("http://stream.example.com:8080/ws", "https://a.test")).toBe(
+      "ws://stream.example.com:8080/ws",
+    );
+  });
 });
