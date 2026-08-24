@@ -23,7 +23,7 @@ Load the first matching route only. Do not preload directories or paste `PRINCIP
 ## Rules
 
 - Prefer TDD: write or update a focused test that documents intended behaviour before implementing (Principle 10). After a user-facing change, verify end-to-end in a running browser (or documented equivalent); unit tests alone are not enough (Principle 10).
-- One-sentence doc comment on every symbol reachable from a package's public entry point — its `exports` barrel, and in `web` the surface one layer imports from another (ADR 37). Internal exports are documented only where the sentence earns its place; a comment that restates its signature is a lint error anywhere (ADR 28).
+- One-sentence doc comment on every symbol exported or re-exported by a package's declared public entry points, and in `web` on the surface another layer imports or the app shell composes (ADR 37). Internal exports are documented only where the sentence earns its place; a comment that restates its signature is a lint error anywhere (ADR 28).
 - Document non-trivial cross-file/cross-package coupling on both sides; agents rely on search (Principle 14).
 - State is separated by authority, lifetime, and transition model. Observed state and requested state are never collapsed (Principle 11).
 - Freshness is first-class on every value surface (Principle 4). Derive it server-side only: a sweep over `receivedAt` in `packages/server` calling the pure state function in `packages/contracts`; it travels as a field on the envelope. `packages/web` never derives it and holds no freshness timer. While the stream is down, suppress per-robot labels in favour of the connection banner (ADR 3). Never present stale data as current (P4).

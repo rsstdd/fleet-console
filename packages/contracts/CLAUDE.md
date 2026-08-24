@@ -15,7 +15,7 @@ In particular:
 - Serialize capability entries as the ADR-defined wire array and transform them into the runtime mapped record without a parallel declaration set.
 - Keep freshness derivation pure and based only on `receivedAt`, injected time, and explicit thresholds. The server owns the recurring sweep.
 - Evolve schema versions deliberately and test malformed, boundary, additional-field, unsupported-version, and JSON round-trip behavior.
-- Add one-sentence doc comments to everything reachable from `src/index.ts` (ADR 37), document non-trivial coupling on both sides, and prefer focused test-first diffs. Lint rejects a comment that only restates its signature, so the sentence has to earn its place (ADR 28).
+- Add one-sentence doc comments to everything exported or re-exported by the declared public entry point, `src/index.ts` (ADR 37), document non-trivial coupling on both sides, and prefer focused test-first diffs. Lint rejects a comment that only restates its signature, so the sentence has to earn its place (ADR 28).
 - Stop and surface any conflict with `PRINCIPLES.md` or an ADR.
 
 Do not duplicate the detailed scoped rules here. Update [`AGENTS.md`](./AGENTS.md) when this package's architecture or workflow changes so the two agent entry points cannot drift.

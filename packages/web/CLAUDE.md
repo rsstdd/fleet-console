@@ -23,6 +23,6 @@ In particular:
 - Keep observed and requested state separate; the UI never authorizes an operation.
 - Use Material UI and repository tokens, meet WCAG 2.2 AA, and define complete async states.
 - Preserve the measured scale and bundle gates; optimize only from evidence.
-- Add one-sentence doc comments to the exports another layer imports (ADR 37), document
-  coupling on both sides, and prefer focused test-first diffs.
+- Add one-sentence doc comments to the exports another layer imports or the app shell
+  composes (ADR 37), document coupling on both sides, and prefer focused test-first diffs.
 - Stop and surface any conflict with `PRINCIPLES.md` or an ADR.

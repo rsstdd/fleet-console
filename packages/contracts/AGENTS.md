@@ -70,7 +70,7 @@ This package does not own vendor dialect decoding, transport, persistence, inter
 - A new capability starts here: define its name, payload schema, runtime mapping, wire representation, and tests before adapters or UI consume it.
 - Changing an existing field's meaning, units, requiredness, or serialized shape requires deliberate versioning and coordinated consumer changes; do not make an in-place breaking reinterpretation.
 - Document non-trivial coupling on both sides of a cross-package change with comments naming the related module (Principle 14).
-- Add a one-sentence doc comment to every class, function, and type reachable from `src/index.ts` (ADR 37). Elsewhere, comment only where the sentence says something the declaration cannot.
+- Add a one-sentence doc comment to every class, function, and type exported or re-exported by the declared public entry point, `src/index.ts` (ADR 37). Elsewhere, comment only where the sentence says something the declaration cannot.
 - Keep changes focused. Do not combine a contract evolution with unrelated cleanup.
 - If a request conflicts with `PRINCIPLES.md` or an ADR, stop and surface the conflict rather than working around it.
 

@@ -114,10 +114,10 @@ Binding on every package.
 
 **Source**
 
-- One-sentence doc comment on every class, function, type, and component reachable from
-  the package's public entry point — its `exports` barrel, and in `web` the surface one
-  layer imports from another (ADR 37). Internal exports are documented only where the
-  sentence earns its place.
+- One-sentence doc comment on every class, function, type, and component exported or
+  re-exported by the package's declared public entry points, and in `web` on the surface
+  another layer imports or the app shell composes (ADR 37). Internal exports are
+  documented only where the sentence earns its place.
 - Non-trivial cross-package coupling is commented on **both** sides, naming the other
   file. Agents find related code by search; implied coupling is invisible.
 - `export type` for type-only exports, required by `verbatimModuleSyntax`.

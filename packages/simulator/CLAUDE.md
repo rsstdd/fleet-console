@@ -17,7 +17,7 @@ In particular:
 - Bound HTTP concurrency and retries, expose achieved send rate and failures, and avoid per-success logging in load mode.
 - Keep scheduling, generation, faults, and transport separable and test them with fake timers rather than wall-clock sleeps.
 - Coordinate dialect changes with adapter fixtures/tests and transport changes with the server and ADR 2.
-- Add one-sentence doc comments to everything reachable from `src/index.ts` (ADR 37), document non-trivial coupling on both sides, and prefer focused test-first diffs. Lint rejects a comment that only restates its signature, so the sentence has to earn its place (ADR 28).
+- Add one-sentence doc comments to everything exported or re-exported by the declared public entry point, `src/index.ts` (ADR 37), document non-trivial coupling on both sides, and prefer focused test-first diffs. Lint rejects a comment that only restates its signature, so the sentence has to earn its place (ADR 28).
 - Stop and surface any conflict with `PRINCIPLES.md` or an ADR.
 
 Do not duplicate the detailed scoped rules here. Update [`AGENTS.md`](./AGENTS.md) when this package's architecture or workflow changes so the two agent entry points cannot drift.

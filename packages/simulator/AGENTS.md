@@ -104,7 +104,7 @@ This package does not normalize telemetry, define canonical contracts, derive fr
 - A new vendor field belongs to the raw dialect here and its adapter mapping there. A genuinely new canonical capability starts in `packages/contracts`.
 - Changes to HTTP ingest shape or batching must follow ADR 2 and be coordinated with `packages/server`.
 - Document non-trivial coupling on both sides of a cross-package change with comments naming the related module (Principle 14).
-- Add a one-sentence doc comment to every class, function, and type reachable from `src/index.ts` (ADR 37). Elsewhere, comment only where the sentence says something the declaration cannot.
+- Add a one-sentence doc comment to every class, function, and type exported or re-exported by the declared public entry point, `src/index.ts` (ADR 37). Elsewhere, comment only where the sentence says something the declaration cannot.
 - Keep diffs focused; do not expand the simulator into provisioning, commands, persistence, or a UI.
 - If a request conflicts with `PRINCIPLES.md` or an ADR, stop and surface the conflict rather than working around it.
 

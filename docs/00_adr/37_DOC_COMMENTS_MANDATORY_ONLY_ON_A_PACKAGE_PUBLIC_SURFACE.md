@@ -1,6 +1,6 @@
 # ADR 37 — A Doc Comment Is Mandatory Only on a Package's Public Surface
 
-**Decision:** A one-sentence doc comment is required on every symbol reachable from a package's declared public entry point — its `exports` barrel, and in `packages/web` the surface one layer imports from another — and is optional elsewhere, where a comment is written only when it says something the declaration cannot.
+**Decision:** A one-sentence doc comment is required on every symbol exported or re-exported by a package's declared public entry points and, in `packages/web`, on the cross-layer and app-shell surface defined below. It is optional elsewhere, where a comment is written only when it says something the declaration cannot.
 **Status:** Decided · 2026-08-24 · Implemented
 **Group:** Process / documentation quality (which half of ADR 28's bet is mandatory, and where).
 
@@ -31,7 +31,7 @@ So the mandate is enforced by review alone against a rule ADR 28 argued against,
 
 ## Decision
 
-**Mandatory tier — the public surface.** Every symbol reachable from a package's declared public entry point carries one informative sentence:
+**Mandatory tier — the public surface.** Every symbol exported or re-exported by a package's declared public entry points carries one informative sentence:
 
 | Package     | Public surface                                                 |
 | ----------- | -------------------------------------------------------------- |
@@ -52,7 +52,7 @@ So the mandate is enforced by review alone against a rule ADR 28 argued against,
 1. **Mandatory on the public surface, optional inside.** Chosen.
 2. **Keep "every export", add an explicit triviality exemption list** — presentational components, prop interfaces, plain literal unions, re-exports. Rejected: the exemption is a judgment call at every site with no observable boundary, so it would drift between reviewers and produce the same argument repeatedly. The barrel is greppable; "trivial" is not.
 3. **Keep "every export" as written.** Rejected: it is the status quo whose failure this ADR opens with — a mandate with false provenance, in tension with ADR 28, unenforced, and pushing authors toward padded sentences on trivial symbols.
-4. **Make it mechanical with `jsdoc/require-jsdoc` scoped to entry-point files.** Rejected for now, and deliberately left as an open question rather than a silent omission. ADR 28's measurement is the caution: a rule that demands a description is a rule that manufactures descriptions. Scoping it to four `index.ts` files would be defensible, but no evidence yet says review is failing to hold this tier.
+4. **Make it mechanical with `jsdoc/require-jsdoc` scoped to entry-point files.** Rejected for now, and deliberately left as an open question rather than a silent omission. ADR 28's measurement is the caution: a rule that demands a description is a rule that manufactures descriptions. Scoping it to five `index.ts` files would be defensible, but no evidence yet says review is failing to hold this tier.
 5. **Drop the requirement entirely and rely on `informative-docs`.** Rejected: `informative-docs` only judges comments that exist. Nothing would then ask the one file a new reader opens to explain itself.
 
 ## Argument
@@ -77,7 +77,7 @@ The honest cost is that `packages/web`'s mapping is an interpretation rather tha
 
 ## Open questions
 
-- **Should the mandatory tier become mechanical?** Lean no for now. `jsdoc/require-jsdoc` scoped to the four `index.ts` files is the obvious shape if it ever does. Resolution event: a review that lets an undocumented barrel export through, or a second reviewer disagreeing about the web layer boundary.
+- **Should the mandatory tier become mechanical?** Lean no for now. `jsdoc/require-jsdoc` scoped to the five declared entry-point files is the obvious shape if it ever does. Resolution event: a review that lets an undocumented barrel export through, or a second reviewer disagreeing about the web layer boundary.
 - **Is "crosses a layer" the right surface for `web`, or should it be a real barrel per layer?** Lean: leave it. Adding index files per layer to make the rule mechanical would reorganize a package that ADR 36 just reorganized. Resolution event: the web layer rule needing a judgment call twice.
 - **Does ADR 28's alias list need words now that fewer sentences are forced?** Lean no — fewer forced sentences should mean fewer padded ones. Resolution event: a redundant comment reaching review, per ADR 28's stated process.
 
