@@ -3,6 +3,9 @@ import { Paper, Stack, Typography } from "@mui/material";
 
 import type { CapabilitySet, PanelCapabilityName } from "@/types/robot";
 
+// Capability values reuse robot detail's one label/value row implementation.
+import { Field } from "./detailSection";
+
 /**
  * Capability panels for robot detail, resolved through a registry rather than
  * a chain of conditionals (spec §7). Adding a capability is one entry here
@@ -21,27 +24,11 @@ export interface CapabilityPanelEntry {
   readonly render: (capabilities: CapabilitySet) => ReactNode;
 }
 
-/** One labelled value inside a panel. Em dash for a field the vendor omitted. */
-function PanelRow({ label, value }: { label: string; value: string }): ReactNode {
-  return (
-    <Stack direction="row" spacing={2} sx={{ justifyContent: "space-between" }}>
-      <Typography variant="body2" component="dt" sx={{ color: "text.secondary" }}>
-        {label}
-      </Typography>
-      <Typography
-        variant="body2"
-        component="dd"
-        sx={{
-          m: 0,
-          fontFamily: "var(--font-mono)",
-          fontVariantNumeric: "tabular-nums",
-        }}
-      >
-        {value}
-      </Typography>
-    </Stack>
-  );
-}
+// Hoisted for the same reason `detailSection.tsx` hoists its row styles: these panels
+// re-render on every telemetry frame, and an inline `sx` literal is re-serialized each time.
+const PANEL_SX = { p: 2 } as const;
+const PANEL_TITLE_SX = { mb: 1 } as const;
+const PANEL_VALUES_SX = { m: 0 } as const;
 
 /**
  * The registry. Keyed by `PanelCapabilityName`, so a capability added to the
@@ -62,8 +49,8 @@ const CAPABILITY_PANELS: Readonly<Record<PanelCapabilityName, CapabilityPanelEnt
       }
       return (
         <>
-          <PanelRow label="Docked" value={dock.docked ? "Yes" : "No"} />
-          <PanelRow label="Dock id" value={dock.dockId ?? "—"} />
+          <Field label="Docked" value={dock.docked ? "Yes" : "No"} />
+          <Field label="Dock id" value={dock.dockId ?? "—"} />
         </>
       );
     },
@@ -78,11 +65,8 @@ const CAPABILITY_PANELS: Readonly<Record<PanelCapabilityName, CapabilityPanelEnt
       return (
         <>
           {/* Severity is a word, never a colour alone (spec §9). */}
-          <PanelRow label="Severity" value={lidar.severity} />
-          <PanelRow
-            label="Rotation"
-            value={lidar.rpm === null ? "—" : `${String(lidar.rpm)} rpm`}
-          />
+          <Field label="Severity" value={lidar.severity} />
+          <Field label="Rotation" value={lidar.rpm === null ? "—" : `${String(lidar.rpm)} rpm`} />
         </>
       );
     },
@@ -95,10 +79,7 @@ const CAPABILITY_PANELS: Readonly<Record<PanelCapabilityName, CapabilityPanelEnt
         return null;
       }
       return (
-        <PanelRow
-          label="Level"
-          value={water.percent === null ? "—" : `${String(water.percent)}%`}
-        />
+        <Field label="Level" value={water.percent === null ? "—" : `${String(water.percent)}%`} />
       );
     },
   },
@@ -119,11 +100,11 @@ export function CapabilityPanel({
   const entry = CAPABILITY_PANELS[name];
 
   return (
-    <Paper component="section" aria-labelledby={`capability-${name}`} sx={{ p: 2 }}>
-      <Typography id={`capability-${name}`} variant="h3" component="h3" sx={{ mb: 1 }}>
+    <Paper component="section" aria-labelledby={`capability-${name}`} sx={PANEL_SX}>
+      <Typography id={`capability-${name}`} variant="h3" component="h3" sx={PANEL_TITLE_SX}>
         {entry.title}
       </Typography>
-      <Stack component="dl" spacing={1} sx={{ m: 0 }}>
+      <Stack component="dl" spacing={1} sx={PANEL_VALUES_SX}>
         {entry.render(capabilities)}
       </Stack>
     </Paper>

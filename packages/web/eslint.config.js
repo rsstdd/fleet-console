@@ -7,18 +7,7 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 import boundaries from "eslint-plugin-boundaries";
 import jsdoc from "eslint-plugin-jsdoc";
 import { informativeDocsRule } from "../../config/eslint/informativeDocs.js";
-
-// ESLint selector regexes, not runtime validators. The first matches CSS hex literals
-// with 3, 4, 6, or 8 digits (`#fff`, `#ffff`, `#ffffff`, `#ffffffff`); the second
-// matches signed integer or decimal pixel strings (`12px`, `-0.5px`). Spelling the
-// accepted examples out here matters because a broadened selector silently changes
-// which visual literals the token rule permits (Principle 8).
-const HEX_LITERAL = "Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]";
-const PX_LITERAL = "Literal[value=/^-?\\d+(\\.\\d+)?px$/]";
-
-const TOKEN_MESSAGE =
-  "Raw colour and spacing literals are not permitted here (PRINCIPLES.md 8). " +
-  "Use a theme token. If the token does not exist, add the token.";
+import webTokenLint from "../../scripts/webTokenLint.mjs";
 
 export default tseslint.config(
   // playwright-report and test-results are Playwright's generated diagnostics (ADR 32).
@@ -59,6 +48,7 @@ export default tseslint.config(
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
       boundaries,
+      "web-tokens": webTokenLint,
     },
     settings: {
       // eslint-plugin-boundaries resolves each import to a file path before it can
@@ -85,6 +75,8 @@ export default tseslint.config(
         { type: "context", pattern: "src/context/**" },
         { type: "utils", pattern: "src/utils/**" },
         { type: "config", pattern: "src/config/**" },
+        // The authored token module is configuration data; its CSS sibling is generated.
+        { type: "config", pattern: "src/styles/**" },
         { type: "test", pattern: "src/test/**" },
       ],
     },
@@ -380,13 +372,12 @@ export default tseslint.config(
 
       "no-restricted-syntax": [
         "error",
-        { selector: HEX_LITERAL, message: TOKEN_MESSAGE },
-        { selector: PX_LITERAL, message: TOKEN_MESSAGE },
         {
           selector: "TSEnumDeclaration",
           message: "Use a union of string literals rather than an enum.",
         },
       ],
+      "web-tokens/no-raw-visual-units": "error",
 
       "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/consistent-type-imports": "error",
@@ -399,14 +390,15 @@ export default tseslint.config(
   },
 
   {
-    files: ["src/components/**/*.{ts,tsx}", "src/config/**/*.{ts,tsx}"],
-    rules: { "no-restricted-syntax": "off" },
+    files: ["src/styles/tokens.ts"],
+    rules: { "web-tokens/no-raw-visual-units": "off" },
   },
 
   {
-    files: ["**/*.test.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
+    files: ["**/*.test.{ts,tsx}", "e2e/**/*.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-syntax": "off",
+      "web-tokens/no-raw-visual-units": "off",
       "@typescript-eslint/no-unsafe-assignment": "off",
       // The end-to-end contract path runs a recorded vendor fixture through a
       // real adapter and asserts the read model the console renders. That is

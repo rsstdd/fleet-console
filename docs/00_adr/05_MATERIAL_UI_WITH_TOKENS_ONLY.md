@@ -1,7 +1,7 @@
 # ADR 5 — Material UI With a Token Layer, No Second Styling System
 
 **Decision:** Material UI is the component library, styled through a generated CSS custom property token layer, with dark/light tied to tenant profiles and no second styling system.
-**Status:** Decided · 2026-08-19 · Partial
+**Status:** Decided · 2026-08-19 · Implemented
 **Group:** Presentation / cross-cutting (styling, theming, accessibility of visual state).
 
 ## Issue
@@ -25,11 +25,11 @@ Three questions follow, and this ADR resolves them together because they are not
 
 ## Decision
 
-Material UI is the component library at its installed version. A single TypeScript module, `src/styles/tokens.ts`, exports the literal values; a boot-time function emits the CSS custom properties into `tokens.css` from it, and `createTheme` consumes the same exports, so the stylesheet the browser reads and the theme object MUI reads both derive from one authored source rather than from each other. `tokens.ts` is authored. `tokens.css` is generated.
+Material UI is the component library at its installed version. A single TypeScript module, `src/styles/tokens.ts`, exports the literal values; a build-time generator emits the CSS custom properties into `tokens.css` from it, and `createTheme` consumes the same exports, so the stylesheet the browser reads and the theme object MUI reads both derive from one authored source rather than from each other. `tokens.ts` is authored. `tokens.css` is generated.
 
 Dark and light are the two tenant profiles rather than a user preference — Tenant A dark, Tenant B light — switched together with wordmark and feature flags from `config` at boot, with no `localStorage` persistence and no `prefers-color-scheme` fallback. Typography is IBM Plex Sans and IBM Plex Mono, both open-licensed.
 
-UI consistency is enforced, not only described. An ESLint rule rejects raw hex and raw pixel literals in `app`, `features`, `entities`, and `shared/ui` with `src/styles/tokens.ts` as the sole exemption, and a parallel Stylelint rule rejects raw hex and raw `rgb()`/`hsl()` in every stylesheet outside `tokens.css`, so between them the two tools cover both file types that neither reaches alone. No second styling system — Tailwind, styled-components, CSS Modules — is introduced alongside MUI.
+UI consistency is enforced, not only described. ESLint rejects raw hex, `px`/`rem` strings, and non-zero numeric dimensions in production TypeScript with `src/styles/tokens.ts` as the authored exemption. Stylelint rejects raw hex, `rgb()`/`hsl()`, and `px`/`rem` in every stylesheet outside generated `tokens.css`. No second styling system — Tailwind, styled-components, CSS Modules — is introduced alongside MUI.
 
 ## Positions
 
@@ -65,6 +65,8 @@ The enforcement half — two lint tools covering two file types neither covers a
 
 - **19 August 2026 — `theme.spacing` stays at MUI's default 8px, reversing this ADR's recorded lean.** The lean ("set `spacing: 4` explicitly, so `sx={{ p: 2 }}` does not render at double the intended value") was written before any UI existed. It now does: `theme.ts` sets no `spacing`, and 108 spacing-unit usages across `packages/web` were authored against the 8px default, concentrated on 1, 2 and 3. Two facts decided it. First, the default already lands on the token scale — `p:1`→8px, `p:2`→16px, `p:3`→24px, `p:4`→32px are all members of the working set (4, 8, 12, 16, 24, 32, 48) — so the feared "double the intended value" does not produce off-scale spacing, only a coarser subset of the scale. Second, switching to `spacing: 4` would halve all 108 values at once and require a visual pass over the whole application to restore its current density, which is a real cost against a mapping nicety. The 4px and 12px steps remain reachable through `var(--space-1)` and `var(--space-3)` for a component that needs them, which is the same escape hatch every other intrinsic value uses.
 
+- **24 August 2026 — the authored token source and generator are implemented.** `tokens.ts` now supplies both MUI and generated `tokens.css`; `pnpm check:tokens` rejects a stale generated artifact and exercises the TypeScript and CSS raw-unit rules. The earlier cross-file drift check remains as contrast and generation evidence rather than as permission for two authored palettes.
+
 ## Related
 
 - ADR 4 (feature-sliced structure, enforced dependency rule) — external-dependency policies there exist to keep this ADR's token-layer boundary and ADR 4's structural boundary from silently overlapping.
@@ -75,12 +77,12 @@ The enforcement half — two lint tools covering two file types neither covers a
 - The stated UI-inconsistency pain point — direct business justification for the enforcement half of this decision.
 - Artifact `packages/web/src/styles/tokens.ts` — the single source of design literal values.
 - Artifact `packages/web/src/styles/tokens.css`, `global.css` — the generated token layer.
-- Artifact `packages/web/eslint.config.js` — the `no-restricted-syntax` hex/pixel rule, scoped to `app`, `features`, `entities`, and `shared/ui` with `tokens.ts` as the sole exemption.
+- Artifact `scripts/webTokenLint.mjs` — the TypeScript raw-colour and raw-unit rule, with `tokens.ts` as the sole authored exemption.
 - Artifact `.stylelintrc.json` — the CSS-side token rule, scoped by filename with `tokens.css` exempted.
+- Artifact `scripts/generateWebTokens.mjs` — produces `tokens.css` and checks the committed artifact for drift.
 - Artifact `docs/DESIGN_SYSTEM.md` and `docs/design-system.html` — the design profile these decisions are drawn from.
 - Artifact `packages/web/CLAUDE.md` — restates this ADR's no-second-styling-system rule at the operational level.
 
 ## Notes
 
 - 19 August 2026: The originally assumed versions (MUI v5, React 18) have been replaced with the installed versions. Verify against the lockfile before this document is shared externally.
-- The `applyTenant` function and the `createTheme` bridge are the two pieces of this ADR without code yet.

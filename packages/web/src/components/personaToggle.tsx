@@ -1,5 +1,6 @@
 import type { MouseEvent, ReactElement } from "react";
 import { ToggleButton, ToggleButtonGroup, styled } from "@mui/material";
+import { toggleButtonClasses } from "@mui/material/ToggleButton";
 
 /** The two audiences robot detail renders for; see component spec 08 §3. */
 export type Persona = "operator" | "technician";
@@ -11,15 +12,6 @@ export interface PersonaToggleProps {
   readonly className?: string;
   readonly isDisabled?: boolean;
 }
-
-/**
- * Compact-control height from component spec 08 §6. MUI's `size="small"`
- * alone lands near 39px (13px text at the button variant's 1.75 line height
- * plus 7px padding), so the height is stated rather than inherited. Raw px is
- * permitted here because `components` is where the token mapping lives, and no
- * control-height token exists to reach for (Principle 8).
- */
-const CONTROL_HEIGHT = "32px";
 
 /**
  * The persona buttons, styled directly rather than reached through a
@@ -49,14 +41,14 @@ const CONTROL_HEIGHT = "32px";
  * spec §8 asks for. Repeating it here would be a second authority for the same decision.
  */
 const PersonaButton = styled(ToggleButton)({
-  minHeight: CONTROL_HEIGHT,
+  minHeight: "var(--compact-control-height)",
   padding: "var(--space-1) var(--space-3)",
   fontSize: "var(--text-small)",
   lineHeight: "var(--leading-normal)",
   textTransform: "none",
   borderColor: "var(--line-strong)",
   color: "var(--ink)",
-  "&.Mui-selected": {
+  [`&.${toggleButtonClasses.selected}`]: {
     backgroundColor: "var(--surface-raised)",
     color: "var(--accent-text)",
     borderColor: "var(--accent-text)",
@@ -64,7 +56,7 @@ const PersonaButton = styled(ToggleButton)({
       backgroundColor: "var(--surface-raised)",
     },
   },
-  "&.Mui-disabled": {
+  [`&.${toggleButtonClasses.disabled}`]: {
     opacity: 0.4,
     pointerEvents: "none",
     color: "var(--ink-muted)",

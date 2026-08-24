@@ -94,7 +94,7 @@ export function AppShell({
               top: 0,
               zIndex: 5,
               bgcolor: "var(--header-bg)",
-              borderBottom: "1px solid",
+              borderBottom: "var(--border-width) solid",
               borderColor: "divider",
             }}
           >

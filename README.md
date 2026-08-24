@@ -364,7 +364,7 @@ Feature-sliced, not type-sliced (`components/`, `hooks/` smear code across featu
 
 **Dependency rule:** `app` → any; `features` → `entities`, `shared`; `entities` → `shared`; `shared` → nothing up; no cross-feature (Principle 9).
 **Enforcement:** Lint/CI tested. `__boundary-violation__/` tests cross-feature rejection + legal import non-error. Agent slop fails builds.
-**Lint pass:** Rejects raw hex/px outside `shared/ui`/`config` (Principle 8), forbids `enum` (string-literal unions), runs `strictTypeChecked` + `jsx-a11y` (Principle 6).
+**Lint pass:** Rejects raw visual literals outside authored `styles/tokens.ts` (Principle 8), forbids `enum` (string-literal unions), runs `strictTypeChecked` + `jsx-a11y` (Principle 6).
 **Agent governance:** `CLAUDE.md`/`AGENTS.md` have hard rules + routing table (what → which package) (Principle 14). Per-package overrides alongside code. Exported symbols = 1-sentence doc comment. Cross-package coupling documented on both sides (searchable).
 **ADRs:** Precede implementation. Amended under `## Observed consequences` if changed. Never claim ADR describes reality if diverged.
 **Personas:** Operator summary default; technician diagnostics (raw payload, seq gaps, clock delta) behind toggle. 1 layout.

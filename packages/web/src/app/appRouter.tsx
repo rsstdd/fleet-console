@@ -41,7 +41,7 @@ export function AppRouter(): ReactNode {
                 connectionState={transport.connectionState}
                 lastEventAt={transport.lastEventAt ?? undefined}
                 attempt={transport.attempt}
-                terminalCause={transport.terminalCause}
+                connectionTerminalCause={transport.terminalCause}
                 onRetry={transport.retry}
               />
             }

@@ -197,19 +197,17 @@ Grid v2 is `gap`-based: no negative margins, no padding compensation, no wrapper
   `data-mui-color-scheme` attribute and `localStorage` mode persistence conflict with
   tenant-driven `data-theme` and the decided absence of persistence). Reopening it needs an ADR,
   not a review comment.
-- Theming is therefore: `src/styles/tokens.css` holds every custom property, switched by the
-  `data-theme` attribute `app/theme.ts` sets at boot; `buildMuiTheme` assembles the MUI palette
-  from `config/tenantTheme.ts`'s `TENANT_PALETTE` and passes `var(--…)` strings for typography.
-  ADR 5's authored `styles/tokens.ts` generator is the target shape, not yet the code — check
-  before citing it. `theme.vars.*` does not exist here.
+- Theming is therefore: authored `src/styles/tokens.ts` supplies MUI's palette and shape value
+  and generates `tokens.css`; the `data-theme` attribute `app/theme.ts` sets at boot switches
+  its custom-property blocks. `pnpm check:tokens` rejects stale generated CSS. `theme.vars.*`
+  does not exist here.
 - `theme.spacing` stays at MUI's default 8px (ADR 5, observed consequence): `p: 1/2/3/4` →
   8/16/24/32px, all on the token scale. `var(--space-1)` and `var(--space-3)` cover 4px and 12px.
-- Rule 2 is enforced, not advisory, by two tools — read `packages/web/eslint.config.js` and
-  `packages/web/.stylelintrc.json` rather than assuming the scope. As configured: ESLint's
-  `no-restricted-syntax` makes a `#hex` or `…px` string literal an error in every `.ts`/`.tsx`
-  under `packages/web`, exempting `src/components/**`, `src/config/**`, and test files; Stylelint
-  bans hex and `rgb()`/`hsl()` on color properties in every stylesheet except `tokens.css`.
-  (ADR 5 describes an older scoping — the config is the authority.)
+- Rule 2 is enforced, not advisory, by two tools — read `scripts/webTokenLint.mjs` and
+  `packages/web/.stylelintrc.json` rather than assuming the scope. ESLint rejects raw hex,
+  `px`/`rem` strings, and non-zero numeric dimensions in production TypeScript; Stylelint
+  rejects raw colours and `px`/`rem` in stylesheets. Authored `styles/tokens.ts` and generated
+  `tokens.css` are their respective exemptions; tests may state literal expectations.
 - Hand-written classes in these stylesheets are BEM (`block`, `block__element`, `block--modifier`),
   enforced by `selector-class-pattern`.
 - No second styling system — no Tailwind, styled-components, or CSS Modules (ADR 5).

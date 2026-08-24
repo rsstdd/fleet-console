@@ -87,7 +87,7 @@ StrictMode + react-hooks + React Compiler lints. Violations = bugs.
 
 - Every async surface: loading, empty, partial/stale, offline, recoverable error, terminal error as applicable.
 - WCAG 2.2 AA: semantic HTML, keyboard, accessible names, visible logical focus.
-- MUI + existing tokens only. No second styling system; no raw visual literals except lint-permitted spots (ADR 5).
+- MUI + existing tokens only. `styles/tokens.ts` is authored configuration data and `tokens.css` generated; no raw visual literals elsewhere (ADR 5).
 - Tenant identity, theme, flags, endpoints travel together via typed config. Never branch on tenant in a component (ADR 17, 21).
 - UI may hide/disable actions; it never authorizes them.
 - No `dangerouslySetInnerHTML`. No secrets in client env. No sensitive data in localStorage.
@@ -191,6 +191,6 @@ Read one matching row, then its narrow follow-up. Do not preload all web source,
 | Connection / transport util            | `src/context/connectionContext.ts`       | ADR 23; domain interpretation stays in the data layers                                |
 | Presentational primitive               | matching `docs/02_component-specs/`      | same-named module in `src/components/`                                                |
 | Tenant, theme, flags, endpoints, proxy | `src/config/tenant.ts`                   | `tenantTheme.ts`, `tenantSelection.ts`, `devServerTarget.ts`, or `vite.config.ts`     |
-| Tokens / global style                  | `docs/DESIGN_SYSTEM.md`                  | `src/styles/`, `src/app/theme.ts`                                                     |
+| Tokens / global style                  | `docs/DESIGN_SYSTEM.md`                  | `src/styles/tokens.ts`, generated CSS, then `src/app/theme.ts`                        |
 | Boundary / a11y / style lint           | `eslint.config.js`                       | `src/**/__boundary-violation__/` or `.stylelintrc.json`                               |
 | Bundle / prod build                    | `vite.config.ts`                         | `scripts/checkBundleBudget.mjs`; ADR 22                                               |

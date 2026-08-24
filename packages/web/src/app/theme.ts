@@ -1,15 +1,14 @@
-// The shell's theme bridge. Two separate jobs, deliberately not merged:
-// tokens.css owns the CSS custom properties for both themes and switches on the
-// `data-theme` attribute; MUI needs the same palette as a JS theme object.
+// The shell's theme bridge.
+// - tokens.ts owns the authored values; its generated CSS switches them on the
+// `data-theme` attribute
+// - MUI consumes the same source as a theme object
 //
-// This module does NOT write custom properties inline. An earlier version set ten
-// of them on documentElement, which beat tokens.css on specificity and left the
-// other twenty-six at their dark values on a light background — the light theme
-// was broken precisely because this file tried to help. Setting the attribute is
-// the whole job (01_APP_SHELL.md section 2, "Theme").
+// This module does NOT write custom properties inline.
 import { createTheme } from "@mui/material";
+import { toggleButtonClasses } from "@mui/material/ToggleButton";
 
-import { TENANT_PALETTE, type TenantTheme } from "@/config/tenantTheme";
+import type { TenantTheme } from "@/config/tenantTheme";
+import { MUI_SHAPE_BORDER_RADIUS, TENANT_PALETTE } from "@/styles/tokens";
 
 /**
  * Points the token layer at a tenant by setting `data-theme` on the document element.
@@ -24,9 +23,7 @@ export function applyTenantTheme(mode: TenantTheme): void {
 }
 
 /**
- * Mirrors the token palette into MUI so `sx` and global CSS cannot disagree: both sides
- * read `TENANT_PALETTE`, one through the `data-theme` attribute and one through the
- * theme object returned here, so neither carries a second set of colours or type sizes.
+ * Builds MUI from the same authored tokens that generate the CSS custom properties.
  */
 export function buildMuiTheme(mode: TenantTheme) {
   const palette = TENANT_PALETTE[mode];
@@ -68,18 +65,11 @@ export function buildMuiTheme(mode: TenantTheme) {
       overline: {
         fontSize: "var(--text-overline)",
         fontFamily: "var(--font-mono)",
-        letterSpacing: "0.06em",
+        letterSpacing: "var(--tracking-overline)",
         textTransform: "uppercase",
       },
     },
-    /*
-     * The one place a raw number is unavoidable: `shape.borderRadius` feeds the `sx`
-     * multiplier (`borderRadius: 1` resolves through it), so MUI requires a number and a
-     * `var(--radius)` string would silently break that arithmetic. It must therefore be
-     * kept equal to `--radius` in tokens.css by hand — changing one without the other
-     * splits the corner radius between the MUI tree and everything styled by class.
-     */
-    shape: { borderRadius: 6 },
+    shape: { borderRadius: MUI_SHAPE_BORDER_RADIUS },
     components: {
       MuiCssBaseline: {
         styleOverrides: { body: { backgroundColor: "var(--bg)", color: "var(--ink)" } },
@@ -89,7 +79,7 @@ export function buildMuiTheme(mode: TenantTheme) {
         styleOverrides: {
           root: {
             backgroundImage: "none",
-            border: "1px solid var(--line)",
+            border: "var(--border-width) solid var(--line)",
             borderRadius: "var(--radius)",
           },
         },
@@ -107,7 +97,7 @@ export function buildMuiTheme(mode: TenantTheme) {
             fontFamily: "var(--font-mono)",
             fontSize: "var(--text-overline)",
             textTransform: "uppercase",
-            letterSpacing: "0.06em",
+            letterSpacing: "var(--tracking-overline)",
           },
         },
       },
@@ -117,7 +107,7 @@ export function buildMuiTheme(mode: TenantTheme) {
             textTransform: "none",
             borderColor: "var(--line)",
             color: "var(--ink-soft)",
-            "&.Mui-selected": {
+            [`&.${toggleButtonClasses.selected}`]: {
               backgroundColor: "var(--accent)",
               color: "var(--on-accent)",
               borderColor: "var(--accent)",

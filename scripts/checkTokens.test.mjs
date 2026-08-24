@@ -133,7 +133,7 @@ test("reports a palette key nothing maps", () => {
 test("the shipped tree passes", async () => {
   const [css, palette] = await Promise.all([
     readFile(path.join(ROOT, "packages/web/src/styles/tokens.css"), "utf8"),
-    readFile(path.join(ROOT, "packages/web/src/config/tenantTheme.ts"), "utf8"),
+    readFile(path.join(ROOT, "packages/web/src/styles/tokens.ts"), "utf8"),
   ]);
   assert.deepEqual(findTokenProblems(css, palette), []);
 });

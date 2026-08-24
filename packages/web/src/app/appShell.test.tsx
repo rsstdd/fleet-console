@@ -20,7 +20,7 @@ function renderShell(
     <MemoryRouter>
       <Routes>
         <Route
-          element={<AppShell connectionState={state} attempt={2} terminalCause={terminalCause} />}
+          element={<AppShell connectionState={state} attempt={2} connectionTerminalCause={terminalCause} />}
         >
           <Route index element={child} />
         </Route>

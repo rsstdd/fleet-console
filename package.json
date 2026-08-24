@@ -18,7 +18,7 @@
     "check:dependencies": "node --test scripts/checkDependencies.test.mjs && node scripts/checkDependencies.mjs",
     "check:diff-size": "node --test scripts/checkDiffSize.test.mjs && node scripts/checkDiffSize.mjs",
     "check:doc-comments": "node --test scripts/informativeDocsRule.test.mjs",
-    "check:tokens": "node --test scripts/checkTokens.test.mjs && node scripts/checkTokens.mjs",
+    "check:tokens": "node --test scripts/checkTokens.test.mjs scripts/generateWebTokens.test.mjs scripts/webTokenLint.test.mjs && pnpm --filter web test:token-lint && node scripts/generateWebTokens.mjs --check && node scripts/checkTokens.mjs",
     "check:type-safety": "node --test scripts/typeSafetyConfig.test.mjs",
     "clean": "pnpm --recursive exec rm -rf dist coverage node_modules/.tmp",
     "dev": "pnpm --recursive --parallel --stream dev",

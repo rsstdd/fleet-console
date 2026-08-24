@@ -12,7 +12,7 @@ export function DetailSkeleton(): ReactNode {
       <Typography variant="body2" sx={{ color: "text.secondary" }}>
         Loading robot…
       </Typography>
-      <Skeleton variant="text" width="40%" height={48} />
+      <Skeleton variant="text" width="40%" height="var(--skeleton-line-height)" />
       <Skeleton variant="text" width="60%" />
     </Box>
   );

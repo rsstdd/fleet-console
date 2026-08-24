@@ -53,7 +53,13 @@ export function PersonaToggleSection({
           </Typography>
         </Stack>
 
-        <Box sx={{ p: 2, border: "1px solid var(--line)", borderRadius: "var(--radius)" }}>
+        <Box
+          sx={{
+            p: 2,
+            border: "var(--border-width) solid var(--line)",
+            borderRadius: "var(--radius)",
+          }}
+        >
           {persona === "operator" ? (
             <Typography variant="body2">
               Operator view: summary block plus declared-capability panels only.
@@ -198,10 +204,10 @@ function StaticEmptyStateForms(): ReactNode {
     <>
       <Divider sx={{ my: 3, borderColor: "var(--line)" }} />
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-        <Box sx={{ flex: 1, border: "1px solid var(--line)", borderRadius: 1 }}>
+        <Box sx={{ flex: 1, border: "var(--border-width) solid var(--line)", borderRadius: 1 }}>
           <EmptyState title="Title only" />
         </Box>
-        <Box sx={{ flex: 1, border: "1px solid var(--line)", borderRadius: 1 }}>
+        <Box sx={{ flex: 1, border: "var(--border-width) solid var(--line)", borderRadius: 1 }}>
           <EmptyState title="With description" description="Optional supporting copy." />
         </Box>
       </Stack>

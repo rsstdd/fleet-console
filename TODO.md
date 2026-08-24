@@ -290,28 +290,12 @@ either place, deliberately.
 - `config/tenant.test.ts` asserts wordmark, theme and the flag differ together, and
   `features/robot/tenantPanelFlag.test.tsx` proves the panel is absent under Tenant B.
 
-### P2.2 Remove duplicate palette authority — **PINNED INSTEAD, 20 August 2026**
+### P2.2 Remove duplicate palette authority — **DONE 24 August 2026**
 
-`tenantTheme.ts` repeats colors from `tokens.css`; MUI reads the JavaScript copy, so the
-two can drift. Make CSS tokens authoritative—read resolved tokens or use CSS variables
-where MUI accepts them—then remove `TENANT_PALETTE` without adding raw component colors.
-
-**Resolved differently, and the difference is deliberate.** The prescription was to remove
-the duplicate. Both routes to that turn out to cost more than the drift does: reading
-resolved custom properties at runtime needs a live document, so `createTheme` cannot run
-before paint and the theme becomes async; handing MUI `var(--x)` strings breaks its own
-colour maths, which needs real values for alpha and contrast computation. Generating one
-file from the other needs a build step this workspace deliberately does not have (ADR 9:
-libraries export source and there is no emit).
-
-So the duplication stands and is **pinned** by `scripts/checkTokens.mjs`, which fails CI on
-any disagreement across the nine colours in both themes, and also fails if a palette key is
-added that the check does not cover — otherwise it would keep passing over a shrinking
-subset. That is ADR 21's pattern for an unavoidable restatement, applied here for a
-stronger reason: ADR 21's drift was loud (a 502), and this one is silent.
-
-**Reopen this if** a build step arrives for another reason, at which point generating the
-CSS from the palette is strictly better than checking them against each other.
+Reopened when the MUI audit exposed the mismatch with implemented ADR 5. Authored
+`styles/tokens.ts` now supplies MUI directly and generates committed `tokens.css` through
+`scripts/generateWebTokens.mjs`; `pnpm check:tokens` rejects stale output. The existing
+contrast gate remains, now checking generated output rather than pinning two authorities.
 
 ### P2.3 Consolidate `FreshnessLabel` styling — **DONE 20 August 2026**
 
@@ -446,7 +430,7 @@ fails (ADR 22's report-as-well-as-gate).
 
 **It found a failure on its first run**: `--status-neutral` at 2.84:1 in dark, on a token
 used for a freshness dot and a status chip. Lightened to `#767068` — 3.34:1 on `--surface`,
-3.66:1 on `--bg` — with the reasoning beside it in `tokens.css`.
+3.66:1 on `--bg` — with the reasoning beside it in authored `tokens.ts`.
 
 **Still open: forced-colors.** It cannot be computed from tokens, because the whole point of
 forced-colors mode is that the system replaces them. It needs a person in Windows

@@ -198,7 +198,7 @@ export function BatteryHistoryContent({ state }: { readonly state: RobotHistoryS
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             Loading battery history…
           </Typography>
-          <Skeleton variant="rectangular" height={96} />
+          <Skeleton variant="rectangular" height="var(--sparkline-height)" />
         </Paper>
       );
 
