@@ -9,10 +9,25 @@ import type { MapMarker, ViewBoxSize } from "@/utils/robotSelectors";
  * activation path (Principle 6). Primitive SVG, no map SDK (ADR 22).
  */
 
-/** Drawn coordinate width; height follows the extents' aspect ratio (`computeViewBoxSize`). */
+/**
+ * Drawn coordinate width in SVG user units; height follows the extents' aspect ratio
+ * (`computeViewBoxSize`) and the whole canvas scales into `--map-height`.
+ *
+ * The number is arbitrary on its own — nothing renders at 600 of anything — but it is
+ * not free: it is the unit the marker geometry below is expressed in, so changing it
+ * rescales every marker relative to the site. Matches the battery sparkline's width
+ * (ADR 33) so the two derived-coordinate surfaces share one unit. No spec fixes it; it
+ * is an unresolved design choice recorded as one rather than dressed as a derivation.
+ */
 export const MAP_VIEWBOX_WIDTH = 600;
 
-// ViewBox units: a CSS length cannot describe a coordinate-space radius (ADR 33 precedent).
+/*
+ * ViewBox units, not pixels: a CSS length cannot describe a coordinate-space radius
+ * (ADR 33 precedent). Both are proportions of MAP_VIEWBOX_WIDTH — a 16-unit diameter in
+ * 600 — so changing the width without changing these floods or shrinks the canvas. The
+ * stroke is what keeps a hollow marker reading as a marker, which ADR 35's fill encoding
+ * depends on. Neither value is fixed by a spec or backed by a measurement.
+ */
 const MARKER_RADIUS = 8;
 const MARKER_STROKE_WIDTH = 2;
 

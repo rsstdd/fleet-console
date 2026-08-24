@@ -68,6 +68,11 @@ export function ComponentGallery() {
     setIsFiltered(nextIsFiltered);
   };
 
+  // Synchronizes an external DOM boundary React does not own — the `data-theme`
+  // attribute on `documentElement`, which the token layer switches on — with this
+  // gallery's local tenant selection. Cleanup restores the deployment's own theme:
+  // the gallery is mounted inside the running console, so an attribute left switched
+  // would repaint every other route in whichever tenant was last previewed here.
   useEffect(() => {
     applyTenantTheme(tenant);
     return () => {
@@ -138,9 +143,10 @@ export function ComponentGallery() {
           <SectionLabelSection />
 
           <Typography variant="caption" color="text.disabled">
-            Tokens only · no hex · freshness never uses --accent · asOf is required · status has six
-            variants, matched to what the canonical model can actually produce · PersonaToggle never
-            uses a filled accent selected state.
+            Tokens only · no hex · freshness never uses --accent · asOf is a required prop and is
+            null only for a robot that has never reported · status has six variants, matched to what
+            the canonical model can actually produce · PersonaToggle never uses a filled accent
+            selected state.
           </Typography>
         </Stack>
       </Box>

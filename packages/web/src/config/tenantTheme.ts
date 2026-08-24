@@ -1,7 +1,9 @@
 // Tenant palettes. Raw colour literals are permitted here and nowhere above it:
 // src/config is the layer PRINCIPLES.md 8 names for repeated visual decisions,
 // and PRINCIPLES.md 13 puts tenant branding in typed configuration rather than
-// in components. Consumed by src/App.tsx via buildMuiTheme.
+// in components. Consumed by `src/app/theme.ts`, whose `buildMuiTheme` reads
+// these values into the MUI theme while `tokens.css` carries the same palette as
+// custom properties; `applyTenantTheme` picks which of the two the document uses.
 //
 // This module holds data only, no logic (see packages/web/AGENTS.md). The
 // validation PRINCIPLES.md 13 also calls for lives in `tenant.ts`, which decodes

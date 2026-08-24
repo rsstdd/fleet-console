@@ -63,7 +63,13 @@ export function AppShell({
     <TenantConfigContext.Provider value={TENANT}>
       <ConnectionContext.Provider value={connectionState}>
         <Box sx={{ minHeight: "100vh", bgcolor: "background.default", color: "text.primary" }}>
-          {/* First focusable control, per 01_APP_SHELL.md section 2. Visible on focus only. */}
+          {/*
+            First focusable control, per 01_APP_SHELL.md section 2. Parked
+            off-screen rather than hidden, so it stays in the tab order and in
+            the accessibility tree, and `:focus` — not `:focus-visible` — brings
+            it back: a keyboard user who reaches it must see it whatever the
+            browser's heuristic decides about the interaction.
+          */}
           <Box
             component="a"
             href="#main"
@@ -121,7 +127,6 @@ export function AppShell({
                   >
                     Fleet
                   </Typography>
-                  {/* The second primary destination (app-shell spec § 2 revision 5, page spec 04). */}
                   <Typography
                     component={NavLink}
                     to="/map"
@@ -151,6 +156,12 @@ export function AppShell({
             />
           </Container>
 
+          {/*
+            `tabIndex={-1}` makes `main` a programmatic focus target without
+            adding a tab stop. Without it the skip link would move the caret in
+            the URL only, leaving keyboard focus in the header — the next Tab
+            would return to the nav the operator just asked to skip.
+          */}
           <Container component="main" id="main" tabIndex={-1} maxWidth="xl" sx={{ py: 4 }}>
             <Outlet />
           </Container>

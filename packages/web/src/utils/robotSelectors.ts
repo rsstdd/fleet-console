@@ -22,12 +22,7 @@ import type {
  * prop is expected, with no import and no boundary crossed.
  */
 export type StatusPresentationVariant =
-  | "neutral" // idle
-  | "active" // busy
-  | "charging"
-  | "degraded" // health severity, not a vendor status
-  | "fault"
-  | "unknown";
+  "neutral" | "active" | "charging" | "degraded" | "fault" | "unknown";
 
 const STATUS_VARIANT: Record<RobotStatus, StatusPresentationVariant> = {
   idle: "neutral",
@@ -272,10 +267,24 @@ export interface MapMarker {
   readonly hollow: boolean;
 }
 
-/** Fraction of each axis span added on both sides of a derived bounding box. */
+/**
+ * Fraction of each axis span added on both sides of a derived bounding box.
+ *
+ * Ten percent is ADR 35's own figure. It exists so a robot sitting exactly on an
+ * observed extreme is not drawn on the frame's edge, where the marker's own radius
+ * would put half of it outside the viewBox.
+ */
 const EXTENTS_PAD_RATIO = 0.1;
 
-/** Smallest axis span in metres; guards against a degenerate box (ADR 35). */
+/**
+ * Smallest axis span in metres, applied after padding (ADR 35's "minimum span floor").
+ *
+ * The constraint, not the number: one robot, or a cluster that has not moved, yields a
+ * zero-span box, and `projectToViewBox` would divide by it. Ten metres is a site aisle's
+ * order of magnitude, so a lone robot renders centred in a plausible frame rather than
+ * filling one. ADR 35 fixes that a floor exists and leaves the value open — this is an
+ * unresolved design choice, not a measured one.
+ */
 const MIN_EXTENT_SPAN_METRES = 10;
 
 /**
@@ -323,6 +332,12 @@ function padAxis(min: number, max: number): { readonly min: number; readonly max
 /**
  * Padded bounding box of the given positions, or null when there are none
  * (ADR 35, Principle 4).
+ *
+ * @param positions - Positions in one site's frame, in metres. Frames are never mixed:
+ *   the caller selects by `siteId` first, and two sites' coordinates share no origin.
+ * @returns A box padded and floored so both spans are strictly positive, which is what
+ *   `projectToViewBox` relies on. Null when there are no positions — an empty site has
+ *   no frame, and inventing one would draw axes nothing sits on.
  */
 export function computeSiteExtents(positions: readonly Position[]): SiteExtents | null {
   const first = positions[0];
@@ -351,8 +366,13 @@ export function computeSiteExtents(positions: readonly Position[]): SiteExtents 
 
 /**
  * Union of two extents, so the box only widens within a session (ADR 35).
- * Null on either side yields the other; a union that widens nothing returns
- * `previous` by reference so callers can detect "unchanged".
+ *
+ * @param previous - The session's running box, or null before the first one.
+ * @param next - The box just derived, or null when nothing is positioned now.
+ * @returns The union, never smaller than `previous`, so the canvas does not rescale
+ *   under the operator as robots wander. Null on either side yields the other, and a
+ *   union that widens nothing returns `previous` **by reference** — `mapPage` compares
+ *   identity to decide whether to write during render, so that is load-bearing.
  */
 export function mergeExtents(
   previous: SiteExtents | null,
@@ -379,7 +399,16 @@ export function mergeExtents(
   return { minX, maxX, minY, maxY };
 }
 
-/** ViewBox dimensions matching the extents' aspect ratio at the given width. */
+/**
+ * ViewBox dimensions matching the extents' aspect ratio at the given width.
+ *
+ * @param extents - Must have strictly positive spans; `computeSiteExtents`' floor
+ *   guarantees it, so nothing here guards against a zero divisor.
+ * @param width - Drawn coordinate width in SVG user units, `MAP_VIEWBOX_WIDTH`. Not
+ *   pixels — the rendered height is the `--map-height` token.
+ * @returns The width unchanged, and a height that keeps a metre the same length on both
+ *   axes; anything else would stretch the site rather than scale it.
+ */
 export function computeViewBoxSize(extents: SiteExtents, width: number): ViewBoxSize {
   const spanX = extents.maxX - extents.minX;
   const spanY = extents.maxY - extents.minY;
@@ -388,7 +417,14 @@ export function computeViewBoxSize(extents: SiteExtents, width: number): ViewBox
 
 /**
  * Projects a position into the viewBox, inverting y (SVG y grows downward).
- * Extents must have positive spans; `computeSiteExtents`' floor guarantees it.
+ *
+ * @param position - A metre position, expected inside `extents` — the running box is
+ *   built from these same positions, so a point outside it means the caller merged the
+ *   wrong site's extents.
+ * @param extents - Must have positive spans; `computeSiteExtents`' floor guarantees it.
+ * @param viewBox - The target coordinate space, from `computeViewBoxSize`.
+ * @returns Rounded viewBox coordinates with y inverted, ready to write straight onto a
+ *   `<circle>`.
  */
 export function projectToViewBox(
   position: Position,
@@ -403,7 +439,14 @@ export function projectToViewBox(
   };
 }
 
-/** Rounds to 2 dp so SVG attributes stay readable and referentially stable. */
+/**
+ * Rounds a projected coordinate to two decimal places.
+ *
+ * Two, not zero: across 600 units of a site tens of metres wide one unit is centimetres,
+ * so integers would visibly quantize marker motion. Not full precision either — an
+ * unrounded float writes a seventeen-digit SVG attribute that changes on floating-point
+ * noise alone, which churns the DOM diff and makes a trace unreadable.
+ */
 function roundCoordinate(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -412,6 +455,16 @@ function roundCoordinate(value: number): number {
  * Everything the canvas needs for one marker: colour from the shared status
  * selector, fill encoding freshness, forced hollow while the stream is down
  * (ADR 3).
+ *
+ * @param robot - A robot whose `position` selection has already proven non-null.
+ * @param extents - The session's merged box. Must be the one `viewBox` was derived from,
+ *   or every marker lands at the wrong scale with nothing to reveal it.
+ * @param viewBox - The canvas coordinate space.
+ * @param isStreamConnected - The console's own socket state, not a fact about this robot
+ *   (Principle 11). False forces `hollow` whatever the robot's freshness says: while the
+ *   stream is down no per-robot currency claim can be trusted (ADR 3).
+ * @returns One fully derived marker. The canvas computes nothing from it (page spec
+ *   04 § 7), so every decision above has to be made here.
  */
 export function selectMapMarker(
   robot: PlottableRobot,

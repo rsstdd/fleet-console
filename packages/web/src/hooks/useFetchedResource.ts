@@ -17,11 +17,18 @@ export interface FetchedResourceContext {
  * one load per id per attempt, loading derived rather than stored, and stale
  * in-flight answers discarded on id change or unmount.
  *
- * `load` must be a module-level function, not an inline closure: it is an
- * effect dependency, and a fresh identity per render would re-fetch on every
- * render. `apiBaseUrl` is a parameter because the data layers may not import
- * `config` (ADR 4); `fetchLike` is injectable so tests map outcomes to states
- * without a network.
+ * @param id - The resource wanted. Changing it starts a new load and makes any
+ *   in-flight answer stale, so the previous id's value never appears under the new one.
+ * @param ports - `apiBaseUrl` is a parameter because the data layers may not import
+ *   `config` (ADR 4); `fetchLike` is injectable so tests map outcomes to states without
+ *   a network. Both are effect dependencies and must keep a stable identity.
+ * @param load - Must be a module-level function, not an inline closure: it is an effect
+ *   dependency too, and a fresh identity per render would re-fetch on every render. It
+ *   is handed the retry callback to embed in whatever failure state it returns, and is
+ *   expected to resolve with that state rather than to reject.
+ * @returns The loaded value once it describes this `id`, and `{ status: "loading" }`
+ *   otherwise — including the whole gap after an id change, which is why loading is
+ *   derived here rather than written from inside the effect.
  */
 export function useFetchedResource<TValue>(
   id: string,
@@ -44,6 +51,11 @@ export function useFetchedResource<TValue>(
     setAttempt((count) => count + 1);
   }, []);
 
+  // Synchronizes an external HTTP request with the two inputs that decide which answer
+  // is wanted: `id` and `attempt`. The rest of the dependency list is stable by contract
+  // (see the parameter docs), so a re-run means the wanted resource genuinely changed.
+  // Cleanup aborts, which is what makes a completion landing after an id change or an
+  // unmount stale rather than a write of one id's data under another id's heading.
   useEffect(() => {
     const request: FetchLike = fetchLike ?? ((url) => fetch(url));
     // An `AbortController` rather than a captured boolean: the compiler cannot see that a

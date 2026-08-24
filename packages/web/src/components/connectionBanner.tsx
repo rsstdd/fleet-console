@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /**
  * ConnectionBanner — stream connection integrity.
- * Spec: docs/02_component-specs/07_CONNECTION_BANNER.md (revision 3).
+ * Spec: docs/02_component-specs/07_CONNECTION_BANNER.md.
  *
  * Load-bearing for ADR 3. Freshness is derived by a server sweep and delivered
  * over the stream, so while the stream is down no per-robot freshness label can

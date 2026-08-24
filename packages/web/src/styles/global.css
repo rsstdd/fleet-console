@@ -1,11 +1,11 @@
-/* =========================================================
-   canonical-fleet — Global styles
-   Works alongside MUI. Overrides stay light and intentional.
-   ========================================================= */
+/*
+ * Element defaults and the class contracts the `components` primitives render
+ * against. MUI owns component styling; everything here is either a base the
+ * theme cannot reach or a token mapping a spec fixes (ADR 5).
+ */
 
 @import "./tokens.css";
 
-/* ---------- Base ---------- */
 *,
 *::before,
 *::after {
@@ -113,8 +113,17 @@ a {
 a:hover {
   color: var(--accent-text);
 }
-
 /* ---------- Focus ---------- */
+
+/*
+ * The two rules are one decision and must stay together. `:focus` drops the user
+ * agent's ring so a pointer click leaves no artefact; `:focus-visible` puts a token
+ * ring back for every keyboard arrival. Keeping only the first is WCAG 2.4.7 failed
+ * outright — it would remove the sole focus indicator some engines draw. The offset
+ * lifts the ring clear of an element's own border, which the tinted chip and banner
+ * surfaces both have. Components do not restate this; `personaToggle.tsx` records why
+ * a second authority for the same ring is a defect rather than a safety net.
+ */
 :focus {
   outline: none;
 }
@@ -209,7 +218,7 @@ table {
 }
 
 /*
- * current={false}: this is the last value received, not the current one.
+ * isCurrent={false}: this is the last value received, not the current one.
  * Fill drops away and the dot goes hollow, so the status column alone cannot
  * mislead a reader who never reaches the freshness column.
  */
@@ -524,6 +533,14 @@ table {
 }
 
 /* ---------- Reduced motion ---------- */
+
+/*
+ * 0.01ms rather than 0: a zero duration cancels the animation in some engines, so
+ * `animationend` / `transitionend` never fires and anything sequenced on completion
+ * stalls silently. A hundredth of a millisecond is imperceptible but still completes,
+ * which removes the motion without removing the event. Capping the iteration count
+ * stops an infinite animation from re-firing that event forever at the new duration.
+ */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

@@ -29,7 +29,17 @@ import { Section } from "./detailSection";
  * (Principle 4, ADR 3).
  */
 
-/** The drawn coordinate space; the SVG scales to its container. */
+/**
+ * The drawn coordinate space, in SVG user units; the SVG scales into
+ * `--sparkline-height` and `preserveAspectRatio="none"` means only the ratio survives.
+ *
+ * A shape decision, not a size one. 5:1 is wide enough that sixty points across a minute
+ * stay distinguishable and flat enough that ordinary battery drift does not read as a
+ * cliff — the axes are fixed precisely so two charts are comparable, and a ratio that
+ * exaggerated the y-axis would defeat that. The width matches the map canvas so the two
+ * derived-coordinate surfaces share one unit. ADR 33 fixes the window and the point
+ * budget and says nothing about these; they are an unresolved design choice.
+ */
 const CHART_WIDTH = 600;
 const CHART_HEIGHT = 120;
 
@@ -107,7 +117,14 @@ function Sparkline({ history }: { readonly history: RobotBatteryHistory }): Reac
   );
 }
 
-/** Rounds a coordinate to keep the points attribute readable and stable. */
+/**
+ * Rounds a plotted coordinate to two decimal places.
+ *
+ * Enough precision that a one-percent battery step stays distinct in a 120-unit space,
+ * and few enough digits that the `points` attribute is readable and byte-identical
+ * between renders of the same window — an unrounded float writes seventeen digits that
+ * move on floating-point noise alone.
+ */
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }

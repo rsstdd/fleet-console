@@ -7,7 +7,12 @@ export type StatTone = "default" | "warning" | "critical";
 export interface StatProps {
   readonly label: string;
   readonly value: string | number;
-  readonly hint?: string; // e.g. "of 50"
+  /**
+   * A short qualifier rendered under the label, e.g. `"of 50"` beside a count. Prose,
+   * not a second metric: it is never given tone and never announced separately, so
+   * anything a reader must be able to compare belongs in its own `Stat`.
+   */
+  readonly hint?: string;
   readonly tone?: StatTone;
   readonly className?: string;
 }

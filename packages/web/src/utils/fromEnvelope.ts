@@ -55,6 +55,12 @@ function toIso(epochMs: number): string {
  * `vendorId` is copied verbatim. The contract makes it an open identifier so a
  * fourth vendor is an adapter change and never a contracts change (ADR 1), and
  * narrowing it here would put that coupling back.
+ *
+ * @param envelope - An already-decoded canonical envelope. Decoding happens before this
+ *   module and never in it (Principle 2), so nothing here re-validates.
+ * @returns A fleet row. `freshness` is copied from the field the server's sweep set, and
+ *   `lastSeenAt` is the vendor's `reportedAt` — what "last seen" means to an operator,
+ *   and not an input to any client derivation (ADR 3).
  */
 export function toRobot(envelope: CanonicalEnvelope): Robot {
   return {
@@ -85,6 +91,11 @@ export function toRobot(envelope: CanonicalEnvelope): Robot {
  * robot whose health is unknown, and the canonical severity vocabulary has no
  * word for that. Null says so; `nominal` would be a fabricated reassurance
  * (Principle 4). Freshness is the contract's fixed `unknown` (ADR 3).
+ *
+ * @param state - The manifest registration: a robot id, a vendor and a site, and no
+ *   telemetry at all.
+ * @returns A fleet row with `observed: false` as the discriminant every consumer reads,
+ *   and every telemetry-derived field null or empty rather than defaulted.
  */
 export function toRegisteredRobot(state: RegisteredRobotState): Robot {
   return {
@@ -110,6 +121,14 @@ export function toRegisteredRobot(state: RegisteredRobotState): Robot {
  * The sequence number comes from the declared `sequence` capability rather than
  * a core field, because Vendor B sends none (ADR 1); its absence is the
  * declaration's absence, not a zero.
+ *
+ * @param envelope - The decoded single-robot diagnostic response.
+ * @param counters - Fleet-wide adapter counters from `GET /api/health`, a second request
+ *   that fails independently of this one; `unknownFieldCount` is null when it could not
+ *   be read, which is a different fact from a count of zero.
+ * @returns The detail read model: the fleet row plus the diagnostics block and the
+ *   retained raw payload — neither of which any delta carries, which is why
+ *   `reconcileDetailWithRow` preserves them.
  */
 export function toRobotDetail(
   envelope: RobotDiagnosticEnvelope,
@@ -143,6 +162,10 @@ export function toRobotDetail(
  * retained payload. That is what "panels show registration data only" means
  * (robot detail spec §10) — the page states the absence instead of drawing a
  * row of em dashes that would imply the robot reported and said nothing.
+ *
+ * @param state - The manifest registration.
+ * @returns The detail read model with `diagnostics` and `rawPayload` null, which the
+ *   page renders as a stated absence rather than as empty sections.
  */
 export function toRegisteredRobotDetail(state: RegisteredRobotState): RobotDetail {
   return {
@@ -165,6 +188,14 @@ export function toRegisteredRobotDetail(state: RegisteredRobotState): RobotDetai
  *
  * Coupling: `useFleetRobot` in `useFleetRobots.ts` is what feeds `row` here;
  * the pair is how robot detail stays live without a second fetch.
+ *
+ * @param detail - The fetched detail. Its diagnostics and raw payload are authoritative
+ *   and survive every overlay.
+ * @param row - The same robot's current fleet row. Must be the same robot: nothing here
+ *   compares ids, because the caller looked this row up by the detail's own id.
+ * @returns `detail` itself, by reference, when the row carries nothing new — that
+ *   identity is the signal a memoized consumer uses to skip a re-render. Otherwise a
+ *   merged detail with the row's core values and freshness.
  */
 export function reconcileDetailWithRow(detail: RobotDetail, row: Robot): RobotDetail {
   if (

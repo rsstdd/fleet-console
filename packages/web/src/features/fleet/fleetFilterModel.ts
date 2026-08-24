@@ -48,7 +48,17 @@ export function toFreshnessFilter(value: string): Freshness | null {
   return option?.value ?? null;
 }
 
-/** Whether one robot survives every active filter dimension; a null dimension passes everything. */
+/**
+ * Whether one robot survives every active filter dimension; a null dimension passes everything.
+ *
+ * @param robot - One fleet row, unfiltered.
+ * @param filters - The page's filter state. Site, vendor and freshness are exact
+ *   equality against open identifiers — no prefix or fuzzy matching, so a filter set
+ *   from the observed options can never exclude the robot it was derived from.
+ *   `search` is trimmed and lower-cased and matched as a substring of the robot id
+ *   alone, so a whitespace-only query filters nothing rather than everything.
+ * @returns True when the robot belongs in the table under these filters.
+ */
 export function matchesFilters(robot: Robot, filters: Filters): boolean {
   if (filters.site !== null && robot.siteId !== filters.site) {
     return false;

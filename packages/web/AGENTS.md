@@ -111,9 +111,53 @@ StrictMode + react-hooks + React Compiler lints. Violations = bugs.
 - User-facing → running-browser check or documented equivalent.
 - Lint-enforcement fixtures are inputs, not code to “fix”.
 
+## Comments
+
+Comment policy for this package lives here and nowhere else; `CLAUDE.md` routes to it
+rather than restating it.
+
+- Default to no comment. If naming or structure can carry the idea, change those first.
+- A comment explains rationale, constraint, edge case, ownership, or a historical
+  failure. It never explains the next statement.
+- Export docs stay mandatory (ADR 28): one informative sentence on every exported
+  function, type, and component, saying something the signature does not. A
+  self-documenting declaration is not an exemption — make the summary explain the
+  contract, the constraint, the edge case, or the reason.
+- Add `@param` / `@returns` only where the contract is complex or ambiguous: outcome
+  unions with different retry semantics, identity guarantees a caller depends on,
+  injected ports, units, ranges, ordering requirements. Never to raise tag coverage on
+  a simple selector, a trivial component, or an obvious prop.
+- Member JSDoc on props and interface fields only where nullability, units, range,
+  ownership, or behaviour is ambiguous.
+- Every `useEffect` comment names the external system being synchronized and why the
+  dependencies and the cleanup are correct.
+- Name and justify every timeout, threshold, non-obvious dimension, and complex regex.
+  Where there is no defensible provenance, say so and name the operational constraint
+  the value represents — an unresolved choice recorded as one beats an invented
+  derivation (ADR 22).
+- Cite the owning spec and section. Do not copy a spec's revision number into code:
+  it is mutable metadata that goes stale silently. Keep one only where the comment is
+  explaining historical provenance.
+- JSX comments are for complex structure, non-obvious conditional triggers, and
+  intentional accessibility behaviour — never for naming the markup below them.
+- Tests describe WHAT in the test name and the `test.step` name. A comment there says
+  why this evidence prevents a realistic regression.
+- Never retain commented-out code.
+- Update or delete nearby comments in the same change. After renaming an identifier or
+  a file, search the comments for the old spelling.
+- A suppression comment states why the rule cannot apply here and what keeps the
+  exception safe.
+- Debt syntax, exactly: `TODO(user): action` or `FIXME: immediate bug to address`.
+  References to `TODO.md` / `FIXME.md` are cross-references, not debt markers.
+- No blanket `jsdoc/require-param` or `jsdoc/require-returns`: complexity is semantic,
+  and mechanical enforcement buys low-value comments. Any new mechanical comment rule
+  needs an ADR and a `docs/decisions.json` `mechanicalRules` registration.
+- Lint-enforcement fixtures keep the comments explaining why they must not be repaired
+  or collected; do not change them in a way that alters what the rule reports.
+
 ## Change rules
 
-- One-sentence doc comment on every exported fn, type, and component. Lint rejects restating the signature (ADR 28).
+- Comments follow **Comments** above; lint rejects a doc that restates its signature (ADR 28).
 - Document non-trivial cross-file / cross-package coupling on both sides.
 - No new deps without repo decision work.
 - Focused diffs. Don’t mix behavior with unrelated restructure.

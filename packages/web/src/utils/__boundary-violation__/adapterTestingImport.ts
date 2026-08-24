@@ -1,5 +1,3 @@
-// utils/__boundary-violation__/adapterTestingImport.ts
-//
 // Deliberate violation. `@fleet/adapters/testing` is the recorded-fixture
 // surface ADR 11 made public for tests. Production code importing it would put
 // test data — and a specifier that resolves into a server-side package — into

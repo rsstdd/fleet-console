@@ -33,10 +33,30 @@ import { startStack, type Stack } from "./stack.ts";
  * derivation would use.
  */
 
+/** The documented workload's fleet size — the number ADR 24's deferred question is about. */
 const ROBOT_COUNT = 500;
+
+/**
+ * Frames driven before measurement starts, so the report describes a steady state.
+ *
+ * React's initial 500-row mount, the browser's first layout and JIT warm-up all land in
+ * this window and none of them recur; leaving them in would make the p95 a first-render
+ * number wearing a steady-state label, which is the specific way a benchmark lies.
+ */
 const WARMUP_FRAMES = 20;
+
+/**
+ * Frames the report is computed over: a hundred at 100 ms is ten seconds of steady state.
+ *
+ * Enough samples that a p95 is a percentile rather than a coin toss, short enough that
+ * the whole scenario — stack start, 50 robots reporting, teardown — still fits the
+ * suite timeout below.
+ */
 const MEASURED_FRAMES = 100;
+
+/** 10 Hz: the wire cadence ADR 2 caps the server's flush at, so this is the real ceiling. */
 const FRAME_INTERVAL_MS = 100;
+
 const HALF = ROBOT_COUNT / 2;
 
 /** In-page instrumentation shape; see the init script below. */
@@ -76,6 +96,11 @@ function summarize(values: readonly number[]): { p50: number; p95: number; max: 
 }
 
 test.describe("500-robot live-stream measurement", () => {
+  // Five minutes for one test, because its fixed costs dwarf the measurement: a stack
+  // start, up to 30 s waiting for all 50 real robots to report, the 500-row first
+  // render, then twelve seconds of driven frames. The suite-wide 120 s cannot cover
+  // that, and a benchmark that times out reports nothing at all rather than reporting
+  // a worse number.
   test.describe.configure({ timeout: 300_000 });
 
   let stack: Stack;
@@ -94,9 +119,13 @@ test.describe("500-robot live-stream measurement", () => {
   }, testInfo) => {
     test.skip(browserName !== "chromium", "The reported measurement is Chromium-only by plan.");
 
-    // 1. A real snapshot, decoded with the console's own decoder. Wait until every
-    //    manifest robot has actually reported so the seed envelopes are observed ones.
+    // 1. A real snapshot, decoded with the console's own decoder. Every manifest robot
+    //    must have reported before the seed is taken: a registered-only entry carries no
+    //    core fields to expand, so expanding one would seed 500 robots that can never
+    //    render a battery value the assertions below look for.
     const observed = await test.step("capture a fully observed snapshot", async () => {
+      // The same budget `stack.ts` gives a process to become ready. Past it the manifest
+      // is not filling slowly, it is not filling, and the throw names how far it got.
       const deadline = Date.now() + 30_000;
       for (;;) {
         const body: unknown = await (await fetch(`${stack.serverUrl}/api/fleet`)).json();
@@ -109,6 +138,8 @@ test.describe("500-robot live-stream measurement", () => {
         if (Date.now() > deadline) {
           throw new Error(`only ${String(envelopes.length)} of 50 robots ever reported`);
         }
+        // The simulator's own emit cadence is faster than this, so a tighter loop only
+        // adds HTTP round trips to the server it is waiting on.
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     });
@@ -162,7 +193,9 @@ test.describe("500-robot live-stream measurement", () => {
     };
     expect(parseTelemetryBatch(JSON.parse(buildFrame(1))).ok).toBe(true);
 
-    // 3. Routing: the snapshot from HTTP, the frames from the test's WebSocket end.
+    // 3. Both routes must be registered before `goto`: the console opens its socket and
+    //    fetches its snapshot during first render, so a route installed afterwards would
+    //    miss the join entirely and the test would measure an empty table.
     await page.route("**/api/fleet", (route) => route.fulfill({ json: snapshotWire }));
     let resolveSocket: (socket: { send(message: string): void }) => void = () => undefined;
     const socketReady = new Promise<{ send(message: string): void }>((resolve) => {
@@ -179,8 +212,10 @@ test.describe("500-robot live-stream measurement", () => {
       },
     );
 
-    // 4. In-page probe: frames received, receipt-to-next-animation-frame latency, and
-    //    a continuous animation-frame interval sampler.
+    // 4. An init script, not an evaluate: the probe subclasses `WebSocket`, so it has to
+    //    be installed before the app's first line runs. Installed afterwards it would
+    //    wrap nothing — the console's socket would already be the native one, and every
+    //    counter below would read zero against a UI that was provably updating.
     await page.addInitScript(() => {
       const probe: ScaleProbe = { received: 0, paintLatencies: [], rafIntervals: [] };
       globalThis.__scale = probe;
@@ -223,7 +258,8 @@ test.describe("500-robot live-stream measurement", () => {
     await expect(links).toHaveCount(ROBOT_COUNT, { timeout: 30_000 });
     const socket = await socketReady;
 
-    // 5. Drive the workload: warmup, then the measured window.
+    // 5. Warmup first, then the measured window — see WARMUP_FRAMES for why the two are
+    //    separated, and why the wall clock starts only at the boundary between them.
     const totalFrames = WARMUP_FRAMES + MEASURED_FRAMES;
     let measuredStartedAt = 0;
     for (let frame = 1; frame <= totalFrames; frame += 1) {

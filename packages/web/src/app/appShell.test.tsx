@@ -61,7 +61,7 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: TENANT.wordmark })).toHaveAttribute("href", "/");
     const nav = screen.getByRole("navigation", { name: "Primary" });
     expect(nav).toContainElement(screen.getByRole("link", { name: "Fleet" }));
-    // The second primary destination (app-shell spec § 2 revision 5).
+    // The second primary destination (app-shell spec § 2).
     const mapLink = screen.getByRole("link", { name: "Map" });
     expect(nav).toContainElement(mapLink);
     expect(mapLink).toHaveAttribute("href", "/map");

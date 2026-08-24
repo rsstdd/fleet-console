@@ -14,6 +14,20 @@ import type { Site } from "@/types/site";
 import { ALL_FILTER_VALUE, FRESHNESS_FILTER_OPTIONS, type Filters } from "./fleetFilterModel";
 
 /**
+ * Floors for the filter controls, in pixels.
+ *
+ * MUI sizes a Select to its selected value, so without a floor each control resizes as
+ * the operator changes it and the whole row reflows under the pointer mid-interaction.
+ * The wider floor is for the two controls whose own text is longest — the Reporting
+ * status label and the Search placeholder. Raw pixels because no control-width token
+ * exists to reach for, the same exception `components/personaToggle.tsx` records for its
+ * control height (ADR 5). The values are floors chosen to stop the reflow, not measured
+ * label widths.
+ */
+const CONTROL_MIN_WIDTH = 140;
+const WIDE_CONTROL_MIN_WIDTH = 160;
+
+/**
  * The filter bar. Filter state is local view state owned by the page
  * (Principle 11); this component only renders the controls and reports
  * changes upward through the handlers it is given. The state shape, the
@@ -44,7 +58,7 @@ export function FleetFilters({
       role="group"
       aria-label="Fleet filters"
     >
-      <FormControl size="small" sx={{ minWidth: 140 }}>
+      <FormControl size="small" sx={{ minWidth: CONTROL_MIN_WIDTH }}>
         <InputLabel id="site-filter-label">Site</InputLabel>
         <Select
           labelId="site-filter-label"
@@ -61,7 +75,7 @@ export function FleetFilters({
         </Select>
       </FormControl>
 
-      <FormControl size="small" sx={{ minWidth: 140 }}>
+      <FormControl size="small" sx={{ minWidth: CONTROL_MIN_WIDTH }}>
         <InputLabel id="vendor-filter-label">Vendor</InputLabel>
         <Select
           labelId="vendor-filter-label"
@@ -78,7 +92,7 @@ export function FleetFilters({
         </Select>
       </FormControl>
 
-      <FormControl size="small" sx={{ minWidth: 160 }}>
+      <FormControl size="small" sx={{ minWidth: WIDE_CONTROL_MIN_WIDTH }}>
         <InputLabel id="freshness-filter-label">Reporting status</InputLabel>
         <Select
           labelId="freshness-filter-label"
@@ -101,7 +115,7 @@ export function FleetFilters({
         placeholder="Robot id"
         value={filters.search}
         onChange={onSearchChange}
-        sx={{ minWidth: 160 }}
+        sx={{ minWidth: WIDE_CONTROL_MIN_WIDTH }}
       />
     </Stack>
   );

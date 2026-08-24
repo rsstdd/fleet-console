@@ -33,11 +33,33 @@ import { fileURLToPath } from "node:url";
 const WEB_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REPO_ROOT = path.resolve(WEB_DIR, "..", "..");
 
-/** How long a process gets to exit after SIGTERM before the group is SIGKILLed. */
+/**
+ * How long a process gets to exit after SIGTERM before the group is SIGKILLed.
+ *
+ * Long enough for `tsx` and `vite` to run their own shutdown and release the port: the
+ * next test's stack binds the same one under `--strictPort`, so a straggler here fails a
+ * later test instead of this one. Short enough that a hung child cannot eat the test
+ * timeout — escalating is the point, and waiting is only worth doing while a clean exit
+ * is still plausible.
+ */
 const GRACEFUL_EXIT_MS = 5_000;
 
-/** How long readiness polling waits before declaring the stack broken. */
+/**
+ * How long readiness polling waits before declaring the stack broken.
+ *
+ * Sized for a cold `tsx` start with nothing cached, which is the slowest thing this
+ * waits on. Past that the process is not starting slowly, it is failing — and the throw
+ * attaches every retained log line, which answers the question a longer wait would not.
+ */
 const READY_TIMEOUT_MS = 30_000;
+
+/**
+ * Gap between readiness probes.
+ *
+ * Short enough that a fast start is not padded by most of an interval, long enough that
+ * a booting server is not spending its first second answering this instead of booting.
+ */
+const READY_POLL_INTERVAL_MS = 200;
 
 /** One spawned process with its retained output. */
 export interface ManagedProcess {
@@ -121,7 +143,7 @@ async function waitForHttp(url: string, processes: readonly ManagedProcess[]): P
     } catch (error) {
       lastFailure = error instanceof Error ? error.message : String(error);
     }
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, READY_POLL_INTERVAL_MS));
   }
   const logs = processes
     .map((managed) => `--- ${managed.name} ---\n${managed.logs.join("\n")}`)

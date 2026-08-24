@@ -117,7 +117,17 @@ export interface FleetTransport {
   readonly state: StreamState;
 }
 
-/** Composes the joining sequence and the recovery schedule over injected ports. */
+/**
+ * Composes the joining sequence and the recovery schedule over injected ports.
+ *
+ * @param options - Where to join, what to join over, and what to report through.
+ *   `handlers` are called synchronously from socket and fetch callbacks, so one that
+ *   throws propagates into the transport's own sequencing; `onConnectionState` fires on
+ *   every transition, including ones the published value does not reflect.
+ * @returns A transport that has opened nothing. Nothing happens until `connect()`, and
+ *   `state` is a live getter rather than a snapshot, so a caller polling it after an
+ *   event sees the result of that event.
+ */
 export function createFleetTransport(options: {
   readonly endpoints: FleetTransportEndpoints;
   readonly openSocket: OpenSocket;

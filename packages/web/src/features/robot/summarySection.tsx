@@ -39,7 +39,7 @@ export function SummarySection({ robot }: { readonly robot: RobotDetail }): Reac
           {/*
             Health is its own field, not text appended to status: a degraded
             robot that is idle is two facts, and collapsing them loses one
-            (spec §6, revision 3).
+            (spec §6).
           */}
           <Field label="Health" value={formatHealth(robot.health)} />
           <Field

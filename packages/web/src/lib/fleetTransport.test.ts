@@ -306,7 +306,6 @@ describe("createFleetTransport", () => {
     expect(testHarness.transport.state.phase).toBe("connected");
     expect(testHarness.transport.state.attempt).toBe(0);
 
-    // And live updates resume.
     testHarness.last()?.message(JSON.stringify(buildBatch(2, RESTARTED_SESSION)));
     expect(testHarness.batches.map((telemetryBatch) => telemetryBatch.flushSequence)).toStrictEqual(
       [1, 2],

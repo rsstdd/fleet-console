@@ -1,11 +1,14 @@
-/* =========================================================
-   canonical-fleet — Design tokens
-   Two tenant profiles. Tenant A is dark, Tenant B is light.
-   Theme is set from configuration at boot, never from a user preference.
-   ========================================================= */
+/*
+ * Every design token the console has. Two tenant profiles — A dark, B light —
+ * selected by the `data-theme` attribute `app/theme.ts` sets from configuration at
+ * boot, never from a user preference; see the closing note for why there is no
+ * `prefers-color-scheme` block.
+ */
 
 :root {
-  /* ---------- Theme-independent ---------- */
+  /* Identical in both profiles. Type scale, spacing, radii, motion and the layout
+     minimums are shape and timing decisions rather than palette ones, so a tenant
+     switch must not move them — only the blocks below change per tenant. */
   --font-sans:
     "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
