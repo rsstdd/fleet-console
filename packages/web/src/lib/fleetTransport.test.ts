@@ -390,7 +390,8 @@ describe("createFleetTransport", () => {
     // With random pinned to 1, each delay is the cap itself: 1s, 2s, 4s … 30s.
     const testHarness = createTransportHarness({ fetchLike: createServingFetch(buildSnapshot(0)) });
     testHarness.transport.connect();
-    testHarness.last()?.open(); // the handshake succeeded once, so the probe cap no longer applies
+    // Opening once moves the lifecycle from the capped initial probe to uncapped recovery.
+    testHarness.last()?.open();
     testHarness.last()?.close();
 
     const observed: number[] = [];
@@ -427,19 +428,23 @@ describe("createFleetTransport", () => {
     });
     testHarness.transport.connect();
     testHarness.last()?.open();
-    await flush(); // joined: backoff resets
-    testHarness.last()?.close(); // drop; immediate attempt
-    testHarness.last()?.close(); // that attempt fails
+    await flush();
+    // A drop and then a failed immediate attempt advance the recovery schedule, so the
+    // second join below has something to reset rather than a schedule already at rest.
+    testHarness.last()?.close();
+    testHarness.last()?.close();
     expect(testHarness.clock.delays()).toStrictEqual([1000]);
     testHarness.clock.fire();
-    testHarness.last()?.close(); // fails again: the schedule doubles
+    testHarness.last()?.close();
     expect(testHarness.clock.delays()).toStrictEqual([2000]);
 
     testHarness.clock.fire();
     testHarness.last()?.open();
-    await flush(); // joined again
+    await flush();
 
-    testHarness.last()?.close(); // next drop starts a fresh schedule
+    // A new completed join must erase the earlier failures; otherwise the next outage
+    // would inherit an old delay and recovery would get slower across healthy sessions.
+    testHarness.last()?.close();
     testHarness.last()?.close();
     expect(testHarness.clock.delays()).toStrictEqual([1000]);
   });
@@ -472,8 +477,10 @@ describe("createFleetTransport", () => {
     const testHarness = createTransportHarness({ fetchLike: createServingFetch(buildSnapshot(0)) });
     testHarness.transport.connect();
     testHarness.last()?.open();
-    testHarness.last()?.close(); // immediate reconnect attempt
-    testHarness.last()?.close(); // fails; a retry is now scheduled
+    // The first close starts the immediate recovery attempt; failing that attempt is
+    // what creates a scheduled retry for `disconnect` to cancel.
+    testHarness.last()?.close();
+    testHarness.last()?.close();
 
     expect(testHarness.clock.pending).toHaveLength(1);
     testHarness.transport.disconnect();

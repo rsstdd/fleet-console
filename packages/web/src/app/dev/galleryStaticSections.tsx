@@ -27,7 +27,7 @@ import {
   STATUS_VARIANTS,
 } from "./galleryFixtures";
 
-/** The gallery's opening reference table: each primitive's public props at a glance. */
+/** Keeps the primitive APIs beside their demos so an optional prop cannot drift unseen. */
 export function PropsIndexSection(): ReactNode {
   return (
     <Paper sx={{ overflow: "hidden" }}>
@@ -139,7 +139,15 @@ export function FreshnessLabelSection(): ReactNode {
           const asOf = row?.asOf ?? null;
           return (
             <Stack key={state} spacing={2} direction="row" useFlexGap>
-              <Typography variant="overline" sx={{ color: "text.disabled", minWidth: 112 }}>
+              <Typography
+                variant="overline"
+                sx={{
+                  color: "text.disabled",
+                  // A fixed label column makes compact/full treatments comparable across
+                  // rows; 112 is a dev-only review aid, not a product breakpoint.
+                  minWidth: 112,
+                }}
+              >
                 {state}
               </Typography>
               <FreshnessLabel state={state} asOf={asOf} isCompact />

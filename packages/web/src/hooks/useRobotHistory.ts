@@ -66,6 +66,12 @@ async function loadHistory(
  * The fetch lifecycle — loading by derivation, stale-answer discard, retry —
  * lives in `useFetchedResource`; this facade owns only the URL and the
  * outcome-to-state mapping.
+ *
+ * @param id - The validated robot id; an id change makes the previous history stale.
+ * @param ports - The deployment API base and optional request seam, kept injectable so
+ *   this data layer neither imports configuration nor requires a network in tests.
+ * @returns The section's complete state union. Only an unreachable request carries a
+ *   retry; contract-invalid history is terminal because the same bytes will not improve.
  */
 export function useRobotHistory(
   id: string,

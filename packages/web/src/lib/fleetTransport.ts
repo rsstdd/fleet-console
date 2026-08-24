@@ -101,7 +101,7 @@ export interface FleetTransportEndpoints {
   readonly streamUrl: string;
 }
 
-/** A running transport. */
+/** Owns exactly one socket and exposes lifecycle commands without starting implicitly. */
 export interface FleetTransport {
   /**
    * Starts a connection attempt immediately: the first, or the banner's manual retry.

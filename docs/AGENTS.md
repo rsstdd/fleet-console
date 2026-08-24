@@ -23,7 +23,7 @@ Docs tree for fleet-console: normative decision records, specifications, plans, 
 - Decision state (`Decided` / `Superseded`) and implementation state (`Not started` / `Partial` / `Implemented`) are independent; change implementation state only on evidence.
 - Undecided durable questions get the next contiguous D-id with `adr: null` and a non-empty `next`; no reserved ADR numbers.
 - Superseding: old ADR keeps its text, gains `**Superseded by:** ADR N`; replacement links back. Never two active normative answers.
-- Every mechanically recognizable rule lives in code/lint/test, cites its ADR beside the mechanism, and is registered under `mechanicalRules`.
+- Every mechanically recognizable rule lives in code/lint/test and is registered under `mechanicalRules`. The registry holds the ADR number, so renumbering or superseding one is a single edit rather than a sweep over comments that no longer agree.
 - Plans declare `**Authority:** Planning only.`, `**Status:**`, `**Updated:** YYYY-MM-DD`. `Blocked` adds `**Blocker:**`; `Trigger-deferred` adds `**Trigger:**`; `Active` carries neither.
 - Terminal plans (completed / abandoned / superseded) leave `05_plans/` for `04_archive/` with the archive date and replacement artifact. Never delete a plan for staleness.
 - A plan may recommend a decision but cannot ratify one; a fired trigger does not ratify a proposed decision.
@@ -37,7 +37,7 @@ Docs tree for fleet-console: normative decision records, specifications, plans, 
 | `DESIGN_SYSTEM.md` or token change                     | `pnpm check:tokens`            |
 | Large doc diff, pre-commit                             | `pnpm check:diff-size`         |
 
-CI rejects: non-contiguous/duplicate D-ids, duplicate ADR routing, open stubs without `next`, malformed ADR metadata, superseded ADRs without replacement, plan files missing authority/status/date, trigger/blocker metadata on the wrong state, hand-edited generated index, missing ADR citations in registered enforcement.
+CI rejects: non-contiguous/duplicate D-ids, duplicate ADR routing, open stubs without `next`, malformed ADR metadata, superseded ADRs without replacement, plan files missing authority/status/date, trigger/blocker metadata on the wrong state, hand-edited generated index, `mechanicalRules` registrations whose enforcement file is missing.
 
 ## Routing
 

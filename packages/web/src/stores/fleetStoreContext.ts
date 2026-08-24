@@ -26,10 +26,10 @@ import { createFleetStore, type FleetStore } from "./fleetStore";
  */
 const EMPTY_STORE = createFleetStore();
 
-/** Carries the fleet store from the transport boundary to the hooks that read it. */
+/** Carries one stable store identity across the import boundary features cannot cross. */
 export const FleetStoreContext = createContext<FleetStore>(EMPTY_STORE);
 
-/** Returns the fleet store this console is reading. */
+/** Falls back to the deliberately empty store, making a missing provider visible as no data. */
 export function useFleetStore(): FleetStore {
   return use(FleetStoreContext);
 }

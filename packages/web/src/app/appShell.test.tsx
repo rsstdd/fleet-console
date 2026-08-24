@@ -7,7 +7,6 @@ import { useConnectionState } from "@/context/connectionContext";
 
 import { AppShell } from "./appShell";
 
-/** Renders the connection state a routed child actually receives from the shell. */
 function ConnectionProbe(): React.ReactElement {
   return <p>child sees: {useConnectionState()}</p>;
 }
@@ -30,7 +29,6 @@ function renderShell(
   );
 }
 
-/** Renders the shell with no `connectionState` prop, to observe the default. */
 function renderShellWithoutState(child: React.ReactElement): void {
   render(
     <MemoryRouter>
@@ -61,7 +59,6 @@ describe("AppShell", () => {
     expect(screen.getByRole("link", { name: TENANT.wordmark })).toHaveAttribute("href", "/");
     const nav = screen.getByRole("navigation", { name: "Primary" });
     expect(nav).toContainElement(screen.getByRole("link", { name: "Fleet" }));
-    // The second primary destination (app-shell spec § 2).
     const mapLink = screen.getByRole("link", { name: "Map" });
     expect(nav).toContainElement(mapLink);
     expect(mapLink).toHaveAttribute("href", "/map");

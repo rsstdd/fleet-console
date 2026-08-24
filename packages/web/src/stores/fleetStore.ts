@@ -127,7 +127,6 @@ export interface FleetStore {
   readonly subscribe: (listener: () => void) => () => void;
 }
 
-/** The internal phase, from which the published state is built. */
 type Phase =
   | { readonly kind: "loading" }
   | { readonly kind: "ready" }

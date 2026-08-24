@@ -1,4 +1,4 @@
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { access, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -198,12 +198,13 @@ export async function checkArchitectureDocs(root = ROOT) {
       }
     }
   }
+  // The registration is the whole path → ADR record. Requiring the file to also spell the
+  // number out gave the same fact two homes, and the renumbering that turned ADR 27 into 28
+  // had to chase it through seven files. What is still worth checking is that the registered
+  // path exists, which a registry alone cannot know.
   for (const rule of decisionMap.mechanicalRules) {
     try {
-      const source = await readFile(path.join(root, rule.path), "utf8");
-      if (!new RegExp(`ADR\\s+${rule.adr}\\b`).test(source)) {
-        errors.push(`${rule.path} enforces a mechanical rule but does not cite ADR ${rule.adr}.`);
-      }
+      await access(path.join(root, rule.path));
     } catch {
       errors.push(
         `${rule.path} is registered as an ADR ${rule.adr} enforcement file but is missing.`,

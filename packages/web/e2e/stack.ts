@@ -61,7 +61,7 @@ const READY_TIMEOUT_MS = 30_000;
  */
 const READY_POLL_INTERVAL_MS = 200;
 
-/** One spawned process with its retained output. */
+/** Owns a whole process group so teardown cannot strand `tsx` or Vite children. */
 export interface ManagedProcess {
   readonly name: string;
   readonly logs: string[];
@@ -70,7 +70,6 @@ export interface ManagedProcess {
   readonly exited: Promise<number | null>;
 }
 
-/** Spawns one command in its own process group and retains its output. */
 function launch(
   name: string,
   command: string,

@@ -45,7 +45,7 @@ export type SnapshotFailure =
   /** The body decoded to something this console's contract does not accept. Terminal. */
   | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
 
-/** What one snapshot request produced. */
+/** Preserves the retryable-request versus terminal-contract distinction for a snapshot. */
 export type SnapshotOutcome =
   | { readonly ok: true; readonly snapshot: FleetSnapshot }
   | { readonly ok: false; readonly failure: SnapshotFailure };
@@ -98,7 +98,7 @@ export async function fetchFleetSnapshot(
     : { ok: false, failure: { kind: "contract", issues: decoded.issues } };
 }
 
-/** What one stream frame produced. */
+/** Keeps rejected-frame issues available for diagnostics without ending the stream. */
 export type FrameOutcome =
   | { readonly ok: true; readonly batch: TelemetryBatch }
   | { readonly ok: false; readonly issues: readonly ContractIssue[] };
@@ -145,7 +145,7 @@ export type RobotDetailFailure =
   | { readonly kind: "unreachable"; readonly status: number | null }
   | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
 
-/** What one single-robot request produced. */
+/** Distinguishes a wrong id, a retryable request failure, and an unreadable contract. */
 export type RobotDetailOutcome =
   | { readonly ok: true; readonly robot: RobotDetailResponse }
   | { readonly ok: false; readonly failure: RobotDetailFailure };
@@ -212,6 +212,11 @@ export type HealthOutcome =
  * fleet-wide unknown-field count; a console that could not read it still knows everything
  * about the robot it is showing, so degrading to "not reported" is right and blocking the
  * page on it would be a diagnostics surface taking the operator's view down with it.
+ *
+ * @param fetchLike - The request port; production passes `fetch`, tests pass their own.
+ * @param url - Same-origin health endpoint built from tenant configuration by the caller.
+ * @returns Never rejects. Any request, status, JSON, or contract failure becomes the
+ *   same advisory absence because none may take the robot page down.
  */
 export async function fetchHealth(fetchLike: FetchLike, url: string): Promise<HealthOutcome> {
   try {
@@ -229,7 +234,7 @@ export type BatteryHistoryFailure =
   | { readonly kind: "unreachable"; readonly status: number | null }
   | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
 
-/** What one battery-history request produced. */
+/** Preserves whether retry can change an unavailable battery-history result. */
 export type BatteryHistoryOutcome =
   | { readonly ok: true; readonly history: RobotBatteryHistory }
   | { readonly ok: false; readonly failure: BatteryHistoryFailure };

@@ -172,6 +172,12 @@ export function selectPositionDisplay(robot: RobotDetail): string {
  * whether it is *declared* is a vendor fact. A panel renders only when both
  * hold (ADR 17). Coupling: the list is produced by
  * `features/robot/panelVisibility.ts` from `TenantFlags`.
+ *
+ * @param robot - Detail read model whose capability keys are declarations, not payload
+ *   truthiness checks.
+ * @param disabled - Deployment-owned panel exclusions, already mapped from tenant flags.
+ * @returns Declared and enabled operator panels in canonical contract order, never object
+ *   insertion order.
  */
 export function selectPanelCapabilities(
   robot: RobotDetail,

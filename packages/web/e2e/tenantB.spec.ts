@@ -96,7 +96,8 @@ test.describe("tenant-B production build", () => {
     const documentWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(documentWidth).toBeLessThanOrEqual(390);
 
-    // Detail remains reachable and readable at phone width.
+    // The fleet-width assertion cannot catch a detail route that overflows after
+    // navigation, so the same narrow viewport has to exercise that second layout too.
     await page.getByRole("link", { name: "R-001" }).click();
     await expect(page.getByRole("heading", { name: "Robot R-001" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Summary" })).toBeVisible();

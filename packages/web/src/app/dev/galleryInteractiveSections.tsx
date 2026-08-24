@@ -193,7 +193,6 @@ export function EmptyStateSection({
   );
 }
 
-/** The stateless bottom half of section 07: title-only and with-description side by side. */
 function StaticEmptyStateForms(): ReactNode {
   return (
     <>

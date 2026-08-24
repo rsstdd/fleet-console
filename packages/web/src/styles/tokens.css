@@ -82,7 +82,6 @@
   --focus-ring: var(--accent);
 }
 
-/* ---------- Tenant A: dark operational profile (default) ---------- */
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
@@ -114,8 +113,10 @@
    * Lightened from #6b6560 on 20 August 2026. That value measured 2.84:1 against
    * --surface, below WCAG 1.4.11's 3:1 for non-text UI components, and this token is a
    * freshness dot and a chip — carriers of meaning, even though a word always sits beside
-   * them. #767068 measures 3.34:1 here and 3.66:1 against --bg. `tokens.test.ts` computes
-   * both and fails below the threshold, so this cannot silently regress.
+   * them. #767068 measures 3.34:1 here and 3.66:1 against --bg. `scripts/checkTokens.mjs`
+   * recomputes the --surface ratio on every `pnpm check:tokens` and fails below 3:1, so
+   * this cannot silently regress; the --bg figure is recorded here only, because no status
+   * token is rendered on --bg today.
    */
   --status-neutral: #767068;
   --status-active: #3d9b6e;
@@ -144,7 +145,6 @@
   --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.32);
 }
 
-/* ---------- Tenant B: light profile ---------- */
 [data-theme="light"] {
   color-scheme: light;
 

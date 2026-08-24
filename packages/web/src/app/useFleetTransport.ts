@@ -36,7 +36,7 @@ import type { FetchLike } from "@/lib/transportDecoding";
  * closes the socket — is about sequencing rather than about the network.
  */
 
-/** What the shell needs to render the banner and what the fleet needs to render rows. */
+/** Keeps connection truth and fleet data separate while publishing both from one boundary. */
 export interface FleetTransportState {
   readonly store: FleetStore;
   readonly connectionState: StreamConnectionState;
@@ -56,7 +56,7 @@ export interface FleetTransportState {
   readonly retry: () => void;
 }
 
-/** Opens a real browser socket. The default port; tests pass their own. */
+/** Adapts browser WebSocket events behind the injectable transport port used by tests. */
 const openBrowserSocket: OpenSocket = (url, handlers) => {
   const socket = new WebSocket(url, []);
   socket.addEventListener("open", () => {

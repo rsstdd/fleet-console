@@ -30,6 +30,9 @@ import {
   StatusChipSection,
 } from "./galleryStaticSections";
 
+/** Keeps comparison tables readable on wide displays; no product layout depends on it. */
+const GALLERY_CONTENT_MAX_WIDTH = 1200;
+
 /**
  * Dev-only gallery of the `components` primitives, mounted at /dev/ui and excluded
  * from production builds by an import.meta.env.DEV guard on the route (app-shell spec § 3).
@@ -125,7 +128,7 @@ export function ComponentGallery() {
           </ToggleButtonGroup>
         </Stack>
 
-        <Stack spacing={3} sx={{ maxWidth: 1200 }}>
+        <Stack spacing={3} sx={{ maxWidth: GALLERY_CONTENT_MAX_WIDTH }}>
           <PropsIndexSection />
           <StatusChipSection />
           <FreshnessLabelSection />

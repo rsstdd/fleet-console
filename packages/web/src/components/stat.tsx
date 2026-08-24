@@ -1,9 +1,9 @@
 import type { ReactElement } from "react";
 
-/** Optional feedback emphasis for a summary metric. */
+/** Feedback emphasis only; a tone never substitutes for a metric's visible label. */
 export type StatTone = "default" | "warning" | "critical";
 
-/** Display-only inputs for one summary metric. */
+/** Keeps a summary metric semantic and layout-free so its parent owns grouping. */
 export interface StatProps {
   readonly label: string;
   readonly value: string | number;

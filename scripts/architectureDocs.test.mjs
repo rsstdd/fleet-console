@@ -89,6 +89,6 @@ test("every numbered ADR has unique structured metadata", async () => {
   assert.ok(adrs.size >= 24);
 });
 
-test("decision index, stale-language checks, and mechanical citations are consistent", async () => {
+test("decision index, stale-language checks, and mechanical registrations are consistent", async () => {
   assert.deepEqual(await checkArchitectureDocs(), []);
 });

@@ -17,7 +17,7 @@ Decision state and implementation state are independent. An open D-id is undecid
 5. If the question can be decided now, allocate the next unused ADR number, copy `docs/00_adr/00_TEMPLATE.md`, and record the issue, viable positions, argument, implications, open questions, and related authorities.
 6. Set the top status to `Decided · YYYY-MM-DD · Not started`, `Partial`, or `Implemented` using evidence from the same change. A decision is not `Implemented` merely because its prose is complete.
 7. Map the D-id to the ADR and remove `next`. If no D-id existed, add the next contiguous D-id only when this is a durable registered question.
-8. Put every mechanically recognizable rule in code, lint, runtime validation, or a test; cite the ADR beside the mechanism and register the file under `mechanicalRules`.
+8. Put every mechanically recognizable rule in code, lint, runtime validation, or a test, and register the file under `mechanicalRules`. The registration carries the ADR number; do not restate it beside the mechanism, where the next renumbering leaves it wrong.
 9. Update affected specifications with current consequences, TODOs with remaining work, and READMEs with supported operation. Link the ADR; do not duplicate its rationale or status.
 10. Run `pnpm docs:decisions`, then `pnpm check:architecture-docs`, followed by checks appropriate to affected code.
 11. Change implementation state only when evidence changes. Add dated observed consequences when operation reveals a material result.
@@ -64,6 +64,6 @@ Completed, abandoned, and superseded plans are terminal and therefore leave `doc
 - non-contiguous or duplicate D-ids, duplicate ADR routing, missing ADR targets, open stubs without `next`, and resolved entries retaining `next`;
 - malformed ADR metadata, duplicate ADR numbers, superseded ADRs without a replacement, missing replacement ADRs, and self-supersession;
 - active plan files without authority/status/date metadata, deferred plans without triggers, blocked plans without blockers, and trigger/blocker metadata on the wrong state;
-- missing ADR citations in registered mechanical enforcement, stale generated decision output, missing authority markers, and stale resolved-decision language.
+- `mechanicalRules` registrations whose enforcement file is missing, stale generated decision output, missing authority markers, and stale resolved-decision language.
 
 Human review remains responsible for whether a choice is truly architectural, whether evidence justifies implementation status, and whether a completed plan has been fully consumed. The checks make lifecycle shape and synchronization mandatory rather than relying on memory.
