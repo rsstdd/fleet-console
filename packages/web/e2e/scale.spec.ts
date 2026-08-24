@@ -54,7 +54,10 @@ const WARMUP_FRAMES = 20;
  */
 const MEASURED_FRAMES = 100;
 
-/** 10 Hz: the wire cadence ADR 2 caps the server's flush at, so this is the real ceiling. */
+/**
+ * ADR 2 caps the server's delta flush at 10 Hz, so 100 ms is the real ceiling: driving
+ * frames any faster would measure the harness rather than the wire cadence under test.
+ */
 const FRAME_INTERVAL_MS = 100;
 
 const HALF = ROBOT_COUNT / 2;
