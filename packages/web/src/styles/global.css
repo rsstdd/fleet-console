@@ -1,11 +1,11 @@
-/* =========================================================
-   canonical-fleet — Global styles
-   Works alongside MUI. Overrides stay light and intentional.
-   ========================================================= */
+/*
+ * Element defaults and the class contracts the `components` primitives render
+ * against. MUI owns component styling; everything here is either a base the
+ * theme cannot reach or a token mapping a spec fixes (ADR 5).
+ */
 
 @import "./tokens.css";
 
-/* ---------- Base ---------- */
 *,
 *::before,
 *::after {
@@ -38,7 +38,6 @@ body {
     color var(--duration-normal) var(--ease);
 }
 
-/* ---------- Typography defaults ---------- */
 h1,
 h2,
 h3,
@@ -74,7 +73,6 @@ small {
   color: var(--ink-muted);
 }
 
-/* Data and mono */
 .mono,
 code,
 kbd,
@@ -102,7 +100,6 @@ pre {
   color: var(--ink-muted);
 }
 
-/* ---------- Links ---------- */
 a {
   color: inherit;
   text-decoration-thickness: 1px;
@@ -113,8 +110,15 @@ a {
 a:hover {
   color: var(--accent-text);
 }
-
-/* ---------- Focus ---------- */
+/*
+ * The two rules are one decision and must stay together. `:focus` drops the user
+ * agent's ring so a pointer click leaves no artefact; `:focus-visible` puts a token
+ * ring back for every keyboard arrival. Keeping only the first is WCAG 2.4.7 failed
+ * outright — it would remove the sole focus indicator some engines draw. The offset
+ * lifts the ring clear of an element's own border, which the tinted chip and banner
+ * surfaces both have. Components do not restate this; `personaToggle.tsx` records why
+ * a second authority for the same ring is a defect rather than a safety net.
+ */
 :focus {
   outline: none;
 }
@@ -124,13 +128,11 @@ a:hover {
   outline-offset: 2px;
 }
 
-/* ---------- Selection ---------- */
 ::selection {
   background: color-mix(in srgb, var(--accent) 35%, transparent);
   color: var(--ink);
 }
 
-/* ---------- Native form elements ---------- */
 button,
 input,
 select,
@@ -139,17 +141,14 @@ textarea {
   color: inherit;
 }
 
-/* ---------- Native tables ---------- */
 table {
   border-collapse: collapse;
   width: 100%;
 }
 
-/* ---------- Status chip ----------
-   Six variants, matching the canonical status enum plus health severity.
-   The variant is chosen by a tested selector in utils/robotSelectors; this file
-   never learns what a robot is.
-   ------------------------------------------------------------------ */
+/* Six variants match the canonical status enum plus health severity. A tested
+   selector in utils/robotSelectors chooses one, so this stylesheet never learns
+   what a robot is. */
 .status {
   display: inline-flex;
   align-items: center;
@@ -209,7 +208,7 @@ table {
 }
 
 /*
- * current={false}: this is the last value received, not the current one.
+ * isCurrent={false}: this is the last value received, not the current one.
  * Fill drops away and the dot goes hollow, so the status column alone cannot
  * mislead a reader who never reaches the freshness column.
  */
@@ -250,10 +249,8 @@ table {
   }
 }
 
-/* ---------- Freshness ----------
-   Freshness is not a status and does not share the status palette.
-   It is carried by emphasis, and the state word does the work.
-   ------------------------------------------------------------------ */
+/* Freshness is not a status and does not share the status palette. Emphasis and
+   the visible state word carry it instead. */
 .freshness {
   display: inline-flex;
   align-items: baseline;
@@ -322,11 +319,8 @@ table {
   color: var(--ink-muted);
 }
 
-/* ---------- Connection banner ----------
-   Token mapping for components/connectionBanner.tsx; component spec 07 § 6.
-   Only --warning and --error are used here, never a --status-* token: the
-   banner reports transport integrity, not a robot's state.
-   ------------------------------------------------------------------ */
+/* Only warning and error roles map into components/connectionBanner.tsx; a
+   --status-* token would mislabel transport integrity as robot state (spec 07 §6). */
 /* stylelint-disable selector-class-pattern -- Component spec 07 §4 fixes the
    connection-banner__* selectors; connectionBanner.test.tsx covers them. */
 .connection-banner {
@@ -396,7 +390,6 @@ table {
 }
 /* stylelint-enable selector-class-pattern */
 
-/* ---------- Data plate ---------- */
 .data-plate {
   font-family: var(--font-mono);
   font-size: var(--text-overline);
@@ -406,7 +399,6 @@ table {
   margin-top: 0.75rem;
 }
 
-/* ---------- Section label ---------- */
 .section-label {
   display: flex;
   align-items: center;
@@ -426,10 +418,8 @@ table {
   flex-shrink: 0;
 }
 
-/* ---------- Stat ----------
-   Token mapping for components/stat.tsx; keep its tone classes aligned with
-   component spec 05. The parent owns layout and any card surface.
-   ------------------------------------------------------------------ */
+/* The visual half of components/stat.tsx: tone classes stay aligned with component
+   spec 05 while the parent retains ownership of layout and any card surface. */
 /* stylelint-disable selector-class-pattern -- Component spec 05 requires the
    stat__* public selectors; stat.test.tsx covers that output contract. */
 .stat__value {
@@ -464,13 +454,11 @@ table {
 }
 /* stylelint-enable selector-class-pattern */
 
-/* ---------- Empty state ----------
-   Token mapping for components/emptyState.tsx (component spec 06 §6). The title
-   is an h2 for the document outline and h3 scale for the visual hierarchy:
-   spec §4 fixes the level, spec §6 fixes the size, and they are deliberately
-   two different decisions. No surface, border, illustration or accent here —
-   the parent owns any card, as it does for .stat, and §6 rules out decoration.
-   ------------------------------------------------------------------ */
+/* The title of components/emptyState.tsx is an h2 at h3 scale: component spec 06 §4
+   fixes the level for the document outline, §6 fixes the size for the visual hierarchy,
+   and they are deliberately two different decisions. No surface, border, illustration or
+   accent here — the parent owns any card, as it does for .stat, and §6 rules out
+   decoration. */
 /* stylelint-disable selector-class-pattern -- Component spec 06 §4 requires the
    empty-state__* public selectors; emptyState.test.tsx covers that output contract. */
 .empty-state {
@@ -502,17 +490,15 @@ table {
 }
 /* stylelint-enable selector-class-pattern */
 
-/* ---------- Helpers ----------
-   Deliberately minimal. A general utility layer is a second styling system
-   arriving by the back door, which ADR 5 rejects. Surface and elevation
-   helpers are absent because MUI Paper already owns that job, and two ways
-   to make a panel means no rule about which to use.
+/* Deliberately minimal: a general utility layer is a second styling system arriving by
+   the back door, which ADR 5 rejects. Surface and elevation helpers are absent because
+   MUI Paper already owns that job, and two ways to make a panel means no rule about
+   which to use.
 
-   These three exist only because they name text roles that MUI typography
-   variants do not cover, and they are prefixed so they cannot collide.
-   Roles, not colours: a tenant supplying a different accent leaves a class
-   named for a colour lying about what it does.
-   ------------------------------------------------------------------ */
+   These three exist only because they name text roles that MUI typography variants do
+   not cover, and they are prefixed so they cannot collide. Roles, not colours: a tenant
+   supplying a different accent leaves a class named for a colour lying about what it
+   does. */
 .u-text-soft {
   color: var(--ink-soft);
 }
@@ -523,7 +509,13 @@ table {
   color: var(--accent-text);
 }
 
-/* ---------- Reduced motion ---------- */
+/*
+ * 0.01ms rather than 0: a zero duration cancels the animation in some engines, so
+ * `animationend` / `transitionend` never fires and anything sequenced on completion
+ * stalls silently. A hundredth of a millisecond is imperceptible but still completes,
+ * which removes the motion without removing the event. Capping the iteration count
+ * stops an infinite animation from re-firing that event forever at the new duration.
+ */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

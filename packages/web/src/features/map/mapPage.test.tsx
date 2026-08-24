@@ -91,7 +91,6 @@ function renderPage(connection: StreamConnectionState = "connected"): void {
   );
 }
 
-/** The canvas image for the selected site, found by its computed name. */
 function getMapCanvas(): HTMLElement {
   return screen.getByRole("img", { name: /Map of Zone A/ });
 }

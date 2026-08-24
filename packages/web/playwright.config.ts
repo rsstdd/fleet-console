@@ -26,7 +26,17 @@ export default defineConfig<StackOptions>({
   workers: 1,
   forbidOnly: process.env.CI !== undefined,
   retries: process.env.CI === undefined ? 0 : 1,
+  // A test here starts a real server, a real simulator and a preview build, then waits
+  // on production clocks rather than test knobs: `config/freshness.json` degrades a
+  // silent robot at 2s and 10s, and ADR 31's recovery backs off under a 30-second
+  // ceiling, with the restart scenario spending most of one. 120s covers the longest of
+  // those chains plus a cold stack start. A test needing more than this is waiting on
+  // something it should be asserting.
   timeout: 120_000,
+  // Per assertion, an order of magnitude under the test budget. A delta reaches the DOM
+  // in milliseconds, so anything still failing at 10s is a defect rather than a loaded
+  // CI box — which is why the scenarios that genuinely wait on a production clock pass
+  // their own longer timeout at the call site instead of raising this one.
   expect: { timeout: 10_000 },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {

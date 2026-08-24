@@ -8,6 +8,11 @@ import boundaries from "eslint-plugin-boundaries";
 import jsdoc from "eslint-plugin-jsdoc";
 import { informativeDocsRule } from "../../config/eslint/informativeDocs.js";
 
+// ESLint selector regexes, not runtime validators. The first matches CSS hex literals
+// with 3, 4, 6, or 8 digits (`#fff`, `#ffff`, `#ffffff`, `#ffffffff`); the second
+// matches signed integer or decimal pixel strings (`12px`, `-0.5px`). Spelling the
+// accepted examples out here matters because a broadened selector silently changes
+// which visual literals the token rule permits (Principle 8).
 const HEX_LITERAL = "Literal[value=/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/]";
 const PX_LITERAL = "Literal[value=/^-?\\d+(\\.\\d+)?px$/]";
 

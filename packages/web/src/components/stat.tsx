@@ -1,13 +1,18 @@
 import type { ReactElement } from "react";
 
-/** Optional feedback emphasis for a summary metric. */
+/** Feedback emphasis only; a tone never substitutes for a metric's visible label. */
 export type StatTone = "default" | "warning" | "critical";
 
-/** Display-only inputs for one summary metric. */
+/** Keeps a summary metric semantic and layout-free so its parent owns grouping. */
 export interface StatProps {
   readonly label: string;
   readonly value: string | number;
-  readonly hint?: string; // e.g. "of 50"
+  /**
+   * A short qualifier rendered under the label, e.g. `"of 50"` beside a count. Prose,
+   * not a second metric: it is never given tone and never announced separately, so
+   * anything a reader must be able to compare belongs in its own `Stat`.
+   */
+  readonly hint?: string;
   readonly tone?: StatTone;
   readonly className?: string;
 }

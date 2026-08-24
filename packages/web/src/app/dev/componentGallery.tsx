@@ -30,6 +30,9 @@ import {
   StatusChipSection,
 } from "./galleryStaticSections";
 
+/** Keeps comparison tables readable on wide displays; no product layout depends on it. */
+const GALLERY_CONTENT_MAX_WIDTH = 1200;
+
 /**
  * Dev-only gallery of the `components` primitives, mounted at /dev/ui and excluded
  * from production builds by an import.meta.env.DEV guard on the route (app-shell spec § 3).
@@ -68,6 +71,11 @@ export function ComponentGallery() {
     setIsFiltered(nextIsFiltered);
   };
 
+  // Synchronizes an external DOM boundary React does not own — the `data-theme`
+  // attribute on `documentElement`, which the token layer switches on — with this
+  // gallery's local tenant selection. Cleanup restores the deployment's own theme:
+  // the gallery is mounted inside the running console, so an attribute left switched
+  // would repaint every other route in whichever tenant was last previewed here.
   useEffect(() => {
     applyTenantTheme(tenant);
     return () => {
@@ -120,7 +128,7 @@ export function ComponentGallery() {
           </ToggleButtonGroup>
         </Stack>
 
-        <Stack spacing={3} sx={{ maxWidth: 1200 }}>
+        <Stack spacing={3} sx={{ maxWidth: GALLERY_CONTENT_MAX_WIDTH }}>
           <PropsIndexSection />
           <StatusChipSection />
           <FreshnessLabelSection />
@@ -138,9 +146,10 @@ export function ComponentGallery() {
           <SectionLabelSection />
 
           <Typography variant="caption" color="text.disabled">
-            Tokens only · no hex · freshness never uses --accent · asOf is required · status has six
-            variants, matched to what the canonical model can actually produce · PersonaToggle never
-            uses a filled accent selected state.
+            Tokens only · no hex · freshness never uses --accent · asOf is a required prop and is
+            null only for a robot that has never reported · status has six variants, matched to what
+            the canonical model can actually produce · PersonaToggle never uses a filled accent
+            selected state.
           </Typography>
         </Stack>
       </Box>

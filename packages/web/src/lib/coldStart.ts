@@ -58,7 +58,14 @@ export interface ColdStart {
   readonly isSettled: boolean;
 }
 
-/** Creates a cold start that has not yet received its snapshot. */
+/**
+ * Creates a cold start that has not yet received its snapshot.
+ *
+ * @returns A buffer in the pre-snapshot state, holding every frame `receive` is given
+ *   until the one permitted `settle` reconciles them. Cheap to discard and rebuild,
+ *   which is what each connection attempt does — a buffer carried across attempts would
+ *   replay another socket's frames against this one's snapshot.
+ */
 export function createColdStart(): ColdStart {
   const buffered: TelemetryBatch[] = [];
   let settled = false;

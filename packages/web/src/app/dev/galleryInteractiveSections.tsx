@@ -15,7 +15,11 @@ import { EmptyState } from "@/components/emptyState";
 import { PersonaToggle, type Persona } from "@/components/personaToggle";
 import { SectionLabel } from "@/components/sectionLabel";
 
-/** Section 04: the persona switch live, its view consequence, and its disabled state. */
+/**
+ * Puts the persona toggle under the tenant switch in the gallery header: the same MUI
+ * component with a deliberately different selected-state treatment, which is only
+ * checkable with both on screen at once (component spec 08 §6).
+ */
 export function PersonaToggleSection({
   persona,
   onPersonaChange,
@@ -71,7 +75,11 @@ export function PersonaToggleSection({
   );
 }
 
-/** Section 05: the banner in each connection state, with the retry wired to the visible attempt. */
+/**
+ * Drives the banner through every state with a live retry. Two of its guarantees are
+ * invisible in a static render — the connected state's mounted-but-empty live region,
+ * and an attempt counter that actually counts — and both are what ADR 23 leans on.
+ */
 export function ConnectionBannerSection({
   connectionState,
   reconnectAttempt,
@@ -123,7 +131,11 @@ export function ConnectionBannerSection({
   );
 }
 
-/** Section 07: the filtered empty state beside its title-only and with-description forms. */
+/**
+ * Reaches the filtered empty state through a real filter rather than a prop, because the
+ * state that matters is the one an operator can undo, and shows the title-only and
+ * with-description forms beside it.
+ */
 export function EmptyStateSection({
   isFiltered,
   onFilteredChange,
@@ -181,7 +193,6 @@ export function EmptyStateSection({
   );
 }
 
-/** The stateless bottom half of section 07: title-only and with-description side by side. */
 function StaticEmptyStateForms(): ReactNode {
   return (
     <>

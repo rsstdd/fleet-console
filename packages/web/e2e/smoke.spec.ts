@@ -21,12 +21,11 @@ function getRobotLinks(page: Page): Locator {
   return page.getByRole("link", { name: /^R-\d{3}$/ });
 }
 
-/** One robot's row in the fleet table. */
 function getRobotRow(page: Page, robotId: string): Locator {
   return page.getByRole("row", { name: new RegExp(`^${robotId}\\b`) });
 }
 
-/** Loads the console and waits until the live fleet has fully rendered. */
+/** Waits for all 50 manifest rows so later assertions cannot pass during partial startup. */
 async function openFleet(page: Page, consoleUrl: string): Promise<void> {
   await page.goto(consoleUrl);
   await expect(page.getByRole("heading", { name: "Fleet overview" })).toBeVisible();
@@ -317,7 +316,8 @@ test.describe("fleet console against the real stack", () => {
     await expect(page.getByText("Stream connected")).toBeVisible({ timeout: 45_000 });
     await expect(fleetTable.getByText("Live").first()).toBeVisible({ timeout: 15_000 });
 
-    // And the stream is genuinely live again: rows resume updating.
+    // A connected label alone could pass while a replacement socket delivers nothing;
+    // advancing row content proves recovery restored the data path, not only its banner.
     const lastSeen = getRobotRow(page, "R-001").getByRole("cell").last();
     const before = await lastSeen.textContent();
     await expect(lastSeen).not.toHaveText(before ?? "", { timeout: 10_000 });
@@ -329,7 +329,6 @@ test.describe("fleet console against the real stack", () => {
   }) => {
     await openFleet(page, stack.consoleUrl);
 
-    // The second primary destination (page spec 04): reached by its nav link.
     await page
       .getByRole("navigation", { name: "Primary" })
       .getByRole("link", { name: "Map" })

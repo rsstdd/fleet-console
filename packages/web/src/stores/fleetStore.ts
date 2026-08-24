@@ -127,7 +127,6 @@ export interface FleetStore {
   readonly subscribe: (listener: () => void) => () => void;
 }
 
-/** The internal phase, from which the published state is built. */
 type Phase =
   | { readonly kind: "loading" }
   | { readonly kind: "ready" }
@@ -139,7 +138,17 @@ type Phase =
     }
   | { readonly kind: "terminal-error"; readonly issues: readonly ContractIssue[] };
 
-/** Creates an empty store; nothing is known until a snapshot is applied. */
+/**
+ * Creates an empty store; nothing is known until a snapshot is applied.
+ *
+ * @param schedule - How a change reaches subscribers. Defaults to `queueMicrotask`, so
+ *   a burst of transitions inside one task wakes them once; a test passes a synchronous
+ *   one to assert without awaiting. It bounds *notification* only — every transition is
+ *   applied immediately, so `getState` never lags what the store has been told.
+ * @returns A store in `loading` holding no robots and no provenance. `subscribe` and
+ *   `getState` are function-valued properties rather than methods, so they still work
+ *   when `useSyncExternalStore` takes them detached.
+ */
 export function createFleetStore(schedule: NotifyScheduler = queueMicrotask): FleetStore {
   const robots = new Map<string, Robot>();
   const listeners = new Set<() => void>();

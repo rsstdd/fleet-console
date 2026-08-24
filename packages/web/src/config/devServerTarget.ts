@@ -37,6 +37,11 @@ export const DEV_SERVER_DEFAULTS = {
  *
  * An IPv6 literal is bracketed, because `http://::1:8080` is not a URL any client can
  * parse and the mistake is invisible until something tries to connect.
+ *
+ * @param env - A process environment, or any subset of one. Defaults to `{}`, which
+ *   selects both fallbacks — the shape a test uses to assert the defaults.
+ * @returns An `http://host:port` origin for Vite's `proxy.target`. Never a `ws://` one:
+ *   Vite upgrades the same target for `/ws` itself.
  */
 export function resolveDevServerTarget(
   env: Readonly<Record<string, string | undefined>> = {},

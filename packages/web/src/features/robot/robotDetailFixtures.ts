@@ -22,7 +22,6 @@ import type { FetchLike } from "@/lib/transportDecoding";
  * or feature directories (`docs/03_package-specs/05_WEB.md` § 4, ADR 36).
  */
 
-/** The per-vendor half of a fixture response: what the dialect declares. */
 interface VendorFixture {
   readonly model: string;
   readonly adapterId: string;
@@ -121,10 +120,10 @@ const HEALTH_DESCRIPTION: Partial<Record<HealthSeverity, string>> = {
   critical: "Obstacle sensor unresponsive",
 };
 
-/** Transport delay between the vendor's instant and the server's receipt. */
+/** A positive skew keeps the technician clock-delta path exercised; the value is arbitrary. */
 const FIXTURE_RECEIPT_DELAY_MS = 120;
 
-/** Stamps the robot's own id into a payload shaped like its vendor's dialect. */
+/** Handles the dialect split where one vendor nests identity and the others keep it flat. */
 function withRobotId(
   payload: Readonly<Record<string, unknown>>,
   id: string,
@@ -213,6 +212,11 @@ function buildRegisteredResponse(robot: Robot): unknown {
  * resources that fail independently — a test that stubbed only the robot would exercise
  * paths the console never takes. History has its own overrides for the same reason health
  * does: its failure modes are section-local and the page must survive each of them.
+ *
+ * @param options - Independent health and history responses or failures; omitted fields
+ *   use the same internally consistent fixture set as the robot response.
+ * @returns A request seam that routes by URL and preserves the three resources' distinct
+ *   failure behavior without touching the network.
  */
 export function createFixtureFetch(
   options: {
@@ -251,7 +255,14 @@ export function createFixtureFetch(
   };
 }
 
-/** The wire body for one fixture robot, or null when no fixture has that id. */
+/**
+ * Uses the registered-only contract for a robot with no report rather than fabricating
+ * nullable telemetry fields.
+ *
+ * @param id - Robot id looked up in the shared fleet fixture.
+ * @returns An observed diagnostic envelope, a registered-only body, or null when the id
+ *   is absent and the request seam should answer 404.
+ */
 export function buildRobotResponse(id: string): unknown {
   const robot = buildFixtureRobots().find((candidate) => candidate.id === id);
   if (robot === undefined) return null;
@@ -270,6 +281,10 @@ export function buildRobotResponse(id: string): unknown {
  * A robot that has reported gets a short declining ramp ending at its current battery,
  * so the chart a test renders agrees with the Summary beside it (Principle 1); a robot
  * that has never reported — or has no battery — gets the contract's honest empty shapes.
+ *
+ * @param id - Robot whose shared fixture supplies the battery and reporting state.
+ * @returns A contract-valid history body whose empty variants distinguish no telemetry
+ *   from telemetry containing no battery samples.
  */
 export function buildHistoryResponse(id: string): unknown {
   const robot = buildFixtureRobots().find((candidate) => candidate.id === id);
@@ -301,7 +316,11 @@ export function buildHistoryResponse(id: string): unknown {
   };
 }
 
-/** A health body carrying a per-adapter unknown-field count for each fixture vendor. */
+/**
+ * Keeps fleet-wide adapter counters aligned with the same vendor fixtures as detail.
+ *
+ * @returns A contract-valid health body with one counter entry per fixture vendor.
+ */
 export function buildHealthResponse(): unknown {
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -333,6 +352,9 @@ export function buildHealthResponse(): unknown {
  * would have clicked to reach it (Principle 1). Timestamps are relative to `Date.now()`
  * because freshness varies across the set on purpose — a suite asserting on an exact
  * instant should pass its own.
+ *
+ * @returns Fleet rows whose ids, vendors, core values, and reporting state agree with
+ *   every response builder in this module.
  */
 export function buildFixtureRobots(): Robot[] {
   const now = Date.now();

@@ -45,7 +45,7 @@ export type SnapshotFailure =
   /** The body decoded to something this console's contract does not accept. Terminal. */
   | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
 
-/** What one snapshot request produced. */
+/** Preserves the retryable-request versus terminal-contract distinction for a snapshot. */
 export type SnapshotOutcome =
   | { readonly ok: true; readonly snapshot: FleetSnapshot }
   | { readonly ok: false; readonly failure: SnapshotFailure };
@@ -68,6 +68,12 @@ export type FetchLike = (url: string) => Promise<{
  * A non-2xx status is `unreachable` rather than `contract`, including a 500. The server
  * failing to produce a body is not the same event as producing one this console cannot
  * read, and only the second is worth refusing to retry.
+ *
+ * @param fetchLike - The request port; production passes `fetch`, tests pass their own.
+ * @param url - Same-origin, built from `TENANT.endpoints.apiBaseUrl`.
+ * @returns Never rejects: every failure is a value. `unreachable` must be retried under
+ *   ADR 31's schedule; `contract` must not be, and the caller is expected to end the
+ *   session on it rather than counting it as one more failed attempt.
  */
 export async function fetchFleetSnapshot(
   fetchLike: FetchLike,
@@ -92,7 +98,7 @@ export async function fetchFleetSnapshot(
     : { ok: false, failure: { kind: "contract", issues: decoded.issues } };
 }
 
-/** What one stream frame produced. */
+/** Keeps rejected-frame issues available for diagnostics without ending the stream. */
 export type FrameOutcome =
   | { readonly ok: true; readonly batch: TelemetryBatch }
   | { readonly ok: false; readonly issues: readonly ContractIssue[] };
@@ -139,7 +145,7 @@ export type RobotDetailFailure =
   | { readonly kind: "unreachable"; readonly status: number | null }
   | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
 
-/** What one single-robot request produced. */
+/** Distinguishes a wrong id, a retryable request failure, and an unreadable contract. */
 export type RobotDetailOutcome =
   | { readonly ok: true; readonly robot: RobotDetailResponse }
   | { readonly ok: false; readonly failure: RobotDetailFailure };
@@ -159,6 +165,13 @@ export type RobotDetailOutcome =
  * A 404 is its own outcome, not an error: an unknown robot id is a wrong link, and the
  * page renders an empty state with a way back rather than a failure banner (robot detail
  * spec § 10).
+ *
+ * @param fetchLike - The request port.
+ * @param url - `/api/robots/:id`, with the id already percent-encoded by the caller.
+ * @returns Never rejects, and its three failures are not interchangeable: `not-found` is
+ *   a navigation outcome and must not render as a fault, `unreachable` earns a retry,
+ *   and `contract` is terminal. Success still discriminates observed from registered,
+ *   because the endpoint serves two shapes and a registered robot has no telemetry.
  */
 export async function fetchRobotDetail(
   fetchLike: FetchLike,
@@ -199,6 +212,11 @@ export type HealthOutcome =
  * fleet-wide unknown-field count; a console that could not read it still knows everything
  * about the robot it is showing, so degrading to "not reported" is right and blocking the
  * page on it would be a diagnostics surface taking the operator's view down with it.
+ *
+ * @param fetchLike - The request port; production passes `fetch`, tests pass their own.
+ * @param url - Same-origin health endpoint built from tenant configuration by the caller.
+ * @returns Never rejects. Any request, status, JSON, or contract failure becomes the
+ *   same advisory absence because none may take the robot page down.
  */
 export async function fetchHealth(fetchLike: FetchLike, url: string): Promise<HealthOutcome> {
   try {
@@ -216,7 +234,7 @@ export type BatteryHistoryFailure =
   | { readonly kind: "unreachable"; readonly status: number | null }
   | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
 
-/** What one battery-history request produced. */
+/** Preserves whether retry can change an unavailable battery-history result. */
 export type BatteryHistoryOutcome =
   | { readonly ok: true; readonly history: RobotBatteryHistory }
   | { readonly ok: false; readonly failure: BatteryHistoryFailure };
@@ -232,6 +250,11 @@ export type BatteryHistoryOutcome =
  * robot it is already showing, so an unregistered id here means the console and
  * server disagree about the roster mid-navigation, which a retry can resolve
  * and a terminal state cannot.
+ *
+ * @param fetchLike - The request port.
+ * @param url - `/api/robots/:id/history`, with the id already percent-encoded.
+ * @returns Never rejects. `unreachable` is worth an inline retry that degrades this
+ *   section alone and never the page; `contract` is terminal and must not offer one.
  */
 export async function fetchBatteryHistory(
   fetchLike: FetchLike,

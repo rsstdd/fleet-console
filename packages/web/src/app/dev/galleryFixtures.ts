@@ -71,7 +71,7 @@ export const STATUS_VARIANTS: ReadonlyArray<{ variant: StatusVariant; label: str
   { variant: "unknown", label: "Unknown" },
 ];
 
-/** Every freshness state, in the order the FreshnessLabel section demonstrates them. */
+/** All four states FreshnessLabel renders; nothing makes a fifth a compile error here. */
 export const FRESHNESS_STATES: ReadonlyArray<FreshnessState> = [
   "live",
   "stale",
@@ -79,7 +79,7 @@ export const FRESHNESS_STATES: ReadonlyArray<FreshnessState> = [
   "unknown",
 ];
 
-/** The public-props index rendered at the top of the gallery, one row per primitive. */
+/** Prop lists copied by hand: no check compares them to the components, so they drift silently. */
 export const COMPONENT_PROPS: ReadonlyArray<{
   readonly component: string;
   readonly props: string;

@@ -39,6 +39,11 @@ function isTenantId(value: string): value is TenantId {
  * Coupling: called twice on purpose — once by `vite.config.ts` so a bad value
  * fails the build, and once by `tenant.ts` so the bundle contains a constant.
  * Dropping the first call moves the failure from a build log to a blank page.
+ *
+ * @param raw - A build environment's `VITE_TENANT`. `undefined` and `""` both mean
+ *   unset and select tenant A; every other value must name a shipped tenant.
+ * @returns The selected tenant id.
+ * @throws TenantConfigError - When the value is present and names no shipped tenant.
  */
 export function resolveTenantId(raw: unknown): TenantId {
   if (raw === undefined || raw === "") {

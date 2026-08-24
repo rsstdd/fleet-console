@@ -140,6 +140,13 @@ async function loadDetail(
  * hook can run on it, so no state here describes an absent id. The fetch lifecycle —
  * loading by derivation, stale-answer discard, retry — lives in `useFetchedResource`;
  * this facade owns only the URLs and the outcome-to-state mapping.
+ *
+ * @param id - The validated route id; changing it discards any in-flight answer for the
+ *   previous robot.
+ * @param ports - The deployment API base and optional request seam. Configuration stays
+ *   outside this data layer (ADR 4), while tests can avoid a network.
+ * @returns The complete detail state, including retained data on recoverable failure and
+ *   a retry only where another request can change the outcome (ADR 20).
  */
 export function useRobotDetail(
   id: string,

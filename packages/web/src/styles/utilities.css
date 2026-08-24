@@ -1,5 +1,14 @@
-/* ---------- MUI-friendly helpers ---------- */
-/* Use these when you need raw CSS hooks next to MUI components */
+/*
+ * Raw CSS hooks for markup that sits beside an MUI component and cannot take an `sx`
+ * prop. Reach for MUI's own props first; a class here maps to a token and is never a
+ * place to add a visual literal (ADR 5).
+ *
+ * FIXME: immediate bug to address — `.text-gold` reads `--gold-text`, which no token
+ * block defines, so the rule silently resolves to nothing. It is also the mistake
+ * global.css's own helper note names: a class named for a colour lies about what it
+ * does the moment a tenant supplies a different accent. `.u-text-accent` there is the
+ * role-named replacement. Removing this class is a style change, not a comment one.
+ */
 
 .surface {
   background: var(--surface);

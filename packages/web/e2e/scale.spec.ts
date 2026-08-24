@@ -33,13 +33,35 @@ import { startStack, type Stack } from "./stack.ts";
  * derivation would use.
  */
 
+/** The documented workload's fleet size — the number ADR 24's deferred question is about. */
 const ROBOT_COUNT = 500;
+
+/**
+ * Frames driven before measurement starts, so the report describes a steady state.
+ *
+ * React's initial 500-row mount, the browser's first layout and JIT warm-up all land in
+ * this window and none of them recur; leaving them in would make the p95 a first-render
+ * number wearing a steady-state label, which is the specific way a benchmark lies.
+ */
 const WARMUP_FRAMES = 20;
+
+/**
+ * Frames the report is computed over: a hundred at 100 ms is ten seconds of steady state.
+ *
+ * Enough samples that a p95 is a percentile rather than a coin toss, short enough that
+ * the whole scenario — stack start, 50 robots reporting, teardown — still fits the
+ * suite timeout below.
+ */
 const MEASURED_FRAMES = 100;
+
+/**
+ * ADR 2 caps the server's delta flush at 10 Hz, so 100 ms is the real ceiling: driving
+ * frames any faster would measure the harness rather than the wire cadence under test.
+ */
 const FRAME_INTERVAL_MS = 100;
+
 const HALF = ROBOT_COUNT / 2;
 
-/** In-page instrumentation shape; see the init script below. */
 interface ScaleProbe {
   received: number;
   paintLatencies: number[];
@@ -76,6 +98,11 @@ function summarize(values: readonly number[]): { p50: number; p95: number; max: 
 }
 
 test.describe("500-robot live-stream measurement", () => {
+  // Five minutes for one test, because its fixed costs dwarf the measurement: a stack
+  // start, up to 30 s waiting for all 50 real robots to report, the 500-row first
+  // render, then twelve seconds of driven frames. The suite-wide 120 s cannot cover
+  // that, and a benchmark that times out reports nothing at all rather than reporting
+  // a worse number.
   test.describe.configure({ timeout: 300_000 });
 
   let stack: Stack;
@@ -94,9 +121,12 @@ test.describe("500-robot live-stream measurement", () => {
   }, testInfo) => {
     test.skip(browserName !== "chromium", "The reported measurement is Chromium-only by plan.");
 
-    // 1. A real snapshot, decoded with the console's own decoder. Wait until every
-    //    manifest robot has actually reported so the seed envelopes are observed ones.
+    // Every manifest robot must have reported before the seed is taken: a
+    // registered-only entry carries no core fields to expand, so using one would create
+    // 500 robots that can never render the battery value the integrity check relies on.
     const observed = await test.step("capture a fully observed snapshot", async () => {
+      // The same budget `stack.ts` gives a process to become ready. Past it the manifest
+      // is not filling slowly, it is not filling, and the throw names how far it got.
       const deadline = Date.now() + 30_000;
       for (;;) {
         const body: unknown = await (await fetch(`${stack.serverUrl}/api/fleet`)).json();
@@ -109,6 +139,8 @@ test.describe("500-robot live-stream measurement", () => {
         if (Date.now() > deadline) {
           throw new Error(`only ${String(envelopes.length)} of 50 robots ever reported`);
         }
+        // The simulator's own emit cadence is faster than this, so a tighter loop only
+        // adds HTTP round trips to the server it is waiting on.
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     });
@@ -117,8 +149,8 @@ test.describe("500-robot live-stream measurement", () => {
     await stack.stopSimulator();
     await stack.stopServer();
 
-    // 2. Expand to 500 through the contracts-owned encoder, then prove the expansion
-    //    still satisfies the strict schema before serving a byte of it.
+    // The contracts-owned encoder and strict decoder keep the benchmark from measuring
+    // a synthetic wire shape the real console would reject at its boundary.
     const session = observed.snapshot.serverSessionId;
     const seedWire: CanonicalEnvelopeWire[] = Array.from({ length: ROBOT_COUNT }, (_, index) => {
       const source = observed.envelopes[index % observed.envelopes.length];
@@ -142,7 +174,7 @@ test.describe("500-robot live-stream measurement", () => {
     };
     expect(parseFleetSnapshot(snapshotWire).ok).toBe(true);
 
-    /** One frame: half the fleet, alternating halves, battery encoding the frame index. */
+    /** Encodes the frame index in battery so the final render proves the newest frame won. */
     const buildFrame = (frameIndex: number): string => {
       const offset = frameIndex % 2 === 0 ? 0 : HALF;
       const battery = frameIndex % 101;
@@ -162,7 +194,9 @@ test.describe("500-robot live-stream measurement", () => {
     };
     expect(parseTelemetryBatch(JSON.parse(buildFrame(1))).ok).toBe(true);
 
-    // 3. Routing: the snapshot from HTTP, the frames from the test's WebSocket end.
+    // Both routes must be registered before `goto`: the console opens its socket and
+    // fetches its snapshot during first render, so installing either afterwards would
+    // miss the join and measure an empty table.
     await page.route("**/api/fleet", (route) => route.fulfill({ json: snapshotWire }));
     let resolveSocket: (socket: { send(message: string): void }) => void = () => undefined;
     const socketReady = new Promise<{ send(message: string): void }>((resolve) => {
@@ -179,8 +213,9 @@ test.describe("500-robot live-stream measurement", () => {
       },
     );
 
-    // 4. In-page probe: frames received, receipt-to-next-animation-frame latency, and
-    //    a continuous animation-frame interval sampler.
+    // An init script, not an evaluate: the probe subclasses `WebSocket`, so it has to be
+    // installed before the app's first line. Installed afterwards it would wrap nothing
+    // and every counter would read zero against a UI that was provably updating.
     await page.addInitScript(() => {
       const probe: ScaleProbe = { received: 0, paintLatencies: [], rafIntervals: [] };
       globalThis.__scale = probe;
@@ -223,7 +258,8 @@ test.describe("500-robot live-stream measurement", () => {
     await expect(links).toHaveCount(ROBOT_COUNT, { timeout: 30_000 });
     const socket = await socketReady;
 
-    // 5. Drive the workload: warmup, then the measured window.
+    // The wall clock starts after warmup so first-render and JIT work cannot wear a
+    // steady-state label; `WARMUP_FRAMES` records why the two windows are separate.
     const totalFrames = WARMUP_FRAMES + MEASURED_FRAMES;
     let measuredStartedAt = 0;
     for (let frame = 1; frame <= totalFrames; frame += 1) {
@@ -233,9 +269,9 @@ test.describe("500-robot live-stream measurement", () => {
     }
     const measuredWallMs = performance.now() - measuredStartedAt;
 
-    // 6. Integrity, which is the only thing asserted: every frame received at the
-    //    socket, all rows still present, and the final frame's content genuinely
-    //    rendered — that last assertion, not the count, is the application evidence.
+    // Counts alone could pass while the application discarded every update. The final
+    // frame's encoded battery is the evidence that received data reached rendered UI;
+    // timing and memory remain reported measurements rather than invented gates.
     await expect
       .poll(() => page.evaluate(() => globalThis.__scale.received), { timeout: 10_000 })
       .toBe(totalFrames);
@@ -250,7 +286,8 @@ test.describe("500-robot live-stream measurement", () => {
     const probe = await page.evaluate(() => globalThis.__scale);
     const measuredLatencies = probe.paintLatencies.slice(WARMUP_FRAMES);
 
-    // 7. The report. Machine-readable, environment included, gated by nothing.
+    // The environment travels with the measurements because results without browser,
+    // viewport, CPU, OS, and runtime context are not comparable evidence (ADR 22).
     const report = {
       workload: {
         robots: ROBOT_COUNT,
@@ -282,8 +319,7 @@ test.describe("500-robot live-stream measurement", () => {
       body: JSON.stringify(report, null, 2),
       contentType: "application/json",
     });
-    // The concise summary the CI job prints.
-    // eslint-disable-next-line no-console -- the benchmark's human-readable output
+    // eslint-disable-next-line no-console -- CI benchmark output; Playwright specs never enter production
     console.log(
       [
         `500-robot measurement (${report.environment.browser}):`,

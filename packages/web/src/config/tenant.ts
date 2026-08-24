@@ -116,6 +116,13 @@ export type TenantConfig = z.infer<typeof tenantConfigSchema>;
  *
  * Exported so the profiles below and any future source of one go through the
  * same door, and so the rejection cases are testable without a build.
+ *
+ * @param input - An unvalidated profile. Every schema here is strict, so an unknown or
+ *   renamed key is rejected rather than read as absent, and every field is required, so
+ *   nothing a deployment did not state is invented by a default.
+ * @returns The decoded profile, narrowed.
+ * @throws TenantConfigError - Naming each offending path. Called at module load, so an
+ *   invalid profile fails the build rather than shipping a half-applied brand (ADR 17).
  */
 export function parseTenantConfig(input: unknown): TenantConfig {
   const result = tenantConfigSchema.safeParse(input);

@@ -331,7 +331,6 @@ describe("RobotDetailPage", () => {
       const current = levels[index] ?? 1;
       expect(current).toBeLessThanOrEqual(previous + 1);
     }
-    // Capability panels sit at h3 under the Capabilities h2.
     expect(
       within(getCapabilitiesSection()).getByRole("heading", { level: 3, name: "Dock" }),
     ).toBeInTheDocument();

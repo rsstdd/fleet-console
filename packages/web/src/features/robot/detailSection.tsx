@@ -5,7 +5,7 @@ import { SectionLabel } from "@/components/sectionLabel";
 
 import { MONO } from "./detailStyles";
 
-/** One labelled value in a definition list. */
+/** Keeps the label/value relationship semantic while CSS presents it as two columns. */
 export function Field({
   label,
   value,

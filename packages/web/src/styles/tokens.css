@@ -1,11 +1,14 @@
-/* =========================================================
-   canonical-fleet — Design tokens
-   Two tenant profiles. Tenant A is dark, Tenant B is light.
-   Theme is set from configuration at boot, never from a user preference.
-   ========================================================= */
+/*
+ * Every design token the console has. Two tenant profiles — A dark, B light —
+ * selected by the `data-theme` attribute `app/theme.ts` sets from configuration at
+ * boot, never from a user preference; see the closing note for why there is no
+ * `prefers-color-scheme` block.
+ */
 
 :root {
-  /* ---------- Theme-independent ---------- */
+  /* Identical in both profiles. Type scale, spacing, radii, motion and the layout
+     minimums are shape and timing decisions rather than palette ones, so a tenant
+     switch must not move them — only the blocks below change per tenant. */
   --font-sans:
     "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
@@ -79,7 +82,6 @@
   --focus-ring: var(--accent);
 }
 
-/* ---------- Tenant A: dark operational profile (default) ---------- */
 :root,
 [data-theme="dark"] {
   color-scheme: dark;
@@ -111,8 +113,10 @@
    * Lightened from #6b6560 on 20 August 2026. That value measured 2.84:1 against
    * --surface, below WCAG 1.4.11's 3:1 for non-text UI components, and this token is a
    * freshness dot and a chip — carriers of meaning, even though a word always sits beside
-   * them. #767068 measures 3.34:1 here and 3.66:1 against --bg. `tokens.test.ts` computes
-   * both and fails below the threshold, so this cannot silently regress.
+   * them. #767068 measures 3.34:1 here and 3.66:1 against --bg. `scripts/checkTokens.mjs`
+   * recomputes the --surface ratio on every `pnpm check:tokens` and fails below 3:1, so
+   * this cannot silently regress; the --bg figure is recorded here only, because no status
+   * token is rendered on --bg today.
    */
   --status-neutral: #767068;
   --status-active: #3d9b6e;
@@ -141,7 +145,6 @@
   --shadow-2: 0 4px 16px rgba(0, 0, 0, 0.32);
 }
 
-/* ---------- Tenant B: light profile ---------- */
 [data-theme="light"] {
   color-scheme: light;
 

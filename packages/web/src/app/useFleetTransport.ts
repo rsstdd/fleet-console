@@ -36,7 +36,7 @@ import type { FetchLike } from "@/lib/transportDecoding";
  * closes the socket — is about sequencing rather than about the network.
  */
 
-/** What the shell needs to render the banner and what the fleet needs to render rows. */
+/** Keeps connection truth and fleet data separate while publishing both from one boundary. */
 export interface FleetTransportState {
   readonly store: FleetStore;
   readonly connectionState: StreamConnectionState;
@@ -56,7 +56,7 @@ export interface FleetTransportState {
   readonly retry: () => void;
 }
 
-/** Opens a real browser socket. The default port; tests pass their own. */
+/** Adapts browser WebSocket events behind the injectable transport port used by tests. */
 const openBrowserSocket: OpenSocket = (url, handlers) => {
   const socket = new WebSocket(url, []);
   socket.addEventListener("open", () => {
@@ -84,13 +84,38 @@ const openBrowserSocket: OpenSocket = (url, handlers) => {
  * scheme. The origin comes from the page, never from configuration: the console learning
  * the server's real address is what would make its requests cross-origin, and ADR 21's dev
  * proxy exists precisely so it never has to.
+ *
+ * @param path - `TENANT.endpoints.streamUrl`, resolved as a reference against `origin`, so
+ *   the shipped `/ws` becomes a same-origin socket address and an absolute value keeps its
+ *   own host. Its scheme is then mapped to the socket equivalent, because ADR 21's
+ *   cross-origin deployment is configured as an `https://` URL and `WebSocket` rejects one.
+ * @param origin - The page's own origin. Pass `window.location.origin`, never a configured
+ *   host — see above.
+ * @returns An absolute `ws://` or `wss://` URL, the only form `WebSocket` accepts. Coupling:
+ *   that guarantee holds because `endpointUrlSchema` in `config/tenant.ts` admits exactly
+ *   these four schemes; a fifth admitted there needs a case here.
  */
 export function resolveStreamUrl(path: string, origin: string): string {
-  if (path.startsWith("ws://") || path.startsWith("wss://")) return path;
-  return new URL(path, origin.replace(/^http/, "ws")).toString();
+  const resolved = new URL(path, origin);
+  if (resolved.protocol === "http:") {
+    resolved.protocol = "ws:";
+  } else if (resolved.protocol === "https:") {
+    resolved.protocol = "wss:";
+  }
+  return resolved.toString();
 }
 
-/** Connects on mount, disconnects on unmount, and publishes what the shell renders. */
+/**
+ * Connects on mount, disconnects on unmount, and publishes what the shell renders.
+ *
+ * @param ports - Replaceable boundaries, each defaulted to the real browser one.
+ *   Supplying any is a test affordance, and they are read once when the transport is
+ *   built: changing them after mount has no effect, deliberately, because rebuilding
+ *   the transport would drop the open socket.
+ * @returns The published transport state, rebuilt on every lifecycle transition.
+ *   `store` and `retry` hold their identity for the whole mount so subscribers and the
+ *   banner's control do not churn; the connection fields move with the socket.
+ */
 export function useFleetTransport(
   ports: {
     readonly openSocket?: OpenSocket;
@@ -109,6 +134,9 @@ export function useFleetTransport(
   const [streamState, setStreamState] = useState<StreamState>(INITIAL_STREAM_STATE);
   const [rejectedFrames, setRejectedFrames] = useState(0);
 
+  // Built once per mount, capturing the first render's ports. Rebuilding on a state
+  // change would drop the open socket and restart the joining sequence on every frame,
+  // so — as with `store` above — the setter is intentionally unavailable.
   const [transport] = useState<FleetTransport>(() => {
     // Named before creation so the retry closure handed to the store can call
     // back into the transport it belongs to; the closure only runs on a
@@ -158,10 +186,13 @@ export function useFleetTransport(
       },
     });
     return created;
-    // Built once per mount, capturing the first render's ports. Rebuilding on a state
-    // change would drop the open socket and restart the joining sequence on every frame.
   });
 
+  // Binds the external WebSocket's lifecycle to this mount's. `transport` never changes
+  // identity, so this runs once per mount rather than once per render — development
+  // StrictMode still replays setup and cleanup. Cleanup disconnects, which is what stops
+  // that replay, a route teardown, or a hot reload from leaving a second socket streaming
+  // into a store nothing renders any more.
   useEffect(() => {
     transport.connect();
     return () => {

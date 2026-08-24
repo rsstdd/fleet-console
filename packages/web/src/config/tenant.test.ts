@@ -9,7 +9,6 @@ import {
   resolveTenantId,
 } from "./tenant";
 
-/** A profile that is valid, used as the base for the rejection cases below. */
 function buildValidProfile(): Record<string, unknown> {
   return {
     id: "tenant-a",

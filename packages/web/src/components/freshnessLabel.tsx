@@ -46,7 +46,9 @@ function formatTimestamp(value: string, field: "asOf" | "receivedAt"): string | 
 
 /**
  * Presentational freshness chip. Displays live | stale | unreachable | unknown
- * plus the required observation time. Does not compute freshness.
+ * plus the observation time when there is one — `asOf` is null for a robot that
+ * has never reported, and the time fragment is then omitted rather than faked.
+ * Does not compute freshness.
  *
  * Styling is entirely in `styles/global.css`, keyed off the `freshness--<state>` modifier.
  * It used to be here as well, in inline style objects that duplicated — and silently

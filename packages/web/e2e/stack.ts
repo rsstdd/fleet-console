@@ -33,13 +33,45 @@ import { fileURLToPath } from "node:url";
 const WEB_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REPO_ROOT = path.resolve(WEB_DIR, "..", "..");
 
-/** How long a process gets to exit after SIGTERM before the group is SIGKILLed. */
+/**
+ * How long a process gets to exit after SIGTERM before the group is SIGKILLed.
+ *
+ * Long enough for `tsx` and `vite` to run their own shutdown and release the port: the
+ * next test's stack binds the same one under `--strictPort`, so a straggler here fails a
+ * later test instead of this one. Short enough that a hung child cannot eat the test
+ * timeout — escalating is the point, and waiting is only worth doing while a clean exit
+ * is still plausible.
+ */
 const GRACEFUL_EXIT_MS = 5_000;
 
-/** How long readiness polling waits before declaring the stack broken. */
+/**
+ * How long readiness polling waits before declaring the stack broken.
+ *
+ * Sized for a cold `tsx` start with nothing cached, which is the slowest thing this
+ * waits on. Past that the process is not starting slowly, it is failing — and the throw
+ * attaches every retained log line, which answers the question a longer wait would not.
+ */
 const READY_TIMEOUT_MS = 30_000;
 
-/** One spawned process with its retained output. */
+/**
+ * Gap between readiness probes.
+ *
+ * Short enough that a fast start is not padded by most of an interval, long enough that
+ * a booting server is not spending its first second answering this instead of booting.
+ */
+const READY_POLL_INTERVAL_MS = 200;
+
+/**
+ * The loopback address every part of the harness agrees on.
+ *
+ * One constant rather than three literals: the server's `FLEET_SERVER_HOST`, Vite's
+ * `--host`, and the origins the probes and the browser are pointed at have to name the
+ * same interface, and a stack whose pieces disagree fails as a readiness timeout that
+ * looks like slowness.
+ */
+const LOOPBACK_HOST = "127.0.0.1";
+
+/** Owns a whole process group so teardown cannot strand `tsx` or Vite children. */
 export interface ManagedProcess {
   readonly name: string;
   readonly logs: string[];
@@ -48,7 +80,6 @@ export interface ManagedProcess {
   readonly exited: Promise<number | null>;
 }
 
-/** Spawns one command in its own process group and retains its output. */
 function launch(
   name: string,
   command: string,
@@ -115,13 +146,18 @@ async function waitForHttp(url: string, processes: readonly ManagedProcess[]): P
   let lastFailure = "no attempt made";
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(url);
+      // Bounded by what is left of the deadline: a socket that connects and then never
+      // sends headers parks this await indefinitely, and the loop condition is only
+      // reached between attempts — so the fixture would never get to tear the stack down.
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(Math.max(0, deadline - Date.now())),
+      });
       if (response.ok) return;
       lastFailure = `status ${String(response.status)}`;
     } catch (error) {
       lastFailure = error instanceof Error ? error.message : String(error);
     }
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, READY_POLL_INTERVAL_MS));
   }
   const logs = processes
     .map((managed) => `--- ${managed.name} ---\n${managed.logs.join("\n")}`)
@@ -168,8 +204,8 @@ export async function startStack(
     readonly outDir?: string;
   } = {},
 ): Promise<Stack> {
-  const serverUrl = `http://127.0.0.1:${String(ports.server)}`;
-  const consoleUrl = `http://127.0.0.1:${String(ports.vite)}`;
+  const serverUrl = `http://${LOOPBACK_HOST}:${String(ports.server)}`;
+  const consoleUrl = `http://${LOOPBACK_HOST}:${String(ports.vite)}`;
   const processes: ManagedProcess[] = [];
   let server: ManagedProcess | null = null;
   let simulator: ManagedProcess | null = null;
@@ -182,7 +218,7 @@ export async function startStack(
       ["src/main.ts"],
       {
         cwd: serverDir,
-        env: { FLEET_SERVER_HOST: "127.0.0.1", FLEET_SERVER_PORT: String(ports.server) },
+        env: { FLEET_SERVER_HOST: LOOPBACK_HOST, FLEET_SERVER_PORT: String(ports.server) },
       },
     );
     processes.push(server);
@@ -199,26 +235,52 @@ export async function startStack(
     processes.push(simulator);
   };
 
-  await spawnServer();
-  if (options.simulator !== false) spawnSimulator();
+  /** Newest first, so nothing writes to a listener that is already gone. */
+  const stopAll = async (): Promise<void> => {
+    for (const managed of [...processes].reverse()) {
+      await managed.stop();
+    }
+  };
 
-  const vite = launch(
-    "vite",
-    path.join(WEB_DIR, "node_modules", ".bin", "vite"),
-    [
-      "preview",
-      "--port",
-      String(ports.vite),
-      "--strictPort",
-      ...(options.outDir === undefined ? [] : ["--outDir", options.outDir]),
-    ],
-    {
-      cwd: WEB_DIR,
-      env: { FLEET_SERVER_HOST: "127.0.0.1", FLEET_SERVER_PORT: String(ports.server) },
-    },
-  );
-  processes.push(vite);
-  await waitForHttp(consoleUrl, processes);
+  // A readiness timeout here rejects before any caller holds a `dispose`, so whatever
+  // already started is unreachable and unkillable. The next test binds these same ports
+  // under `--strictPort`, so the leak fails a later test rather than this one.
+  try {
+    await spawnServer();
+    if (options.simulator !== false) spawnSimulator();
+
+    const vite = launch(
+      "vite",
+      path.join(WEB_DIR, "node_modules", ".bin", "vite"),
+      [
+        "preview",
+        "--port",
+        String(ports.vite),
+        "--strictPort",
+        // Bound to the literal address the readiness probe and the browser use, never
+        // left to Vite's `localhost` default. `localhost` is resolved by Node, which
+        // since v17 returns records verbatim rather than preferring IPv4 — so on a host
+        // whose `/etc/hosts` maps `localhost` to `::1` as well (the GitHub Actions
+        // ubuntu runners do; a WSL box typically does not) preview binds IPv6-only and
+        // every `http://127.0.0.1` probe here gets ECONNREFUSED. That failure reads as
+        // "Timed out waiting for ... (fetch failed)" after the full readiness budget,
+        // with a healthy server and simulator in the attached logs, and it fails every
+        // test in every project at once.
+        "--host",
+        LOOPBACK_HOST,
+        ...(options.outDir === undefined ? [] : ["--outDir", options.outDir]),
+      ],
+      {
+        cwd: WEB_DIR,
+        env: { FLEET_SERVER_HOST: LOOPBACK_HOST, FLEET_SERVER_PORT: String(ports.server) },
+      },
+    );
+    processes.push(vite);
+    await waitForHttp(consoleUrl, processes);
+  } catch (error) {
+    await stopAll();
+    throw error;
+  }
 
   return {
     consoleUrl,
@@ -241,11 +303,6 @@ export async function startStack(
       if (simulator !== null) return;
       spawnSimulator();
     },
-    dispose: async () => {
-      // Newest first, so nothing writes to a listener that is already gone.
-      for (const managed of [...processes].reverse()) {
-        await managed.stop();
-      }
-    },
+    dispose: stopAll,
   };
 }

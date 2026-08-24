@@ -12,7 +12,7 @@ import { ConnectionContext } from "@/context/connectionContext";
 /** The scale point ADR 2 commits to measuring, and the one Principle 12 names. */
 const FLEET_SIZE = 500;
 
-/** Sites in the fixture directory; robots are spread round-robin across them. */
+/** Three sites force the 500-row fixture to prove selection, not merely rendering. */
 const SITE_COUNT = 3;
 
 const fleet = vi.hoisted((): { state: FleetResourceState } => ({

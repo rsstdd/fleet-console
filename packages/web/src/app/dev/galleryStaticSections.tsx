@@ -27,7 +27,7 @@ import {
   STATUS_VARIANTS,
 } from "./galleryFixtures";
 
-/** The gallery's opening reference table: each primitive's public props at a glance. */
+/** Keeps the primitive APIs beside their demos so an optional prop cannot drift unseen. */
 export function PropsIndexSection(): ReactNode {
   return (
     <Paper sx={{ overflow: "hidden" }}>
@@ -66,7 +66,12 @@ export function PropsIndexSection(): ReactNode {
   );
 }
 
-/** Section 01: every status variant, the current vs. last-known treatments, and both sizes. */
+/**
+ * Renders every variant at once, because the spec's claim is that the set is closed at
+ * six — a seventh would be visible here and nowhere else — and puts the current and
+ * last-known treatments side by side, which is the only way to check they read as
+ * different without measuring a token.
+ */
 export function StatusChipSection(): ReactNode {
   return (
     <Paper sx={{ p: 3 }}>
@@ -111,7 +116,12 @@ export function StatusChipSection(): ReactNode {
   );
 }
 
-/** Section 02: each freshness state compact beside full, plus the nullable-timestamp branches. */
+/**
+ * Puts compact beside full for each state, and renders the two timestamp branches a
+ * fleet table never reaches: a robot that has never reported (`asOf` null) and a
+ * receipt-time reading. Those are the branches that would otherwise be seen first in
+ * production.
+ */
 export function FreshnessLabelSection(): ReactNode {
   return (
     <Paper sx={{ p: 3 }}>
@@ -129,7 +139,15 @@ export function FreshnessLabelSection(): ReactNode {
           const asOf = row?.asOf ?? null;
           return (
             <Stack key={state} spacing={2} direction="row" useFlexGap>
-              <Typography variant="overline" sx={{ color: "text.disabled", minWidth: 112 }}>
+              <Typography
+                variant="overline"
+                sx={{
+                  color: "text.disabled",
+                  // A fixed label column makes compact/full treatments comparable across
+                  // rows; 112 is a dev-only review aid, not a product breakpoint.
+                  minWidth: 112,
+                }}
+              >
                 {state}
               </Typography>
               <FreshnessLabel state={state} asOf={asOf} isCompact />
@@ -157,7 +175,11 @@ export function FreshnessLabelSection(): ReactNode {
   );
 }
 
-/** Section 03: the fleet-level freshness counters in every tone, with number and string values. */
+/**
+ * Renders every tone against real counter shapes, so a tone that stops mapping to its
+ * token shows up here rather than during an outage — which is the one time the warning
+ * and critical tones are supposed to appear.
+ */
 export function StatSection(): ReactNode {
   return (
     <Paper sx={{ p: 3 }}>
@@ -180,7 +202,11 @@ export function StatSection(): ReactNode {
   );
 }
 
-/** Section 06: status, freshness, and battery read together in one sample fleet table. */
+/**
+ * The only place the three primitives are read together. "A not-live row shows a hollow
+ * chip and an em dash" is a property of the set, not of any one component, so no single
+ * component's own section can demonstrate it.
+ */
 export function CombinedFleetTableSection(): ReactNode {
   return (
     <Paper sx={{ overflow: "hidden" }}>
@@ -257,7 +283,11 @@ export function CombinedFleetTableSection(): ReactNode {
   );
 }
 
-/** Section 08: the same metadata treatment as div, footer, and figcaption. */
+/**
+ * Renders all three permitted elements. They look identical on purpose — the choice
+ * between them is about what a screen reader announces around the plate, which is
+ * exactly what a visual gallery cannot show, so it is stated here instead.
+ */
 export function DataPlateSection(): ReactNode {
   return (
     <Paper sx={{ p: 3 }}>
@@ -286,7 +316,11 @@ export function DataPlateSection(): ReactNode {
   );
 }
 
-/** Section 09: the label as a visual index beside the real heading it introduces. */
+/**
+ * Shows the label in the composition spec 03 requires — beside the real heading, never
+ * as one. The single mistake this component invites is using it as a heading, and
+ * demonstrating the correct pairing is cheaper than warning against the wrong one.
+ */
 export function SectionLabelSection(): ReactNode {
   return (
     <Paper sx={{ p: 3 }}>

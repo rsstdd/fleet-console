@@ -89,6 +89,13 @@ export const INITIAL_STREAM_STATE: StreamState = {
  * only honest while that is true. `close` before the first success stays in `connecting`:
  * a failed first attempt is not a reconnection, and telling an operator the connection was
  * lost when it never existed sends them looking for a fault that is not there.
+ *
+ * @param state - The current state; never mutated.
+ * @param event - What happened. `joined`, not `open`, resets the attempt count.
+ * @returns The next state, or `state` itself when the event changes nothing — a
+ *   `connect` while already connected. `fleetTransport` compares by identity to decide
+ *   whether a transition happened, so returning the same reference suppresses a
+ *   spurious report rather than merely saving an allocation.
  */
 export function nextStreamState(state: StreamState, event: StreamEvent): StreamState {
   switch (event.kind) {
@@ -177,6 +184,13 @@ export const RETRY_BASE_DELAY_MS = 1_000;
  * `INITIAL_PROBE_ATTEMPT_LIMIT` for the one bounded case.
  *
  * `random` is injected so the bounds are a test rather than a distribution argument.
+ *
+ * @param failedAttempts - Consecutive failures since the last completed join. Anything
+ *   below 1 is treated as 1, so the first retry draws from the full base window.
+ * @param random - Uniform source over [0, 1).
+ * @returns Milliseconds to wait, `0 ≤ delay < min(30s, 1s × 2^(failedAttempts−1))`. It
+ *   genuinely reaches zero; a floor would re-synchronize every console that lost the
+ *   same server at the same moment, which is the stampede jitter exists to break.
  */
 export function computeRetryDelayMs(failedAttempts: number, random: () => number): number {
   const exponent = Math.max(failedAttempts, 1) - 1;

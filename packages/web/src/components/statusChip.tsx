@@ -2,7 +2,7 @@ import type { ReactElement } from "react";
 
 /**
  * StatusChip — pure presentational status indicator.
- * Spec: docs/02_component-specs/01_STATUS_CHIP.md (revision 2).
+ * Spec: docs/02_component-specs/01_STATUS_CHIP.md.
  *
  * Six variants only, matching the canonical status enum (idle, busy,
  * charging, fault, unknown) plus health severity (degraded). There is no
@@ -15,13 +15,7 @@ import type { ReactElement } from "react";
  * component contributes no inline style and no second styling system
  * (Principle 8).
  */
-export type StatusVariant =
-  | "neutral" // idle
-  | "active" // busy
-  | "charging"
-  | "degraded" // health severity, not a vendor status
-  | "fault"
-  | "unknown";
+export type StatusVariant = "neutral" | "active" | "charging" | "degraded" | "fault" | "unknown";
 
 /** Two sizes: `small` for a table cell, `medium` for a page header. */
 export type StatusChipSize = "small" | "medium";
@@ -29,7 +23,11 @@ export type StatusChipSize = "small" | "medium";
 /** Display-only inputs for a status chip; `isCurrent` is what makes it hollow. */
 export interface StatusChipProps {
   readonly variant: StatusVariant;
-  readonly label: string; // always required; colour alone never carries meaning
+  /**
+   * Required, and never derivable from `variant` alone: colour is not permitted
+   * to carry meaning on its own, so a chip with no label renders nothing at all.
+   */
+  readonly label: string;
   /**
    * false renders the outline-only "last known" treatment. The caller is
    * responsible for including "(last known)" in `label` — this component

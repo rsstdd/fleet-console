@@ -29,7 +29,19 @@ import { Section } from "./detailSection";
  * (Principle 4, ADR 3).
  */
 
-/** The drawn coordinate space; the SVG scales to its container. */
+/**
+ * The drawn coordinate space, in SVG user units.
+ *
+ * A resolution decision, not a shape one: `preserveAspectRatio="none"` scales x and y
+ * independently to fill the rendered box, so the on-screen proportions come from the CSS
+ * `width: 100%` / `--sparkline-height` pair and this 5:1 ratio never reaches the viewer.
+ * Filling the section is what that mode buys, and the fixed axes — not the ratio — are what
+ * make two charts comparable; switch to uniform scaling only to letterbox on purpose. The
+ * units still have to be fine enough to draw on: 120 vertical units give a one-percent
+ * battery step its own unit, which is what `round` below is sized against, and both strokes
+ * carry `vectorEffect="non-scaling-stroke"` because the independent scaling would otherwise
+ * thicken them along one axis. ADR 33 fixes the window and the point budget, not these.
+ */
 const CHART_WIDTH = 600;
 const CHART_HEIGHT = 120;
 
@@ -107,7 +119,14 @@ function Sparkline({ history }: { readonly history: RobotBatteryHistory }): Reac
   );
 }
 
-/** Rounds a coordinate to keep the points attribute readable and stable. */
+/**
+ * Rounds a plotted coordinate to two decimal places.
+ *
+ * Enough precision that a one-percent battery step stays distinct in a 120-unit space,
+ * and few enough digits that the `points` attribute is readable and byte-identical
+ * between renders of the same window — an unrounded float writes seventeen digits that
+ * move on floating-point noise alone.
+ */
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }

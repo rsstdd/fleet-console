@@ -1,5 +1,3 @@
-// utils/__boundary-violation__/adapterImport.ts
-//
 // Deliberate violation. `@fleet/adapters` decodes untrusted vendor dialects and
 // is server-side; production code in this package consumes canonical envelopes
 // from `@fleet/contracts` instead (ADR 1, Principle 3).

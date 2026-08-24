@@ -11,12 +11,23 @@ import { createTheme } from "@mui/material";
 
 import { TENANT_PALETTE, type TenantTheme } from "@/config/tenantTheme";
 
-/** Points the token layer at a tenant's theme by setting `data-theme` on the document element. */
+/**
+ * Points the token layer at a tenant by setting `data-theme` on the document element.
+ *
+ * The timing belongs to the caller, not to this function: `main.tsx` calls it before the
+ * first render, because setting the attribute after mount paints one frame of the other
+ * tenant's palette. The dev gallery calls it again to swap themes and restores
+ * `TENANT.theme` on unmount.
+ */
 export function applyTenantTheme(mode: TenantTheme): void {
   document.documentElement.setAttribute("data-theme", mode);
 }
 
-/** Builds the MUI theme for a tenant, reading the same palette the token layer uses. */
+/**
+ * Mirrors the token palette into MUI so `sx` and global CSS cannot disagree: both sides
+ * read `TENANT_PALETTE`, one through the `data-theme` attribute and one through the
+ * theme object returned here, so neither carries a second set of colours or type sizes.
+ */
 export function buildMuiTheme(mode: TenantTheme) {
   const palette = TENANT_PALETTE[mode];
 

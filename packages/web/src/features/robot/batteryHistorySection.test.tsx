@@ -11,7 +11,6 @@ import { BatteryHistoryContent } from "./batteryHistorySection";
 /** A window ending at a round instant, so expected coordinates are readable. */
 const CAPTURED_AT = 120_000;
 
-/** A well-formed ready response with the given points. */
 function buildHistory(
   points: RobotBatteryHistory["points"],
   overrides: Partial<RobotBatteryHistory> = {},

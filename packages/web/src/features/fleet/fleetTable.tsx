@@ -52,8 +52,15 @@ export function FleetTable({
 }): ReactNode {
   return (
     <Paper sx={{ overflow: "hidden" }}>
-      {/* Sticky header per page spec §4 and DESIGN_SYSTEM §5; the container
-          needs a bounded height for the header to have anything to stick to. */}
+      {/*
+        Sticky header per page spec §4 and DESIGN_SYSTEM §5. The header can only stick
+        inside a bounded scroll container, so the height is a constraint rather than a
+        look: short enough that this container scrolls before the document does — which
+        is what keeps the header on screen — and tall enough that the table is still the
+        page. 70vh leaves room for the shell header, the connection banner, the summary
+        strip and the filter bar above it. Nothing measures the number; it is an
+        unresolved design choice, and moving it is a layout decision, not a tweak.
+      */}
       <TableContainer sx={{ maxHeight: "70vh" }}>
         <Table size="small" stickyHeader aria-label="Fleet">
           <TableHead>

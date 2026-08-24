@@ -27,7 +27,6 @@ describe("ConnectionBanner", () => {
   it("mounts the live region in every state, including connected (§4)", () => {
     const { rerender } = render(<ConnectionBanner state="connected" />);
 
-    // Present, addressable as a status region, and empty.
     expect(getBanner()).toHaveAttribute("role", "status");
     expect(getBanner()).toHaveAttribute("aria-live", "polite");
     expect(getBanner()).toHaveAttribute("data-connected", "true");
@@ -157,7 +156,6 @@ describe("ConnectionBanner", () => {
     const retry = screen.getByRole("button", { name: "Retry now" });
     await userEvent.click(retry);
 
-    // Invoked directly, once, with no debounce of its own (§8).
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
