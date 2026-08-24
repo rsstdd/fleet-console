@@ -24,11 +24,10 @@ import type { Site } from "@/types/site";
 import { formatTimeUtc } from "@/utils/time";
 
 /*
- * Styled at module scope, not `sx` in the row callback. `sx` is interpreted at
- * render: every row would allocate a fresh style object, miss Emotion's cache on
- * identity, and be re-serialized — 500 rows × 10 Hz is the measured path (ADR 24),
- * so four `sx` objects per row is four thousand serializations a second. These
- * components serialize once, at import, and every row shares the emitted class.
+ * Styled at module scope, not `sx` in the row callback. The 500-row × 10 Hz path
+ * is measured (ADR 24), so repeated row styles bypass MUI's per-instance
+ * `styleFunctionSx` traversal. Emotion still serializes styles during render and
+ * reuses inserted rules by content hash; object identity is not the cache key.
  */
 const RobotRow = styled(TableRow)({
   "&:hover": { backgroundColor: "var(--row-hover)" },

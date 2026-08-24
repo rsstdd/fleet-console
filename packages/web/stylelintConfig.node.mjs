@@ -24,6 +24,17 @@ test("rejects raw CSS dimensions outside the generated token artifact", async ()
   assert.equal(warnings[0]?.rule, "declaration-property-value-disallowed-list");
 });
 
+test("rejects comma-adjacent and uppercase raw CSS dimensions", async () => {
+  const warnings = await warningsFor(
+    ".sample { transform: translate(1px,2px); padding-block: 1REM; }",
+  );
+
+  assert.equal(warnings.length, 2);
+  assert.ok(
+    warnings.every((warning) => warning.rule === "declaration-property-value-disallowed-list"),
+  );
+});
+
 test("accepts token-backed CSS dimensions", async () => {
   const warnings = await warningsFor(".sample { border: var(--border-width) solid currentColor; }");
 

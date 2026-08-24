@@ -1,5 +1,5 @@
-const RAW_HEX = /#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})\b/;
-const RAW_UNIT = /-?(?:\d+\.?\d*|\.\d+)(?:px|rem)\b/;
+const RAW_HEX = /#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})\b/i;
+const RAW_UNIT = /-?(?:\d+\.?\d*|\.\d+)(?:px|rem)\b/i;
 const DIMENSION_PROPERTIES = new Set([
   "width",
   "height",
@@ -19,13 +19,17 @@ function propertyName(node) {
   return typeof node.key.value === "string" ? node.key.value : null;
 }
 
-function jsxAttributeName(node) {
-  const container = node.parent;
-  const attribute = container?.parent;
-  if (container?.type !== "JSXExpressionContainer" || attribute?.type !== "JSXAttribute") {
-    return null;
-  }
-  return attribute.name.type === "JSXIdentifier" ? attribute.name.name : null;
+function directJsxAttributeName(node) {
+  return node.name.type === "JSXIdentifier" ? node.name.name : null;
+}
+
+function isIntrinsicJsxAttribute(node) {
+  const elementName = node.parent?.name;
+  return (
+    elementName?.type === "JSXIdentifier" &&
+    elementName.name[0] !== undefined &&
+    elementName.name[0] === elementName.name[0].toLowerCase()
+  );
 }
 
 const noRawVisualUnits = {
@@ -35,6 +39,76 @@ const noRawVisualUnits = {
     messages: { rawVisualUnit: MESSAGE },
   },
   create(context) {
+    function variableInitializer(identifier) {
+      let scope = context.sourceCode.getScope(identifier);
+      while (scope !== null) {
+        const variable = scope.set.get(identifier.name);
+        const definition = variable?.defs.find((candidate) => candidate.type === "Variable");
+        if (definition?.node.type === "VariableDeclarator") {
+          return definition.node.init;
+        }
+        scope = scope.upper;
+      }
+      return null;
+    }
+
+    function reportNumericDimension(value, seenIdentifiers = new Set()) {
+      if (value === null) return;
+      if (value.type === "Literal") {
+        if (typeof value.value === "number" && value.value !== 0) {
+          context.report({ node: value, messageId: "rawVisualUnit" });
+        }
+        return;
+      }
+      if (value.type === "UnaryExpression") {
+        if (
+          (value.operator === "+" || value.operator === "-") &&
+          value.argument.type === "Literal" &&
+          typeof value.argument.value === "number" &&
+          value.argument.value !== 0
+        ) {
+          context.report({ node: value, messageId: "rawVisualUnit" });
+        }
+        return;
+      }
+      if (value.type === "Identifier") {
+        if (seenIdentifiers.has(value.name)) return;
+        const initializer = variableInitializer(value);
+        if (initializer !== null) {
+          reportNumericDimension(initializer, new Set([...seenIdentifiers, value.name]));
+        }
+        return;
+      }
+      if (value.type === "ObjectExpression") {
+        for (const property of value.properties) {
+          if (property.type === "Property") reportNumericDimension(property.value, seenIdentifiers);
+        }
+        return;
+      }
+      if (value.type === "ArrayExpression") {
+        for (const element of value.elements) reportNumericDimension(element, seenIdentifiers);
+        return;
+      }
+      if (value.type === "ConditionalExpression") {
+        reportNumericDimension(value.consequent, seenIdentifiers);
+        reportNumericDimension(value.alternate, seenIdentifiers);
+        return;
+      }
+      if (value.type === "LogicalExpression") {
+        reportNumericDimension(value.left, seenIdentifiers);
+        reportNumericDimension(value.right, seenIdentifiers);
+        return;
+      }
+      if (
+        value.type === "TSAsExpression" ||
+        value.type === "TSSatisfiesExpression" ||
+        value.type === "TSTypeAssertion" ||
+        value.type === "ChainExpression"
+      ) {
+        reportNumericDimension(value.expression, seenIdentifiers);
+      }
+    }
+
     return {
       Literal(node) {
         if (
@@ -42,17 +116,31 @@ const noRawVisualUnits = {
           (RAW_HEX.test(node.value) || RAW_UNIT.test(node.value))
         ) {
           context.report({ node, messageId: "rawVisualUnit" });
-          return;
         }
-        if (typeof node.value !== "number" || node.value === 0) return;
-
-        const objectProperty = propertyName(node.parent);
-        const jsxProperty = jsxAttributeName(node);
-        if (
-          (objectProperty !== null && DIMENSION_PROPERTIES.has(objectProperty)) ||
-          (jsxProperty !== null && DIMENSION_PROPERTIES.has(jsxProperty))
-        ) {
+      },
+      TemplateLiteral(node) {
+        const representativeValue = node.quasis
+          .map((quasi) => quasi.value.cooked ?? quasi.value.raw)
+          .join("0");
+        if (RAW_HEX.test(representativeValue) || RAW_UNIT.test(representativeValue)) {
           context.report({ node, messageId: "rawVisualUnit" });
+        }
+      },
+      Property(node) {
+        const name = propertyName(node);
+        if (name !== null && DIMENSION_PROPERTIES.has(name)) {
+          reportNumericDimension(node.value);
+        }
+      },
+      JSXAttribute(node) {
+        const name = directJsxAttributeName(node);
+        if (
+          name !== null &&
+          DIMENSION_PROPERTIES.has(name) &&
+          !isIntrinsicJsxAttribute(node) &&
+          node.value?.type === "JSXExpressionContainer"
+        ) {
+          reportNumericDimension(node.value.expression);
         }
       },
     };

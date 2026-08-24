@@ -49,6 +49,13 @@ test.describe("fleet console against the real stack", () => {
     await expect(page.getByText("Stream connected")).toBeVisible();
     await expect(page.getByRole("status")).toBeEmpty();
 
+    // MUI's class selector used to override the element-level design-system rule,
+    // leaving h2 at its 60px framework default. This computed style proves the
+    // authored typography token survives the real cascade.
+    await expect(
+      page.getByRole("heading", { name: "Fleet reporting status", exact: true }),
+    ).toHaveCSS("font-size", "20px");
+
     // Portfolio evidence, per plan: an artifact, never a regression baseline.
     await testInfo.attach(`fleet-${testInfo.project.name}`, {
       body: await page.screenshot(),
@@ -122,6 +129,13 @@ test.describe("fleet console against the real stack", () => {
     await expect(getRobotLinks(page).first()).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: "R-002" })).toBeVisible();
+
+    // Persona is identity rather than a primary action: its selected button keeps
+    // the raised surface instead of inheriting the theme's filled accent treatment.
+    await expect(page.getByRole("button", { name: "Operator" })).toHaveCSS(
+      "background-color",
+      "rgb(35, 41, 37)",
+    );
   });
 
   test("degrades freshness when a robot goes silent, while the stream stays connected", async ({

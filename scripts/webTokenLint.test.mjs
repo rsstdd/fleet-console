@@ -33,6 +33,14 @@ test("rejects raw units embedded in a CSS shorthand string", () => {
   assert.equal(messages[0]?.ruleId, RULE);
 });
 
+test("rejects raw units in static and interpolated template literals", () => {
+  const messages = messagesFor(
+    "const size = 48; const sx = { width: `48PX`, height: `${size}rem` };",
+  );
+
+  assert.equal(messages.length, 2);
+});
+
 test("rejects raw colours embedded in a CSS function string", () => {
   const messages = messagesFor(`const sx = { background: "linear-gradient(#fff, #000)" };`);
 
@@ -47,10 +55,26 @@ test("rejects non-zero numeric dimensions in style objects", () => {
   assert.equal(messages.length, 2);
 });
 
+test("rejects responsive, negative, and constant-backed numeric dimensions", () => {
+  const messages = messagesFor(
+    "const WIDTH = 320; const sx = { width: { sm: WIDTH }, height: -48 };",
+  );
+
+  assert.equal(messages.length, 2);
+});
+
 test("rejects non-zero numeric dimensions passed as JSX props", () => {
   const messages = messagesFor(`const view = <div><Skeleton height={48} /></div>;`);
 
   assert.equal(messages.length, 1);
+});
+
+test("allows intrinsic SVG coordinate dimensions", () => {
+  const messages = messagesFor(
+    'const view = <svg viewBox="0 0 600 120"><rect width={600} height={120} /></svg>;',
+  );
+
+  assert.deepEqual(messages, []);
 });
 
 test("allows theme spacing multipliers, zero dimensions, and token references", () => {

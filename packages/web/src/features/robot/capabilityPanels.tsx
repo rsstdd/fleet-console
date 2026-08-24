@@ -24,8 +24,7 @@ export interface CapabilityPanelEntry {
   readonly render: (capabilities: CapabilitySet) => ReactNode;
 }
 
-// Hoisted for the same reason `detailSection.tsx` hoists its row styles: these panels
-// re-render on every telemetry frame, and an inline `sx` literal is re-serialized each time.
+// Named once because every capability panel uses the same three layout decisions.
 const PANEL_SX = { p: 2 } as const;
 const PANEL_TITLE_SX = { mb: 1 } as const;
 const PANEL_VALUES_SX = { m: 0 } as const;

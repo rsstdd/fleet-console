@@ -49,6 +49,7 @@ export const SHARED_TOKENS = {
   // Both are floors chosen to stop the reflow, not measured label widths.
   "--filter-control-min-width": "140px",
   "--filter-control-wide-min-width": "160px",
+  "--gallery-content-max-width": "75rem",
   // Layout minimums used by robot detail: the capability grid's auto-fill track (page
   // spec 03 §4) and the technician raw-payload block's scroll height (§4, "max height
   // constrained").
@@ -132,98 +133,104 @@ export const TENANT_PALETTE = {
   },
 } as const satisfies Record<TenantTheme, Record<string, string>>;
 
-/** Complete tenant-specific custom-property blocks consumed by the CSS generator. */
+const DARK_THEME_TOKENS = {
+  "--bg": TENANT_PALETTE.dark.bg,
+  "--surface": TENANT_PALETTE.dark.surface,
+  "--surface-raised": "#232925",
+  "--surface-sunken": "#101412",
+  "--line": TENANT_PALETTE.dark.line,
+  "--line-strong": "#3f4742",
+  "--ink": TENANT_PALETTE.dark.ink,
+  "--ink-soft": TENANT_PALETTE.dark.inkSoft,
+  "--ink-muted": TENANT_PALETTE.dark.inkMuted,
+  // Accent is tenant-supplied. These are the Tenant A defaults.
+  "--accent": TENANT_PALETTE.dark.accent,
+  "--accent-hover": TENANT_PALETTE.dark.accentHover,
+  "--accent-text": TENANT_PALETTE.dark.accent,
+  "--on-accent": TENANT_PALETTE.dark.onAccent,
+  // Six status variants, one per state the canonical model can produce. Five map to the
+  // status enum (idle, busy, charging, fault, unknown); degraded maps to health
+  // severity. No token exists for a state no adapter emits, which is why maintenance
+  // and info are absent.
+  //
+  // --status-neutral was lightened from #6b6560 on 20 August 2026. That value measured
+  // 2.84:1 against --surface, below WCAG 1.4.11's 3:1 for non-text UI components, and
+  // this token is a freshness dot and a chip — carriers of meaning, even though a word
+  // always sits beside them. #767068 measures 3.34:1 here and 3.66:1 against --bg.
+  // `scripts/checkTokens.mjs` recomputes the --surface ratio on every `pnpm
+  // check:tokens` and fails below 3:1; the --bg figure is recorded here only, because
+  // no status token is rendered on --bg today.
+  "--status-neutral": "#767068",
+  "--status-active": "#3d9b6e",
+  "--status-charging": "#3b82a0",
+  "--status-degraded": "#c4a035",
+  "--status-fault": "#c75138",
+  "--status-unknown": "#8e8b82",
+  "--status-neutral-bg": "rgba(118, 112, 104, 0.15)",
+  "--status-neutral-border": "rgba(118, 112, 104, 0.3)",
+  "--status-active-bg": "rgba(61, 155, 110, 0.12)",
+  "--status-active-border": "rgba(61, 155, 110, 0.28)",
+  "--status-charging-bg": "rgba(59, 130, 160, 0.12)",
+  "--status-charging-border": "rgba(59, 130, 160, 0.3)",
+  "--status-degraded-bg": "rgba(196, 160, 53, 0.12)",
+  "--status-degraded-border": "rgba(196, 160, 53, 0.28)",
+  "--status-fault-bg": "rgba(199, 81, 56, 0.12)",
+  "--status-fault-border": "rgba(199, 81, 56, 0.3)",
+  "--status-unknown-bg": "rgba(142, 139, 130, 0.12)",
+  "--status-unknown-border": "rgba(142, 139, 130, 0.28)",
+  "--header-bg": "rgba(20, 24, 22, 0.92)",
+  "--row-hover": "rgba(255, 255, 255, 0.025)",
+  "--overlay": "rgba(0, 0, 0, 0.55)",
+  "--shadow-1": "0 1px 2px rgba(0, 0, 0, 0.24)",
+  "--shadow-2": "0 4px 16px rgba(0, 0, 0, 0.32)",
+} as const satisfies TokenMap;
+
+type ThemeTokenName = keyof typeof DARK_THEME_TOKENS;
+
+const LIGHT_THEME_TOKENS = {
+  "--bg": TENANT_PALETTE.light.bg,
+  "--surface": TENANT_PALETTE.light.surface,
+  "--surface-raised": "#ffffff",
+  "--surface-sunken": "#ebe8e0",
+  "--line": TENANT_PALETTE.light.line,
+  "--line-strong": "#c4bdb0",
+  "--ink": TENANT_PALETTE.light.ink,
+  "--ink-soft": TENANT_PALETTE.light.inkSoft,
+  "--ink-muted": TENANT_PALETTE.light.inkMuted,
+  "--accent": TENANT_PALETTE.light.accent,
+  "--accent-hover": TENANT_PALETTE.light.accentHover,
+  "--accent-text": TENANT_PALETTE.light.accentHover,
+  "--on-accent": TENANT_PALETTE.light.onAccent,
+  "--status-neutral": "#5a554f",
+  "--status-active": "#2f7d56",
+  "--status-charging": "#2e6a86",
+  "--status-degraded": "#a67c1a",
+  "--status-fault": "#b33e2a",
+  "--status-unknown": "#6b6860",
+  "--status-neutral-bg": "rgba(90, 85, 79, 0.1)",
+  "--status-neutral-border": "rgba(90, 85, 79, 0.25)",
+  "--status-active-bg": "rgba(47, 125, 86, 0.1)",
+  "--status-active-border": "rgba(47, 125, 86, 0.28)",
+  "--status-charging-bg": "rgba(46, 106, 134, 0.1)",
+  "--status-charging-border": "rgba(46, 106, 134, 0.28)",
+  "--status-degraded-bg": "rgba(166, 124, 26, 0.1)",
+  "--status-degraded-border": "rgba(166, 124, 26, 0.28)",
+  "--status-fault-bg": "rgba(179, 62, 42, 0.1)",
+  "--status-fault-border": "rgba(179, 62, 42, 0.28)",
+  "--status-unknown-bg": "rgba(107, 104, 96, 0.1)",
+  "--status-unknown-border": "rgba(107, 104, 96, 0.25)",
+  "--header-bg": "rgba(244, 242, 236, 0.92)",
+  "--row-hover": "rgba(0, 0, 0, 0.025)",
+  "--overlay": "rgba(26, 29, 27, 0.4)",
+  "--shadow-1": "0 1px 2px rgba(26, 29, 27, 0.06)",
+  "--shadow-2": "0 4px 16px rgba(26, 29, 27, 0.1)",
+} as const satisfies Readonly<Record<ThemeTokenName, string>>;
+
+/** Complete tenant blocks whose shared key type prevents cross-theme fallback leaks. */
 export const THEME_TOKENS = {
-  dark: {
-    "--bg": TENANT_PALETTE.dark.bg,
-    "--surface": TENANT_PALETTE.dark.surface,
-    "--surface-raised": "#232925",
-    "--surface-sunken": "#101412",
-    "--line": TENANT_PALETTE.dark.line,
-    "--line-strong": "#3f4742",
-    "--ink": TENANT_PALETTE.dark.ink,
-    "--ink-soft": TENANT_PALETTE.dark.inkSoft,
-    "--ink-muted": TENANT_PALETTE.dark.inkMuted,
-    // Accent is tenant-supplied. These are the Tenant A defaults.
-    "--accent": TENANT_PALETTE.dark.accent,
-    "--accent-hover": TENANT_PALETTE.dark.accentHover,
-    "--accent-text": TENANT_PALETTE.dark.accent,
-    "--on-accent": TENANT_PALETTE.dark.onAccent,
-    // Six status variants, one per state the canonical model can produce. Five map to the
-    // status enum (idle, busy, charging, fault, unknown); degraded maps to health
-    // severity. No token exists for a state no adapter emits, which is why maintenance
-    // and info are absent.
-    //
-    // --status-neutral was lightened from #6b6560 on 20 August 2026. That value measured
-    // 2.84:1 against --surface, below WCAG 1.4.11's 3:1 for non-text UI components, and
-    // this token is a freshness dot and a chip — carriers of meaning, even though a word
-    // always sits beside them. #767068 measures 3.34:1 here and 3.66:1 against --bg.
-    // `scripts/checkTokens.mjs` recomputes the --surface ratio on every `pnpm
-    // check:tokens` and fails below 3:1; the --bg figure is recorded here only, because
-    // no status token is rendered on --bg today.
-    "--status-neutral": "#767068",
-    "--status-active": "#3d9b6e",
-    "--status-charging": "#3b82a0",
-    "--status-degraded": "#c4a035",
-    "--status-fault": "#c75138",
-    "--status-unknown": "#8e8b82",
-    "--status-neutral-bg": "rgba(118, 112, 104, 0.15)",
-    "--status-neutral-border": "rgba(118, 112, 104, 0.3)",
-    "--status-active-bg": "rgba(61, 155, 110, 0.12)",
-    "--status-active-border": "rgba(61, 155, 110, 0.28)",
-    "--status-charging-bg": "rgba(59, 130, 160, 0.12)",
-    "--status-charging-border": "rgba(59, 130, 160, 0.3)",
-    "--status-degraded-bg": "rgba(196, 160, 53, 0.12)",
-    "--status-degraded-border": "rgba(196, 160, 53, 0.28)",
-    "--status-fault-bg": "rgba(199, 81, 56, 0.12)",
-    "--status-fault-border": "rgba(199, 81, 56, 0.3)",
-    "--status-unknown-bg": "rgba(142, 139, 130, 0.12)",
-    "--status-unknown-border": "rgba(142, 139, 130, 0.28)",
-    "--header-bg": "rgba(20, 24, 22, 0.92)",
-    "--row-hover": "rgba(255, 255, 255, 0.025)",
-    "--overlay": "rgba(0, 0, 0, 0.55)",
-    "--shadow-1": "0 1px 2px rgba(0, 0, 0, 0.24)",
-    "--shadow-2": "0 4px 16px rgba(0, 0, 0, 0.32)",
-  },
-  light: {
-    "--bg": TENANT_PALETTE.light.bg,
-    "--surface": TENANT_PALETTE.light.surface,
-    "--surface-raised": "#ffffff",
-    "--surface-sunken": "#ebe8e0",
-    "--line": TENANT_PALETTE.light.line,
-    "--line-strong": "#c4bdb0",
-    "--ink": TENANT_PALETTE.light.ink,
-    "--ink-soft": TENANT_PALETTE.light.inkSoft,
-    "--ink-muted": TENANT_PALETTE.light.inkMuted,
-    "--accent": TENANT_PALETTE.light.accent,
-    "--accent-hover": TENANT_PALETTE.light.accentHover,
-    "--accent-text": TENANT_PALETTE.light.accentHover,
-    "--on-accent": TENANT_PALETTE.light.onAccent,
-    "--status-neutral": "#5a554f",
-    "--status-active": "#2f7d56",
-    "--status-charging": "#2e6a86",
-    "--status-degraded": "#a67c1a",
-    "--status-fault": "#b33e2a",
-    "--status-unknown": "#6b6860",
-    "--status-neutral-bg": "rgba(90, 85, 79, 0.1)",
-    "--status-neutral-border": "rgba(90, 85, 79, 0.25)",
-    "--status-active-bg": "rgba(47, 125, 86, 0.1)",
-    "--status-active-border": "rgba(47, 125, 86, 0.28)",
-    "--status-charging-bg": "rgba(46, 106, 134, 0.1)",
-    "--status-charging-border": "rgba(46, 106, 134, 0.28)",
-    "--status-degraded-bg": "rgba(166, 124, 26, 0.1)",
-    "--status-degraded-border": "rgba(166, 124, 26, 0.28)",
-    "--status-fault-bg": "rgba(179, 62, 42, 0.1)",
-    "--status-fault-border": "rgba(179, 62, 42, 0.28)",
-    "--status-unknown-bg": "rgba(107, 104, 96, 0.1)",
-    "--status-unknown-border": "rgba(107, 104, 96, 0.25)",
-    "--header-bg": "rgba(244, 242, 236, 0.92)",
-    "--row-hover": "rgba(0, 0, 0, 0.025)",
-    "--overlay": "rgba(26, 29, 27, 0.4)",
-    "--shadow-1": "0 1px 2px rgba(26, 29, 27, 0.06)",
-    "--shadow-2": "0 4px 16px rgba(26, 29, 27, 0.1)",
-  },
-} as const satisfies Record<TenantTheme, TokenMap>;
+  dark: DARK_THEME_TOKENS,
+  light: LIGHT_THEME_TOKENS,
+} as const satisfies Record<TenantTheme, Readonly<Record<ThemeTokenName, string>>>;
 
 /** Numeric form of `--radius` required by MUI's border-radius multiplier. */
 export const MUI_SHAPE_BORDER_RADIUS = PANEL_RADIUS_PX;

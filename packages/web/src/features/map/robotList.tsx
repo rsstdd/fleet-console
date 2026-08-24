@@ -9,9 +9,9 @@ import type { Robot } from "@/types/robot";
 import { selectStatusPresentation } from "@/utils/robotSelectors";
 
 /*
- * Styled at module scope, not `sx` in the row callback. On a list that repaints
- * with the stream, an `sx` object built per row is re-allocated and re-serialized
- * on every frame; these serialize once, at import (ADR 24 discipline).
+ * Styled at module scope so the live list's repeated row contract bypasses MUI's
+ * `styleFunctionSx` traversal. Emotion still serializes at render and caches the
+ * inserted rule by content, not by JavaScript object identity (ADR 24 discipline).
  */
 const RobotRow = styled("li")(({ theme }) => ({
   display: "flex",
@@ -65,9 +65,7 @@ export function RobotList({
             {isStreamConnected ? (
               <FreshnessLabel state={robot.freshness} asOf={robot.lastSeenAt} isCompact />
             ) : null}
-            {isUnpositioned ? (
-              <UnpositionedMark>—</UnpositionedMark>
-            ) : null}
+            {isUnpositioned ? <UnpositionedMark>—</UnpositionedMark> : null}
           </RobotRow>
         );
       })}

@@ -3,12 +3,20 @@ import test from "node:test";
 
 import { renderTokensCss } from "./generateWebTokens.mjs";
 
-test("renders shared and tenant tokens from one authored value set", () => {
-  const css = renderTokensCss({
+test("renders shared and tenant tokens as canonical formatted CSS", async () => {
+  const css = await renderTokensCss({
     shared: { "--space-1": "4px" },
     themes: {
-      dark: { "--bg": "#111111" },
-      light: { "--bg": "#eeeeee" },
+      dark: {
+        "--bg": "#111111",
+        "--font-sans":
+          '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      },
+      light: {
+        "--bg": "#eeeeee",
+        "--font-sans":
+          '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+      },
     },
   });
 
@@ -24,12 +32,31 @@ test("renders shared and tenant tokens from one authored value set", () => {
 [data-theme="dark"] {
   color-scheme: dark;
   --bg: #111111;
+  --font-sans:
+    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
 }
 
 [data-theme="light"] {
   color-scheme: light;
   --bg: #eeeeee;
+  --font-sans:
+    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
 }
 `,
+  );
+});
+
+test("rejects tenant token maps with different keys", async () => {
+  await assert.rejects(
+    renderTokensCss({
+      shared: {},
+      themes: {
+        dark: { "--bg": "#111111", "--only-dark": "#222222" },
+        light: { "--bg": "#eeeeee" },
+      },
+    }),
+    /same custom properties/,
   );
 });

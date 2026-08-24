@@ -20,8 +20,7 @@ export interface PersonaToggleProps {
  * That selector named MUI's internal DOM: a release that wraps the button, or
  * renames the class, deletes every rule below it and nothing fails until someone
  * looks at the control. Styling the component this file already renders addresses
- * the element MUI guarantees, and the emitted class is serialized once at import
- * rather than re-interpreted from an `sx` object on every render.
+ * the element MUI guarantees without routing through the group's descendant structure.
  *
  * What it corrects: the app-level theme's global `MuiToggleButton` override gives
  * `.Mui-selected` a filled accent background, which was written for the tenant-switch

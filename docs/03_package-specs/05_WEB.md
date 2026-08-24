@@ -124,7 +124,7 @@ layers or feature directories.
 | `src/context`        | Connection, stream-diagnostics, and tenant-config contexts                | Domain rules, JSX                          |
 | `src/utils`          | Formatting helpers (`time`)                                               | Domain rules, payload interpretation       |
 | `src/config`         | Tenant themes, feature flags, thresholds                                  | Logic of any kind                          |
-| `src/styles`         | Authored config-data `tokens.ts`; generated CSS; global styles            | Raw values outside `tokens.ts`             |
+| `src/styles`         | Authored repeated decisions in `tokens.ts`; generated CSS; global styles  | Raw token values outside `tokens.ts`       |
 
 Cross-layer movement is downward only. Shared behaviour between two features moves **down**
 into the data layers (`hooks`, `stores`, `utils`, `types`), never sideways.
@@ -202,15 +202,15 @@ and raises no error; a registered panel with no declaration is never reached.
 
 ## 7. Enforcement
 
-| Rule                                                | Mechanism     | Where                                             |
-| --------------------------------------------------- | ------------- | ------------------------------------------------- |
-| Layer dependency rule                               | Static        | `eslint-plugin-boundaries`, `default: "disallow"` |
-| No cross-feature import                             | Static        | boundaries `feature → feature` denied except self |
-| Module resolution for the above                     | Static        | `eslint-import-resolver-typescript` (ADR 7)       |
-| No raw visual literals outside authored `tokens.ts` | Static        | stylelint + ESLint token plugin                   |
-| No `@fleet/adapters` or `@fleet/server` import      | Static        | `no-restricted-imports`                           |
-| Accessibility                                       | Static + Test | a11y lint; component tests for name, role, state  |
-| **The rules above still fire**                      | Test          | `__boundary-violation__` fixtures                 |
+| Rule                                             | Mechanism     | Where                                             |
+| ------------------------------------------------ | ------------- | ------------------------------------------------- |
+| Layer dependency rule                            | Static        | `eslint-plugin-boundaries`, `default: "disallow"` |
+| No cross-feature import                          | Static        | boundaries `feature → feature` denied except self |
+| Module resolution for the above                  | Static        | `eslint-import-resolver-typescript` (ADR 7)       |
+| No raw hex/px/rem or numeric width/height values | Static        | stylelint + ESLint token plugin                   |
+| No `@fleet/adapters` or `@fleet/server` import   | Static        | `no-restricted-imports`                           |
+| Accessibility                                    | Static + Test | a11y lint; component tests for name, role, state  |
+| **The rules above still fire**                   | Test          | `__boundary-violation__` fixtures                 |
 
 Boundaries are declared with `default: "disallow"`, so every allowance is explicit and a
 new layer is denied until someone writes the rule for it — the opposite of a default-allow
@@ -295,9 +295,10 @@ set ten of them on `documentElement`, which beat `tokens.css` on specificity and
 other twenty-six at their dark values on a light background — the light theme was broken
 precisely because that file tried to help.
 
-`styles/tokens.ts` is the one authored visual-value source. The MUI theme imports its
-palette and numeric shape value directly; `scripts/generateWebTokens.mjs` produces the
-committed `tokens.css`, and `pnpm check:tokens` fails when that artifact is stale.
+`styles/tokens.ts` is the one authored source for repeated colour and size decisions. The MUI
+theme imports its palette and numeric shape value directly; tenant-specific maps share one key
+type, `scripts/generateWebTokens.mjs` rejects mismatched maps and produces canonical formatted
+`tokens.css`, and `pnpm check:tokens` fails when that artifact is stale.
 
 **Personas.** Robot detail defaults to the operator summary; technician diagnostics — raw
 payload, adapter version, sequence gaps — are behind an explicit toggle. There is no second
@@ -347,7 +348,7 @@ The rules that matter most:
 | No vendor branches         | No vendor `if` anywhere in features; panels resolve through the registry                                                   |
 | Accessibility              | Names, roles, state; keyboard flows; heading outline never skips a level                                                   |
 | Boundaries                 | Every fixture violation is reported; the control stays silent                                                              |
-| Tokens                     | No raw hex, px, rem, or numeric CSS dimensions outside authored `tokens.ts`                                                |
+| Tokens                     | No raw hex or px/rem literals, or numeric width/height-family values, outside authored `tokens.ts`                         |
 | Development endpoints      | Tenant paths match proxy keys; HTTP and WebSocket proxy end to end                                                         |
 | First-load bundle          | JS + CSS stay within 720 kB raw and 300 kB gzip (`pnpm check:bundle`)                                                      |
 | Large lists                | Fleet table usable at several hundred robots                                                                               |
@@ -438,7 +439,7 @@ flags and validated build-time selection are implemented (ADR 17).
 | 5 — complete async states              | `FleetResourceState`, `RobotDetailState`, history state unions; page tests drive every member          |
 | 6 — accessibility                      | Roles/names asserted in component tests; keyboard smoke test in three engines                          |
 | 7 — server authorizes                  | The console renders and never authorizes; ADR 26's demo-only exposure is stated on the surface         |
-| 8 — one styling system                 | MUI + tokens; generated CSS plus stylelint/ESLint reject raw literals outside `tokens.ts`              |
+| 8 — one styling system                 | MUI + tokens; generated CSS plus stylelint/ESLint enforce the documented literal boundary              |
 | 9 — enforced boundaries                | `eslint-plugin-boundaries` default-disallow plus live `__boundary-violation__` fixtures                |
 | 10 — test-first, verified in browser   | Focused unit suites plus the ADR 32 Playwright evidence against the real stack                         |
 | 11 — state separated by authority      | Store transitions are explicit; observed and requested never collapse; view state stays in features    |

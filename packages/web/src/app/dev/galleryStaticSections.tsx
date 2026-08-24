@@ -29,11 +29,9 @@ import {
 } from "./galleryFixtures";
 
 /*
- * Styled at module scope rather than `sx` inside the row callbacks below. The
- * fixtures here are small and this tree is dev-only, so the cost is not the point:
- * the gallery is where a reviewer reads how the console builds a row, and a demo
- * that allocates an `sx` object per row teaches the pattern the fleet table exists
- * to avoid.
+ * Named row and cell roles keep the gallery's combined-table example structurally
+ * aligned with the production table. The fixture is small; this is organization,
+ * not a performance claim.
  */
 const MonoCell = styled(TableCell)({ fontFamily: "var(--font-mono)" });
 

@@ -179,7 +179,7 @@ Verify before Friday and record the result in the README:
 
 ## 7. Implementation notes
 
-`packages/web/src/styles/tokens.ts` is the one authored token set. It generates the `:root` and `[data-theme="light"]` blocks in `tokens.css` and supplies MUI's palette and shape value directly. Raw visual literals outside that source are lint errors; a missing token is added there and the CSS artifact regenerated.
+`packages/web/src/styles/tokens.ts` is the one authored token set for repeated colour and size decisions. It generates the `:root` and `[data-theme="light"]` blocks in `tokens.css` and supplies MUI's palette and shape value directly. Lint rejects raw hex and `px`/`rem` literals plus numeric width/height-family values outside that source; unitless MUI scale values and intrinsic SVG coordinates remain review concerns. A missing token is added there and the CSS artifact regenerated.
 
 Real-time values update in place with tabular numerals and no layout shift.
 

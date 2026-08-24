@@ -13,13 +13,7 @@ import type { Site } from "@/types/site";
 
 import { ALL_FILTER_VALUE, FRESHNESS_FILTER_OPTIONS, type Filters } from "./fleetFilterModel";
 
-/*
- * Hoisted, not written inline on each control. This bar re-renders on every
- * keystroke in the search field, and an `sx` object literal in the JSX is a new
- * identity each time — a guaranteed miss in Emotion's cache, so the same three
- * declarations are re-serialized on every character typed. One constant per
- * width is one cache entry for the life of the module.
- */
+// Named once because the same two control-width decisions apply in four places.
 const CONTROL_SX = { minWidth: "var(--filter-control-min-width)" } as const;
 const WIDE_CONTROL_SX = { minWidth: "var(--filter-control-wide-min-width)" } as const;
 const BAR_SX = { mb: 2 } as const;

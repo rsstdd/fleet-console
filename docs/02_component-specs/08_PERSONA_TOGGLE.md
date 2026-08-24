@@ -12,7 +12,8 @@ Implementation: `components/personaToggle.tsx`
 
 ## 2. Dependencies
 
-- MUI `ToggleButtonGroup` + `ToggleButton` for keyboard behaviour and selection semantics
+- MUI `ToggleButtonGroup` + a module-scoped styled `ToggleButton` for keyboard behaviour,
+  selection semantics, and the local non-filled treatment
 - Tokens for selected and outline states
 - No domain, feature, or transport imports (Principle 9)
 
@@ -41,10 +42,13 @@ interface PersonaToggleProps {
   className={className}
   disabled={isDisabled}
 >
-  <ToggleButton value="operator">Operator</ToggleButton>
-  <ToggleButton value="technician">Technician</ToggleButton>
+  <PersonaButton value="operator">Operator</PersonaButton>
+  <PersonaButton value="technician">Technician</PersonaButton>
 </ToggleButtonGroup>
 ```
+
+`PersonaButton` styles the rendered MUI button directly and uses imported MUI state-class
+constants. It does not reach through a group-level descendant selector or internal DOM shape.
 
 `isDisabled` is forwarded to the group's native `disabled` prop, not to each button; earlier revisions declared the prop and dropped it on the floor.
 
@@ -61,7 +65,7 @@ The local handler is named `handleChange`. It remains an ordinary function witho
 - Unselected: transparent, `--line-strong` border, `--ink`
 - Selected: `--surface-raised` with `--accent-text` text and border — identity, not status
 - Height aligned with compact controls (~32px)
-- **No filled accent style.** The accent is reserved for primary actions. If the app theme sets a filled `.Mui-selected` background for another toggle, this component overrides it locally rather than the theme being bent to suit one caller (ADR 5).
+- **No filled accent style.** The accent is reserved for primary actions. If the app theme sets a filled `.Mui-selected` background for another toggle, the styled button overrides it locally rather than the theme being bent to suit one caller (ADR 5).
 
 ## 7. Responsive behavior
 

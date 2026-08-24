@@ -33,13 +33,13 @@ So the mandate is enforced by review alone against a rule ADR 28 argued against,
 
 **Mandatory tier — the public surface.** Every symbol reachable from a package's declared public entry point carries one informative sentence:
 
-| Package     | Public surface                                                     |
-| ----------- | ------------------------------------------------------------------ |
-| `contracts` | `src/index.ts`                                                      |
-| `adapters`  | `src/index.ts` and `src/testing/index.ts`                           |
-| `server`    | `src/index.ts`                                                      |
-| `simulator` | `src/index.ts`                                                      |
-| `web`       | no barrel — the symbols one layer imports from another (below)      |
+| Package     | Public surface                                                 |
+| ----------- | -------------------------------------------------------------- |
+| `contracts` | `src/index.ts`                                                 |
+| `adapters`  | `src/index.ts` and `src/testing/index.ts`                      |
+| `server`    | `src/index.ts`                                                 |
+| `simulator` | `src/index.ts`                                                 |
+| `web`       | no barrel — the symbols one layer imports from another (below) |
 
 `packages/web` has no consumer and therefore no barrel, and a barrel-only rule would leave it with an empty mandatory tier. Its seams are its layer boundaries, which `packages/web/AGENTS.md` already declares and ADR 4 already enforces mechanically: a symbol imported across a directory layer — `features` → `components`/`hooks`/`utils`/`types`/`lib`/`config`/`stores`/`context`, or anything the app shell composes — is on the public surface. A symbol used only inside its own module or feature slice is not.
 
