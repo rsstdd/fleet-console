@@ -42,8 +42,8 @@ export function PersonaToggleSection({
           .Mui-selected
         </Box>{" "}
         a filled accent background — correct for the tenant switch, wrong for persona, which is
-        identity rather than a primary action. This component's local <code>sx</code> override wins
-        over the theme and renders a subtle outline instead.
+        identity rather than a primary action. PersonaToggle styles its own buttons with{" "}
+        <code>styled()</code>, which composes after the theme and renders a subtle outline instead.
       </Typography>
       <Stack spacing={2}>
         <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>

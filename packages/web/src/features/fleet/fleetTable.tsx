@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import {
   Box,
@@ -9,6 +9,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  styled,
 } from "@mui/material";
 
 import { DataPlate } from "@/components/dataPlate";
@@ -22,16 +23,36 @@ import type { Site } from "@/types/site";
 
 import { formatTimeUtc } from "@/utils/time";
 
-// Module constant, not an inline literal: a fresh object per row per render on
-// the 500-row × 10 Hz measured path would defeat row memoization (ADR 24).
-const ROW_LINK_STYLE: CSSProperties = {
+/*
+ * Styled at module scope, not `sx` in the row callback. `sx` is interpreted at
+ * render: every row would allocate a fresh style object, miss Emotion's cache on
+ * identity, and be re-serialized — 500 rows × 10 Hz is the measured path (ADR 24),
+ * so four `sx` objects per row is four thousand serializations a second. These
+ * components serialize once, at import, and every row shares the emitted class.
+ */
+const RobotRow = styled(TableRow)({
+  "&:hover": { backgroundColor: "var(--row-hover)" },
+});
+
+/** The only activation path in the row, filling its cell (page spec §2). */
+const RowLink = styled(Link)({
   display: "block",
   width: "100%",
   fontFamily: "var(--font-mono)",
   fontVariantNumeric: "tabular-nums",
   color: "inherit",
   textDecoration: "none",
-};
+});
+
+const SecondaryCell = styled(TableCell)(({ theme }) => ({
+  color: theme.palette.text.secondary,
+}));
+
+/** Figures align on the decimal point; `tabular-nums` is what stops them dancing at 10 Hz. */
+const NumericCell = styled(TableCell)({
+  fontFamily: "var(--font-mono)",
+  fontVariantNumeric: "tabular-nums",
+});
 
 /**
  * The fleet table plus its provenance plate, rendering exactly the rows it is
@@ -83,7 +104,7 @@ export function FleetTable({
             {robots.map((robot) => {
               const presentation = selectStatusPresentation(robot);
               return (
-                <TableRow key={robot.id} hover sx={{ "&:hover": { bgcolor: "var(--row-hover)" } }}>
+                <RobotRow key={robot.id} hover>
                   <TableCell component="th" scope="row">
                     {/*
                       The only activation path in the row, and it fills its
@@ -92,11 +113,9 @@ export function FleetTable({
                       would still leave no keyboard path, because a <tr> is
                       not focusable (Principle 6).
                     */}
-                    <Link to={`/robots/${robot.id}`} style={ROW_LINK_STYLE}>
-                      {robot.id}
-                    </Link>
+                    <RowLink to={`/robots/${robot.id}`}>{robot.id}</RowLink>
                   </TableCell>
-                  <TableCell sx={{ color: "text.secondary" }}>{robot.vendor}</TableCell>
+                  <SecondaryCell>{robot.vendor}</SecondaryCell>
                   <TableCell>
                     <StatusChip
                       variant={presentation.variant}
@@ -117,25 +136,9 @@ export function FleetTable({
                     ) : null}
                   </TableCell>
                   <TableCell>{selectSiteLabel(robot.siteId, sites)}</TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{
-                      fontFamily: "var(--font-mono)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {selectBatteryDisplay(robot)}
-                  </TableCell>
-                  <TableCell
-                    align="right"
-                    sx={{
-                      fontFamily: "var(--font-mono)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {formatTimeUtc(robot.lastSeenAt)}
-                  </TableCell>
-                </TableRow>
+                  <NumericCell align="right">{selectBatteryDisplay(robot)}</NumericCell>
+                  <NumericCell align="right">{formatTimeUtc(robot.lastSeenAt)}</NumericCell>
+                </RobotRow>
               );
             })}
           </TableBody>

@@ -11,6 +11,7 @@ import {
   TableHead,
   TableRow,
   Typography,
+  styled,
 } from "@mui/material";
 
 import { DataPlate } from "@/components/dataPlate";
@@ -26,6 +27,46 @@ import {
   NOW,
   STATUS_VARIANTS,
 } from "./galleryFixtures";
+
+/*
+ * Styled at module scope rather than `sx` inside the row callbacks below. The
+ * fixtures here are small and this tree is dev-only, so the cost is not the point:
+ * the gallery is where a reviewer reads how the console builds a row, and a demo
+ * that allocates an `sx` object per row teaches the pattern the fleet table exists
+ * to avoid.
+ */
+const MonoCell = styled(TableCell)({ fontFamily: "var(--font-mono)" });
+
+const MonoSecondaryCell = styled(TableCell)(({ theme }) => ({
+  fontFamily: "var(--font-mono)",
+  color: theme.palette.text.secondary,
+}));
+
+const SecondaryCell = styled(TableCell)(({ theme }) => ({
+  color: theme.palette.text.secondary,
+}));
+
+const SampleRow = styled(TableRow)({
+  "&:hover": { backgroundColor: "var(--row-hover)" },
+});
+
+/** `isCurrent={false}` is the last-known treatment: same figure, dimmed ink. */
+const NumericText = styled("span", {
+  shouldForwardProp: (prop) => prop !== "isCurrent",
+})<{ isCurrent: boolean }>(({ theme, isCurrent }) => ({
+  fontFamily: "var(--font-mono)",
+  fontVariantNumeric: "tabular-nums",
+  color: isCurrent ? theme.palette.text.primary : theme.palette.text.disabled,
+}));
+
+/**
+ * A fixed label column makes the compact and full freshness treatments comparable
+ * across rows; 112 is a dev-only review aid, not a product breakpoint.
+ */
+const StateLabel = styled(Typography)(({ theme }) => ({
+  color: theme.palette.text.disabled,
+  minWidth: theme.spacing(14),
+}));
 
 /** Keeps the primitive APIs beside their demos so an optional prop cannot drift unseen. */
 export function PropsIndexSection(): ReactNode {
@@ -51,12 +92,10 @@ export function PropsIndexSection(): ReactNode {
           <TableBody>
             {COMPONENT_PROPS.map(({ component, props }) => (
               <TableRow key={component}>
-                <TableCell component="th" scope="row" sx={{ fontFamily: "var(--font-mono)" }}>
+                <MonoCell component="th" scope="row">
                   {component}
-                </TableCell>
-                <TableCell sx={{ fontFamily: "var(--font-mono)", color: "text.secondary" }}>
-                  {props}
-                </TableCell>
+                </MonoCell>
+                <MonoSecondaryCell>{props}</MonoSecondaryCell>
               </TableRow>
             ))}
           </TableBody>
@@ -139,17 +178,7 @@ export function FreshnessLabelSection(): ReactNode {
           const asOf = row?.asOf ?? null;
           return (
             <Stack key={state} spacing={2} direction="row" useFlexGap>
-              <Typography
-                variant="overline"
-                sx={{
-                  color: "text.disabled",
-                  // A fixed label column makes compact/full treatments comparable across
-                  // rows; 112 is a dev-only review aid, not a product breakpoint.
-                  minWidth: 112,
-                }}
-              >
-                {state}
-              </Typography>
+              <StateLabel variant="overline">{state}</StateLabel>
               <FreshnessLabel state={state} asOf={asOf} isCompact />
               <FreshnessLabel state={state} asOf={asOf} />
             </Stack>
@@ -235,19 +264,11 @@ export function CombinedFleetTableSection(): ReactNode {
           </TableHead>
           <TableBody>
             {FLEET_ROWS.map((row) => (
-              <TableRow key={row.id} hover sx={{ "&:hover": { bgcolor: "var(--row-hover)" } }}>
+              <SampleRow key={row.id} hover>
                 <TableCell>
-                  <Box
-                    component="span"
-                    sx={{
-                      fontFamily: "var(--font-mono)",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {row.id}
-                  </Box>
+                  <NumericText isCurrent>{row.id}</NumericText>
                 </TableCell>
-                <TableCell sx={{ color: "text.secondary" }}>{row.vendor}</TableCell>
+                <SecondaryCell>{row.vendor}</SecondaryCell>
                 <TableCell>
                   <StatusChip
                     variant={row.statusVariant}
@@ -260,18 +281,9 @@ export function CombinedFleetTableSection(): ReactNode {
                   <FreshnessLabel state={row.freshness} asOf={row.asOf} isCompact />
                 </TableCell>
                 <TableCell align="right">
-                  <Box
-                    component="span"
-                    sx={{
-                      fontFamily: "var(--font-mono)",
-                      fontVariantNumeric: "tabular-nums",
-                      color: row.freshness === "live" ? "text.primary" : "text.disabled",
-                    }}
-                  >
-                    {row.battery}
-                  </Box>
+                  <NumericText isCurrent={row.freshness === "live"}>{row.battery}</NumericText>
                 </TableCell>
-              </TableRow>
+              </SampleRow>
             ))}
           </TableBody>
         </Table>

@@ -490,6 +490,24 @@ table {
 }
 /* stylelint-enable selector-class-pattern */
 
+/* The two derived-coordinate SVG surfaces (map canvas, battery sparkline). Their box is
+   a class rather than an inline `style` for the same reason .status--small is: a raw
+   `style` attribute is a second styling authority no token can reach, and these heights
+   are tokens (ADR 5, ADR 33). Width is 100% because the viewBox does the scaling; the
+   block display removes the inline-element baseline gap under the figure. */
+.chart-surface {
+  display: block;
+  width: 100%;
+}
+
+.chart-surface--map {
+  height: var(--map-height);
+}
+
+.chart-surface--sparkline {
+  height: var(--sparkline-height);
+}
+
 /* Deliberately minimal: a general utility layer is a second styling system arriving by
    the back door, which ADR 5 rejects. Surface and elevation helpers are absent because
    MUI Paper already owns that job, and two ways to make a panel means no rule about

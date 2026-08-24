@@ -27,6 +27,17 @@ import { ALL_FILTER_VALUE, FRESHNESS_FILTER_OPTIONS, type Filters } from "./flee
 const CONTROL_MIN_WIDTH = 140;
 const WIDE_CONTROL_MIN_WIDTH = 160;
 
+/*
+ * Hoisted, not written inline on each control. This bar re-renders on every
+ * keystroke in the search field, and an `sx` object literal in the JSX is a new
+ * identity each time — a guaranteed miss in Emotion's cache, so the same three
+ * declarations are re-serialized on every character typed. One constant per
+ * width is one cache entry for the life of the module.
+ */
+const CONTROL_SX = { minWidth: CONTROL_MIN_WIDTH } as const;
+const WIDE_CONTROL_SX = { minWidth: WIDE_CONTROL_MIN_WIDTH } as const;
+const BAR_SX = { mb: 2 } as const;
+
 /**
  * The filter bar. Filter state is local view state owned by the page
  * (Principle 11); this component only renders the controls and reports
@@ -54,11 +65,11 @@ export function FleetFilters({
     <Stack
       direction={{ xs: "column", sm: "row" }}
       spacing={2}
-      sx={{ mb: 2 }}
+      sx={BAR_SX}
       role="group"
       aria-label="Fleet filters"
     >
-      <FormControl size="small" sx={{ minWidth: CONTROL_MIN_WIDTH }}>
+      <FormControl size="small" sx={CONTROL_SX}>
         <InputLabel id="site-filter-label">Site</InputLabel>
         <Select
           labelId="site-filter-label"
@@ -75,7 +86,7 @@ export function FleetFilters({
         </Select>
       </FormControl>
 
-      <FormControl size="small" sx={{ minWidth: CONTROL_MIN_WIDTH }}>
+      <FormControl size="small" sx={CONTROL_SX}>
         <InputLabel id="vendor-filter-label">Vendor</InputLabel>
         <Select
           labelId="vendor-filter-label"
@@ -92,7 +103,7 @@ export function FleetFilters({
         </Select>
       </FormControl>
 
-      <FormControl size="small" sx={{ minWidth: WIDE_CONTROL_MIN_WIDTH }}>
+      <FormControl size="small" sx={WIDE_CONTROL_SX}>
         <InputLabel id="freshness-filter-label">Reporting status</InputLabel>
         <Select
           labelId="freshness-filter-label"
@@ -115,7 +126,7 @@ export function FleetFilters({
         placeholder="Robot id"
         value={filters.search}
         onChange={onSearchChange}
-        sx={{ minWidth: WIDE_CONTROL_MIN_WIDTH }}
+        sx={WIDE_CONTROL_SX}
       />
     </Stack>
   );

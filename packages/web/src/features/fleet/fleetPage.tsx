@@ -1,5 +1,13 @@
 import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
-import { Alert, Box, Button, Skeleton, Typography, type SelectChangeEvent } from "@mui/material";
+import {
+  Alert,
+  Box,
+  Button,
+  Skeleton,
+  Typography,
+  styled,
+  type SelectChangeEvent,
+} from "@mui/material";
 
 import { EmptyState } from "@/components/emptyState";
 import { isStreamConnected, useConnectionState } from "@/context/connectionContext";
@@ -18,6 +26,16 @@ import {
 import { FleetFilters } from "./fleetFilters";
 import { FleetSummary } from "./fleetSummary";
 import { FleetTable } from "./fleetTable";
+
+/*
+ * Styled at module scope: the decode-issue list is a `.map`, and an `sx` object
+ * written in the callback is re-allocated and re-serialized for every issue on
+ * every render of the banner.
+ */
+const IssueCode = styled("span")(({ theme }) => ({
+  ...theme.typography.body2,
+  fontFamily: "var(--font-mono)",
+}));
 
 /**
  * Fleet overview — the operator's primary surface. See page spec 02.
@@ -116,13 +134,9 @@ export function FleetPage(): ReactNode {
             <Box component="ul" sx={{ m: 0, mt: 1, pl: 3 }}>
               {resource.issues.map((issue) => (
                 <li key={`${issue.path}:${issue.code}`}>
-                  <Typography
-                    component="span"
-                    variant="body2"
-                    sx={{ fontFamily: "var(--font-mono)" }}
-                  >
+                  <IssueCode>
                     {issue.path}: {issue.code}
-                  </Typography>
+                  </IssueCode>
                 </li>
               ))}
             </Box>

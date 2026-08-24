@@ -47,11 +47,23 @@ export function buildMuiTheme(mode: TenantTheme) {
       },
       divider: palette.line,
     },
+    /*
+     * Every variant the app actually renders is mapped, not just some of them. An
+     * unmapped variant is not inert: MUI substitutes its own default, so `variant="h2"`
+     * rendered at 3.75rem/300 — MUI's, not this design system's — while `--text-h2`
+     * (1.25rem) went unread, and `body2`, the most used variant in the package, sat at
+     * MUI's 0.875rem instead of the `--text-small` step. global.css states the same
+     * treatment for the bare `h2` element, but `.MuiTypography-h2` is a class and beats
+     * an element selector, so the stylesheet never corrected it. Adding a variant to the
+     * scale means adding it here as well as to tokens.css.
+     */
     typography: {
       fontFamily: "var(--font-sans)",
       h1: { fontSize: "var(--text-h1)", lineHeight: "var(--leading-tight)", fontWeight: 500 },
+      h2: { fontSize: "var(--text-h2)", lineHeight: "var(--leading-snug)", fontWeight: 500 },
       h3: { fontSize: "var(--text-h3)", lineHeight: "var(--leading-snug)", fontWeight: 500 },
       body1: { fontSize: "var(--text-body)", lineHeight: "var(--leading-normal)" },
+      body2: { fontSize: "var(--text-small)", lineHeight: "var(--leading-normal)" },
       caption: { fontSize: "var(--text-caption)", fontFamily: "var(--font-mono)" },
       overline: {
         fontSize: "var(--text-overline)",
@@ -60,6 +72,13 @@ export function buildMuiTheme(mode: TenantTheme) {
         textTransform: "uppercase",
       },
     },
+    /*
+     * The one place a raw number is unavoidable: `shape.borderRadius` feeds the `sx`
+     * multiplier (`borderRadius: 1` resolves through it), so MUI requires a number and a
+     * `var(--radius)` string would silently break that arithmetic. It must therefore be
+     * kept equal to `--radius` in tokens.css by hand — changing one without the other
+     * splits the corner radius between the MUI tree and everything styled by class.
+     */
     shape: { borderRadius: 6 },
     components: {
       MuiCssBaseline: {

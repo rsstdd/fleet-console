@@ -9,6 +9,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  styled,
 } from "@mui/material";
 
 import { DataPlate } from "@/components/dataPlate";
@@ -32,6 +33,16 @@ import { selectSiteLabel } from "@/utils/siteLabel";
 
 import { MAP_VIEWBOX_WIDTH, MapCanvas } from "./mapCanvas";
 import { RobotList } from "./robotList";
+
+/*
+ * Styled at module scope: the decode-issue list is a `.map`, and an `sx` object
+ * written in the callback is re-allocated and re-serialized for every issue on
+ * every render of the banner.
+ */
+const IssueCode = styled("span")(({ theme }) => ({
+  ...theme.typography.body2,
+  fontFamily: "var(--font-mono)",
+}));
 
 /**
  * Map page: one site's positions at a time (page spec 04, ADR 34, ADR 35).
@@ -106,13 +117,9 @@ export function MapPage(): ReactNode {
             <Box component="ul" sx={{ m: 0, mt: 1, pl: 3 }}>
               {resource.issues.map((issue) => (
                 <li key={`${issue.path}:${issue.code}`}>
-                  <Typography
-                    component="span"
-                    variant="body2"
-                    sx={{ fontFamily: "var(--font-mono)" }}
-                  >
+                  <IssueCode>
                     {issue.path}: {issue.code}
-                  </Typography>
+                  </IssueCode>
                 </li>
               ))}
             </Box>

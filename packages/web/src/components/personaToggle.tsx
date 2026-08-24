@@ -1,5 +1,5 @@
 import type { MouseEvent, ReactElement } from "react";
-import { ToggleButton, ToggleButtonGroup } from "@mui/material";
+import { ToggleButton, ToggleButtonGroup, styled } from "@mui/material";
 
 /** The two audiences robot detail renders for; see component spec 08 §3. */
 export type Persona = "operator" | "technician";
@@ -22,51 +22,55 @@ export interface PersonaToggleProps {
 const CONTROL_HEIGHT = "32px";
 
 /**
- * Local override for the selected state. The app-level theme's global
- * MuiToggleButton style override gives `.Mui-selected` a filled accent
- * background, which was written for the tenant-switch toggle in the shell.
- * This component's own spec explicitly forbids that treatment here — the
- * accent is reserved for primary actions, and persona is identity, not a
- * status or a command. `sx` on the group produces a more specific selector
- * than the theme's `styleOverrides`, so this scopes the correction to
- * PersonaToggle without touching the global theme or the tenant toggle's
+ * The persona buttons, styled directly rather than reached through a
+ * `& .MuiToggleButton-root` descendant selector on the group.
+ *
+ * That selector named MUI's internal DOM: a release that wraps the button, or
+ * renames the class, deletes every rule below it and nothing fails until someone
+ * looks at the control. Styling the component this file already renders addresses
+ * the element MUI guarantees, and the emitted class is serialized once at import
+ * rather than re-interpreted from an `sx` object on every render.
+ *
+ * What it corrects: the app-level theme's global `MuiToggleButton` override gives
+ * `.Mui-selected` a filled accent background, which was written for the tenant-switch
+ * toggle in the shell. This component's own spec explicitly forbids that treatment —
+ * the accent is reserved for primary actions, and persona is identity, not a status
+ * or a command. `styled()` composes after the theme's `styleOverrides`, so these rules
+ * win at equal specificity without touching the global theme or the tenant toggle's
  * legitimate filled style (component spec 08 §6, ADR 5).
  *
- * The disabled rule is explicit rather than left to MUI's default, because
- * replacing root's border/color here also silently overrides whatever
- * disabled dimming the theme would otherwise supply — the spec calls for
- * 40% opacity specifically, so that value is stated rather than assumed.
+ * The disabled rule is explicit rather than left to MUI's default, because replacing
+ * root's border/color here also silently overrides whatever disabled dimming the theme
+ * would otherwise supply — the spec calls for 40% opacity specifically, so that value
+ * is stated rather than assumed.
  *
- * The focus ring is deliberately absent: `:focus-visible` in
- * `src/styles/global.css` already draws a 2px `--focus-ring` outline on every
- * focusable element, which is what spec §8 asks for. Repeating it here would
- * be a second authority for the same decision.
+ * The focus ring is deliberately absent: `:focus-visible` in `src/styles/global.css`
+ * already draws a 2px `--focus-ring` outline on every focusable element, which is what
+ * spec §8 asks for. Repeating it here would be a second authority for the same decision.
  */
-const PERSONA_TOGGLE_SX = {
-  "& .MuiToggleButton-root": {
-    minHeight: CONTROL_HEIGHT,
-    padding: "var(--space-1) var(--space-3)",
-    fontSize: "var(--text-small)",
-    lineHeight: "var(--leading-normal)",
-    textTransform: "none",
-    borderColor: "var(--line-strong)",
-    color: "var(--ink)",
-    "&.Mui-selected": {
+const PersonaButton = styled(ToggleButton)({
+  minHeight: CONTROL_HEIGHT,
+  padding: "var(--space-1) var(--space-3)",
+  fontSize: "var(--text-small)",
+  lineHeight: "var(--leading-normal)",
+  textTransform: "none",
+  borderColor: "var(--line-strong)",
+  color: "var(--ink)",
+  "&.Mui-selected": {
+    backgroundColor: "var(--surface-raised)",
+    color: "var(--accent-text)",
+    borderColor: "var(--accent-text)",
+    "&:hover": {
       backgroundColor: "var(--surface-raised)",
-      color: "var(--accent-text)",
-      borderColor: "var(--accent-text)",
-      "&:hover": {
-        backgroundColor: "var(--surface-raised)",
-      },
-    },
-    "&.Mui-disabled": {
-      opacity: 0.4,
-      pointerEvents: "none",
-      color: "var(--ink-muted)",
-      borderColor: "var(--line)",
     },
   },
-} as const;
+  "&.Mui-disabled": {
+    opacity: 0.4,
+    pointerEvents: "none",
+    color: "var(--ink-muted)",
+    borderColor: "var(--line)",
+  },
+});
 
 /**
  * Switches Operator vs Technician on robot detail without a second layout.
@@ -100,10 +104,9 @@ export function PersonaToggle({
       aria-label="View persona"
       className={className}
       disabled={isDisabled}
-      sx={PERSONA_TOGGLE_SX}
     >
-      <ToggleButton value="operator">Operator</ToggleButton>
-      <ToggleButton value="technician">Technician</ToggleButton>
+      <PersonaButton value="operator">Operator</PersonaButton>
+      <PersonaButton value="technician">Technician</PersonaButton>
     </ToggleButtonGroup>
   );
 }
