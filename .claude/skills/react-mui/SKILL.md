@@ -1,6 +1,6 @@
 ---
 name: react-mui
-description: Authoring rules for React components built on MUI (Material UI) v6/v7 — where styles belong (sx vs styled vs slotProps), theme tokens instead of raw units, the Grid v2 API, and CSS theme variables for SSR/RSC. Use when writing, generating, or reviewing any component that imports from @mui/material, or when a change touches theming, sx, styled(), slot overrides, or MUI layout.
+description: Authoring rules for React components built on MUI (Material UI) v6 and later — where styles belong (sx vs styled vs slotProps), theme tokens instead of raw units, the Grid v2 API, and CSS theme variables for SSR/RSC. Use when writing, generating, or reviewing any component that imports from @mui/material, or when a change touches theming, sx, styled(), slot overrides, or MUI layout.
 ---
 
 # React + MUI component authoring
