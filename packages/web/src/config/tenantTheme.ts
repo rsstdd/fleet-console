@@ -12,5 +12,5 @@
  */
 export const TENANT_THEMES = ["dark", "light"] as const;
 
-/** One of the tenant colour schemes. */
+/** Selects a tenant colour scheme across tenant configuration and the web theme and token layers. */
 export type TenantTheme = (typeof TENANT_THEMES)[number];
