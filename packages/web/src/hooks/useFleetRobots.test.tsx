@@ -13,7 +13,7 @@ import { useFleetRobot, useFleetRobots } from "./useFleetRobots";
  * cannot see each other through the import graph (ADR 4).
  */
 describe("useFleetRobots", () => {
-  function registered(robotId: string) {
+  function buildRegisteredRobot(robotId: string) {
     return {
       schemaVersion: SCHEMA_VERSION,
       robotId,
@@ -23,7 +23,7 @@ describe("useFleetRobots", () => {
     } as const;
   }
 
-  function snapshot(robots: FleetSnapshot["robots"], flushSequence = 0): FleetSnapshot {
+  function buildSnapshot(robots: FleetSnapshot["robots"], flushSequence = 0): FleetSnapshot {
     return {
       schemaVersion: SCHEMA_VERSION,
       serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
@@ -44,12 +44,12 @@ describe("useFleetRobots", () => {
 
   it("reads the store the transport is filling", () => {
     const store = createFleetStore();
-    store.applySnapshot(snapshot([registered("R-001")]));
-    const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+    store.applySnapshot(buildSnapshot([buildRegisteredRobot("R-001")]));
+    const Wrapper = ({ children }: { children: ReactNode }): ReactNode => (
       <FleetStoreContext.Provider value={store}>{children}</FleetStoreContext.Provider>
     );
 
-    const { result } = renderHook(() => useFleetRobots(), { wrapper });
+    const { result } = renderHook(() => useFleetRobots(), { wrapper: Wrapper });
 
     const state = result.current;
     if (state.kind !== "ready") throw new Error(`unexpected ${state.kind}`);
@@ -59,13 +59,15 @@ describe("useFleetRobots", () => {
 
   it("re-renders when a later snapshot changes the fleet", async () => {
     const store = createFleetStore();
-    const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+    const Wrapper = ({ children }: { children: ReactNode }): ReactNode => (
       <FleetStoreContext.Provider value={store}>{children}</FleetStoreContext.Provider>
     );
-    const { result } = renderHook(() => useFleetRobots(), { wrapper });
+    const { result } = renderHook(() => useFleetRobots(), { wrapper: Wrapper });
     expect(result.current.kind).toBe("loading");
 
-    store.applySnapshot(snapshot([registered("R-001"), registered("R-002")], 1));
+    store.applySnapshot(
+      buildSnapshot([buildRegisteredRobot("R-001"), buildRegisteredRobot("R-002")], 1),
+    );
 
     await vi.waitFor(() => {
       const state = result.current;
@@ -76,7 +78,7 @@ describe("useFleetRobots", () => {
 });
 
 describe("useFleetRobot", () => {
-  function snapshotWith(robotIds: readonly string[]): FleetSnapshot {
+  function buildSnapshotWithRobots(robotIds: readonly string[]): FleetSnapshot {
     return {
       schemaVersion: SCHEMA_VERSION,
       serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
@@ -95,13 +97,13 @@ describe("useFleetRobot", () => {
 
   it("returns one robot's row by id, and undefined for an id the fleet never carried", () => {
     const store = createFleetStore();
-    store.applySnapshot(snapshotWith(["R-001"]));
-    const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+    store.applySnapshot(buildSnapshotWithRobots(["R-001"]));
+    const Wrapper = ({ children }: { children: ReactNode }): ReactNode => (
       <FleetStoreContext.Provider value={store}>{children}</FleetStoreContext.Provider>
     );
 
-    const known = renderHook(() => useFleetRobot("R-001"), { wrapper });
-    const unknown = renderHook(() => useFleetRobot("R-999"), { wrapper });
+    const known = renderHook(() => useFleetRobot("R-001"), { wrapper: Wrapper });
+    const unknown = renderHook(() => useFleetRobot("R-999"), { wrapper: Wrapper });
 
     expect(known.result.current?.id).toBe("R-001");
     expect(unknown.result.current).toBeUndefined();

@@ -40,13 +40,13 @@ const ROW_LINK_STYLE: CSSProperties = {
 export function FleetTable({
   robots,
   sites,
-  streamConnected,
+  isStreamConnected,
   capturedAt,
   latestFrameAt,
 }: {
   readonly robots: readonly Robot[];
   readonly sites: readonly Site[];
-  readonly streamConnected: boolean;
+  readonly isStreamConnected: boolean;
   readonly capturedAt: number;
   readonly latestFrameAt: number | null;
 }): ReactNode {
@@ -94,7 +94,7 @@ export function FleetTable({
                     <StatusChip
                       variant={presentation.variant}
                       label={presentation.label}
-                      current={presentation.current}
+                      isCurrent={presentation.isCurrent}
                       size="small"
                     />
                   </TableCell>
@@ -105,8 +105,8 @@ export function FleetTable({
                       (fleet spec § 8, ADR 3). A per-robot "unreachable" here would
                       blame every machine for the console's own dead socket.
                     */}
-                    {streamConnected ? (
-                      <FreshnessLabel state={robot.freshness} asOf={robot.lastSeenAt} compact />
+                    {isStreamConnected ? (
+                      <FreshnessLabel state={robot.freshness} asOf={robot.lastSeenAt} isCompact />
                     ) : null}
                   </TableCell>
                   <TableCell>{selectSiteLabel(robot.siteId, sites)}</TableCell>

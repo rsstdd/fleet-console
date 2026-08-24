@@ -49,7 +49,7 @@ export interface StatusPresentation {
   readonly variant: StatusPresentationVariant;
   readonly label: string;
   /** false drives StatusChip's outline/hollow "last known" treatment. */
-  readonly current: boolean;
+  readonly isCurrent: boolean;
 }
 
 /**
@@ -85,14 +85,14 @@ function selectVariant(status: RobotStatus, health: RobotHealth | null): StatusP
  * at each call site.
  */
 export function selectStatusPresentation(robot: Robot): StatusPresentation {
-  const current = robot.freshness === "live";
+  const isCurrent = robot.freshness === "live";
   const variant = selectVariant(robot.status, robot.health);
   const baseLabel = STATUS_LABEL[robot.status];
 
   return {
     variant,
-    label: current ? baseLabel : `${baseLabel} (last known)`,
-    current,
+    label: isCurrent ? baseLabel : `${baseLabel} (last known)`,
+    isCurrent,
   };
 }
 
@@ -339,9 +339,14 @@ export function computeSiteExtents(positions: readonly Position[]): SiteExtents 
     minY = Math.min(minY, position.y);
     maxY = Math.max(maxY, position.y);
   }
-  const x = padAxis(minX, maxX);
-  const y = padAxis(minY, maxY);
-  return { minX: x.min, maxX: x.max, minY: y.min, maxY: y.max };
+  const paddedXAxis = padAxis(minX, maxX);
+  const paddedYAxis = padAxis(minY, maxY);
+  return {
+    minX: paddedXAxis.min,
+    maxX: paddedXAxis.max,
+    minY: paddedYAxis.min,
+    maxY: paddedYAxis.max,
+  };
 }
 
 /**
@@ -412,7 +417,7 @@ export function selectMapMarker(
   robot: PlottableRobot,
   extents: SiteExtents,
   viewBox: ViewBoxSize,
-  streamConnected: boolean,
+  isStreamConnected: boolean,
 ): MapMarker {
   const { x, y } = projectToViewBox(robot.position, extents, viewBox);
   return {
@@ -420,7 +425,7 @@ export function selectMapMarker(
     x,
     y,
     variant: selectStatusPresentation(robot).variant,
-    hollow: !streamConnected || robot.freshness !== "live",
+    hollow: !isStreamConnected || robot.freshness !== "live",
   };
 }
 

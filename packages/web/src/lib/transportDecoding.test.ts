@@ -27,7 +27,10 @@ describe("fetchFleetSnapshot", () => {
     robots: [],
   };
 
-  function responding(body: unknown, init: { ok?: boolean; status?: number } = {}): FetchLike {
+  function createRespondingFetch(
+    body: unknown,
+    init: { ok?: boolean; status?: number } = {},
+  ): FetchLike {
     return () =>
       Promise.resolve({
         ok: init.ok ?? true,
@@ -37,7 +40,7 @@ describe("fetchFleetSnapshot", () => {
   }
 
   it("decodes a valid snapshot", async () => {
-    const outcome = await fetchFleetSnapshot(responding(SNAPSHOT), "/api/fleet");
+    const outcome = await fetchFleetSnapshot(createRespondingFetch(SNAPSHOT), "/api/fleet");
 
     expect(outcome).toStrictEqual({ ok: true, snapshot: SNAPSHOT });
   });
@@ -45,7 +48,10 @@ describe("fetchFleetSnapshot", () => {
   it("calls a non-2xx unreachable, so it stays retryable", async () => {
     // Including a 500: the server failing to produce a body is not the same event as
     // producing one this console cannot read.
-    const outcome = await fetchFleetSnapshot(responding(null, { ok: false, status: 500 }), "/api");
+    const outcome = await fetchFleetSnapshot(
+      createRespondingFetch(null, { ok: false, status: 500 }),
+      "/api",
+    );
 
     expect(outcome).toStrictEqual({
       ok: false,
@@ -63,7 +69,7 @@ describe("fetchFleetSnapshot", () => {
     // Retrying returns the same bytes, so this must not look like a network blip. The
     // paths are what let a diagnostics surface name the field without showing a payload.
     const outcome = await fetchFleetSnapshot(
-      responding({ ...SNAPSHOT, flushSequence: -1 }),
+      createRespondingFetch({ ...SNAPSHOT, flushSequence: -1 }),
       "/api",
     );
 
@@ -147,7 +153,7 @@ describe("fetchRobotDetail", () => {
     freshness: "unknown",
   };
 
-  const responding =
+  const createRespondingFetch =
     (body: unknown, init: { ok?: boolean; status?: number } = {}): FetchLike =>
     () =>
       Promise.resolve({
@@ -157,7 +163,7 @@ describe("fetchRobotDetail", () => {
       });
 
   it("decodes a robot that has reported", async () => {
-    const outcome = await fetchRobotDetail(responding(OBSERVED), "/api/robots/R-003");
+    const outcome = await fetchRobotDetail(createRespondingFetch(OBSERVED), "/api/robots/R-003");
 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -167,7 +173,7 @@ describe("fetchRobotDetail", () => {
   it("decodes a robot the manifest registered and nothing has reported for", async () => {
     // The endpoint's second population. `@fleet/contracts` has no union for the pair, so
     // both parsers are tried here — recorded as a contracts change in server TODO G2.
-    const outcome = await fetchRobotDetail(responding(REGISTERED), "/api/robots/R-001");
+    const outcome = await fetchRobotDetail(createRespondingFetch(REGISTERED), "/api/robots/R-001");
 
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
@@ -176,7 +182,10 @@ describe("fetchRobotDetail", () => {
 
   it("treats a 404 as its own outcome, not as an error", async () => {
     // An unknown id is a wrong link: the page shows a way back, not a failure banner.
-    const outcome = await fetchRobotDetail(responding(null, { ok: false, status: 404 }), "/api");
+    const outcome = await fetchRobotDetail(
+      createRespondingFetch(null, { ok: false, status: 404 }),
+      "/api",
+    );
 
     expect(outcome).toStrictEqual({ ok: false, failure: { kind: "not-found" } });
   });
@@ -185,7 +194,7 @@ describe("fetchRobotDetail", () => {
     // Reporting the two-field registration schema's complaints would point a reader at the
     // wrong shape; the observed envelope is the strictly larger one.
     const outcome = await fetchRobotDetail(
-      responding({ ...OBSERVED, receivedAt: "not-a-number" }),
+      createRespondingFetch({ ...OBSERVED, receivedAt: "not-a-number" }),
       "/api",
     );
 
@@ -244,7 +253,10 @@ describe("fetchBatteryHistory", () => {
     points: [{ receivedAt: 59_000, batteryPercent: 91 }],
   };
 
-  function responding(body: unknown, init: { ok?: boolean; status?: number } = {}): FetchLike {
+  function createRespondingFetch(
+    body: unknown,
+    init: { ok?: boolean; status?: number } = {},
+  ): FetchLike {
     return () =>
       Promise.resolve({
         ok: init.ok ?? true,
@@ -254,14 +266,17 @@ describe("fetchBatteryHistory", () => {
   }
 
   it("decodes a valid history response", async () => {
-    const outcome = await fetchBatteryHistory(responding(HISTORY), "/api/robots/R-118/history");
+    const outcome = await fetchBatteryHistory(
+      createRespondingFetch(HISTORY),
+      "/api/robots/R-118/history",
+    );
 
     expect(outcome).toStrictEqual({ ok: true, history: HISTORY });
   });
 
   it("calls a non-2xx unreachable, so it stays retryable", async () => {
     const outcome = await fetchBatteryHistory(
-      responding(null, { ok: false, status: 503 }),
+      createRespondingFetch(null, { ok: false, status: 503 }),
       "/api/robots/R-118/history",
     );
 
@@ -284,7 +299,7 @@ describe("fetchBatteryHistory", () => {
     // A count invariant violation: more points than numeric samples. Retrying returns
     // the same bytes, so this must not be presented as retryable.
     const outcome = await fetchBatteryHistory(
-      responding({ ...HISTORY, sourceSampleCount: 0 }),
+      createRespondingFetch({ ...HISTORY, sourceSampleCount: 0 }),
       "/api/robots/R-118/history",
     );
 

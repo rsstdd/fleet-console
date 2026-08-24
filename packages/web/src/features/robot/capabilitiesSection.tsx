@@ -8,7 +8,7 @@ import { TENANT } from "@/config/tenant";
 
 import { CapabilityPanel } from "./capabilityPanels";
 import { Section } from "./detailSection";
-import { disabledPanelsFor } from "./panelVisibility";
+import { selectDisabledPanels } from "./panelVisibility";
 
 /**
  * Declared non-core capabilities only. An empty declaration renders nothing at
@@ -20,7 +20,7 @@ import { disabledPanelsFor } from "./panelVisibility";
  * what Principle 13 asks for structurally rather than by review.
  */
 export function CapabilitiesSection({ robot }: { readonly robot: RobotDetail }): ReactNode {
-  const capabilities = selectPanelCapabilities(robot, disabledPanelsFor(TENANT.flags));
+  const capabilities = selectPanelCapabilities(robot, selectDisabledPanels(TENANT.flags));
   if (capabilities.length === 0) {
     return null;
   }

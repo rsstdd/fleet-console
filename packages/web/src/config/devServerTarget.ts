@@ -38,7 +38,9 @@ export const DEV_SERVER_DEFAULTS = {
  * An IPv6 literal is bracketed, because `http://::1:8080` is not a URL any client can
  * parse and the mistake is invisible until something tries to connect.
  */
-export function devServerTarget(env: Readonly<Record<string, string | undefined>> = {}): string {
+export function resolveDevServerTarget(
+  env: Readonly<Record<string, string | undefined>> = {},
+): string {
   const host = env[DEV_SERVER_ENV_KEYS.host] ?? DEV_SERVER_DEFAULTS.host;
   const port = env[DEV_SERVER_ENV_KEYS.port] ?? DEV_SERVER_DEFAULTS.port;
   const authority = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;

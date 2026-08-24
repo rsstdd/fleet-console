@@ -40,7 +40,7 @@ export function DetailHeader({
 }): ReactNode {
   const presentation = selectStatusPresentation(robot);
   /* One fact about the console's socket, not about this robot (Principle 11, ADR 23). */
-  const streamConnected = isStreamConnected(useConnectionState());
+  const isFleetStreamConnected = isStreamConnected(useConnectionState());
   /* The snapshot's directory, the only source of a site label (ADR 34). */
   const sites = useFleetSites();
 
@@ -66,7 +66,7 @@ export function DetailHeader({
           <StatusChip
             variant={presentation.variant}
             label={presentation.label}
-            current={presentation.current}
+            isCurrent={presentation.isCurrent}
             size="small"
           />
           {/*
@@ -74,12 +74,12 @@ export function DetailHeader({
             (robot detail spec § 8, ADR 3). The values below freeze at last known;
             what must not survive is the claim about how current they are.
           */}
-          {streamConnected ? (
+          {isFleetStreamConnected ? (
             <FreshnessLabel
               state={robot.freshness}
               asOf={robot.lastSeenAt}
               receivedAt={robot.diagnostics?.receivedAt ?? undefined}
-              compact
+              isCompact
             />
           ) : null}
           <Typography variant="body2" sx={{ color: "text.secondary" }}>

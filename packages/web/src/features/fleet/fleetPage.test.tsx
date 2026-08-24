@@ -28,7 +28,7 @@ vi.mock("@/hooks/useFleetRobots", () => ({
 
 const { FleetPage } = await import("./fleetPage");
 
-function robot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
+function buildRobot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
   return {
     vendor: "A",
     siteId: "zone-a",
@@ -47,16 +47,22 @@ function robot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
 }
 
 const FIXTURE: readonly Robot[] = [
-  robot({ id: "R-118", vendor: "A", siteId: "zone-a", freshness: "live" }),
-  robot({ id: "R-204", vendor: "B", siteId: "zone-b", freshness: "stale" }),
-  robot({
+  buildRobot({ id: "R-118", vendor: "A", siteId: "zone-a", freshness: "live" }),
+  buildRobot({ id: "R-204", vendor: "B", siteId: "zone-b", freshness: "stale" }),
+  buildRobot({
     id: "R-301",
     vendor: "C",
     siteId: "zone-b",
     freshness: "unreachable",
     lastSeenAt: "2026-08-19T09:58:00.000Z",
   }),
-  robot({ id: "R-402", vendor: "A", siteId: "zone-a", freshness: "unknown", lastSeenAt: null }),
+  buildRobot({
+    id: "R-402",
+    vendor: "A",
+    siteId: "zone-a",
+    freshness: "unknown",
+    lastSeenAt: null,
+  }),
 ];
 
 /** The directory the fixture robots reference; the only source of labels (ADR 34). */
@@ -69,13 +75,16 @@ const SITES = [
 const CAPTURED_AT = Date.UTC(2026, 7, 19, 10, 0, 5);
 
 /** Builds the retained data the ready and error states carry. */
-function fleetData(robots: readonly Robot[], over: Partial<FleetData> = {}): FleetData {
+function buildFleetData(robots: readonly Robot[], over: Partial<FleetData> = {}): FleetData {
   return { robots, sites: SITES, capturedAt: CAPTURED_AT, latestFrameAt: null, ...over };
 }
 
 /** Builds the ready state most cases render from. */
-function ready(robots: readonly Robot[], over: Partial<FleetData> = {}): FleetResourceState {
-  return { kind: "ready", data: fleetData(robots, over) };
+function buildReadyState(
+  robots: readonly Robot[],
+  over: Partial<FleetData> = {},
+): FleetResourceState {
+  return { kind: "ready", data: buildFleetData(robots, over) };
 }
 
 /** Reports the router's current path so navigation can be asserted, or its absence. */
@@ -111,8 +120,8 @@ function renderPage(connection: StreamConnectionState = "connected"): void {
  * plausible and silently returns the Site column. The index is the locked column order
  * asserted above: id, vendor, status, **freshness**, site, battery, last seen.
  */
-function freshnessCells(): readonly HTMLElement[] {
-  return within(fleetTable())
+function getFreshnessCells(): readonly HTMLElement[] {
+  return within(getFleetTable())
     .getAllByRole("row")
     .slice(1)
     .map((row) => row.querySelectorAll<HTMLElement>("th, td")[3])
@@ -124,7 +133,7 @@ function freshnessCells(): readonly HTMLElement[] {
  * (component spec 05 §4). Querying by visible text cannot work here: "Live"
  * appears both as a summary label and as a freshness label in every row.
  */
-function summaryCounts(): Record<string, number> {
+function getSummaryCounts(): Record<string, number> {
   const stats = [...document.querySelectorAll<HTMLElement>(".stat")];
   return Object.fromEntries(
     stats.map((stat) => [
@@ -134,12 +143,12 @@ function summaryCounts(): Record<string, number> {
   );
 }
 
-function fleetTable(): HTMLElement {
+function getFleetTable(): HTMLElement {
   return screen.getByRole("table", { name: "Fleet" });
 }
 
 beforeEach(() => {
-  fleet.state = ready(FIXTURE);
+  fleet.state = buildReadyState(FIXTURE);
 });
 
 describe("FleetPage", () => {
@@ -148,13 +157,13 @@ describe("FleetPage", () => {
 
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Fleet overview");
-    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
   });
 
   it("renders the seven locked columns in spec order", () => {
     renderPage();
 
-    const headers = within(fleetTable()).getAllByRole("columnheader");
+    const headers = within(getFleetTable()).getAllByRole("columnheader");
     expect(headers.map((cell) => cell.textContent)).toEqual([
       "Robot id",
       "Vendor",
@@ -169,7 +178,7 @@ describe("FleetPage", () => {
   it("makes the robot id cell the row header and the only link in the row", () => {
     renderPage();
 
-    const row = within(fleetTable()).getByRole("row", { name: /R-118/ });
+    const row = within(getFleetTable()).getByRole("row", { name: /R-118/ });
     const rowHeader = within(row).getByRole("rowheader");
 
     expect(within(rowHeader).getByRole("link", { name: "R-118" })).toHaveAttribute(
@@ -183,7 +192,7 @@ describe("FleetPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    const row = within(fleetTable()).getByRole("row", { name: /R-118/ });
+    const row = within(getFleetTable()).getByRole("row", { name: /R-118/ });
     const vendorCell = within(row).getAllByRole("cell")[0];
     expect(vendorCell).toBeDefined();
 
@@ -201,7 +210,7 @@ describe("FleetPage", () => {
   it("keeps every robot reachable by keyboard through the id link alone", () => {
     renderPage();
 
-    const links = within(fleetTable()).getAllByRole("link");
+    const links = within(getFleetTable()).getAllByRole("link");
     expect(links).toHaveLength(FIXTURE.length);
     for (const link of links) {
       link.focus();
@@ -212,7 +221,7 @@ describe("FleetPage", () => {
   it("shows a freshness label per row while the stream is connected", () => {
     renderPage("connected");
 
-    const cells = freshnessCells();
+    const cells = getFreshnessCells();
     expect(cells).toHaveLength(FIXTURE.length);
     expect(cells.map((cell) => cell.textContent)).toEqual([
       "Live",
@@ -229,8 +238,8 @@ describe("FleetPage", () => {
     // per-robot state would blame every machine for the console's own dead socket.
     renderPage("disconnected");
 
-    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
-    expect(freshnessCells().map((cell) => cell.textContent)).toEqual(["", "", "", ""]);
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+    expect(getFreshnessCells().map((cell) => cell.textContent)).toEqual(["", "", "", ""]);
   });
 
   it("suppresses them while reconnecting too, not only when fully disconnected", () => {
@@ -238,14 +247,14 @@ describe("FleetPage", () => {
     // a reconnect, so a label left standing ages silently.
     renderPage("reconnecting");
 
-    expect(freshnessCells().map((cell) => cell.textContent)).toEqual(["", "", "", ""]);
+    expect(getFreshnessCells().map((cell) => cell.textContent)).toEqual(["", "", "", ""]);
   });
 
   it("fails if the suppression is removed", () => {
     // Guards against the assertion above passing vacuously — if the cells were empty
     // for some unrelated reason, the connected case would be empty too.
     renderPage("connected");
-    const connected = freshnessCells().map((cell) => cell.textContent);
+    const connected = getFreshnessCells().map((cell) => cell.textContent);
     expect(connected.every((text) => text !== "")).toBe(true);
   });
 
@@ -281,7 +290,7 @@ describe("FleetPage", () => {
   it("keeps all four counts visible and unchanged while disconnected", () => {
     renderPage("disconnected");
 
-    const counts = summaryCounts();
+    const counts = getSummaryCounts();
     expect(counts).toEqual({ Live: 1, Stale: 1, Unreachable: 1, Unknown: 1 });
   });
 
@@ -289,11 +298,11 @@ describe("FleetPage", () => {
     const user = userEvent.setup();
     renderPage("disconnected");
 
-    const before = summaryCounts();
+    const before = getSummaryCounts();
     await user.type(screen.getByLabelText("Search"), "R-204");
 
-    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(2);
-    expect(summaryCounts()).toEqual(before);
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(2);
+    expect(getSummaryCounts()).toEqual(before);
     expect(
       screen.getByRole("heading", { level: 2, name: "Fleet reporting status · last known" }),
     ).toBeInTheDocument();
@@ -313,7 +322,7 @@ describe("FleetPage", () => {
   it("counts the four freshness states so they total the fleet exactly", () => {
     renderPage();
 
-    const counts = summaryCounts();
+    const counts = getSummaryCounts();
     expect(counts).toEqual({ Live: 1, Stale: 1, Unreachable: 1, Unknown: 1 });
     expect(Object.values(counts).reduce((sum, count) => sum + count, 0)).toBe(FIXTURE.length);
   });
@@ -322,16 +331,16 @@ describe("FleetPage", () => {
     const user = userEvent.setup();
     renderPage();
 
-    const before = summaryCounts();
-    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+    const before = getSummaryCounts();
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
 
     await user.click(screen.getByLabelText("Vendor"));
     await user.click(screen.getByRole("option", { name: "Vendor B" }));
 
     // Spec §2: an operator narrowing the table to find one robot must not watch
     // the fleet totals move underneath them.
-    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(2);
-    expect(summaryCounts()).toEqual(before);
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(2);
+    expect(getSummaryCounts()).toEqual(before);
   });
 
   it("filters by site", async () => {
@@ -341,7 +350,7 @@ describe("FleetPage", () => {
     await user.click(screen.getByLabelText("Site"));
     await user.click(screen.getByRole("option", { name: /Zone B/i }));
 
-    const rows = within(fleetTable()).getAllByRole("row");
+    const rows = within(getFleetTable()).getAllByRole("row");
     expect(rows).toHaveLength(3);
   });
 
@@ -349,8 +358,8 @@ describe("FleetPage", () => {
     // `identifierSchema` permits `all` as a site or vendor id, so the "All
     // sites" choice must not share a value with any identifier a fleet could
     // contain — the bug this test pins was `all` doing double duty as sentinel.
-    fleet.state = ready(
-      [robot({ id: "R-118", siteId: "zone-a" }), robot({ id: "R-204", siteId: "all" })],
+    fleet.state = buildReadyState(
+      [buildRobot({ id: "R-118", siteId: "zone-a" }), buildRobot({ id: "R-204", siteId: "all" })],
       { sites: [...SITES, { siteId: "all", label: "Site all" }] },
     );
     const user = userEvent.setup();
@@ -359,9 +368,9 @@ describe("FleetPage", () => {
     await user.click(screen.getByLabelText("Site"));
     await user.click(screen.getByRole("option", { name: "Site all" }));
 
-    const rows = within(fleetTable()).getAllByRole("row");
+    const rows = within(getFleetTable()).getAllByRole("row");
     expect(rows).toHaveLength(2);
-    expect(within(fleetTable()).getByRole("row", { name: /R-204/ })).toBeInTheDocument();
+    expect(within(getFleetTable()).getByRole("row", { name: /R-204/ })).toBeInTheDocument();
   });
 
   it("filters by reporting status under the operator-facing label", async () => {
@@ -373,9 +382,9 @@ describe("FleetPage", () => {
     await user.click(screen.getByLabelText("Reporting status"));
     await user.click(screen.getByRole("option", { name: "Stale" }));
 
-    const rows = within(fleetTable()).getAllByRole("row");
+    const rows = within(getFleetTable()).getAllByRole("row");
     expect(rows).toHaveLength(2);
-    expect(within(fleetTable()).getByRole("row", { name: /R-204/ })).toBeInTheDocument();
+    expect(within(getFleetTable()).getByRole("row", { name: /R-204/ })).toBeInTheDocument();
   });
 
   it("offers a clear action when filters exclude every robot", async () => {
@@ -387,11 +396,11 @@ describe("FleetPage", () => {
     expect(screen.getByRole("heading", { name: "No robots match these filters" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
 
-    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
   });
 
   it("states an unregistered fleet as a fact, without a clear action that would do nothing", () => {
-    fleet.state = ready([]);
+    fleet.state = buildReadyState([]);
     renderPage();
 
     expect(screen.getByRole("heading", { name: "No robots registered" })).toBeVisible();
@@ -402,7 +411,7 @@ describe("FleetPage", () => {
   it("shows an em dash rather than a number for battery once a robot is not live", () => {
     renderPage();
 
-    const stale = within(fleetTable()).getByRole("row", { name: /R-204/ });
+    const stale = within(getFleetTable()).getByRole("row", { name: /R-204/ });
     expect(
       within(stale)
         .getAllByRole("cell")
@@ -413,7 +422,7 @@ describe("FleetPage", () => {
   it("dates the data plate from decoded provenance, not from render time", () => {
     // The capture instant the server stamped on the snapshot, and the send
     // instant of the last applied frame — never a client clock (Principle 4).
-    fleet.state = ready(FIXTURE, { latestFrameAt: Date.UTC(2026, 7, 19, 10, 0, 7) });
+    fleet.state = buildReadyState(FIXTURE, { latestFrameAt: Date.UTC(2026, 7, 19, 10, 0, 7) });
     renderPage();
 
     const plate = screen.getByText(/Fleet snapshot/);
@@ -422,7 +431,7 @@ describe("FleetPage", () => {
   });
 
   it("states that no stream frame has arrived rather than inventing an instant", () => {
-    fleet.state = ready(FIXTURE, { latestFrameAt: null });
+    fleet.state = buildReadyState(FIXTURE, { latestFrameAt: null });
     renderPage();
 
     expect(screen.getByText(/Fleet snapshot/)).toHaveTextContent("latest stream frame none yet");
@@ -441,7 +450,10 @@ describe("FleetPage", () => {
   it("derives vendor filter options from the robots on screen, not a constant", async () => {
     // The vendor set is open (ADR 1): a fleet reporting a vendor D must offer
     // it, and a fleet without C must not.
-    fleet.state = ready([robot({ id: "R-118", vendor: "A" }), robot({ id: "R-900", vendor: "D" })]);
+    fleet.state = buildReadyState([
+      buildRobot({ id: "R-118", vendor: "A" }),
+      buildRobot({ id: "R-900", vendor: "D" }),
+    ]);
     const user = userEvent.setup();
     renderPage();
 
@@ -460,10 +472,10 @@ describe("FleetPage", () => {
   });
 
   it("keeps last-known rows on screen while refreshing", () => {
-    fleet.state = { kind: "refreshing", data: fleetData(FIXTURE) };
+    fleet.state = { kind: "refreshing", data: buildFleetData(FIXTURE) };
     renderPage();
 
-    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
     expect(screen.getByText(/Refreshing fleet data/)).toBeInTheDocument();
   });
 
@@ -471,7 +483,7 @@ describe("FleetPage", () => {
     const retry = vi.fn();
     fleet.state = {
       kind: "recoverable-error",
-      data: fleetData(FIXTURE),
+      data: buildFleetData(FIXTURE),
       failure: { cause: "handshake-exhausted" },
       retry,
     };
@@ -479,7 +491,7 @@ describe("FleetPage", () => {
     renderPage();
 
     expect(screen.getByText(/could not be refreshed/)).toBeInTheDocument();
-    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(retry).toHaveBeenCalledTimes(1);
   });
@@ -504,7 +516,7 @@ describe("FleetPage", () => {
     // cannot help.
     fleet.state = {
       kind: "terminal-error",
-      data: fleetData(FIXTURE),
+      data: buildFleetData(FIXTURE),
       issues: [{ path: "robots.0.siteId", code: "custom", message: "undefined site" }],
     };
     renderPage();
@@ -513,7 +525,7 @@ describe("FleetPage", () => {
     expect(screen.getByText("robots.0.siteId: custom")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
     // Retained rows survive under the banner (Principle 4).
-    expect(within(fleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
   });
 
   it("renders a terminal contract failure alone when nothing was ever readable", () => {

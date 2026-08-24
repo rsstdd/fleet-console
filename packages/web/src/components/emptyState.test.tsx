@@ -10,7 +10,7 @@ import { EmptyState } from "./emptyState";
  * action while a recoverable one does (Principle 5) — the difference between
  * offering a retry and pretending one exists.
  */
-function root(): HTMLElement {
+function getRoot(): HTMLElement {
   const element = document.querySelector<HTMLElement>("div.empty-state");
   if (element === null) throw new Error("empty-state root not rendered");
   return element;
@@ -29,8 +29,8 @@ describe("EmptyState", () => {
   it("omits the description and action containers when not supplied", () => {
     render(<EmptyState title="No robots match these filters" />);
 
-    expect(root().querySelector(".empty-state__description")).toBeNull();
-    expect(root().querySelector(".empty-state__action")).toBeNull();
+    expect(getRoot().querySelector(".empty-state__description")).toBeNull();
+    expect(getRoot().querySelector(".empty-state__action")).toBeNull();
   });
 
   it("renders the description as a paragraph after the heading in DOM order", () => {
@@ -70,7 +70,7 @@ describe("EmptyState", () => {
   it("appends a caller class without displacing its own", () => {
     render(<EmptyState title="No robots" className="u-mt-3" />);
 
-    expect(root().className).toBe("empty-state u-mt-3");
+    expect(getRoot().className).toBe("empty-state u-mt-3");
   });
 
   it("does not move focus on render, so a filter keystroke cannot steal it", () => {

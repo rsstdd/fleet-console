@@ -46,7 +46,7 @@ function toCoordinates(
 }
 
 /** Formats a percentage for the textual summary; fractions keep one decimal. */
-function percent(value: number): string {
+function formatPercent(value: number): string {
   return `${Number.isInteger(value) ? String(value) : value.toFixed(1)}%`;
 }
 
@@ -71,13 +71,13 @@ function Sparkline({ history }: { readonly history: RobotBatteryHistory }): Reac
         for, and text serves everyone the polyline serves.
       */}
       <Typography variant="body2">
-        Battery over the last {String(history.windowMs / 1_000)} seconds: minimum {percent(minimum)}
-        , maximum {percent(maximum)}, latest {percent(latest)} · {String(history.sourceSampleCount)}{" "}
-        samples retained.
+        Battery over the last {String(history.windowMs / 1_000)} seconds: minimum{" "}
+        {formatPercent(minimum)}, maximum {formatPercent(maximum)}, latest {formatPercent(latest)} ·{" "}
+        {String(history.sourceSampleCount)} samples retained.
       </Typography>
       <svg
         role="img"
-        aria-label={`Battery history for ${history.robotId}: ${percent(minimum)} to ${percent(maximum)} over the last ${String(history.windowMs / 1_000)} seconds`}
+        aria-label={`Battery history for ${history.robotId}: ${formatPercent(minimum)} to ${formatPercent(maximum)} over the last ${String(history.windowMs / 1_000)} seconds`}
         viewBox={`0 0 ${String(CHART_WIDTH)} ${String(CHART_HEIGHT)}`}
         preserveAspectRatio="none"
         style={{ width: "100%", height: "var(--sparkline-height)", display: "block" }}
@@ -138,8 +138,8 @@ function ReadyContent({ history }: { readonly history: RobotBatteryHistory }): R
   if (single !== undefined) {
     return (
       <Typography variant="body2">
-        One reading in the last {windowSeconds} seconds: {percent(single.batteryPercent)}. A trend
-        needs another reading.
+        One reading in the last {windowSeconds} seconds: {formatPercent(single.batteryPercent)}. A
+        trend needs another reading.
       </Typography>
     );
   }

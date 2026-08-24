@@ -80,7 +80,7 @@ export function StatusChipSection(): ReactNode {
       </Typography>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
         {STATUS_VARIANTS.map(({ variant, label }) => (
-          <StatusChip key={variant} variant={variant} label={label} current />
+          <StatusChip key={variant} variant={variant} label={label} isCurrent />
         ))}
       </Stack>
 
@@ -93,8 +93,8 @@ export function StatusChipSection(): ReactNode {
         wording.
       </Typography>
       <Stack direction="row" spacing={1} useFlexGap>
-        <StatusChip variant="active" label="Busy" current />
-        <StatusChip variant="active" label="Busy (last known)" current={false} />
+        <StatusChip variant="active" label="Busy" isCurrent />
+        <StatusChip variant="active" label="Busy (last known)" isCurrent={false} />
       </Stack>
 
       <Typography variant="h3" component="h3" sx={{ mt: 3 }}>
@@ -104,8 +104,8 @@ export function StatusChipSection(): ReactNode {
         The default medium size is for general surfaces; small is the table-density variant.
       </Typography>
       <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: "center" }}>
-        <StatusChip variant="neutral" label="Medium" current size="medium" />
-        <StatusChip variant="neutral" label="Small" current size="small" />
+        <StatusChip variant="neutral" label="Medium" isCurrent size="medium" />
+        <StatusChip variant="neutral" label="Small" isCurrent size="small" />
       </Stack>
     </Paper>
   );
@@ -132,7 +132,7 @@ export function FreshnessLabelSection(): ReactNode {
               <Typography variant="overline" sx={{ color: "text.disabled", minWidth: 112 }}>
                 {state}
               </Typography>
-              <FreshnessLabel state={state} asOf={asOf} compact />
+              <FreshnessLabel state={state} asOf={asOf} isCompact />
               <FreshnessLabel state={state} asOf={asOf} />
             </Stack>
           );
@@ -226,12 +226,12 @@ export function CombinedFleetTableSection(): ReactNode {
                   <StatusChip
                     variant={row.statusVariant}
                     label={row.statusLabel}
-                    current={row.freshness === "live"}
+                    isCurrent={row.freshness === "live"}
                     size="small"
                   />
                 </TableCell>
                 <TableCell>
-                  <FreshnessLabel state={row.freshness} asOf={row.asOf} compact />
+                  <FreshnessLabel state={row.freshness} asOf={row.asOf} isCompact />
                 </TableCell>
                 <TableCell align="right">
                   <Box

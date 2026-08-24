@@ -78,6 +78,10 @@ StrictMode + react-hooks + React Compiler lints. Violations = bugs.
 - Local first; lift only when needed.
 - Server state ≠ client state. Fetch at the hooks boundary or query layer — not `useEffect`.
 - Context only for low-churn. Split state vs actions; never inline context value objects.
+- Destructure `useState` as `[value, setValue]` with an exact setter name whenever the
+  value may transition. An identity-critical resource created lazily for the lifetime of
+  one mount may destructure `[value]` alone: exposing an unused setter would falsely imply
+  that replacing the resource is supported.
 
 ## UI, a11y, config
 

@@ -154,7 +154,7 @@ export function createFleetStore(schedule: NotifyScheduler = queueMicrotask): Fl
   let cachedState: FleetResourceState | null = null;
   let scheduled = false;
 
-  function changed(): void {
+  function scheduleStoreChangeNotification(): void {
     cachedRobots = null;
     cachedState = null;
     if (scheduled) return;
@@ -165,7 +165,7 @@ export function createFleetStore(schedule: NotifyScheduler = queueMicrotask): Fl
     });
   }
 
-  function currentData(): FleetData | null {
+  function getCurrentData(): FleetData | null {
     if (held === null) return null;
     cachedRobots ??= [...robots.values()];
     return {
@@ -177,7 +177,7 @@ export function createFleetStore(schedule: NotifyScheduler = queueMicrotask): Fl
   }
 
   function buildState(): FleetResourceState {
-    const data = currentData();
+    const data = getCurrentData();
     switch (phase.kind) {
       case "loading":
         return { kind: "loading" };
@@ -197,7 +197,7 @@ export function createFleetStore(schedule: NotifyScheduler = queueMicrotask): Fl
       // Refreshing only over settled rows: a retry after a first-load failure
       // has nothing to retain and shows loading, not a phantom refresh.
       phase = held === null ? { kind: "loading" } : { kind: "refreshing" };
-      changed();
+      scheduleStoreChangeNotification();
     },
 
     applySnapshot: (snapshot): void => {
@@ -212,7 +212,7 @@ export function createFleetStore(schedule: NotifyScheduler = queueMicrotask): Fl
       // restarts at null and the replayed frames re-establish it (ADR 31).
       held = { sites: snapshot.sites, capturedAt: snapshot.capturedAt, latestFrameAt: null };
       phase = { kind: "ready" };
-      changed();
+      scheduleStoreChangeNotification();
     },
 
     applyBatch: (batch): void => {
@@ -223,17 +223,17 @@ export function createFleetStore(schedule: NotifyScheduler = queueMicrotask): Fl
       if (held !== null) {
         held = { ...held, latestFrameAt: batch.sentAt };
       }
-      changed();
+      scheduleStoreChangeNotification();
     },
 
     recoverableFailure: (failure, retry): void => {
       phase = { kind: "recoverable-error", failure, retry };
-      changed();
+      scheduleStoreChangeNotification();
     },
 
     terminalFailure: (issues): void => {
       phase = { kind: "terminal-error", issues };
-      changed();
+      scheduleStoreChangeNotification();
     },
 
     getState: (): FleetResourceState => {

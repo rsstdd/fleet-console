@@ -14,13 +14,16 @@ import { createFleetStore, type FleetData } from "./fleetStore";
  */
 describe("createFleetStore", () => {
   /** Runs scheduled notifications immediately, so a test needs no frame. */
-  const immediate = (notify: () => void): void => {
+  const scheduleImmediately = (notify: () => void): void => {
     notify();
   };
 
-  const noRetry = (): void => {};
+  const handleNoRetry = (): void => {};
 
-  function envelope(robotId: string, over: Partial<CanonicalEnvelope> = {}): CanonicalEnvelope {
+  function buildEnvelope(
+    robotId: string,
+    over: Partial<CanonicalEnvelope> = {},
+  ): CanonicalEnvelope {
     return {
       schemaVersion: SCHEMA_VERSION,
       robotId,
@@ -44,7 +47,7 @@ describe("createFleetStore", () => {
     };
   }
 
-  function snapshot(
+  function buildSnapshot(
     robots: FleetSnapshot["robots"],
     over: Partial<FleetSnapshot> = {},
   ): FleetSnapshot {
@@ -59,7 +62,7 @@ describe("createFleetStore", () => {
     };
   }
 
-  function batch(robots: CanonicalEnvelope[], sentAt = 1_755_600_000_500): TelemetryBatch {
+  function buildBatch(robots: CanonicalEnvelope[], sentAt = 1_755_600_000_500): TelemetryBatch {
     return {
       schemaVersion: SCHEMA_VERSION,
       serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
@@ -70,7 +73,7 @@ describe("createFleetStore", () => {
   }
 
   /** Narrows to the data-bearing states, failing loudly on the rest. */
-  function dataOf(store: ReturnType<typeof createFleetStore>): FleetData {
+  function getFleetData(store: ReturnType<typeof createFleetStore>): FleetData {
     const state = store.getState();
     if (!("data" in state) || state.data === null) {
       throw new Error(`expected data-bearing state, got ${state.kind}`);
@@ -79,15 +82,15 @@ describe("createFleetStore", () => {
   }
 
   it("starts loading: nothing is known until a snapshot is applied", () => {
-    expect(createFleetStore(immediate).getState()).toStrictEqual({ kind: "loading" });
+    expect(createFleetStore(scheduleImmediately).getState()).toStrictEqual({ kind: "loading" });
   });
 
   it("seeds both populations from a snapshot and becomes ready", () => {
-    const store = createFleetStore(immediate);
+    const store = createFleetStore(scheduleImmediately);
 
     store.applySnapshot(
-      snapshot([
-        envelope("rbt-1"),
+      buildSnapshot([
+        buildEnvelope("rbt-1"),
         {
           schemaVersion: SCHEMA_VERSION,
           robotId: "rbt-2",
@@ -99,7 +102,7 @@ describe("createFleetStore", () => {
     );
 
     expect(store.getState().kind).toBe("ready");
-    expect(dataOf(store).robots.map((robot) => robot.id)).toStrictEqual(["rbt-1", "rbt-2"]);
+    expect(getFleetData(store).robots.map((robot) => robot.id)).toStrictEqual(["rbt-1", "rbt-2"]);
     // A registered robot has no health rather than a fabricated `nominal` (Principle 4).
     expect(store.getRobot("rbt-2")?.health).toBeNull();
   });
@@ -107,37 +110,37 @@ describe("createFleetStore", () => {
   it("carries the snapshot's site directory and capture instant, never inventing either", () => {
     // Provenance is decoded, not derived: the plate renders what the server
     // stamped (Principle 4, ADR 34).
-    const store = createFleetStore(immediate);
+    const store = createFleetStore(scheduleImmediately);
 
-    store.applySnapshot(snapshot([envelope("rbt-1")], { capturedAt: 1_755_601_234_000 }));
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")], { capturedAt: 1_755_601_234_000 }));
 
-    const data = dataOf(store);
+    const data = getFleetData(store);
     expect(data.sites).toStrictEqual([{ siteId: "site-a", label: "Site A" }]);
     expect(data.capturedAt).toBe(1_755_601_234_000);
     expect(data.latestFrameAt).toBeNull();
   });
 
   it("tracks the latest applied frame's sentAt as stream provenance", () => {
-    const store = createFleetStore(immediate);
-    store.applySnapshot(snapshot([envelope("rbt-1")]));
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")]));
 
-    store.applyBatch(batch([envelope("rbt-1")], 1_755_600_000_900));
+    store.applyBatch(buildBatch([buildEnvelope("rbt-1")], 1_755_600_000_900));
 
-    expect(dataOf(store).latestFrameAt).toBe(1_755_600_000_900);
+    expect(getFleetData(store).latestFrameAt).toBe(1_755_600_000_900);
   });
 
   it("resets stream provenance on a new snapshot, which is a new epoch", () => {
-    const store = createFleetStore(immediate);
-    store.applySnapshot(snapshot([envelope("rbt-1")]));
-    store.applyBatch(batch([envelope("rbt-1")]));
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")]));
+    store.applyBatch(buildBatch([buildEnvelope("rbt-1")]));
 
-    store.applySnapshot(snapshot([envelope("rbt-1")]));
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")]));
 
-    expect(dataOf(store).latestFrameAt).toBeNull();
+    expect(getFleetData(store).latestFrameAt).toBeNull();
   });
 
   it("shows loading, not refreshing, when an attempt starts with nothing retained", () => {
-    const store = createFleetStore(immediate);
+    const store = createFleetStore(scheduleImmediately);
 
     store.snapshotStart();
 
@@ -145,22 +148,22 @@ describe("createFleetStore", () => {
   });
 
   it("shows refreshing over retained rows when an attempt starts after a snapshot", () => {
-    const store = createFleetStore(immediate);
-    store.applySnapshot(snapshot([envelope("rbt-1")]));
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")]));
 
     store.snapshotStart();
 
     const state = store.getState();
     expect(state.kind).toBe("refreshing");
-    expect(dataOf(store).robots).toHaveLength(1);
+    expect(getFleetData(store).robots).toHaveLength(1);
   });
 
   it("retains rows through a recoverable failure and exposes the given retry", () => {
     // Last-known rows beat no rows; only the recoverable state offers retry
     // (Principle 4, Principle 5).
     let retried = 0;
-    const store = createFleetStore(immediate);
-    store.applySnapshot(snapshot([envelope("rbt-1")]));
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")]));
 
     store.recoverableFailure({ cause: "handshake-exhausted" }, () => {
       retried += 1;
@@ -175,10 +178,10 @@ describe("createFleetStore", () => {
   });
 
   it("reports a first-load recoverable failure with nothing retained", () => {
-    const store = createFleetStore(immediate);
+    const store = createFleetStore(scheduleImmediately);
     store.snapshotStart();
 
-    store.recoverableFailure({ cause: "handshake-exhausted" }, noRetry);
+    store.recoverableFailure({ cause: "handshake-exhausted" }, handleNoRetry);
 
     const state = store.getState();
     if (state.kind !== "recoverable-error") throw new Error(`unexpected ${state.kind}`);
@@ -188,8 +191,8 @@ describe("createFleetStore", () => {
   it("retains rows through a terminal contract failure and carries the issues", () => {
     // Terminal by decision: retrying returns the same bytes, so no retry is
     // exposed, and the issues carry path and code only (ADR 20).
-    const store = createFleetStore(immediate);
-    store.applySnapshot(snapshot([envelope("rbt-1")]));
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")]));
 
     store.terminalFailure([
       { path: "robots.0.siteId", code: "custom", message: "robot references undefined site" },
@@ -205,11 +208,11 @@ describe("createFleetStore", () => {
   });
 
   it("recovers from a failure state when a later snapshot settles", () => {
-    const store = createFleetStore(immediate);
-    store.recoverableFailure({ cause: "handshake-exhausted" }, noRetry);
+    const store = createFleetStore(scheduleImmediately);
+    store.recoverableFailure({ cause: "handshake-exhausted" }, handleNoRetry);
 
     store.snapshotStart();
-    store.applySnapshot(snapshot([envelope("rbt-1")]));
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")]));
 
     expect(store.getState().kind).toBe("ready");
   });
@@ -217,14 +220,14 @@ describe("createFleetStore", () => {
   it("replaces a robot whole rather than merging fields into it", () => {
     // ADR 18 keeps granularity at the robot level; a merge would make partial application
     // a possible state and this store a merge engine.
-    const store = createFleetStore(immediate);
-    store.applySnapshot(snapshot([envelope("rbt-1")]));
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")]));
 
     store.applyBatch(
-      batch([
-        envelope("rbt-1", {
+      buildBatch([
+        buildEnvelope("rbt-1", {
           freshness: "stale",
-          core: { ...envelope("rbt-1").core, batteryPercent: 11 },
+          core: { ...buildEnvelope("rbt-1").core, batteryPercent: 11 },
         }),
       ]),
     );
@@ -237,35 +240,35 @@ describe("createFleetStore", () => {
   it("keeps an unrelated robot's identity across a frame, for per-id subscribers", () => {
     // `useFleetRobot` bails out on identity; a frame naming rbt-2 must not
     // produce a new rbt-1 object or robot detail re-renders for every delta.
-    const store = createFleetStore(immediate);
-    store.applySnapshot(snapshot([envelope("rbt-1"), envelope("rbt-2")]));
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1"), buildEnvelope("rbt-2")]));
     const before = store.getRobot("rbt-1");
 
-    store.applyBatch(batch([envelope("rbt-2", { freshness: "stale" })]));
+    store.applyBatch(buildBatch([buildEnvelope("rbt-2", { freshness: "stale" })]));
 
     expect(store.getRobot("rbt-1")).toBe(before);
   });
 
   it("drops a robot the snapshot no longer carries", () => {
     // A robot that left the manifest must not survive as a stale row.
-    const store = createFleetStore(immediate);
-    store.applySnapshot(snapshot([envelope("rbt-1"), envelope("rbt-2")]));
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1"), buildEnvelope("rbt-2")]));
 
-    store.applySnapshot(snapshot([envelope("rbt-2")]));
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-2")]));
 
-    expect(dataOf(store).robots.map((robot) => robot.id)).toStrictEqual(["rbt-2"]);
+    expect(getFleetData(store).robots.map((robot) => robot.id)).toStrictEqual(["rbt-2"]);
   });
 
   it("returns the same state object until something changes", () => {
     // useSyncExternalStore compares by identity, so a fresh object every call is an
     // infinite render loop rather than a performance note.
-    const store = createFleetStore(immediate);
-    store.applySnapshot(snapshot([envelope("rbt-1")]));
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")]));
 
     const first = store.getState();
     expect(store.getState()).toBe(first);
 
-    store.applyBatch(batch([envelope("rbt-1", { freshness: "stale" })]));
+    store.applyBatch(buildBatch([buildEnvelope("rbt-1", { freshness: "stale" })]));
     expect(store.getState()).not.toBe(first);
   });
 
@@ -279,8 +282,8 @@ describe("createFleetStore", () => {
       woken += 1;
     });
 
-    store.applyBatch(batch([envelope("rbt-1")]));
-    store.applyBatch(batch([envelope("rbt-2")]));
+    store.applyBatch(buildBatch([buildEnvelope("rbt-1")]));
+    store.applyBatch(buildBatch([buildEnvelope("rbt-2")]));
     expect(woken).toBe(0);
     expect(store.getRobot("rbt-1")).toBeDefined();
     expect(store.getRobot("rbt-2")).toBeDefined();
@@ -290,26 +293,26 @@ describe("createFleetStore", () => {
   });
 
   it("ignores an empty frame rather than waking every subscriber for nothing", () => {
-    const store = createFleetStore(immediate);
+    const store = createFleetStore(scheduleImmediately);
     let woken = 0;
     store.subscribe(() => {
       woken += 1;
     });
 
-    store.applyBatch(batch([]));
+    store.applyBatch(buildBatch([]));
 
     expect(woken).toBe(0);
   });
 
   it("stops notifying an unsubscribed listener", () => {
-    const store = createFleetStore(immediate);
+    const store = createFleetStore(scheduleImmediately);
     let woken = 0;
     const unsubscribe = store.subscribe(() => {
       woken += 1;
     });
 
     unsubscribe();
-    store.applyBatch(batch([envelope("rbt-1")]));
+    store.applyBatch(buildBatch([buildEnvelope("rbt-1")]));
 
     expect(woken).toBe(0);
   });

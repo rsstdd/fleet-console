@@ -16,18 +16,18 @@ import type { FreshnessSummary } from "@/utils/robotSelectors";
  * announcement of the same event is noise, not access.
  */
 export function FleetSummary({
-  streamConnected,
+  isStreamConnected,
   summary,
   total,
 }: {
-  readonly streamConnected: boolean;
+  readonly isStreamConnected: boolean;
   readonly summary: FreshnessSummary;
   readonly total: number;
 }): ReactNode {
   return (
     <Box component="section" aria-labelledby="fleet-summary-heading" sx={{ mb: 3 }}>
       <Typography id="fleet-summary-heading" variant="h2" component="h2" sx={{ mb: 2 }}>
-        {streamConnected ? "Fleet reporting status" : "Fleet reporting status · last known"}
+        {isStreamConnected ? "Fleet reporting status" : "Fleet reporting status · last known"}
       </Typography>
       <Stack direction="row" spacing={2} useFlexGap sx={{ flexWrap: "wrap" }}>
         <Stat label="Live" value={summary.live} hint={`of ${String(total)}`} />

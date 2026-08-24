@@ -18,7 +18,7 @@ import {
  * value outside the identifier space — null in `Filters` — rather than a
  * string a real fleet could contain.
  */
-function robot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
+function buildRobot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
   return {
     vendor: "A",
     siteId: "zone-a",
@@ -38,32 +38,32 @@ function robot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
 
 describe("matchesFilters", () => {
   it("treats a site literally named 'all' as an ordinary filter value, not the sentinel", () => {
-    const elsewhere = robot({ id: "R-118", siteId: "zone-a" });
+    const elsewhere = buildRobot({ id: "R-118", siteId: "zone-a" });
 
     expect(matchesFilters(elsewhere, { ...EMPTY_FILTERS, site: "all" })).toBe(false);
   });
 
   it("matches robots at a site literally named 'all' when that site is selected", () => {
-    const atAll = robot({ id: "R-204", siteId: "all" });
+    const atAll = buildRobot({ id: "R-204", siteId: "all" });
 
     expect(matchesFilters(atAll, { ...EMPTY_FILTERS, site: "all" })).toBe(true);
   });
 
   it("treats a vendor literally named 'all' as an ordinary filter value, not the sentinel", () => {
-    const otherVendor = robot({ id: "R-118", vendor: "A" });
+    const otherVendor = buildRobot({ id: "R-118", vendor: "A" });
 
     expect(matchesFilters(otherVendor, { ...EMPTY_FILTERS, vendor: "all" })).toBe(false);
   });
 
   it("matches robots of a vendor literally named 'all' when that vendor is selected", () => {
-    const vendorAll = robot({ id: "R-204", vendor: "all" });
+    const vendorAll = buildRobot({ id: "R-204", vendor: "all" });
 
     expect(matchesFilters(vendorAll, { ...EMPTY_FILTERS, vendor: "all" })).toBe(true);
   });
 
   it("passes every robot when no dimension is filtered", () => {
     expect(
-      matchesFilters(robot({ id: "R-118", siteId: "all", vendor: "all" }), EMPTY_FILTERS),
+      matchesFilters(buildRobot({ id: "R-118", siteId: "all", vendor: "all" }), EMPTY_FILTERS),
     ).toBe(true);
   });
 });

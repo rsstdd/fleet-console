@@ -17,7 +17,7 @@ interface PendingLoad {
 }
 
 /** A loader whose every call is captured for the test to settle in any order. */
-function controllableLoader(): {
+function createControllableLoader(): {
   calls: PendingLoad[];
   load: (request: FetchLike, context: FetchedResourceContext) => Promise<TestState>;
 } {
@@ -38,7 +38,7 @@ const PORTS = {
 
 describe("useFetchedResource", () => {
   it("derives loading until the load for the current id settles, then returns its value", async () => {
-    const { calls, load } = controllableLoader();
+    const { calls, load } = createControllableLoader();
     const { result } = renderHook(() => useFetchedResource("R-1", PORTS, load));
 
     expect(result.current).toEqual({ status: "loading" });
@@ -50,7 +50,7 @@ describe("useFetchedResource", () => {
   });
 
   it("hands the loader the injected fetch and the id it is loading for", () => {
-    const { calls, load } = controllableLoader();
+    const { calls, load } = createControllableLoader();
     renderHook(() => useFetchedResource("R-2", PORTS, load));
 
     expect(calls[0]?.request).toBe(PORTS.fetchLike);
@@ -59,7 +59,7 @@ describe("useFetchedResource", () => {
   });
 
   it("discards a stale in-flight result when the id changes", async () => {
-    const { calls, load } = controllableLoader();
+    const { calls, load } = createControllableLoader();
     const { result, rerender } = renderHook(
       ({ id }: { id: string }) => useFetchedResource(id, PORTS, load),
       { initialProps: { id: "R-1" } },
@@ -82,7 +82,7 @@ describe("useFetchedResource", () => {
   });
 
   it("re-runs the loader for the same id when the loader's retry is invoked", async () => {
-    const { calls, load } = controllableLoader();
+    const { calls, load } = createControllableLoader();
     const { result } = renderHook(() => useFetchedResource("R-1", PORTS, load));
 
     calls[0]?.resolve({ status: "ready", label: "first attempt" });

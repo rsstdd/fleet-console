@@ -10,11 +10,11 @@ import { PersonaToggle } from "./personaToggle";
  * have a value, so MUI's null must not reach the caller) and keyboard
  * operability with focus retained across a persona change (Principle 6).
  */
-function group(): HTMLElement {
+function getToggleGroup(): HTMLElement {
   return screen.getByRole("group", { name: "View persona" });
 }
 
-function button(name: "Operator" | "Technician"): HTMLElement {
+function getPersonaButton(name: "Operator" | "Technician"): HTMLElement {
   return screen.getByRole("button", { name });
 }
 
@@ -22,16 +22,16 @@ describe("PersonaToggle", () => {
   it("names the group and exposes exactly one pressed option", () => {
     render(<PersonaToggle value="operator" onChange={vi.fn()} />);
 
-    expect(group()).toBeInTheDocument();
-    expect(button("Operator")).toHaveAttribute("aria-pressed", "true");
-    expect(button("Technician")).toHaveAttribute("aria-pressed", "false");
+    expect(getToggleGroup()).toBeInTheDocument();
+    expect(getPersonaButton("Operator")).toHaveAttribute("aria-pressed", "true");
+    expect(getPersonaButton("Technician")).toHaveAttribute("aria-pressed", "false");
   });
 
   it("reports the newly selected persona", async () => {
     const onChange = vi.fn();
     render(<PersonaToggle value="operator" onChange={onChange} />);
 
-    await userEvent.click(button("Technician"));
+    await userEvent.click(getPersonaButton("Technician"));
 
     expect(onChange).toHaveBeenCalledExactlyOnceWith("technician");
   });
@@ -40,7 +40,7 @@ describe("PersonaToggle", () => {
     const onChange = vi.fn();
     render(<PersonaToggle value="operator" onChange={onChange} />);
 
-    await userEvent.click(button("Operator"));
+    await userEvent.click(getPersonaButton("Operator"));
 
     expect(onChange).not.toHaveBeenCalled();
   });
@@ -52,29 +52,29 @@ describe("PersonaToggle", () => {
     // Roving tabindex: one Tab reaches the group at the selected button, arrows
     // move within it, and a further Tab leaves the group entirely (spec 08 section 8).
     await userEvent.tab();
-    expect(button("Operator")).toHaveFocus();
+    expect(getPersonaButton("Operator")).toHaveFocus();
 
     await userEvent.keyboard("{Enter}");
     expect(onChange).not.toHaveBeenCalled();
 
     await userEvent.keyboard("{ArrowRight}");
-    expect(button("Technician")).toHaveFocus();
+    expect(getPersonaButton("Technician")).toHaveFocus();
 
     await userEvent.keyboard("{Enter}");
     expect(onChange).toHaveBeenCalledExactlyOnceWith("technician");
     // Persona change reveals sections after the toggle, so focus must stay put.
-    expect(button("Technician")).toHaveFocus();
+    expect(getPersonaButton("Technician")).toHaveFocus();
 
     await userEvent.tab();
-    expect(button("Operator")).not.toHaveFocus();
-    expect(button("Technician")).not.toHaveFocus();
+    expect(getPersonaButton("Operator")).not.toHaveFocus();
+    expect(getPersonaButton("Technician")).not.toHaveFocus();
   });
 
   it("forwards disabled to every button in the rendered group", () => {
-    render(<PersonaToggle value="operator" onChange={vi.fn()} disabled />);
+    render(<PersonaToggle value="operator" onChange={vi.fn()} isDisabled />);
 
-    expect(button("Operator")).toBeDisabled();
-    expect(button("Technician")).toBeDisabled();
+    expect(getPersonaButton("Operator")).toBeDisabled();
+    expect(getPersonaButton("Technician")).toBeDisabled();
   });
 
   it("appends the caller class to the group", () => {
@@ -82,6 +82,6 @@ describe("PersonaToggle", () => {
       <PersonaToggle value="technician" onChange={vi.fn()} className="detail-header__toggle" />,
     );
 
-    expect(group()).toHaveClass("detail-header__toggle");
+    expect(getToggleGroup()).toHaveClass("detail-header__toggle");
   });
 });

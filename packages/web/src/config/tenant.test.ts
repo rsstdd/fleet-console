@@ -10,7 +10,7 @@ import {
 } from "./tenant";
 
 /** A profile that is valid, used as the base for the rejection cases below. */
-function validProfile(): Record<string, unknown> {
+function buildValidProfile(): Record<string, unknown> {
   return {
     id: "tenant-a",
     wordmark: "Fleet Console",
@@ -22,11 +22,11 @@ function validProfile(): Record<string, unknown> {
 
 describe("parseTenantConfig", () => {
   it("accepts a complete profile", () => {
-    expect(parseTenantConfig(validProfile()).id).toBe("tenant-a");
+    expect(parseTenantConfig(buildValidProfile()).id).toBe("tenant-a");
   });
 
   it("rejects an unknown tenant id", () => {
-    expect(() => parseTenantConfig({ ...validProfile(), id: "tenant-z" })).toThrow(
+    expect(() => parseTenantConfig({ ...buildValidProfile(), id: "tenant-z" })).toThrow(
       TenantConfigError,
     );
   });
@@ -34,26 +34,30 @@ describe("parseTenantConfig", () => {
   it("rejects a theme with no palette behind it", () => {
     // The theme union and the palette are one declaration, so a profile can
     // never name a colour scheme that does not exist.
-    expect(() => parseTenantConfig({ ...validProfile(), theme: "solarized" })).toThrow(
+    expect(() => parseTenantConfig({ ...buildValidProfile(), theme: "solarized" })).toThrow(
       TenantConfigError,
     );
   });
 
   it("rejects an empty wordmark rather than rendering a blank brand", () => {
-    expect(() => parseTenantConfig({ ...validProfile(), wordmark: "" })).toThrow(TenantConfigError);
+    expect(() => parseTenantConfig({ ...buildValidProfile(), wordmark: "" })).toThrow(
+      TenantConfigError,
+    );
   });
 
   it("rejects a missing flag rather than defaulting it", () => {
     // Principle 13: a flag nobody deployed must not be invented here. A panel
     // silently appearing because a flag defaulted to true is exactly the
     // tenant-behaviour drift this validation exists to catch.
-    expect(() => parseTenantConfig({ ...validProfile(), flags: {} })).toThrow(TenantConfigError);
+    expect(() => parseTenantConfig({ ...buildValidProfile(), flags: {} })).toThrow(
+      TenantConfigError,
+    );
   });
 
   it("rejects an unrecognized flag, so a renamed flag fails loudly", () => {
     expect(() =>
       parseTenantConfig({
-        ...validProfile(),
+        ...buildValidProfile(),
         flags: { lidarHealthPanel: true, lidarPanel: false },
       }),
     ).toThrow(TenantConfigError);
@@ -62,7 +66,7 @@ describe("parseTenantConfig", () => {
   it("names the offending field in the failure", () => {
     // A build that fails on tenant configuration should say which field, the
     // way the server's config loader does.
-    expect(() => parseTenantConfig({ ...validProfile(), wordmark: 42 })).toThrow(/wordmark/);
+    expect(() => parseTenantConfig({ ...buildValidProfile(), wordmark: 42 })).toThrow(/wordmark/);
   });
 
   it("rejects a missing endpoints block rather than assuming an origin", () => {
@@ -82,7 +86,7 @@ describe("parseTenantConfig", () => {
     // origin than the API. The configuration has to be able to express it, and the
     // server's FLEET_ALLOWED_ORIGINS is what must then name this origin.
     const parsed = parseTenantConfig({
-      ...validProfile(),
+      ...buildValidProfile(),
       endpoints: {
         apiBaseUrl: "https://api.example.com/api",
         streamUrl: "wss://api.example.com/ws",
@@ -97,7 +101,7 @@ describe("parseTenantConfig", () => {
     // would not be visible on inspection.
     expect(() =>
       parseTenantConfig({
-        ...validProfile(),
+        ...buildValidProfile(),
         endpoints: { apiBaseUrl: "//api.example.com/api", streamUrl: "/ws" },
       }),
     ).toThrow(TenantConfigError);
@@ -106,7 +110,7 @@ describe("parseTenantConfig", () => {
   it("rejects a bare host and an unusable scheme", () => {
     for (const apiBaseUrl of ["api.example.com", "ftp://api.example.com", ""]) {
       expect(() =>
-        parseTenantConfig({ ...validProfile(), endpoints: { apiBaseUrl, streamUrl: "/ws" } }),
+        parseTenantConfig({ ...buildValidProfile(), endpoints: { apiBaseUrl, streamUrl: "/ws" } }),
       ).toThrow(TenantConfigError);
     }
   });
@@ -114,7 +118,7 @@ describe("parseTenantConfig", () => {
   it("rejects an unrecognized endpoint key, so a renamed one fails loudly", () => {
     expect(() =>
       parseTenantConfig({
-        ...validProfile(),
+        ...buildValidProfile(),
         endpoints: { apiBaseUrl: "/api", streamUrl: "/ws", wsUrl: "/ws" },
       }),
     ).toThrow(TenantConfigError);
@@ -159,12 +163,12 @@ describe("TENANT_PROFILES", () => {
     // The design system makes those three the tenant axis. If a profile ever
     // differs from another in only one of them, the second profile has stopped
     // demonstrating white-label deployment.
-    const a = TENANT_PROFILES["tenant-a"];
-    const b = TENANT_PROFILES["tenant-b"];
+    const tenantAProfile = TENANT_PROFILES["tenant-a"];
+    const tenantBProfile = TENANT_PROFILES["tenant-b"];
 
-    expect(a.wordmark).not.toBe(b.wordmark);
-    expect(a.theme).not.toBe(b.theme);
-    expect(a.flags.lidarHealthPanel).not.toBe(b.flags.lidarHealthPanel);
+    expect(tenantAProfile.wordmark).not.toBe(tenantBProfile.wordmark);
+    expect(tenantAProfile.theme).not.toBe(tenantBProfile.theme);
+    expect(tenantAProfile.flags.lidarHealthPanel).not.toBe(tenantBProfile.flags.lidarHealthPanel);
   });
 
   it("gives tenant B the disabled panel the design system describes", () => {

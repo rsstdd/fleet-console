@@ -9,7 +9,7 @@ import { SectionLabel } from "./sectionLabel";
  * and must not be one, because robot detail's sections are navigable by heading and
  * a label that claimed the role would leave the real outline empty (Principle 6).
  */
-function label(): HTMLElement {
+function getLabel(): HTMLElement {
   const element = screen.getByText(/./, { selector: "div.section-label" });
   return element;
 }
@@ -18,24 +18,24 @@ describe("SectionLabel", () => {
   it("renders the index text in a div carrying the section-label class", () => {
     render(<SectionLabel>01 — Capabilities</SectionLabel>);
 
-    expect(label().tagName).toBe("DIV");
-    expect(label()).toHaveTextContent("01 — Capabilities");
-    expect(label().className).toBe("section-label");
+    expect(getLabel().tagName).toBe("DIV");
+    expect(getLabel()).toHaveTextContent("01 — Capabilities");
+    expect(getLabel().className).toBe("section-label");
   });
 
   it("appends a caller class without displacing its own", () => {
     render(<SectionLabel className="u-mt-3">02 — Diagnostics</SectionLabel>);
 
-    expect(label().className).toBe("section-label u-mt-3");
+    expect(getLabel().className).toBe("section-label u-mt-3");
   });
 
   it("is not a heading, and does not claim the role by any other means", () => {
     render(<SectionLabel>03 — Raw payload</SectionLabel>);
 
     expect(screen.queryByRole("heading")).toBeNull();
-    expect(label()).not.toHaveAttribute("role");
-    expect(label()).not.toHaveAttribute("aria-label");
-    expect(label()).not.toHaveAttribute("aria-labelledby");
+    expect(getLabel()).not.toHaveAttribute("role");
+    expect(getLabel()).not.toHaveAttribute("aria-label");
+    expect(getLabel()).not.toHaveAttribute("aria-labelledby");
   });
 
   it("leaves the paired heading as the only entry in the document outline", () => {
@@ -54,6 +54,6 @@ describe("SectionLabel", () => {
   it("adds no elements of its own, so the tick stays out of the accessibility tree", () => {
     render(<SectionLabel>04 — Summary</SectionLabel>);
 
-    expect(label().children).toHaveLength(0);
+    expect(getLabel().children).toHaveLength(0);
   });
 });

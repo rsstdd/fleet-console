@@ -138,7 +138,7 @@ export function nextStreamState(state: StreamState, event: StreamEvent): StreamS
  * `disconnected` rather than to anything optimistic — the same reasoning that made
  * `disconnected` the context default.
  */
-export function publishedConnectionState(state: StreamState): StreamConnectionState {
+export function selectPublishedConnectionState(state: StreamState): StreamConnectionState {
   switch (state.phase) {
     case "connected":
       return "connected";
@@ -178,7 +178,7 @@ export const RETRY_BASE_DELAY_MS = 1_000;
  *
  * `random` is injected so the bounds are a test rather than a distribution argument.
  */
-export function retryDelayMs(failedAttempts: number, random: () => number): number {
+export function computeRetryDelayMs(failedAttempts: number, random: () => number): number {
   const exponent = Math.max(failedAttempts, 1) - 1;
   // Beyond 2^15 the cap exceeds the ceiling forever; clamping the exponent keeps the
   // arithmetic exact instead of drifting through Infinity on a long outage.

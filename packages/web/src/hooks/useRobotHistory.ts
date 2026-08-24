@@ -39,7 +39,7 @@ function describeIssues(issues: readonly ContractIssue[]): string {
 }
 
 /** Maps one fetch failure onto the state the section renders for it. */
-function failureState(failure: BatteryHistoryFailure, retry: () => void): RobotHistoryState {
+function buildFailureState(failure: BatteryHistoryFailure, retry: () => void): RobotHistoryState {
   return failure.kind === "unreachable"
     ? { status: "error", recoverable: true, retry }
     : { status: "error", recoverable: false, message: describeIssues(failure.issues) };
@@ -56,7 +56,7 @@ async function loadHistory(
   );
   return outcome.ok
     ? { status: "ready", history: outcome.history }
-    : failureState(outcome.failure, retry);
+    : buildFailureState(outcome.failure, retry);
 }
 
 /**

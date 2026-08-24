@@ -23,6 +23,8 @@ export function PersonaToggleSection({
   readonly persona: Persona;
   readonly onPersonaChange: (next: Persona) => void;
 }): ReactNode {
+  const handleDisabledPersonaChange = (): void => {};
+
   return (
     <Paper sx={{ p: 3 }}>
       <SectionLabel>04 — PersonaToggle</SectionLabel>
@@ -63,7 +65,7 @@ export function PersonaToggleSection({
         <Typography variant="overline" sx={{ color: "text.disabled" }}>
           Disabled state
         </Typography>
-        <PersonaToggle value="operator" onChange={() => {}} disabled />
+        <PersonaToggle value="operator" onChange={handleDisabledPersonaChange} isDisabled />
       </Stack>
     </Paper>
   );
@@ -81,6 +83,13 @@ export function ConnectionBannerSection({
   readonly onStateChange: (next: ConnectionState) => void;
   readonly onRetry: () => void;
 }): ReactNode {
+  const handleConnectionStateChange = (
+    _event: unknown,
+    nextState: ConnectionState | null,
+  ): void => {
+    if (nextState !== null) onStateChange(nextState);
+  };
+
   return (
     <Paper sx={{ p: 3 }} data-testid="connection-banner-gallery">
       <SectionLabel>05 — ConnectionBanner</SectionLabel>
@@ -95,9 +104,7 @@ export function ConnectionBannerSection({
         exclusive
         size="small"
         value={connectionState}
-        onChange={(_, next: ConnectionState | null) => {
-          if (next !== null) onStateChange(next);
-        }}
+        onChange={handleConnectionStateChange}
         aria-label="Connection banner state"
         sx={{ mb: 2 }}
       >
@@ -118,12 +125,20 @@ export function ConnectionBannerSection({
 
 /** Section 07: the filtered empty state beside its title-only and with-description forms. */
 export function EmptyStateSection({
-  filtered,
+  isFiltered,
   onFilteredChange,
 }: {
-  readonly filtered: boolean;
-  readonly onFilteredChange: (next: boolean) => void;
+  readonly isFiltered: boolean;
+  readonly onFilteredChange: (nextIsFiltered: boolean) => void;
 }): ReactNode {
+  const handleApplyFilter = (): void => {
+    onFilteredChange(true);
+  };
+
+  const handleClearFilter = (): void => {
+    onFilteredChange(false);
+  };
+
   return (
     <Paper sx={{ p: 3 }}>
       <SectionLabel>07 — EmptyState</SectionLabel>
@@ -133,35 +148,25 @@ export function EmptyStateSection({
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         <Button
           size="small"
-          variant={filtered ? "contained" : "outlined"}
-          onClick={() => {
-            onFilteredChange(true);
-          }}
+          variant={isFiltered ? "contained" : "outlined"}
+          onClick={handleApplyFilter}
         >
           Apply an impossible filter
         </Button>
         <Button
           size="small"
-          variant={!filtered ? "contained" : "outlined"}
-          onClick={() => {
-            onFilteredChange(false);
-          }}
+          variant={!isFiltered ? "contained" : "outlined"}
+          onClick={handleClearFilter}
         >
           Clear
         </Button>
       </Stack>
-      {filtered ? (
+      {isFiltered ? (
         <EmptyState
           title="No robots match these filters"
           description="Clear filters or change site."
           action={
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={() => {
-                onFilteredChange(false);
-              }}
-            >
+            <Button size="small" variant="outlined" onClick={handleClearFilter}>
               Clear filters
             </Button>
           }

@@ -22,7 +22,7 @@ vi.mock("@/hooks/useFleetRobots", () => ({
 
 const { MapPage } = await import("./mapPage");
 
-function robot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
+function buildRobot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
   return {
     vendor: "A",
     siteId: "zone-a",
@@ -41,12 +41,18 @@ function robot(overrides: Partial<Robot> & Pick<Robot, "id">): Robot {
 }
 
 const FIXTURE: readonly Robot[] = [
-  robot({ id: "R-118", position: { frame: "zone-a", x: -20, y: 10 }, status: "busy" }),
-  robot({ id: "R-204", position: { frame: "zone-a", x: 15, y: -5 }, freshness: "stale" }),
+  buildRobot({ id: "R-118", position: { frame: "zone-a", x: -20, y: 10 }, status: "busy" }),
+  buildRobot({ id: "R-204", position: { frame: "zone-a", x: 15, y: -5 }, freshness: "stale" }),
   // Registered, never reported: no position, so it must be listed, not plotted.
-  robot({ id: "R-402", position: null, freshness: "unknown", status: "unknown", lastSeenAt: null }),
+  buildRobot({
+    id: "R-402",
+    position: null,
+    freshness: "unknown",
+    status: "unknown",
+    lastSeenAt: null,
+  }),
   // The other site's robot must never appear while zone-a is selected.
-  robot({ id: "R-301", siteId: "zone-b", position: { frame: "zone-b", x: 3, y: 4 } }),
+  buildRobot({ id: "R-301", siteId: "zone-b", position: { frame: "zone-b", x: 3, y: 4 } }),
 ];
 
 /** The directory the fixture robots reference; the only source of labels (ADR 34). */
@@ -59,13 +65,16 @@ const SITES = [
 const CAPTURED_AT = Date.UTC(2026, 7, 19, 10, 0, 5);
 
 /** Builds the retained data the ready and error states carry. */
-function fleetData(robots: readonly Robot[], over: Partial<FleetData> = {}): FleetData {
+function buildFleetData(robots: readonly Robot[], over: Partial<FleetData> = {}): FleetData {
   return { robots, sites: SITES, capturedAt: CAPTURED_AT, latestFrameAt: null, ...over };
 }
 
 /** Builds the ready state most cases render from. */
-function ready(robots: readonly Robot[], over: Partial<FleetData> = {}): FleetResourceState {
-  return { kind: "ready", data: fleetData(robots, over) };
+function buildReadyState(
+  robots: readonly Robot[],
+  over: Partial<FleetData> = {},
+): FleetResourceState {
+  return { kind: "ready", data: buildFleetData(robots, over) };
 }
 
 /**
@@ -83,7 +92,7 @@ function renderPage(connection: StreamConnectionState = "connected"): void {
 }
 
 /** The canvas image for the selected site, found by its computed name. */
-function canvas(): HTMLElement {
+function getMapCanvas(): HTMLElement {
   return screen.getByRole("img", { name: /Map of Zone A/ });
 }
 
@@ -100,7 +109,7 @@ describe("resource states (page spec 04 § 10)", () => {
   });
 
   it("renders the empty-roster state without an error", () => {
-    fleet.state = ready([]);
+    fleet.state = buildReadyState([]);
     renderPage();
 
     expect(screen.getByText("No robots registered")).toBeInTheDocument();
@@ -108,25 +117,25 @@ describe("resource states (page spec 04 § 10)", () => {
   });
 
   it("keeps last-known content under a quiet line while refreshing", () => {
-    fleet.state = { kind: "refreshing", data: fleetData(FIXTURE) };
+    fleet.state = { kind: "refreshing", data: buildFleetData(FIXTURE) };
     renderPage();
 
     expect(screen.getByText(/showing last-known positions/)).toBeInTheDocument();
-    expect(canvas()).toBeInTheDocument();
+    expect(getMapCanvas()).toBeInTheDocument();
   });
 
   it("offers the one Retry on a recoverable failure and keeps retained content", () => {
     const retry = vi.fn();
     fleet.state = {
       kind: "recoverable-error",
-      data: fleetData(FIXTURE),
+      data: buildFleetData(FIXTURE),
       failure: { cause: "handshake-exhausted" },
       retry,
     };
     renderPage();
 
     expect(screen.getByText(/could not be refreshed/)).toBeInTheDocument();
-    expect(canvas()).toBeInTheDocument();
+    expect(getMapCanvas()).toBeInTheDocument();
   });
 
   it("names issue paths and codes on a terminal failure and offers no retry", () => {
@@ -144,7 +153,7 @@ describe("resource states (page spec 04 § 10)", () => {
 
 describe("site facet (page spec 04 § 2)", () => {
   it("defaults to the first directory site and plots only its robots", () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Positions · Zone A" })).toBeInTheDocument();
@@ -159,7 +168,7 @@ describe("site facet (page spec 04 § 2)", () => {
   });
 
   it("switches the plotted and listed robots when a site is selected", async () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     const user = userEvent.setup();
     renderPage();
 
@@ -173,7 +182,7 @@ describe("site facet (page spec 04 § 2)", () => {
   });
 
   it("labels the toggle group from the visible Site label", () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     renderPage();
 
     expect(screen.getByRole("group", { name: "Site" })).toBeInTheDocument();
@@ -182,7 +191,7 @@ describe("site facet (page spec 04 § 2)", () => {
 
 describe("accounting for unpositioned robots (page spec 04 § 2)", () => {
   it("lists a never-reported robot under No position with an em dash", () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     renderPage();
 
     expect(screen.getByRole("heading", { name: "No position" })).toBeInTheDocument();
@@ -193,7 +202,9 @@ describe("accounting for unpositioned robots (page spec 04 § 2)", () => {
   });
 
   it("shows the empty-canvas message when no robot in the site has a position", () => {
-    fleet.state = ready([robot({ id: "R-402", position: null, freshness: "unknown" })]);
+    fleet.state = buildReadyState([
+      buildRobot({ id: "R-402", position: null, freshness: "unknown" }),
+    ]);
     renderPage();
 
     expect(screen.getByText("No positioned robots in Zone A.")).toBeInTheDocument();
@@ -203,7 +214,7 @@ describe("accounting for unpositioned robots (page spec 04 § 2)", () => {
 
 describe("stream suppression (page spec 04 § 2, ADR 3)", () => {
   it("qualifies the heading and suppresses list freshness while disconnected", () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     renderPage("disconnected");
 
     expect(
@@ -212,11 +223,11 @@ describe("stream suppression (page spec 04 § 2, ADR 3)", () => {
     const list = screen.getByRole("region", { name: "Robots" });
     expect(within(list).queryByText(/Live/)).toBeNull();
     // Retained markers stay drawn — hollow, which is a fill rule, not removal.
-    expect(canvas()).toBeInTheDocument();
+    expect(getMapCanvas()).toBeInTheDocument();
   });
 
   it("shows freshness labels and the unqualified heading while connected", () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Positions · Zone A" })).toBeInTheDocument();
@@ -227,10 +238,10 @@ describe("stream suppression (page spec 04 § 2, ADR 3)", () => {
 
 describe("marker encoding (page spec 04 § 2)", () => {
   it("fills live markers with their status token and hollows the rest", () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     renderPage();
 
-    const circles = [...canvas().querySelectorAll("circle")];
+    const circles = [...getMapCanvas().querySelectorAll("circle")];
     expect(circles).toHaveLength(2);
     const fills = circles.map((circle) => circle.getAttribute("fill"));
     // R-118 is live and busy → filled with its status token; R-204 is stale → hollow.
@@ -239,24 +250,26 @@ describe("marker encoding (page spec 04 § 2)", () => {
   });
 
   it("renders the derived-frame caption the wireframe carries", () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     renderPage();
 
     expect(screen.getByText("derived site frame · metres · no floor plan")).toBeInTheDocument();
   });
 
   it("hollows every marker while the stream is down", () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     renderPage("disconnected");
 
-    const fills = [...canvas().querySelectorAll("circle")].map((c) => c.getAttribute("fill"));
+    const fills = [...getMapCanvas().querySelectorAll("circle")].map((circle) =>
+      circle.getAttribute("fill"),
+    );
     expect(fills).toEqual(["none", "none"]);
   });
 });
 
 describe("canvas accessibility (page spec 04 § 9)", () => {
   it("names the image with the site and the positioned count", () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     renderPage();
 
     expect(
@@ -265,7 +278,7 @@ describe("canvas accessibility (page spec 04 § 9)", () => {
   });
 
   it("keeps the page to one h1 followed by section h2s", () => {
-    fleet.state = ready(FIXTURE);
+    fleet.state = buildReadyState(FIXTURE);
     renderPage();
 
     expect(screen.getByRole("heading", { level: 1, name: "Map" })).toBeInTheDocument();

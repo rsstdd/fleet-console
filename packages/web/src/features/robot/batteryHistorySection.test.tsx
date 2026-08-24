@@ -12,7 +12,7 @@ import { BatteryHistoryContent } from "./batteryHistorySection";
 const CAPTURED_AT = 120_000;
 
 /** A well-formed ready response with the given points. */
-function history(
+function buildHistory(
   points: RobotBatteryHistory["points"],
   overrides: Partial<RobotBatteryHistory> = {},
 ): RobotBatteryHistory {
@@ -29,7 +29,7 @@ function history(
   };
 }
 
-function ready(value: RobotBatteryHistory): RobotHistoryState {
+function buildReadyState(value: RobotBatteryHistory): RobotHistoryState {
   return { status: "ready", history: value };
 }
 
@@ -61,7 +61,7 @@ describe("BatteryHistoryContent", () => {
   });
 
   it("states that nothing was retained, which is not a chart of zero", () => {
-    render(<BatteryHistoryContent state={ready(history([]))} />);
+    render(<BatteryHistoryContent state={buildReadyState(buildHistory([]))} />);
 
     expect(screen.getByText("No telemetry retained in the last 60 seconds.")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
@@ -70,7 +70,9 @@ describe("BatteryHistoryContent", () => {
   it("states that samples arrived without battery values, a different absence", () => {
     render(
       <BatteryHistoryContent
-        state={ready(history([], { sourceSampleCount: 5, missingBatterySampleCount: 5 }))}
+        state={buildReadyState(
+          buildHistory([], { sourceSampleCount: 5, missingBatterySampleCount: 5 }),
+        )}
       />,
     );
 
@@ -83,7 +85,7 @@ describe("BatteryHistoryContent", () => {
   it("shows a single reading as a value and says a trend needs another", () => {
     render(
       <BatteryHistoryContent
-        state={ready(history([{ receivedAt: 100_000, batteryPercent: 42 }]))}
+        state={buildReadyState(buildHistory([{ receivedAt: 100_000, batteryPercent: 42 }]))}
       />,
     );
 
@@ -95,8 +97,8 @@ describe("BatteryHistoryContent", () => {
   it("plots points on the fixed axes: the window on x, 0–100% on y", () => {
     render(
       <BatteryHistoryContent
-        state={ready(
-          history([
+        state={buildReadyState(
+          buildHistory([
             { receivedAt: 60_000, batteryPercent: 0 },
             { receivedAt: 90_000, batteryPercent: 50 },
             { receivedAt: CAPTURED_AT, batteryPercent: 100 },
@@ -114,8 +116,8 @@ describe("BatteryHistoryContent", () => {
   it("summarizes the chart in text: extremes, latest, window, and sample count", () => {
     render(
       <BatteryHistoryContent
-        state={ready(
-          history(
+        state={buildReadyState(
+          buildHistory(
             [
               { receivedAt: 70_000, batteryPercent: 81 },
               { receivedAt: 90_000, batteryPercent: 64 },
@@ -137,8 +139,8 @@ describe("BatteryHistoryContent", () => {
   it("captions the chart with the clock the axis actually uses", () => {
     render(
       <BatteryHistoryContent
-        state={ready(
-          history([
+        state={buildReadyState(
+          buildHistory([
             { receivedAt: 70_000, batteryPercent: 80 },
             { receivedAt: 110_000, batteryPercent: 70 },
           ]),

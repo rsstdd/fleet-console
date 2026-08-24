@@ -1,6 +1,8 @@
 # 01 — StatusChip
 
 - **Status:** implementation-ready
+- **Revision 3:** the boolean prop is renamed from `current` to intention-revealing
+  `isCurrent`; rendering and freshness ownership are unchanged.
 - **Revision 2:** the variant union is replaced. The seven-value set (`online`, `offline`, `degraded`, `critical`, `charging`, `maintenance`, `info`) predates the canonical status enum and named states no adapter can produce; `maintenance` and `info` are removed, and the remainder is re-derived from `RobotStatus` plus health severity per ADR 1. Adds the required `current` prop, which carries the freshness qualification the design profile and wireframes both depend on. Token mapping updated to the `--status-*` role names; the `--online` / `--offline` family no longer exists.
 
 Implementation: `components/statusChip.tsx`
@@ -39,7 +41,7 @@ interface StatusChipProps {
    * "(last known)" wording in `label`; this component supplies only the
    * visual distinction.
    */
-  readonly current: boolean;
+  readonly isCurrent: boolean;
   readonly size?: "small" | "medium";
   readonly className?: string;
 }
@@ -58,7 +60,7 @@ Health severity outranks status where it is the more serious of the two, and `cr
   className={[
     "status",
     `status--${variant}`,
-    current ? null : "status--last-known",
+    isCurrent ? null : "status--last-known",
     sizeClass,
     className,
   ]
@@ -77,7 +79,7 @@ No `role`. The dot is supplied by `.status::before` in CSS and is therefore neve
 - Do not pass an empty label; omit the chip instead.
 - Do not use for freshness (use `FreshnessLabel`).
 - Do not use the tenant accent for any variant. The accent is identity and primary action only.
-- When `current` is false the caller's label carries the qualification, e.g. `"Busy (last known)"`. The chip does not append it.
+- When `isCurrent` is false the caller's label carries the qualification, e.g. `"Busy (last known)"`. The chip does not append it.
 
 ## 6. Design-system mapping
 
@@ -92,7 +94,7 @@ No `role`. The dot is supplied by `.status::before` in CSS and is therefore neve
 
 Padding `0.25rem 0.6rem`; gap between dot and label `0.4rem`.
 
-`current: false` drops the tint to transparent, sets text to `--ink-muted`, borders with `--line-strong`, and renders the dot hollow. A reader scanning the status column alone is therefore not misled about currency (Principle 4).
+`isCurrent: false` drops the tint to transparent, sets text to `--ink-muted`, borders with `--line-strong`, and renders the dot hollow. A reader scanning the status column alone is therefore not misled about currency (Principle 4).
 
 ## 7. Responsive behavior
 
@@ -113,21 +115,21 @@ Non-interactive. No hover or focus styles of its own. If placed inside a row lin
 
 ## 10. Failure behavior
 
-- Missing `label`, `variant`, or `current` → TypeScript error.
+- Missing `label`, `variant`, or `isCurrent` → TypeScript error.
 - Unknown `variant` → TypeScript error; no silent fallback to a default colour.
 - Empty string label → return `null` rather than render an unlabelled dot.
 
 ## 11. Verification
 
-| Concern  | Check                                                                                          |
-| -------- | ---------------------------------------------------------------------------------------------- |
-| API      | `label` and `current` required; variant union exhaustive against `RobotStatus` plus `degraded` |
-| Mapping  | `selectStatusPresentation` unit test in `utils/robotSelectors` (Principle 10)                  |
-| Currency | `current: false` renders the last-known treatment and the caller's qualified label             |
-| Tokens   | No raw hex in the component file (Principle 8)                                                 |
-| A11y     | Colour is not the sole indicator; dot absent from the accessibility tree (Principle 6)         |
-| Themes   | Visual check in both tenant profiles for all six variants                                      |
-| Lint     | jsx-a11y clean                                                                                 |
+| Concern  | Check                                                                                            |
+| -------- | ------------------------------------------------------------------------------------------------ |
+| API      | `label` and `isCurrent` required; variant union exhaustive against `RobotStatus` plus `degraded` |
+| Mapping  | `selectStatusPresentation` unit test in `utils/robotSelectors` (Principle 10)                    |
+| Currency | `isCurrent: false` renders the last-known treatment and the caller's qualified label             |
+| Tokens   | No raw hex in the component file (Principle 8)                                                   |
+| A11y     | Colour is not the sole indicator; dot absent from the accessibility tree (Principle 6)           |
+| Themes   | Visual check in both tenant profiles for all six variants                                        |
+| Lint     | jsx-a11y clean                                                                                   |
 
 ## 12. Change rules
 

@@ -42,7 +42,7 @@ import { RobotList } from "./robotList";
  */
 export function MapPage(): ReactNode {
   const resource = useFleetRobots();
-  const streamConnected = isStreamConnected(useConnectionState());
+  const isFleetStreamConnected = isStreamConnected(useConnectionState());
   const [selectedSite, setSelectedSite] = useState<string | null>(null);
 
   /*
@@ -65,7 +65,7 @@ export function MapPage(): ReactNode {
 
   const plottable = siteId === null ? [] : selectPlottableRobots(robots, siteId);
   const siteRobots = siteId === null ? [] : selectSiteRobots(robots, siteId);
-  const unpositioned = selectUnpositionedRobots(siteRobots);
+  const unpositionedRobots = selectUnpositionedRobots(siteRobots);
   const summary =
     siteId === null ? { positioned: 0, total: 0 } : selectPositionedSummary(robots, siteId);
 
@@ -82,7 +82,7 @@ export function MapPage(): ReactNode {
   const markers =
     merged === null || viewBox === null
       ? []
-      : plottable.map((robot) => selectMapMarker(robot, merged, viewBox, streamConnected));
+      : plottable.map((robot) => selectMapMarker(robot, merged, viewBox, isFleetStreamConnected));
 
   const handleSiteChange = (_event: unknown, value: unknown): void => {
     // A deselect (null) is ignored: the map always shows exactly one site.
@@ -192,7 +192,7 @@ export function MapPage(): ReactNode {
                 sx={{ flex: 2, minWidth: 0 }}
               >
                 <Typography id="map-positions-heading" variant="h2" component="h2" sx={{ mb: 1 }}>
-                  {streamConnected
+                  {isFleetStreamConnected
                     ? `Positions · ${siteLabel}`
                     : `Positions · ${siteLabel} · last known`}
                 </Typography>
@@ -228,16 +228,16 @@ export function MapPage(): ReactNode {
                 <Typography id="map-robots-heading" variant="h2" component="h2" sx={{ mb: 2 }}>
                   Robots
                 </Typography>
-                <RobotList robots={siteRobots} streamConnected={streamConnected} />
-                {unpositioned.length > 0 ? (
+                <RobotList robots={siteRobots} isStreamConnected={isFleetStreamConnected} />
+                {unpositionedRobots.length > 0 ? (
                   <>
                     <Typography variant="h3" component="h3" sx={{ mt: 3, mb: 1 }}>
                       No position
                     </Typography>
                     <RobotList
-                      robots={unpositioned}
-                      streamConnected={streamConnected}
-                      unpositioned
+                      robots={unpositionedRobots}
+                      isStreamConnected={isFleetStreamConnected}
+                      isUnpositioned
                     />
                   </>
                 ) : null}

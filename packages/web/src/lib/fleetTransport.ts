@@ -7,8 +7,8 @@ import {
   INITIAL_PROBE_ATTEMPT_LIMIT,
   INITIAL_STREAM_STATE,
   nextStreamState,
-  publishedConnectionState,
-  retryDelayMs,
+  computeRetryDelayMs,
+  selectPublishedConnectionState,
   type StreamState,
   type StreamTerminalCause,
 } from "./streamLifecycle";
@@ -155,7 +155,9 @@ export function createFleetTransport(options: {
   function advance(event: Parameters<typeof nextStreamState>[1]): void {
     const previous = state;
     state = nextStreamState(state, event);
-    if (state !== previous) handlers.onConnectionState(publishedConnectionState(state), state);
+    if (state !== previous) {
+      handlers.onConnectionState(selectPublishedConnectionState(state), state);
+    }
   }
 
   function cancelPendingRetry(): void {
@@ -201,7 +203,7 @@ export function createFleetTransport(options: {
         pendingRetry = null;
         startAttempt();
       },
-      retryDelayMs(failedAttempts, random),
+      computeRetryDelayMs(failedAttempts, random),
     );
   }
 

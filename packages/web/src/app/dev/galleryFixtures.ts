@@ -92,10 +92,10 @@ export const COMPONENT_PROPS: ReadonlyArray<{
   { component: "EmptyState", props: "title · description? · action? · className?" },
   {
     component: "FreshnessLabel",
-    props: "state · asOf · receivedAt? · compact? · className?",
+    props: "state · asOf · receivedAt? · isCompact? · className?",
   },
-  { component: "PersonaToggle", props: "value · onChange · disabled? · className?" },
+  { component: "PersonaToggle", props: "value · onChange · isDisabled? · className?" },
   { component: "SectionLabel", props: "children · className?" },
   { component: "Stat", props: "label · value · hint? · tone? · className?" },
-  { component: "StatusChip", props: "variant · label · current · size? · className?" },
+  { component: "StatusChip", props: "variant · label · isCurrent · size? · className?" },
 ];

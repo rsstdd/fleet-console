@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import type { MouseEvent, ReactElement } from "react";
 import { ToggleButton, ToggleButtonGroup } from "@mui/material";
 
 /** The two audiences robot detail renders for; see component spec 08 §3. */
@@ -9,7 +9,7 @@ export interface PersonaToggleProps {
   readonly value: Persona;
   readonly onChange: (persona: Persona) => void;
   readonly className?: string;
-  readonly disabled?: boolean;
+  readonly isDisabled?: boolean;
 }
 
 /**
@@ -83,21 +83,23 @@ export function PersonaToggle({
   value,
   onChange,
   className,
-  disabled,
+  isDisabled,
 }: PersonaToggleProps): ReactElement {
+  const handleChange = (_event: MouseEvent<HTMLElement>, nextPersona: Persona | null): void => {
+    if (nextPersona !== null) {
+      onChange(nextPersona);
+    }
+  };
+
   return (
     <ToggleButtonGroup
       exclusive
       size="small"
       value={value}
-      onChange={(_event, next: Persona | null) => {
-        if (next !== null) {
-          onChange(next);
-        }
-      }}
+      onChange={handleChange}
       aria-label="View persona"
       className={className}
-      disabled={disabled}
+      disabled={isDisabled}
       sx={PERSONA_TOGGLE_SX}
     >
       <ToggleButton value="operator">Operator</ToggleButton>

@@ -33,10 +33,10 @@ describe("ComponentGallery", () => {
       "as?",
       "action?",
       "receivedAt?",
-      "disabled?",
+      "isDisabled?",
       "children",
       "tone?",
-      "current",
+      "isCurrent",
       "className?",
     ]) {
       expect(

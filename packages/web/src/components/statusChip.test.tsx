@@ -18,61 +18,63 @@ const ALL_VARIANTS: readonly StatusVariant[] = [
   "unknown",
 ];
 
-function chip(): HTMLElement {
+function getChip(): HTMLElement {
   return screen.getByText(/./, { selector: "span.status" });
 }
 
 describe("StatusChip", () => {
   it("renders the label as visible text for every variant", () => {
     for (const variant of ALL_VARIANTS) {
-      const { unmount } = render(<StatusChip variant={variant} label={variant} current />);
-      expect(chip()).toHaveClass("status", `status--${variant}`);
-      expect(chip()).toHaveTextContent(variant);
+      const { unmount } = render(<StatusChip variant={variant} label={variant} isCurrent />);
+      expect(getChip()).toHaveClass("status", `status--${variant}`);
+      expect(getChip()).toHaveTextContent(variant);
       unmount();
     }
   });
 
   it("adds the last-known class when the status is not current", () => {
-    render(<StatusChip variant="active" label="Busy (last known)" current={false} />);
+    render(<StatusChip variant="active" label="Busy (last known)" isCurrent={false} />);
 
-    expect(chip()).toHaveClass("status--last-known");
+    expect(getChip()).toHaveClass("status--last-known");
     // The qualification is the caller's, never appended here (§5).
-    expect(chip()).toHaveTextContent("Busy (last known)");
+    expect(getChip()).toHaveTextContent("Busy (last known)");
   });
 
   it("omits the last-known class when the status is current", () => {
-    render(<StatusChip variant="active" label="Busy" current />);
+    render(<StatusChip variant="active" label="Busy" isCurrent />);
 
-    expect(chip()).not.toHaveClass("status--last-known");
+    expect(getChip()).not.toHaveClass("status--last-known");
   });
 
   it("expresses size as a class, not an inline style (Principle 8)", () => {
-    const { rerender } = render(<StatusChip variant="neutral" label="Idle" current size="small" />);
-    expect(chip()).toHaveClass("status--small");
-    expect(chip().getAttribute("style")).toBeNull();
+    const { rerender } = render(
+      <StatusChip variant="neutral" label="Idle" isCurrent size="small" />,
+    );
+    expect(getChip()).toHaveClass("status--small");
+    expect(getChip().getAttribute("style")).toBeNull();
 
-    rerender(<StatusChip variant="neutral" label="Idle" current />);
-    expect(chip()).not.toHaveClass("status--small");
+    rerender(<StatusChip variant="neutral" label="Idle" isCurrent />);
+    expect(getChip()).not.toHaveClass("status--small");
   });
 
   it("appends the caller's className last", () => {
-    render(<StatusChip variant="fault" label="Fault" current className="extra" />);
+    render(<StatusChip variant="fault" label="Fault" isCurrent className="extra" />);
 
-    expect(chip().className).toBe("status status--fault extra");
+    expect(getChip().className).toBe("status status--fault extra");
   });
 
   it("renders nothing rather than an unlabelled dot (§10)", () => {
-    const { container } = render(<StatusChip variant="unknown" label="" current />);
+    const { container } = render(<StatusChip variant="unknown" label="" isCurrent />);
 
     expect(container).toBeEmptyDOMElement();
   });
 
   it("carries no role, no aria-label and no dot element (§9)", () => {
-    render(<StatusChip variant="charging" label="Charging" current />);
+    render(<StatusChip variant="charging" label="Charging" isCurrent />);
 
-    expect(chip()).not.toHaveAttribute("role");
-    expect(chip()).not.toHaveAttribute("aria-label");
+    expect(getChip()).not.toHaveAttribute("role");
+    expect(getChip()).not.toHaveAttribute("aria-label");
     // The dot is .status::before, so the chip has no element children at all.
-    expect(chip().children).toHaveLength(0);
+    expect(getChip().children).toHaveLength(0);
   });
 });

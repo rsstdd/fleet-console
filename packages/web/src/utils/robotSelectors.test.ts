@@ -37,7 +37,7 @@ import {
  * (Principle 10). Freshness arrives as a field and is never derived here
  * (ADR 3), so there is nothing to inject a time into.
  */
-function robot(overrides: Partial<Robot> = {}): Robot {
+function buildRobot(overrides: Partial<Robot> = {}): Robot {
   return {
     id: "r-1",
     vendor: "A",
@@ -72,7 +72,7 @@ describe("selectStatusPresentation", () => {
       RobotStatus,
       { variant: string; label: string },
     ][]) {
-      const presentation = selectStatusPresentation(robot({ status }));
+      const presentation = selectStatusPresentation(buildRobot({ status }));
       expect(presentation.variant).toBe(want.variant);
       expect(presentation.label).toBe(want.label);
     }
@@ -81,7 +81,7 @@ describe("selectStatusPresentation", () => {
   it("shows degraded health in place of a non-fault status", () => {
     for (const status of ["idle", "busy", "charging", "unknown"] as const) {
       const presentation = selectStatusPresentation(
-        robot({ status, health: { severity: "degraded" } }),
+        buildRobot({ status, health: { severity: "degraded" } }),
       );
       // The variant reports the health severity; the label still names the
       // status, so the two facts are not collapsed into one word.
@@ -91,7 +91,7 @@ describe("selectStatusPresentation", () => {
 
   it("keeps fault as fault when health is also degraded", () => {
     const presentation = selectStatusPresentation(
-      robot({ status: "fault", health: { severity: "degraded" } }),
+      buildRobot({ status: "fault", health: { severity: "degraded" } }),
     );
 
     expect(presentation.variant).toBe("fault");
@@ -104,7 +104,7 @@ describe("selectStatusPresentation", () => {
     // to the status colour (ADR 1, Observed consequences, 19 August 2026).
     for (const status of ["idle", "busy", "charging", "unknown"] as const) {
       const presentation = selectStatusPresentation(
-        robot({ status, health: { severity: "critical" } }),
+        buildRobot({ status, health: { severity: "critical" } }),
       );
       expect(presentation.variant).toBe("fault");
     }
@@ -112,71 +112,73 @@ describe("selectStatusPresentation", () => {
 
   it("keeps the status word in the label when critical health takes the variant", () => {
     const presentation = selectStatusPresentation(
-      robot({ status: "idle", health: { severity: "critical" } }),
+      buildRobot({ status: "idle", health: { severity: "critical" } }),
     );
 
     // Severity and status stay two facts. The label never claims the robot is
     // in fault status when what is critical is its health.
-    expect(presentation).toEqual({ variant: "fault", label: "Idle", current: true });
+    expect(presentation).toEqual({ variant: "fault", label: "Idle", isCurrent: true });
   });
 
   it("ranks critical above degraded when both could apply", () => {
     // severity is a single field, so this guards the ordering of the branches
     // rather than a representable both-at-once state.
     expect(
-      selectStatusPresentation(robot({ status: "busy", health: { severity: "critical" } })).variant,
+      selectStatusPresentation(buildRobot({ status: "busy", health: { severity: "critical" } }))
+        .variant,
     ).toBe("fault");
     expect(
-      selectStatusPresentation(robot({ status: "busy", health: { severity: "degraded" } })).variant,
+      selectStatusPresentation(buildRobot({ status: "busy", health: { severity: "degraded" } }))
+        .variant,
     ).toBe("degraded");
   });
 
   it("marks the presentation current only while freshness is live", () => {
-    expect(selectStatusPresentation(robot({ freshness: "live" })).current).toBe(true);
+    expect(selectStatusPresentation(buildRobot({ freshness: "live" })).isCurrent).toBe(true);
 
     for (const freshness of NOT_LIVE) {
-      expect(selectStatusPresentation(robot({ freshness })).current).toBe(false);
+      expect(selectStatusPresentation(buildRobot({ freshness })).isCurrent).toBe(false);
     }
   });
 
   it("qualifies the label with (last known) exactly once when not current", () => {
     for (const freshness of NOT_LIVE) {
-      const presentation = selectStatusPresentation(robot({ status: "busy", freshness }));
+      const presentation = selectStatusPresentation(buildRobot({ status: "busy", freshness }));
       expect(presentation.label).toBe("Busy (last known)");
     }
   });
 
   it("leaves the label unqualified while live, so the chip is not falsely hedged", () => {
-    expect(selectStatusPresentation(robot({ status: "busy" })).label).toBe("Busy");
+    expect(selectStatusPresentation(buildRobot({ status: "busy" })).label).toBe("Busy");
   });
 
   it("qualifies the degraded variant's label with the status word, not the severity", () => {
     const presentation = selectStatusPresentation(
-      robot({ status: "busy", freshness: "stale", health: { severity: "degraded" } }),
+      buildRobot({ status: "busy", freshness: "stale", health: { severity: "degraded" } }),
     );
 
     expect(presentation).toEqual({
       variant: "degraded",
       label: "Busy (last known)",
-      current: false,
+      isCurrent: false,
     });
   });
 });
 
 describe("selectBatteryDisplay", () => {
   it("renders the percentage while live", () => {
-    expect(selectBatteryDisplay(robot({ batteryPercent: 0 }))).toBe("0%");
-    expect(selectBatteryDisplay(robot({ batteryPercent: 87 }))).toBe("87%");
+    expect(selectBatteryDisplay(buildRobot({ batteryPercent: 0 }))).toBe("0%");
+    expect(selectBatteryDisplay(buildRobot({ batteryPercent: 87 }))).toBe("87%");
   });
 
   it("renders an em dash when the reading is not current", () => {
     for (const freshness of NOT_LIVE) {
-      expect(selectBatteryDisplay(robot({ freshness, batteryPercent: 87 }))).toBe("—");
+      expect(selectBatteryDisplay(buildRobot({ freshness, batteryPercent: 87 }))).toBe("—");
     }
   });
 
   it("renders an em dash when there is no reading at all", () => {
-    expect(selectBatteryDisplay(robot({ batteryPercent: null }))).toBe("—");
+    expect(selectBatteryDisplay(buildRobot({ batteryPercent: null }))).toBe("—");
   });
 });
 
@@ -192,12 +194,12 @@ describe("selectFreshnessSummary", () => {
 
   it("counts each state and totals the fleet exactly", () => {
     const fleet: readonly Robot[] = [
-      robot({ id: "a", freshness: "live" }),
-      robot({ id: "b", freshness: "live" }),
-      robot({ id: "c", freshness: "stale" }),
-      robot({ id: "d", freshness: "unreachable" }),
-      robot({ id: "e", freshness: "unknown" }),
-      robot({ id: "f", freshness: "unknown" }),
+      buildRobot({ id: "a", freshness: "live" }),
+      buildRobot({ id: "b", freshness: "live" }),
+      buildRobot({ id: "c", freshness: "stale" }),
+      buildRobot({ id: "d", freshness: "unreachable" }),
+      buildRobot({ id: "e", freshness: "unknown" }),
+      buildRobot({ id: "f", freshness: "unknown" }),
     ];
 
     const summary = selectFreshnessSummary(fleet);
@@ -210,8 +212,8 @@ describe("selectFreshnessSummary", () => {
 
   it("counts freshness only, never status or health", () => {
     const fleet: readonly Robot[] = [
-      robot({ id: "a", freshness: "live", status: "fault" }),
-      robot({ id: "b", freshness: "live", health: { severity: "critical" } }),
+      buildRobot({ id: "a", freshness: "live", status: "fault" }),
+      buildRobot({ id: "b", freshness: "live", health: { severity: "critical" } }),
     ];
 
     expect(selectFreshnessSummary(fleet)).toEqual({
@@ -223,7 +225,7 @@ describe("selectFreshnessSummary", () => {
   });
 });
 
-function diagnostics(overrides: Partial<RobotDiagnostics> = {}): RobotDiagnostics {
+function buildDiagnostics(overrides: Partial<RobotDiagnostics> = {}): RobotDiagnostics {
   return {
     adapterId: "vendor-a",
     adapterVersion: "1.4.0",
@@ -238,14 +240,14 @@ function diagnostics(overrides: Partial<RobotDiagnostics> = {}): RobotDiagnostic
   };
 }
 
-function detail(overrides: Partial<RobotDetail> = {}): RobotDetail {
+function buildDetail(overrides: Partial<RobotDetail> = {}): RobotDetail {
   return {
-    ...robot(),
+    ...buildRobot(),
     model: "Courier 4",
     connectivity: "online",
     position: { frame: "site-map", x: 41.24, y: 18.7 },
     capabilities: {},
-    diagnostics: diagnostics(),
+    diagnostics: buildDiagnostics(),
     rawPayload: null,
     ...overrides,
   };
@@ -253,7 +255,7 @@ function detail(overrides: Partial<RobotDetail> = {}): RobotDetail {
 
 describe("selectPanelCapabilities", () => {
   it("returns only the capabilities the robot declared", () => {
-    const robotDetail = detail({
+    const robotDetail = buildDetail({
       capabilities: { dock: { docked: true, dockId: "dock-a3" } },
     });
 
@@ -265,7 +267,7 @@ describe("selectPanelCapabilities", () => {
     // disabled list is injected rather than read from `config`, because the
     // dependency rule forbids the data layers importing it — and because whether a
     // panel is offered is a deployment question, not a domain one.
-    const robotDetail = detail({
+    const robotDetail = buildDetail({
       capabilities: {
         dock: { docked: true, dockId: "dock-a3" },
         lidarHealth: { severity: "nominal", rpm: 600 },
@@ -276,7 +278,7 @@ describe("selectPanelCapabilities", () => {
   });
 
   it("offers every declared panel when nothing is disabled", () => {
-    const robotDetail = detail({
+    const robotDetail = buildDetail({
       capabilities: {
         dock: { docked: true, dockId: "dock-a3" },
         lidarHealth: { severity: "nominal", rpm: 600 },
@@ -290,7 +292,7 @@ describe("selectPanelCapabilities", () => {
   it("does not invent a panel a disabled flag would have hidden", () => {
     // Disabling a panel the robot never declared changes nothing. The two
     // conditions are independent, and neither one implies the other.
-    const robotDetail = detail({
+    const robotDetail = buildDetail({
       capabilities: { dock: { docked: true, dockId: "dock-a3" } },
     });
 
@@ -298,7 +300,7 @@ describe("selectPanelCapabilities", () => {
   });
 
   it("excludes sequence, which is transport metadata rather than a panel", () => {
-    const robotDetail = detail({
+    const robotDetail = buildDetail({
       capabilities: {
         dock: { docked: false, dockId: null },
         sequence: { value: 88_412 },
@@ -309,7 +311,7 @@ describe("selectPanelCapabilities", () => {
   });
 
   it("returns a stable order regardless of declaration order", () => {
-    const declaredBackwards = detail({
+    const declaredBackwards = buildDetail({
       capabilities: {
         waterLevel: { percent: 62 },
         lidarHealth: { severity: "nominal", rpm: 600 },
@@ -327,37 +329,41 @@ describe("selectPanelCapabilities", () => {
   });
 
   it("returns nothing for a robot that declares no capabilities", () => {
-    expect(selectPanelCapabilities(detail())).toEqual([]);
+    expect(selectPanelCapabilities(buildDetail())).toEqual([]);
   });
 });
 
 describe("selectPositionDisplay", () => {
   it("names the frame alongside the coordinates", () => {
-    expect(selectPositionDisplay(detail())).toBe("site-map · 41.2, 18.7");
+    expect(selectPositionDisplay(buildDetail())).toBe("site-map · 41.2, 18.7");
   });
 
   it("renders an em dash when the position is not current", () => {
     for (const freshness of NOT_LIVE) {
-      expect(selectPositionDisplay(detail({ freshness }))).toBe("—");
+      expect(selectPositionDisplay(buildDetail({ freshness }))).toBe("—");
     }
   });
 
   it("renders an em dash when there is no position at all", () => {
-    expect(selectPositionDisplay(detail({ position: null }))).toBe("—");
+    expect(selectPositionDisplay(buildDetail({ position: null }))).toBe("—");
   });
 });
 
 describe("selectClockDeltaDisplay", () => {
   it("signs the delta so the direction of the skew is readable", () => {
-    expect(selectClockDeltaDisplay(detail())).toBe("+120 ms");
+    expect(selectClockDeltaDisplay(buildDetail())).toBe("+120 ms");
     expect(
-      selectClockDeltaDisplay(detail({ diagnostics: diagnostics({ clockDeltaMs: -40 }) })),
+      selectClockDeltaDisplay(
+        buildDetail({ diagnostics: buildDiagnostics({ clockDeltaMs: -40 }) }),
+      ),
     ).toBe("-40 ms");
   });
 
   it("renders an em dash when a timestamp is missing, never a zero", () => {
     expect(
-      selectClockDeltaDisplay(detail({ diagnostics: diagnostics({ clockDeltaMs: null }) })),
+      selectClockDeltaDisplay(
+        buildDetail({ diagnostics: buildDiagnostics({ clockDeltaMs: null }) }),
+      ),
     ).toBe("—");
   });
 });
@@ -366,14 +372,14 @@ describe("selectSequenceGapDisplay", () => {
   it("reports a real count", () => {
     expect(
       selectSequenceGapDisplay(
-        detail({
-          diagnostics: diagnostics({
+        buildDetail({
+          diagnostics: buildDiagnostics({
             sequenceHealth: { evaluated: true, gaps: 3, duplicates: 0 },
           }),
         }),
       ),
     ).toBe("3");
-    expect(selectSequenceGapDisplay(detail())).toBe("0");
+    expect(selectSequenceGapDisplay(buildDetail())).toBe("0");
   });
 
   it("says not evaluated rather than zero when gaps are not checked", () => {
@@ -382,21 +388,23 @@ describe("selectSequenceGapDisplay", () => {
     // forgetting a check: there is no count on the unevaluated variant to read.
     expect(
       selectSequenceGapDisplay(
-        detail({ diagnostics: diagnostics({ sequenceHealth: { evaluated: false } }) }),
+        buildDetail({ diagnostics: buildDiagnostics({ sequenceHealth: { evaluated: false } }) }),
       ),
     ).toBe("Not evaluated");
   });
 
   it("says not evaluated for a robot with no diagnostics at all", () => {
-    expect(selectSequenceGapDisplay(detail({ diagnostics: null }))).toBe("Not evaluated");
+    expect(selectSequenceGapDisplay(buildDetail({ diagnostics: null }))).toBe("Not evaluated");
   });
 
   it("distinguishes zero gaps from not evaluated, which is the whole point", () => {
-    const evaluated = detail({
-      diagnostics: diagnostics({ sequenceHealth: { evaluated: true, gaps: 0, duplicates: 0 } }),
+    const evaluated = buildDetail({
+      diagnostics: buildDiagnostics({
+        sequenceHealth: { evaluated: true, gaps: 0, duplicates: 0 },
+      }),
     });
-    const unevaluated = detail({
-      diagnostics: diagnostics({ sequenceHealth: { evaluated: false } }),
+    const unevaluated = buildDetail({
+      diagnostics: buildDiagnostics({ sequenceHealth: { evaluated: false } }),
     });
 
     expect(selectSequenceGapDisplay(evaluated)).toBe("0");
@@ -409,8 +417,8 @@ describe("selectSequenceDuplicateDisplay", () => {
   it("reports duplicates on the same terms as gaps", () => {
     expect(
       selectSequenceDuplicateDisplay(
-        detail({
-          diagnostics: diagnostics({
+        buildDetail({
+          diagnostics: buildDiagnostics({
             sequenceHealth: { evaluated: true, gaps: 3, duplicates: 2 },
           }),
         }),
@@ -421,8 +429,8 @@ describe("selectSequenceDuplicateDisplay", () => {
   it("cannot disagree with gaps about whether the sequence was evaluated", () => {
     // Both read one field, so a robot can never report "not evaluated" gaps and
     // a duplicate count at the same time.
-    const unevaluated = detail({
-      diagnostics: diagnostics({ sequenceHealth: { evaluated: false } }),
+    const unevaluated = buildDetail({
+      diagnostics: buildDiagnostics({ sequenceHealth: { evaluated: false } }),
     });
 
     expect(selectSequenceDuplicateDisplay(unevaluated)).toBe("Not evaluated");
@@ -435,16 +443,16 @@ describe("selectSequenceDuplicateDisplay", () => {
  * Pure geometry over the read model: no React, no clock, no store.
  */
 
-function position(x: number, y: number, frame = "site-1"): Position {
-  return { frame, x, y };
+function buildPosition(xCoordinate: number, yCoordinate: number, frame = "site-1"): Position {
+  return { frame, x: xCoordinate, y: yCoordinate };
 }
 
 describe("selectPlottableRobots", () => {
   it("keeps only the selected site's robots that carry a position", () => {
     const robots = [
-      robot({ id: "r-1", siteId: "site-1", position: position(1, 2) }),
-      robot({ id: "r-2", siteId: "site-1", position: null }),
-      robot({ id: "r-3", siteId: "site-2", position: position(3, 4, "site-2") }),
+      buildRobot({ id: "r-1", siteId: "site-1", position: buildPosition(1, 2) }),
+      buildRobot({ id: "r-2", siteId: "site-1", position: null }),
+      buildRobot({ id: "r-3", siteId: "site-2", position: buildPosition(3, 4, "site-2") }),
     ];
 
     const plottable = selectPlottableRobots(robots, "site-1");
@@ -456,9 +464,9 @@ describe("selectPlottableRobots", () => {
 describe("selectSiteRobots", () => {
   it("keeps the site's robots whether or not they carry a position", () => {
     const robots = [
-      robot({ id: "r-1", siteId: "site-1", position: position(1, 2) }),
-      robot({ id: "r-2", siteId: "site-1", position: null }),
-      robot({ id: "r-3", siteId: "site-2", position: position(3, 4, "site-2") }),
+      buildRobot({ id: "r-1", siteId: "site-1", position: buildPosition(1, 2) }),
+      buildRobot({ id: "r-2", siteId: "site-1", position: null }),
+      buildRobot({ id: "r-3", siteId: "site-2", position: buildPosition(3, 4, "site-2") }),
     ];
 
     expect(selectSiteRobots(robots, "site-1").map((entry) => entry.id)).toEqual(["r-1", "r-2"]);
@@ -469,8 +477,8 @@ describe("selectSiteRobots", () => {
 describe("selectUnpositionedRobots", () => {
   it("keeps only the robots that never reported a position", () => {
     const robots = [
-      robot({ id: "r-1", position: position(1, 2) }),
-      robot({ id: "r-2", position: null }),
+      buildRobot({ id: "r-1", position: buildPosition(1, 2) }),
+      buildRobot({ id: "r-2", position: null }),
     ];
 
     expect(selectUnpositionedRobots(robots).map((entry) => entry.id)).toEqual(["r-2"]);
@@ -483,35 +491,35 @@ describe("computeSiteExtents", () => {
   });
 
   it("pads the bounding box by ten percent per axis", () => {
-    const extents = computeSiteExtents([position(0, 0), position(100, 50)]);
+    const extents = computeSiteExtents([buildPosition(0, 0), buildPosition(100, 50)]);
 
     expect(extents).toEqual({ minX: -10, maxX: 110, minY: -5, maxY: 55 });
   });
 
   it("floors a single robot's degenerate box to the minimum span, centred", () => {
-    const extents = computeSiteExtents([position(7, -3)]);
+    const extents = computeSiteExtents([buildPosition(7, -3)]);
 
     expect(extents).toEqual({ minX: 2, maxX: 12, minY: -8, maxY: 2 });
   });
 });
 
 describe("mergeExtents", () => {
-  const a = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
-  const b = { minX: -5, maxX: 20, minY: -30, maxY: 5 };
+  const firstExtents = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
+  const secondExtents = { minX: -5, maxX: 20, minY: -30, maxY: 5 };
 
   it("yields the other side when one is null", () => {
-    expect(mergeExtents(null, a)).toEqual(a);
-    expect(mergeExtents(a, null)).toEqual(a);
+    expect(mergeExtents(null, firstExtents)).toEqual(firstExtents);
+    expect(mergeExtents(firstExtents, null)).toEqual(firstExtents);
     expect(mergeExtents(null, null)).toBeNull();
   });
 
   it("takes the union so the box never shrinks", () => {
-    const merged = mergeExtents(a, b);
+    const merged = mergeExtents(firstExtents, secondExtents);
 
     expect(merged).toEqual({ minX: -10, maxX: 20, minY: -30, maxY: 10 });
     // Merging a tighter box back in changes nothing — and returns the same
     // object, which is what lets a caller detect "unchanged" by reference.
-    expect(mergeExtents(merged, a)).toBe(merged);
+    expect(mergeExtents(merged, firstExtents)).toBe(merged);
   });
 });
 
@@ -529,21 +537,21 @@ describe("projectToViewBox", () => {
 
   it("maps the corners exactly, inverting the y axis", () => {
     // Bottom-left of the site frame lands at the SVG's bottom-left.
-    expect(projectToViewBox(position(-40, -40), extents, viewBox)).toEqual({ x: 0, y: 600 });
+    expect(projectToViewBox(buildPosition(-40, -40), extents, viewBox)).toEqual({ x: 0, y: 600 });
     // Top-right of the site frame lands at the SVG's top-right.
-    expect(projectToViewBox(position(40, 40), extents, viewBox)).toEqual({ x: 600, y: 0 });
+    expect(projectToViewBox(buildPosition(40, 40), extents, viewBox)).toEqual({ x: 600, y: 0 });
   });
 
   it("maps the centre to the centre", () => {
-    expect(projectToViewBox(position(0, 0), extents, viewBox)).toEqual({ x: 300, y: 300 });
+    expect(projectToViewBox(buildPosition(0, 0), extents, viewBox)).toEqual({ x: 300, y: 300 });
   });
 });
 
 describe("selectMapMarker", () => {
   const extents = { minX: 0, maxX: 100, minY: 0, maxY: 100 };
   const viewBox = { width: 100, height: 100 };
-  const plottable = (overrides: Partial<Robot> = {}): PlottableRobot => {
-    const built = robot({ position: position(50, 50), ...overrides });
+  const buildPlottableRobot = (overrides: Partial<Robot> = {}): PlottableRobot => {
+    const built = buildRobot({ position: buildPosition(50, 50), ...overrides });
     if (built.position === null) {
       throw new Error("test robot must carry a position");
     }
@@ -551,26 +559,36 @@ describe("selectMapMarker", () => {
   };
 
   it("is filled only when the robot is live and the stream is connected", () => {
-    expect(selectMapMarker(plottable({ freshness: "live" }), extents, viewBox, true).hollow).toBe(
-      false,
-    );
+    expect(
+      selectMapMarker(buildPlottableRobot({ freshness: "live" }), extents, viewBox, true).hollow,
+    ).toBe(false);
   });
 
   it("is hollow for every non-live freshness", () => {
     for (const freshness of NOT_LIVE) {
-      const marker = selectMapMarker(plottable({ freshness }), extents, viewBox, true);
+      const marker = selectMapMarker(buildPlottableRobot({ freshness }), extents, viewBox, true);
       expect(marker.hollow).toBe(true);
     }
   });
 
   it("is hollow while the stream is down, whatever the freshness says", () => {
-    const marker = selectMapMarker(plottable({ freshness: "live" }), extents, viewBox, false);
+    const marker = selectMapMarker(
+      buildPlottableRobot({ freshness: "live" }),
+      extents,
+      viewBox,
+      false,
+    );
 
     expect(marker.hollow).toBe(true);
   });
 
   it("carries the same status variant the side list's chip renders", () => {
-    const marker = selectMapMarker(plottable({ status: "fault" }), extents, viewBox, true);
+    const marker = selectMapMarker(
+      buildPlottableRobot({ status: "fault" }),
+      extents,
+      viewBox,
+      true,
+    );
 
     expect(marker.variant).toBe("fault");
     expect(marker.robotId).toBe("r-1");
@@ -582,9 +600,9 @@ describe("selectMapMarker", () => {
 describe("selectPositionedSummary", () => {
   it("counts the site's robots and how many carry a position", () => {
     const robots = [
-      robot({ id: "r-1", siteId: "site-1", position: position(1, 1) }),
-      robot({ id: "r-2", siteId: "site-1", position: null }),
-      robot({ id: "r-3", siteId: "site-2", position: position(2, 2, "site-2") }),
+      buildRobot({ id: "r-1", siteId: "site-1", position: buildPosition(1, 1) }),
+      buildRobot({ id: "r-2", siteId: "site-1", position: null }),
+      buildRobot({ id: "r-3", siteId: "site-2", position: buildPosition(2, 2, "site-2") }),
     ];
 
     expect(selectPositionedSummary(robots, "site-1")).toEqual({ positioned: 1, total: 2 });

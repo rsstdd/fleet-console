@@ -14,11 +14,11 @@ describe("createColdStart", () => {
   const SESSION = "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b";
   const OTHER_SESSION = "01d3b5f7-9a2c-4e6d-8b0f-1a3c5e7d9b2f";
 
-  function batch(flushSequence: number, serverSessionId: string = SESSION): TelemetryBatch {
+  function buildBatch(flushSequence: number, serverSessionId: string = SESSION): TelemetryBatch {
     return { schemaVersion: SCHEMA_VERSION, serverSessionId, flushSequence, sentAt: 0, robots: [] };
   }
 
-  function snapshot(flushSequence: number): FleetSnapshot {
+  function buildSnapshot(flushSequence: number): FleetSnapshot {
     return {
       schemaVersion: SCHEMA_VERSION,
       serverSessionId: SESSION,
@@ -33,9 +33,9 @@ describe("createColdStart", () => {
     // The whole point. Flush 4 happened after the snapshot was captured at 3, so it is
     // not in the snapshot and is the console's only copy of that change.
     const coldStart = createColdStart();
-    expect(coldStart.receive(batch(4))).toBe("buffered");
+    expect(coldStart.receive(buildBatch(4))).toBe("buffered");
 
-    const settled = coldStart.settle(snapshot(3));
+    const settled = coldStart.settle(buildSnapshot(3));
 
     expect(settled.replay.map((frame) => frame.flushSequence)).toStrictEqual([4]);
     expect(settled.discarded).toBe(0);
@@ -47,10 +47,10 @@ describe("createColdStart", () => {
     // frame is never replayed — however plausible its number — and the count tells the
     // transport the socket disagrees with the snapshot.
     const coldStart = createColdStart();
-    coldStart.receive(batch(99, OTHER_SESSION));
-    coldStart.receive(batch(4));
+    coldStart.receive(buildBatch(99, OTHER_SESSION));
+    coldStart.receive(buildBatch(4));
 
-    const settled = coldStart.settle(snapshot(3));
+    const settled = coldStart.settle(buildSnapshot(3));
 
     expect(settled.replay.map((frame) => frame.flushSequence)).toStrictEqual([4]);
     expect(settled.mismatched).toBe(1);
@@ -61,10 +61,10 @@ describe("createColdStart", () => {
     // At-or-below is redundant: the snapshot reflects every flush up to its own sequence,
     // so replaying flush 3 would re-apply state the snapshot already carries.
     const coldStart = createColdStart();
-    coldStart.receive(batch(2));
-    coldStart.receive(batch(3));
+    coldStart.receive(buildBatch(2));
+    coldStart.receive(buildBatch(3));
 
-    const settled = coldStart.settle(snapshot(3));
+    const settled = coldStart.settle(buildSnapshot(3));
 
     expect(settled.replay).toHaveLength(0);
     expect(settled.discarded).toBe(2);
@@ -74,33 +74,35 @@ describe("createColdStart", () => {
     // Each frame is a keyed replace, so applying 6 before 5 would leave the older state
     // winning for any robot present in both.
     const coldStart = createColdStart();
-    coldStart.receive(batch(5));
-    coldStart.receive(batch(6));
+    coldStart.receive(buildBatch(5));
+    coldStart.receive(buildBatch(6));
 
-    expect(coldStart.settle(snapshot(4)).replay.map((f) => f.flushSequence)).toStrictEqual([5, 6]);
+    expect(
+      coldStart.settle(buildSnapshot(4)).replay.map((frame) => frame.flushSequence),
+    ).toStrictEqual([5, 6]);
   });
 
   it("passes frames straight through once settled", () => {
     // Buffering after the snapshot lands would grow a second buffer nothing drains.
     const coldStart = createColdStart();
-    coldStart.settle(snapshot(1));
+    coldStart.settle(buildSnapshot(1));
 
-    expect(coldStart.receive(batch(2))).toBe("live");
+    expect(coldStart.receive(buildBatch(2))).toBe("live");
     expect(coldStart.isSettled).toBe(true);
   });
 
   it("keeps everything when the server has never flushed", () => {
     // A cold server reports sequence 0, and zero must discard nothing.
     const coldStart = createColdStart();
-    coldStart.receive(batch(1));
+    coldStart.receive(buildBatch(1));
 
-    expect(coldStart.settle(snapshot(0)).replay).toHaveLength(1);
+    expect(coldStart.settle(buildSnapshot(0)).replay).toHaveLength(1);
   });
 
   it("refuses a second snapshot rather than silently replaying applied frames", () => {
     const coldStart = createColdStart();
-    coldStart.settle(snapshot(1));
+    coldStart.settle(buildSnapshot(1));
 
-    expect(() => coldStart.settle(snapshot(2))).toThrow(/already settled/);
+    expect(() => coldStart.settle(buildSnapshot(2))).toThrow(/already settled/);
   });
 });

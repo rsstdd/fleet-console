@@ -1,6 +1,9 @@
 # 08 — PersonaToggle
 
 Status: implementation-ready
+Revision 2: the optional boolean prop is renamed from `disabled` to
+intention-revealing `isDisabled`, and the MUI change callback is routed through a named
+local handler; behavior is unchanged.
 Implementation: `components/personaToggle.tsx`
 
 ## 1. Responsibility
@@ -22,7 +25,7 @@ interface PersonaToggleProps {
   readonly value: Persona;
   readonly onChange: (persona: Persona) => void;
   readonly className?: string;
-  readonly disabled?: boolean;
+  readonly isDisabled?: boolean;
 }
 ```
 
@@ -33,23 +36,19 @@ interface PersonaToggleProps {
   exclusive
   size="small"
   value={value}
-  onChange={(_event, next: Persona | null) => {
-    if (next !== null) {
-      onChange(next);
-    }
-  }}
+  onChange={handleChange}
   aria-label="View persona"
   className={className}
-  disabled={disabled}
+  disabled={isDisabled}
 >
   <ToggleButton value="operator">Operator</ToggleButton>
   <ToggleButton value="technician">Technician</ToggleButton>
 </ToggleButtonGroup>
 ```
 
-`disabled` is forwarded to the group, not to each button; earlier revisions declared the prop and dropped it on the floor.
+`isDisabled` is forwarded to the group's native `disabled` prop, not to each button; earlier revisions declared the prop and dropped it on the floor.
 
-The handler is defined inline and recreated each render. That is correct here: the component renders two buttons, `ToggleButtonGroup` is not memoised, and wrapping this in `useCallback` would add a dependency array to maintain in exchange for nothing measurable.
+The local handler is named `handleChange`. It remains an ordinary function without `useCallback`: the component renders two buttons, `ToggleButtonGroup` is not memoised, and a dependency array would add maintenance cost without measured benefit.
 
 ## 5. Content rules
 
@@ -91,7 +90,7 @@ Stays in header row; may shrink padding on narrow screens but keeps both options
 | Concern        | Check                                                                            |
 | -------------- | -------------------------------------------------------------------------------- |
 | Exclusive      | Always exactly one selected; deselect attempt is ignored                         |
-| Disabled       | `disabled` reaches the rendered group                                            |
+| Disabled       | `isDisabled` reaches the rendered group's native `disabled` prop                 |
 | Keyboard       | Operable without a pointer; focus retained across a persona change (Principle 6) |
 | Feature wiring | Technician reveals diagnostics and raw payload; operator shows neither           |
 | Tokens         | Selected style uses variables, and is not filled accent (Principle 8)            |

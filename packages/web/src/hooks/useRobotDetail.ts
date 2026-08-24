@@ -79,7 +79,7 @@ function toDetail(response: RobotDetailResponse, unknownFieldCount: number | nul
 }
 
 /** Maps one fetch failure onto the state the page renders for it. */
-function failureState(
+function buildFailureState(
   failure: RobotDetailFailure,
   id: string,
   retry: () => void,
@@ -130,7 +130,7 @@ async function loadDetail(
     return { status: "ready", robot: toDetail(robot.robot, unknownFieldCount) };
   }
 
-  return failureState(robot.failure, id, retry);
+  return buildFailureState(robot.failure, id, retry);
 }
 
 /**

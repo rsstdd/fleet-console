@@ -2,7 +2,7 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
 
-import { devServerTarget } from "./src/config/devServerTarget.ts";
+import { resolveDevServerTarget } from "./src/config/devServerTarget.ts";
 import { resolveTenantId } from "./src/config/tenantSelection.ts";
 
 // One deployment tenant per build, checked here so an unknown VITE_TENANT fails
@@ -15,7 +15,7 @@ resolveTenantId(process.env.VITE_TENANT);
 // development is cross-origin and no CORS policy is exercised there (ADR 21). The two keys
 // are the tenant profile's `endpoints`; changing one without the other leaves the console
 // requesting a path this proxy does not forward.
-const DEV_PROXY_TARGET = devServerTarget(process.env);
+const DEV_PROXY_TARGET = resolveDevServerTarget(process.env);
 
 export default defineConfig({
   plugins: [react()],

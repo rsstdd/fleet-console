@@ -19,19 +19,19 @@ const ROW_LINK_STYLE: CSSProperties = {
 
 /**
  * One row per robot with the id link as the sole activation path
- * (page spec 04 § 2); the `unpositioned` group accounts for robots that never
+ * (page spec 04 § 2); the `isUnpositioned` group accounts for robots that never
  * reported (Principle 4). Composed only by `mapPage.tsx`.
  */
 export function RobotList({
   robots,
-  streamConnected,
-  unpositioned = false,
+  isStreamConnected,
+  isUnpositioned = false,
 }: {
   readonly robots: readonly Robot[];
-  readonly streamConnected: boolean;
-  readonly unpositioned?: boolean;
+  readonly isStreamConnected: boolean;
+  readonly isUnpositioned?: boolean;
 }): ReactNode {
-  const listed = unpositioned ? robots : robots.filter((robot) => robot.position !== null);
+  const listed = isUnpositioned ? robots : robots.filter((robot) => robot.position !== null);
   return (
     <Stack component="ul" spacing={1} sx={{ m: 0, p: 0, listStyle: "none" }}>
       {listed.map((robot) => {
@@ -50,14 +50,14 @@ export function RobotList({
             <StatusChip
               variant={presentation.variant}
               label={presentation.label}
-              current={presentation.current}
+              isCurrent={presentation.isCurrent}
               size="small"
             />
             {/* Suppressed, not substituted, while the stream is down (ADR 3). */}
-            {streamConnected ? (
-              <FreshnessLabel state={robot.freshness} asOf={robot.lastSeenAt} compact />
+            {isStreamConnected ? (
+              <FreshnessLabel state={robot.freshness} asOf={robot.lastSeenAt} isCompact />
             ) : null}
-            {unpositioned ? (
+            {isUnpositioned ? (
               <Typography component="span" variant="body2" sx={{ color: "text.secondary" }}>
                 —
               </Typography>

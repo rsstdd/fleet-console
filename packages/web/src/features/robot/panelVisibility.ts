@@ -15,7 +15,7 @@ import type { TenantFlags } from "@/config/tenant";
  * be a promise this cannot keep. Adding a panel flag is one line here plus one
  * field in `config/tenant.ts`.
  */
-export function disabledPanelsFor(flags: TenantFlags): readonly PanelCapabilityName[] {
+export function selectDisabledPanels(flags: TenantFlags): readonly PanelCapabilityName[] {
   const disabled: PanelCapabilityName[] = [];
   if (!flags.lidarHealthPanel) {
     disabled.push("lidarHealth");

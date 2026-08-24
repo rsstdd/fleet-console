@@ -66,7 +66,7 @@ async function showTechnicianView(): Promise<void> {
   await userEvent.click(screen.getByRole("button", { name: "Technician" }));
 }
 
-function capabilitiesSection(): HTMLElement {
+function getCapabilitiesSection(): HTMLElement {
   return screen.getByRole("region", { name: "Capabilities" });
 }
 
@@ -143,7 +143,7 @@ describe("RobotDetailPage", () => {
   it("renders a panel only for a declared capability", async () => {
     await renderRobot("R-118");
 
-    const section = capabilitiesSection();
+    const section = getCapabilitiesSection();
     expect(within(section).getByRole("heading", { name: "Dock" })).toBeInTheDocument();
     expect(within(section).getByRole("heading", { name: "Lidar" })).toBeInTheDocument();
     // Undeclared: omitted entirely, not a disabled placeholder (spec §2).
@@ -156,7 +156,7 @@ describe("RobotDetailPage", () => {
     // consequences), so there is no panel rather than an empty one.
     await renderRobot("R-055");
 
-    const section = capabilitiesSection();
+    const section = getCapabilitiesSection();
     expect(within(section).getByRole("heading", { name: "Dock" })).toBeInTheDocument();
     expect(within(section).queryByRole("heading", { name: "Lidar" })).toBeNull();
     expect(within(section).queryByRole("heading", { name: "Water level" })).toBeNull();
@@ -165,7 +165,7 @@ describe("RobotDetailPage", () => {
   it("renders the vendor's own capability set without a vendor branch", async () => {
     await renderRobot("R-301");
 
-    const section = capabilitiesSection();
+    const section = getCapabilitiesSection();
     expect(within(section).getByRole("heading", { name: "Water level" })).toBeInTheDocument();
     expect(within(section).queryByRole("heading", { name: "Lidar" })).toBeNull();
   });
@@ -173,7 +173,7 @@ describe("RobotDetailPage", () => {
   it("keeps core fields out of the capabilities section (spec §6)", async () => {
     await renderRobot("R-118");
 
-    const section = capabilitiesSection();
+    const section = getCapabilitiesSection();
     for (const coreField of ["Battery", "Position", "Status", "Health", "Last seen"]) {
       expect(within(section).queryByText(coreField)).toBeNull();
     }
@@ -187,7 +187,9 @@ describe("RobotDetailPage", () => {
   it("gives sequence no panel, because it is diagnostic rather than operational", async () => {
     // R-118 declares `sequence`; it must not become a panel (spec §6).
     await renderRobot("R-118");
-    expect(within(capabilitiesSection()).queryByRole("heading", { name: /sequence/i })).toBeNull();
+    expect(
+      within(getCapabilitiesSection()).queryByRole("heading", { name: /sequence/i }),
+    ).toBeNull();
 
     await showTechnicianView();
     const diagnostics = screen.getByRole("region", { name: "Diagnostics" });
@@ -331,7 +333,7 @@ describe("RobotDetailPage", () => {
     }
     // Capability panels sit at h3 under the Capabilities h2.
     expect(
-      within(capabilitiesSection()).getByRole("heading", { level: 3, name: "Dock" }),
+      within(getCapabilitiesSection()).getByRole("heading", { level: 3, name: "Dock" }),
     ).toBeInTheDocument();
   });
 
@@ -414,7 +416,7 @@ describe("RobotDetailPage", () => {
 
 describe("live detail reconciliation", () => {
   /** R-118's canonical envelope as a stream delta would carry it. */
-  function liveEnvelope(over: Partial<CanonicalEnvelope["core"]> = {}): CanonicalEnvelope {
+  function buildLiveEnvelope(over: Partial<CanonicalEnvelope["core"]> = {}): CanonicalEnvelope {
     return {
       schemaVersion: SCHEMA_VERSION,
       robotId: "R-118",
@@ -470,7 +472,7 @@ describe("live detail reconciliation", () => {
       serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
       flushSequence: 2,
       sentAt: Date.now(),
-      robots: [liveEnvelope()],
+      robots: [buildLiveEnvelope()],
     });
 
     expect(await within(summary).findByText("42%")).toBeInTheDocument();

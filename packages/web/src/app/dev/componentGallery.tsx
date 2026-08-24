@@ -41,11 +41,32 @@ import {
  */
 export function ComponentGallery() {
   const [tenant, setTenant] = useState<TenantTheme>("dark");
-  const [filtered, setFiltered] = useState(false);
+  const [isFiltered, setIsFiltered] = useState(false);
   const [persona, setPersona] = useState<Persona>("operator");
   const [connectionState, setConnectionState] = useState<ConnectionState>("connected");
   const [reconnectAttempt, setReconnectAttempt] = useState(1);
   const theme = useMemo(() => buildMuiTheme(tenant), [tenant]);
+
+  const handleTenantChange = (_event: unknown, nextTenant: TenantTheme | null): void => {
+    if (nextTenant !== null) setTenant(nextTenant);
+  };
+
+  const handlePersonaChange = (nextPersona: Persona): void => {
+    setPersona(nextPersona);
+  };
+
+  const handleConnectionStateChange = (nextConnectionState: ConnectionState): void => {
+    setConnectionState(nextConnectionState);
+    if (nextConnectionState === "reconnecting") setReconnectAttempt(1);
+  };
+
+  const handleRetry = (): void => {
+    setReconnectAttempt((attempt) => attempt + 1);
+  };
+
+  const handleFilteredChange = (nextIsFiltered: boolean): void => {
+    setIsFiltered(nextIsFiltered);
+  };
 
   useEffect(() => {
     applyTenantTheme(tenant);
@@ -91,9 +112,7 @@ export function ComponentGallery() {
             exclusive
             size="small"
             value={tenant}
-            onChange={(_, next: TenantTheme | null) => {
-              if (next) setTenant(next);
-            }}
+            onChange={handleTenantChange}
             aria-label="Tenant theme"
           >
             <ToggleButton value="dark">Tenant A · dark</ToggleButton>
@@ -106,20 +125,15 @@ export function ComponentGallery() {
           <StatusChipSection />
           <FreshnessLabelSection />
           <StatSection />
-          <PersonaToggleSection persona={persona} onPersonaChange={setPersona} />
+          <PersonaToggleSection persona={persona} onPersonaChange={handlePersonaChange} />
           <ConnectionBannerSection
             connectionState={connectionState}
             reconnectAttempt={reconnectAttempt}
-            onStateChange={(next) => {
-              setConnectionState(next);
-              if (next === "reconnecting") setReconnectAttempt(1);
-            }}
-            onRetry={() => {
-              setReconnectAttempt((attempt) => attempt + 1);
-            }}
+            onStateChange={handleConnectionStateChange}
+            onRetry={handleRetry}
           />
           <CombinedFleetTableSection />
-          <EmptyStateSection filtered={filtered} onFilteredChange={setFiltered} />
+          <EmptyStateSection isFiltered={isFiltered} onFilteredChange={handleFilteredChange} />
           <DataPlateSection />
           <SectionLabelSection />
 

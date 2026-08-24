@@ -26,7 +26,7 @@ export type StatusVariant =
 /** Two sizes: `small` for a table cell, `medium` for a page header. */
 export type StatusChipSize = "small" | "medium";
 
-/** Display-only inputs for a status chip; `current` is what makes it hollow. */
+/** Display-only inputs for a status chip; `isCurrent` is what makes it hollow. */
 export interface StatusChipProps {
   readonly variant: StatusVariant;
   readonly label: string; // always required; colour alone never carries meaning
@@ -35,7 +35,7 @@ export interface StatusChipProps {
    * responsible for including "(last known)" in `label` — this component
    * only supplies the visual distinction, not the wording.
    */
-  readonly current: boolean;
+  readonly isCurrent: boolean;
   readonly size?: StatusChipSize;
   readonly className?: string;
 }
@@ -53,7 +53,7 @@ const SIZE_CLASS: Record<StatusChipSize, string | null> = {
 export function StatusChip({
   variant,
   label,
-  current,
+  isCurrent,
   size = "medium",
   className,
 }: StatusChipProps): ReactElement | null {
@@ -64,7 +64,7 @@ export function StatusChip({
   const classes = [
     "status",
     `status--${variant}`,
-    current ? null : "status--last-known",
+    isCurrent ? null : "status--last-known",
     SIZE_CLASS[size],
     className,
   ]

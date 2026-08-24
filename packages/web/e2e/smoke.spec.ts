@@ -17,12 +17,12 @@ import { expect, test } from "./fixtures.ts";
  */
 
 /** The fleet table's data rows, addressed by the row-activation links the spec requires. */
-function robotLinks(page: Page): Locator {
+function getRobotLinks(page: Page): Locator {
   return page.getByRole("link", { name: /^R-\d{3}$/ });
 }
 
 /** One robot's row in the fleet table. */
-function robotRow(page: Page, robotId: string): Locator {
+function getRobotRow(page: Page, robotId: string): Locator {
   return page.getByRole("row", { name: new RegExp(`^${robotId}\\b`) });
 }
 
@@ -30,7 +30,7 @@ function robotRow(page: Page, robotId: string): Locator {
 async function openFleet(page: Page, consoleUrl: string): Promise<void> {
   await page.goto(consoleUrl);
   await expect(page.getByRole("heading", { name: "Fleet overview" })).toBeVisible();
-  await expect(robotLinks(page)).toHaveCount(50, { timeout: 15_000 });
+  await expect(getRobotLinks(page)).toHaveCount(50, { timeout: 15_000 });
 }
 
 test.describe("fleet console against the real stack", () => {
@@ -42,7 +42,7 @@ test.describe("fleet console against the real stack", () => {
 
     // The stream, observed: the row's "last seen" cell advances with each emission,
     // which no snapshot alone can explain.
-    const lastSeen = robotRow(page, "R-001").getByRole("cell").last();
+    const lastSeen = getRobotRow(page, "R-001").getByRole("cell").last();
     const before = await lastSeen.textContent();
     await expect(lastSeen).not.toHaveText(before ?? "", { timeout: 10_000 });
 
@@ -69,7 +69,7 @@ test.describe("fleet console against the real stack", () => {
       ["R-002", "B"],
       ["R-003", "C"],
     ] as const) {
-      await expect(robotRow(page, robotId)).toContainText(vendor);
+      await expect(getRobotRow(page, robotId)).toContainText(vendor);
     }
 
     // Each vendor's declared capabilities, and only those: absence is the interface.
@@ -79,7 +79,7 @@ test.describe("fleet console against the real stack", () => {
       { robotId: "R-003", present: ["Dock", "Water level"], absent: ["Lidar"] },
     ];
     for (const { robotId, present, absent } of panelsByRobot) {
-      await robotLinks(page).filter({ hasText: robotId }).click();
+      await getRobotLinks(page).filter({ hasText: robotId }).click();
       await expect(page.getByRole("heading", { name: robotId })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Capabilities" })).toBeVisible();
       for (const title of present) {
@@ -89,7 +89,7 @@ test.describe("fleet console against the real stack", () => {
         await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
       }
       await page.getByRole("link", { name: "← Fleet" }).click();
-      await expect(robotLinks(page)).toHaveCount(50, { timeout: 15_000 });
+      await expect(getRobotLinks(page)).toHaveCount(50, { timeout: 15_000 });
     }
   });
 
@@ -109,18 +109,18 @@ test.describe("fleet console against the real stack", () => {
     const search = page.getByRole("textbox", { name: "Search" });
     await search.click();
     await search.fill("R-002");
-    await expect(robotLinks(page)).toHaveCount(1);
+    await expect(getRobotLinks(page)).toHaveCount(1);
 
     // Deltas keep streaming while the operator types; focus must not move (spec § 9).
     await expect(search).toBeFocused();
-    const lastSeen = robotRow(page, "R-002").getByRole("cell").last();
+    const lastSeen = getRobotRow(page, "R-002").getByRole("cell").last();
     const before = await lastSeen.textContent();
     await expect(lastSeen).not.toHaveText(before ?? "", { timeout: 10_000 });
     await expect(search).toBeFocused();
 
     // Row activation and detail navigation, still from the keyboard.
     await page.keyboard.press("Tab");
-    await expect(robotLinks(page).first()).toBeFocused();
+    await expect(getRobotLinks(page).first()).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("heading", { name: "R-002" })).toBeVisible();
   });
@@ -130,14 +130,14 @@ test.describe("fleet console against the real stack", () => {
     stack,
   }) => {
     await openFleet(page, stack.consoleUrl);
-    await expect(robotRow(page, "R-001").getByText("Live")).toBeVisible({ timeout: 10_000 });
+    await expect(getRobotRow(page, "R-001").getByText("Live")).toBeVisible({ timeout: 10_000 });
 
     await stack.stopSimulator();
 
     // Robot absence, not console blindness: the sweep runs on `receivedAt` alone, so
     // rows degrade Live → Stale → Unreachable while the banner still says connected.
-    await expect(robotRow(page, "R-001").getByText("Stale")).toBeVisible({ timeout: 10_000 });
-    await expect(robotRow(page, "R-001").getByText("Unreachable")).toBeVisible({
+    await expect(getRobotRow(page, "R-001").getByText("Stale")).toBeVisible({ timeout: 10_000 });
+    await expect(getRobotRow(page, "R-001").getByText("Unreachable")).toBeVisible({
       timeout: 15_000,
     });
     await expect(page.getByText("Stream connected")).toBeVisible();
@@ -161,7 +161,7 @@ test.describe("fleet console against the real stack", () => {
     // disappears, and the banner carries the connection-level truth (ADR 3).
     await expect(page.getByText("Stream reconnecting")).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("status")).toContainText("Reconnecting to stream");
-    await expect(robotLinks(page)).toHaveCount(50);
+    await expect(getRobotLinks(page)).toHaveCount(50);
     await expect(fleetTable.getByText("Live")).toHaveCount(0);
     await expect(fleetTable.getByText("Unreachable")).toHaveCount(0);
 
@@ -180,11 +180,11 @@ test.describe("fleet console against the real stack", () => {
   }) => {
     await openFleet(page, stack.consoleUrl);
     // Let the simulator produce several readings so the window holds a real trend.
-    const lastSeen = robotRow(page, "R-001").getByRole("cell").last();
+    const lastSeen = getRobotRow(page, "R-001").getByRole("cell").last();
     const before = await lastSeen.textContent();
     await expect(lastSeen).not.toHaveText(before ?? "", { timeout: 10_000 });
 
-    await robotLinks(page).filter({ hasText: "R-001" }).click();
+    await getRobotLinks(page).filter({ hasText: "R-001" }).click();
     await expect(page.getByRole("heading", { name: "Battery history" })).toBeVisible();
 
     // The real endpoint, decimated and decoded: an accessible chart plus its textual
@@ -203,9 +203,9 @@ test.describe("fleet console against the real stack", () => {
     // explicitly historical, so a fresh visit still serves the retained window after
     // the robot goes silent — the two facts move independently (Principle 4, ADR 33).
     await page.getByRole("link", { name: "← Fleet" }).click();
-    await expect(robotRow(page, "R-001").getByText("Stale")).toBeVisible({ timeout: 10_000 });
+    await expect(getRobotRow(page, "R-001").getByText("Stale")).toBeVisible({ timeout: 10_000 });
 
-    await robotLinks(page).filter({ hasText: "R-001" }).click();
+    await getRobotLinks(page).filter({ hasText: "R-001" }).click();
     await expect(section.getByRole("img", { name: /battery history for R-001/i })).toBeVisible({
       timeout: 15_000,
     });
@@ -217,7 +217,7 @@ test.describe("fleet console against the real stack", () => {
     stack,
   }) => {
     await openFleet(page, stack.consoleUrl);
-    await robotLinks(page).filter({ hasText: "R-001" }).click();
+    await getRobotLinks(page).filter({ hasText: "R-001" }).click();
     await expect(page.getByRole("heading", { name: "Robot R-001" })).toBeVisible();
 
     // The one fetch happened; from here every change is a delta reconciled over
@@ -245,7 +245,7 @@ test.describe("fleet console against the real stack", () => {
 
     // The table narrows to the north rows, and every visible Site cell carries
     // the directory's label rather than the raw SITE-NORTH identifier.
-    await expect(robotLinks(page)).not.toHaveCount(50);
+    await expect(getRobotLinks(page)).not.toHaveCount(50);
     const rows = page.getByRole("table", { name: "Fleet" }).getByRole("row");
     await expect(rows.nth(1).getByText("North site")).toBeVisible();
     await expect(page.getByRole("table", { name: "Fleet" }).getByText("South site")).toHaveCount(0);
@@ -270,7 +270,7 @@ test.describe("fleet console against the real stack", () => {
     await stack.startServer();
     await failure.getByRole("button", { name: "Retry" }).click();
 
-    await expect(robotLinks(page)).toHaveCount(50, { timeout: 20_000 });
+    await expect(getRobotLinks(page)).toHaveCount(50, { timeout: 20_000 });
     await expect(page.getByText("Stream connected")).toBeVisible();
   });
 
@@ -318,7 +318,7 @@ test.describe("fleet console against the real stack", () => {
     await expect(fleetTable.getByText("Live").first()).toBeVisible({ timeout: 15_000 });
 
     // And the stream is genuinely live again: rows resume updating.
-    const lastSeen = robotRow(page, "R-001").getByRole("cell").last();
+    const lastSeen = getRobotRow(page, "R-001").getByRole("cell").last();
     const before = await lastSeen.textContent();
     await expect(lastSeen).not.toHaveText(before ?? "", { timeout: 10_000 });
   });

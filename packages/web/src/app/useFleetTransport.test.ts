@@ -32,7 +32,7 @@ describe("useFleetTransport", () => {
     ],
   };
 
-  function ports(body: unknown = SNAPSHOT) {
+  function createTransportPorts(body: unknown = SNAPSHOT) {
     const control: { open?: () => void; close?: () => void; closed: boolean; opened: number } = {
       closed: false,
       opened: 0,
@@ -53,7 +53,7 @@ describe("useFleetTransport", () => {
   }
 
   it("starts disconnected and reports connected once the socket opens", async () => {
-    const { control, openSocket, fetchLike } = ports();
+    const { control, openSocket, fetchLike } = createTransportPorts();
     const { result } = renderHook(() => useFleetTransport({ openSocket, fetchLike }));
 
     // `connecting`, not `reconnecting`: nothing has ever been received (ADR 31).
@@ -67,7 +67,7 @@ describe("useFleetTransport", () => {
   });
 
   it("seeds the store from the snapshot the socket's open triggered", async () => {
-    const { control, openSocket, fetchLike } = ports();
+    const { control, openSocket, fetchLike } = createTransportPorts();
     const { result } = renderHook(() => useFleetTransport({ openSocket, fetchLike }));
     act(() => control.open?.());
 
@@ -82,7 +82,7 @@ describe("useFleetTransport", () => {
   });
 
   it("opens exactly one socket, however often it re-renders", () => {
-    const { control, openSocket, fetchLike } = ports();
+    const { control, openSocket, fetchLike } = createTransportPorts();
     const { rerender } = renderHook(() => useFleetTransport({ openSocket, fetchLike }));
 
     rerender();
@@ -95,7 +95,7 @@ describe("useFleetTransport", () => {
     // The store holds all fleet state and the retry closure reaches the open
     // socket's transport; either changing identity on a re-render would mean
     // fleet state or the banner's control silently detached from the socket.
-    const { openSocket, fetchLike } = ports();
+    const { openSocket, fetchLike } = createTransportPorts();
     const { result, rerender } = renderHook(() => useFleetTransport({ openSocket, fetchLike }));
 
     const first = result.current;
@@ -107,7 +107,7 @@ describe("useFleetTransport", () => {
   });
 
   it("closes the socket when the console unmounts", () => {
-    const { control, openSocket, fetchLike } = ports();
+    const { control, openSocket, fetchLike } = createTransportPorts();
     const { unmount } = renderHook(() => useFleetTransport({ openSocket, fetchLike }));
 
     unmount();
@@ -119,7 +119,9 @@ describe("useFleetTransport", () => {
     // Retrying returns the same bytes, so the failure lands in the resource
     // state the fleet page renders — with the decoder's own issues — rather
     // than in a hook field nothing consumed.
-    const { control, openSocket, fetchLike } = ports({ schemaVersion: SCHEMA_VERSION });
+    const { control, openSocket, fetchLike } = createTransportPorts({
+      schemaVersion: SCHEMA_VERSION,
+    });
     const { result } = renderHook(() => useFleetTransport({ openSocket, fetchLike }));
     act(() => control.open?.());
 

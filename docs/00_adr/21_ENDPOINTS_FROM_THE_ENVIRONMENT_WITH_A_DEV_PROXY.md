@@ -77,6 +77,10 @@ The counter-argument to the duplicated keys and defaults is stronger and is acce
 
 ## Observed consequences
 
+- **24 August 2026 — the proxy target resolver gained a verb-led name.**
+  `devServerTarget` became `resolveDevServerTarget`; its camelCase file path, environment
+  keys, defaults, validation, and shared use by Vite's development and preview proxies
+  are unchanged.
 - **20 August 2026 — the proxy wiring gained a second server and a mechanical consumer (ADR 32).** `vite.config.ts` now mirrors the `/api` and `/ws` forwarding under `preview.proxy`, built from the same `devServerTarget(process.env)` value, so the production bundle served by `vite preview` joins the server exactly as the dev server does. The browser-evidence harness (`packages/web/e2e/stack.ts`) starts its stacks by setting `FLEET_SERVER_PORT` once for both processes — this ADR's "one variable moves both sides" claim, now exercised on every e2e run rather than once by hand.
 - **20 August 2026 — the composition root and routes exist, so `loadRuntimeEndpoints()` has a complete caller.** `packages/server/src/main.ts` binds what it returns and terminates on `ConfigValidationError` rather than continuing on defaults. `pnpm dev` starts a server whose ingest and read routes are mounted, so simulator posts reach the adapter boundary rather than a closed port or placeholder 404.
 - **20 August 2026 — the config file paths resolve from the module, not the working directory.** Root `pnpm dev` is `pnpm -r --parallel dev`, which runs each package's script with that package as the cwd, so a relative `config/` would have resolved inside `packages/server`. Recorded because ADR 14 chose the repository root without saying how a process finds it, and the answer is not the obvious one.

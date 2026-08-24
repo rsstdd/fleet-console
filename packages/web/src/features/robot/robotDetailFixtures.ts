@@ -336,8 +336,10 @@ export function buildHealthResponse(): unknown {
  */
 export function buildFixtureRobots(): Robot[] {
   const now = Date.now();
-  const secondsAgo = (n: number) => new Date(now - n * 1_000).toISOString();
-  const minutesAgo = (n: number) => new Date(now - n * 60_000).toISOString();
+  const formatSecondsAgo = (elapsedSeconds: number) =>
+    new Date(now - elapsedSeconds * 1_000).toISOString();
+  const formatMinutesAgo = (elapsedMinutes: number) =>
+    new Date(now - elapsedMinutes * 60_000).toISOString();
 
   /** Fleet-row core values; the observed-only detail fields are filled below. */
   const rows: ReadonlyArray<
@@ -351,7 +353,7 @@ export function buildFixtureRobots(): Robot[] {
       health: { severity: "nominal" },
       freshness: "live",
       batteryPercent: 91,
-      lastSeenAt: secondsAgo(2),
+      lastSeenAt: formatSecondsAgo(2),
     },
     {
       id: "R-055",
@@ -361,7 +363,7 @@ export function buildFixtureRobots(): Robot[] {
       health: { severity: "nominal" },
       freshness: "live",
       batteryPercent: 34,
-      lastSeenAt: secondsAgo(5),
+      lastSeenAt: formatSecondsAgo(5),
     },
     {
       id: "R-301",
@@ -371,7 +373,7 @@ export function buildFixtureRobots(): Robot[] {
       health: { severity: "critical" },
       freshness: "live",
       batteryPercent: 12,
-      lastSeenAt: secondsAgo(9),
+      lastSeenAt: formatSecondsAgo(9),
     },
     {
       id: "R-204",
@@ -381,7 +383,7 @@ export function buildFixtureRobots(): Robot[] {
       health: { severity: "degraded" },
       freshness: "stale",
       batteryPercent: 67,
-      lastSeenAt: secondsAgo(18),
+      lastSeenAt: formatSecondsAgo(18),
     },
     {
       id: "R-087",
@@ -391,7 +393,7 @@ export function buildFixtureRobots(): Robot[] {
       health: { severity: "nominal" },
       freshness: "unreachable",
       batteryPercent: null,
-      lastSeenAt: minutesAgo(29),
+      lastSeenAt: formatMinutesAgo(29),
     },
     {
       id: "R-142",
@@ -401,7 +403,7 @@ export function buildFixtureRobots(): Robot[] {
       health: { severity: "nominal" },
       freshness: "live",
       batteryPercent: 78,
-      lastSeenAt: secondsAgo(3),
+      lastSeenAt: formatSecondsAgo(3),
     },
     {
       id: "R-090",
@@ -411,7 +413,7 @@ export function buildFixtureRobots(): Robot[] {
       health: { severity: "nominal" },
       freshness: "live",
       batteryPercent: 55,
-      lastSeenAt: secondsAgo(4),
+      lastSeenAt: formatSecondsAgo(4),
     },
     {
       id: "R-233",
@@ -433,7 +435,7 @@ export function buildFixtureRobots(): Robot[] {
       health: { severity: "nominal" },
       freshness: "live",
       batteryPercent: 21,
-      lastSeenAt: secondsAgo(6),
+      lastSeenAt: formatSecondsAgo(6),
     },
     {
       id: "R-072",
@@ -443,7 +445,7 @@ export function buildFixtureRobots(): Robot[] {
       health: { severity: "nominal" },
       freshness: "live",
       batteryPercent: 88,
-      lastSeenAt: secondsAgo(1),
+      lastSeenAt: formatSecondsAgo(1),
     },
   ];
 

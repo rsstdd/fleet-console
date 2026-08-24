@@ -57,7 +57,7 @@ export function FleetPage(): ReactNode {
    * Principle 11 keeps the two apart. The rule itself lives in `context` so this page
    * and robot detail cannot drift into suppressing on different conditions (ADR 3, ADR 23).
    */
-  const streamConnected = isStreamConnected(useConnectionState());
+  const isFleetStreamConnected = isStreamConnected(useConnectionState());
 
   const data: FleetData | null = "data" in resource ? resource.data : null;
   const robots = useMemo(() => data?.robots ?? [], [data]);
@@ -92,7 +92,7 @@ export function FleetPage(): ReactNode {
     setFilters((prev) => ({ ...prev, search: event.target.value }));
   };
 
-  const clearFilters = (): void => {
+  const handleClearFilters = (): void => {
     setFilters(EMPTY_FILTERS);
   };
 
@@ -180,7 +180,11 @@ export function FleetPage(): ReactNode {
 
       {data !== null ? (
         <>
-          <FleetSummary streamConnected={streamConnected} summary={summary} total={robots.length} />
+          <FleetSummary
+            isStreamConnected={isFleetStreamConnected}
+            summary={summary}
+            total={robots.length}
+          />
 
           <FleetFilters
             filters={filters}
@@ -211,7 +215,7 @@ export function FleetPage(): ReactNode {
               title="No robots match these filters"
               description="Clear filters or change site."
               action={
-                <Button type="button" variant="outlined" size="small" onClick={clearFilters}>
+                <Button type="button" variant="outlined" size="small" onClick={handleClearFilters}>
                   Clear filters
                 </Button>
               }
@@ -222,7 +226,7 @@ export function FleetPage(): ReactNode {
             <FleetTable
               robots={filteredRobots}
               sites={sites}
-              streamConnected={streamConnected}
+              isStreamConnected={isFleetStreamConnected}
               capturedAt={data.capturedAt}
               latestFrameAt={data.latestFrameAt}
             />

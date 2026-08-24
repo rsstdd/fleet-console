@@ -11,7 +11,7 @@ const STATE_LABELS: Readonly<Record<FreshnessState, string>> = {
   unknown: "Unknown",
 };
 
-function label(): HTMLElement {
+function getLabel(): HTMLElement {
   const element = document.querySelector<HTMLElement>("span.freshness");
   if (element === null) {
     throw new Error("Expected a freshness label");
@@ -23,8 +23,8 @@ describe("FreshnessLabel", () => {
   it("renders every state as visible text with its state class", () => {
     for (const state of ALL_STATES) {
       const { unmount } = render(<FreshnessLabel state={state} asOf={null} />);
-      expect(label()).toHaveClass("freshness", `freshness--${state}`);
-      expect(label()).toHaveTextContent(STATE_LABELS[state]);
+      expect(getLabel()).toHaveClass("freshness", `freshness--${state}`);
+      expect(getLabel()).toHaveTextContent(STATE_LABELS[state]);
       unmount();
     }
   });
@@ -32,8 +32,8 @@ describe("FreshnessLabel", () => {
   it("renders no invented time when a robot has never been observed", () => {
     render(<FreshnessLabel state="unknown" asOf={null} />);
 
-    expect(label()).toHaveTextContent("Unknown");
-    expect(label().querySelector(".freshness__asOf")).toBeNull();
+    expect(getLabel()).toHaveTextContent("Unknown");
+    expect(getLabel().querySelector(".freshness__asOf")).toBeNull();
   });
 
   it("formats source and receipt timestamps as UTC DOM text", () => {
@@ -45,8 +45,8 @@ describe("FreshnessLabel", () => {
       />,
     );
 
-    expect(label().querySelector(".freshness__asOf")).toHaveTextContent("19 Aug 2026, 10:20:30");
-    expect(label().querySelector(".freshness__received")).toHaveTextContent(
+    expect(getLabel().querySelector(".freshness__asOf")).toHaveTextContent("19 Aug 2026, 10:20:30");
+    expect(getLabel().querySelector(".freshness__received")).toHaveTextContent(
       "(recv: 19 Aug 2026, 10:20:31)",
     );
   });
@@ -57,13 +57,13 @@ describe("FreshnessLabel", () => {
         state="stale"
         asOf="2026-08-19T10:20:30.000Z"
         receivedAt="2026-08-19T10:20:31.000Z"
-        compact
+        isCompact
       />,
     );
 
-    expect(label()).toHaveTextContent("Stale");
-    expect(label().querySelector(".freshness__asOf")).toBeNull();
-    expect(label().querySelector(".freshness__received")).toBeNull();
+    expect(getLabel()).toHaveTextContent("Stale");
+    expect(getLabel().querySelector(".freshness__asOf")).toBeNull();
+    expect(getLabel().querySelector(".freshness__received")).toBeNull();
   });
 
   it("marks a stale label with the modifier the stylesheet keys off", () => {
@@ -79,12 +79,12 @@ describe("FreshnessLabel", () => {
     // `packages/FIXME.md` **F8** rather than papered over, because the honest trade was
     // duplicated-and-overriding styling for one unasserted CSS rule.
     const { rerender } = render(<FreshnessLabel state="stale" asOf="2026-08-19T10:20:30.000Z" />);
-    expect(label()).toHaveClass("freshness--stale");
-    expect(label().querySelector(".freshness__asOf")).not.toBeNull();
+    expect(getLabel()).toHaveClass("freshness--stale");
+    expect(getLabel().querySelector(".freshness__asOf")).not.toBeNull();
 
     rerender(<FreshnessLabel state="live" asOf="2026-08-19T10:20:30.000Z" />);
-    expect(label()).toHaveClass("freshness--live");
-    expect(label()).not.toHaveClass("freshness--stale");
+    expect(getLabel()).toHaveClass("freshness--live");
+    expect(getLabel()).not.toHaveClass("freshness--stale");
   });
 
   it("throws for an invalid timestamp in development", () => {

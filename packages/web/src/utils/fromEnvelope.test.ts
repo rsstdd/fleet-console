@@ -29,7 +29,7 @@ import {
 const REPORTED_AT = Date.UTC(2026, 7, 19, 10, 0, 0);
 const RECEIVED_AT = REPORTED_AT + 120;
 
-function envelope(overrides: Partial<CanonicalEnvelope> = {}): CanonicalEnvelope {
+function buildEnvelope(overrides: Partial<CanonicalEnvelope> = {}): CanonicalEnvelope {
   return {
     schemaVersion: SCHEMA_VERSION,
     robotId: "R-118",
@@ -56,11 +56,11 @@ function envelope(overrides: Partial<CanonicalEnvelope> = {}): CanonicalEnvelope
   };
 }
 
-function diagnosticEnvelope(
+function buildDiagnosticEnvelope(
   overrides: Partial<RobotDiagnosticEnvelope> = {},
 ): RobotDiagnosticEnvelope {
   return {
-    ...envelope(),
+    ...buildEnvelope(),
     sequenceHealth: { evaluated: true, gaps: 0, duplicates: 0 },
     rawPayload: { state: "MOVING" },
     ...overrides,
@@ -71,7 +71,7 @@ const NO_COUNTERS = { unknownFieldCount: 0 } as const;
 
 describe("toRobot", () => {
   it("maps the canonical envelope onto a fleet row", () => {
-    expect(toRobot(envelope())).toEqual({
+    expect(toRobot(buildEnvelope())).toEqual({
       id: "R-118",
       vendor: "A",
       siteId: "zone-a",
@@ -95,7 +95,7 @@ describe("toRobot", () => {
     // The envelope says stale while `reportedAt` is this instant. A client that
     // derived freshness would overrule the server and call this live; the read
     // model must not.
-    const justNow = envelope({ freshness: "stale", reportedAt: Date.now() });
+    const justNow = buildEnvelope({ freshness: "stale", reportedAt: Date.now() });
 
     expect(toRobot(justNow).freshness).toBe("stale");
   });
@@ -103,13 +103,13 @@ describe("toRobot", () => {
   it("passes an unrecognised vendor id through unchanged (ADR 1)", () => {
     // A fourth vendor is an adapter change. If the console narrowed vendor ids
     // to A/B/C, this row would be unrepresentable and the coupling would be back.
-    expect(toRobot(envelope({ vendorId: "D" })).vendor).toBe("D");
+    expect(toRobot(buildEnvelope({ vendorId: "D" })).vendor).toBe("D");
   });
 
   it("carries the vendor's health description when there is one", () => {
-    const degraded = envelope({
+    const degraded = buildEnvelope({
       core: {
-        ...envelope().core,
+        ...buildEnvelope().core,
         health: { severity: "degraded", description: "Drive current high" },
       },
     });
@@ -164,13 +164,13 @@ describe("toRegisteredRobot", () => {
 
 describe("toRobotDetail", () => {
   it("takes the sequence from the declared capability, not a core field", () => {
-    const detail = toRobotDetail(diagnosticEnvelope(), NO_COUNTERS);
+    const detail = toRobotDetail(buildDiagnosticEnvelope(), NO_COUNTERS);
 
     expect(detail.diagnostics?.sequence).toBe(88_412);
   });
 
   it("reports no sequence for a vendor that declares none", () => {
-    const sequenceless = diagnosticEnvelope({
+    const sequenceless = buildDiagnosticEnvelope({
       capabilities: { dock: { docked: true, dockId: null } },
     });
 
@@ -182,14 +182,14 @@ describe("toRobotDetail", () => {
     // ADR 25 separated the two by scope. Unknown fields have no per-robot
     // precision to offer (ADR 15), so they still arrive from the health
     // response; sequence continuity does, so it comes off the envelope.
-    const detail = toRobotDetail(diagnosticEnvelope(), { unknownFieldCount: 2 });
+    const detail = toRobotDetail(buildDiagnosticEnvelope(), { unknownFieldCount: 2 });
 
     expect(detail.diagnostics?.unknownFieldCount).toBe(2);
   });
 
   it("reads sequence continuity off the envelope rather than from an injection", () => {
     const detail = toRobotDetail(
-      diagnosticEnvelope({ sequenceHealth: { evaluated: true, gaps: 3, duplicates: 1 } }),
+      buildDiagnosticEnvelope({ sequenceHealth: { evaluated: true, gaps: 3, duplicates: 1 } }),
       NO_COUNTERS,
     );
 
@@ -202,7 +202,7 @@ describe("toRobotDetail", () => {
 
   it("carries an unevaluated sequence through without inventing a count", () => {
     const detail = toRobotDetail(
-      diagnosticEnvelope({ sequenceHealth: { evaluated: false } }),
+      buildDiagnosticEnvelope({ sequenceHealth: { evaluated: false } }),
       NO_COUNTERS,
     );
 
@@ -210,20 +210,22 @@ describe("toRobotDetail", () => {
   });
 
   it("signs the clock delta in both directions", () => {
-    expect(toRobotDetail(diagnosticEnvelope(), NO_COUNTERS).diagnostics?.clockDeltaMs).toBe(120);
+    expect(toRobotDetail(buildDiagnosticEnvelope(), NO_COUNTERS).diagnostics?.clockDeltaMs).toBe(
+      120,
+    );
 
-    const skewed = diagnosticEnvelope({ receivedAt: REPORTED_AT - 40 });
+    const skewed = buildDiagnosticEnvelope({ receivedAt: REPORTED_AT - 40 });
     // A vendor clock ahead of the server is exactly what the technician readout
     // exists to surface, so the mapping keeps the sign rather than clamping.
     expect(toRobotDetail(skewed, NO_COUNTERS).diagnostics?.clockDeltaMs).toBe(-40);
   });
 
   it("carries the retained payload, and its absence", () => {
-    expect(toRobotDetail(diagnosticEnvelope(), NO_COUNTERS).rawPayload).toEqual({
+    expect(toRobotDetail(buildDiagnosticEnvelope(), NO_COUNTERS).rawPayload).toEqual({
       state: "MOVING",
     });
     expect(
-      toRobotDetail(diagnosticEnvelope({ rawPayload: null }), NO_COUNTERS).rawPayload,
+      toRobotDetail(buildDiagnosticEnvelope({ rawPayload: null }), NO_COUNTERS).rawPayload,
     ).toBeNull();
   });
 });
@@ -285,7 +287,7 @@ describe("wire round trip", () => {
   });
 
   it("survives JSON and decodes to the same read model", () => {
-    const original = envelope();
+    const original = buildEnvelope();
     const json = JSON.stringify(encodeCanonicalEnvelope(original));
     const decoded = parseCanonicalEnvelope(JSON.parse(json));
 
@@ -300,7 +302,7 @@ describe("wire round trip", () => {
   });
 
   it("rejects a malformed response at the boundary rather than coercing it", () => {
-    const wire = JSON.parse(JSON.stringify(encodeCanonicalEnvelope(envelope()))) as Record<
+    const wire = JSON.parse(JSON.stringify(encodeCanonicalEnvelope(buildEnvelope()))) as Record<
       string,
       unknown
     >;
@@ -319,7 +321,7 @@ describe("wire round trip", () => {
   });
 
   it("rejects an unknown canonical field as contract drift", () => {
-    const wire = JSON.parse(JSON.stringify(encodeCanonicalEnvelope(envelope()))) as Record<
+    const wire = JSON.parse(JSON.stringify(encodeCanonicalEnvelope(buildEnvelope()))) as Record<
       string,
       unknown
     >;
@@ -337,14 +339,14 @@ describe("reconcileDetailWithRow", () => {
     // The pair behind live robot detail: the fetched diagnostics stay as
     // fetched, while everything a delta carries updates from the fleet row.
     const detail = toRobotDetail(
-      { ...envelope(), sequenceHealth: { evaluated: false }, rawPayload: { raw: true } },
+      { ...buildEnvelope(), sequenceHealth: { evaluated: false }, rawPayload: { raw: true } },
       NO_COUNT,
     );
     const row = toRobot(
-      envelope({
+      buildEnvelope({
         freshness: "stale",
         reportedAt: REPORTED_AT + 5_000,
-        core: { ...envelope().core, batteryPercent: 12, status: "charging" },
+        core: { ...buildEnvelope().core, batteryPercent: 12, status: "charging" },
       }),
     );
 
@@ -363,10 +365,10 @@ describe("reconcileDetailWithRow", () => {
     // re-renders for an unrelated reason does not manufacture a new detail
     // object and cascade further renders.
     const detail = toRobotDetail(
-      { ...envelope(), sequenceHealth: { evaluated: false }, rawPayload: null },
+      { ...buildEnvelope(), sequenceHealth: { evaluated: false }, rawPayload: null },
       NO_COUNT,
     );
-    const row = toRobot(envelope({ freshness: "stale" }));
+    const row = toRobot(buildEnvelope({ freshness: "stale" }));
 
     const merged = reconcileDetailWithRow(detail, row);
 
@@ -383,7 +385,7 @@ describe("reconcileDetailWithRow", () => {
       freshness: "unknown",
     });
 
-    const merged = reconcileDetailWithRow(detail, toRobot(envelope()));
+    const merged = reconcileDetailWithRow(detail, toRobot(buildEnvelope()));
 
     expect(merged.observed).toBe(true);
     expect(merged.model).toBe("Courier 4");

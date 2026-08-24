@@ -51,15 +51,15 @@ declare global {
   var __scale: ScaleProbe;
 }
 
-function robotIdFor(index: number): string {
+function formatRobotId(index: number): string {
   return `R-${String(index + 1).padStart(3, "0")}`;
 }
 
 /** Percentile over a copy, linear interpolation; small arrays only. */
-function percentile(values: readonly number[], p: number): number {
-  const sorted = [...values].sort((a, b) => a - b);
+function calculatePercentile(values: readonly number[], percentileRank: number): number {
+  const sorted = [...values].sort((leftValue, rightValue) => leftValue - rightValue);
   if (sorted.length === 0) return Number.NaN;
-  const rank = (p / 100) * (sorted.length - 1);
+  const rank = (percentileRank / 100) * (sorted.length - 1);
   const low = Math.floor(rank);
   const high = Math.ceil(rank);
   const lowValue = sorted[low] ?? Number.NaN;
@@ -69,8 +69,8 @@ function percentile(values: readonly number[], p: number): number {
 
 function summarize(values: readonly number[]): { p50: number; p95: number; max: number } {
   return {
-    p50: percentile(values, 50),
-    p95: percentile(values, 95),
+    p50: calculatePercentile(values, 50),
+    p95: calculatePercentile(values, 95),
     max: values.length === 0 ? Number.NaN : Math.max(...values),
   };
 }
@@ -125,7 +125,7 @@ test.describe("500-robot live-stream measurement", () => {
       if (source === undefined) throw new Error("seed envelope missing");
       return encodeCanonicalEnvelope({
         ...source,
-        robotId: robotIdFor(index),
+        robotId: formatRobotId(index),
         freshness: "live",
         core: { ...source.core, batteryPercent: 50 },
       });
@@ -143,7 +143,7 @@ test.describe("500-robot live-stream measurement", () => {
     expect(parseFleetSnapshot(snapshotWire).ok).toBe(true);
 
     /** One frame: half the fleet, alternating halves, battery encoding the frame index. */
-    const frameFor = (frameIndex: number): string => {
+    const buildFrame = (frameIndex: number): string => {
       const offset = frameIndex % 2 === 0 ? 0 : HALF;
       const battery = frameIndex % 101;
       const robots = seedWire.slice(offset, offset + HALF).map((wire) => ({
@@ -160,7 +160,7 @@ test.describe("500-robot live-stream measurement", () => {
         robots,
       });
     };
-    expect(parseTelemetryBatch(JSON.parse(frameFor(1))).ok).toBe(true);
+    expect(parseTelemetryBatch(JSON.parse(buildFrame(1))).ok).toBe(true);
 
     // 3. Routing: the snapshot from HTTP, the frames from the test's WebSocket end.
     await page.route("**/api/fleet", (route) => route.fulfill({ json: snapshotWire }));
@@ -228,7 +228,7 @@ test.describe("500-robot live-stream measurement", () => {
     let measuredStartedAt = 0;
     for (let frame = 1; frame <= totalFrames; frame += 1) {
       if (frame === WARMUP_FRAMES + 1) measuredStartedAt = performance.now();
-      socket.send(frameFor(frame));
+      socket.send(buildFrame(frame));
       await new Promise((resolve) => setTimeout(resolve, FRAME_INTERVAL_MS));
     }
     const measuredWallMs = performance.now() - measuredStartedAt;
@@ -241,7 +241,7 @@ test.describe("500-robot live-stream measurement", () => {
       .toBe(totalFrames);
     await expect(links).toHaveCount(ROBOT_COUNT);
     const lastBattery = `${String(totalFrames % 101)}%`;
-    const lastHalfFirstRobot = robotIdFor(totalFrames % 2 === 0 ? 0 : HALF);
+    const lastHalfFirstRobot = formatRobotId(totalFrames % 2 === 0 ? 0 : HALF);
     await expect(
       page.getByRole("row", { name: new RegExp(`^${lastHalfFirstRobot}\\b`) }),
     ).toContainText(lastBattery);

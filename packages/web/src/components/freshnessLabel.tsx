@@ -11,7 +11,7 @@ export interface FreshnessLabelProps {
   /** ISO 8601 receipt time for surfaces where transport delay matters. */
   readonly receivedAt?: string;
   /** Chip only vs chip + formatted time. Compact is intended for table cells. */
-  readonly compact?: boolean;
+  readonly isCompact?: boolean;
   readonly className?: string;
 }
 
@@ -58,12 +58,12 @@ export function FreshnessLabel({
   state,
   asOf,
   receivedAt,
-  compact = false,
+  isCompact = false,
   className,
 }: FreshnessLabelProps): ReactElement {
-  const asOfFormatted = compact || asOf === null ? null : formatTimestamp(asOf, "asOf");
+  const asOfFormatted = isCompact || asOf === null ? null : formatTimestamp(asOf, "asOf");
   const receivedAtFormatted =
-    compact || receivedAt === undefined ? null : formatTimestamp(receivedAt, "receivedAt");
+    isCompact || receivedAt === undefined ? null : formatTimestamp(receivedAt, "receivedAt");
   const classNames = ["freshness", `freshness--${state}`, className].filter(Boolean).join(" ");
 
   return (

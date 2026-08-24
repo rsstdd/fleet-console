@@ -5,10 +5,10 @@ import {
   INITIAL_PROBE_ATTEMPT_LIMIT,
   INITIAL_STREAM_STATE,
   nextStreamState,
-  publishedConnectionState,
+  selectPublishedConnectionState,
   RETRY_BASE_DELAY_MS,
   RETRY_DELAY_CEILING_MS,
-  retryDelayMs,
+  computeRetryDelayMs,
   type StreamEvent,
   type StreamState,
 } from "./streamLifecycle";
@@ -100,16 +100,16 @@ describe("nextStreamState", () => {
   });
 });
 
-describe("publishedConnectionState", () => {
+describe("selectPublishedConnectionState", () => {
   const PHASES = ["idle", "connecting", "connected", "reconnecting", "failed"] as const;
 
-  function stateIn(phase: StreamState["phase"]): StreamState {
+  function buildStateInPhase(phase: StreamState["phase"]): StreamState {
     return { phase, attempt: 0, lastConnectedAt: null, terminalCause: null };
   }
 
   it("reports connected only when the stream is actually delivering", () => {
     for (const phase of PHASES) {
-      const published = publishedConnectionState(stateIn(phase));
+      const published = selectPublishedConnectionState(buildStateInPhase(phase));
 
       // ADR 3: a client showing per-robot freshness over a stream that is not delivering
       // asserts a currency it cannot support. Being wrong in the permissive direction here
@@ -121,14 +121,14 @@ describe("publishedConnectionState", () => {
   it("publishes idle as disconnected rather than as anything optimistic", () => {
     // Same reasoning that made `disconnected` the context default (ADR 23): the two ways
     // to be wrong are not symmetric.
-    expect(publishedConnectionState(INITIAL_STREAM_STATE)).toBe("disconnected");
+    expect(selectPublishedConnectionState(INITIAL_STREAM_STATE)).toBe("disconnected");
   });
 
   it("distinguishes a first connection from a recovery", () => {
     // ADR 31 publishes `connecting` as its own value: "we have never had a stream" and
     // "we had one and lost it" earn different operator copy.
-    expect(publishedConnectionState(stateIn("connecting"))).toBe("connecting");
-    expect(publishedConnectionState(stateIn("reconnecting"))).toBe("reconnecting");
+    expect(selectPublishedConnectionState(buildStateInPhase("connecting"))).toBe("connecting");
+    expect(selectPublishedConnectionState(buildStateInPhase("reconnecting"))).toBe("reconnecting");
   });
 
   it("distinguishes a stream that is trying from one that has stopped", () => {
@@ -145,31 +145,31 @@ describe("publishedConnectionState", () => {
       terminalCause: "contract",
     };
 
-    expect(publishedConnectionState(trying)).toBe("reconnecting");
+    expect(selectPublishedConnectionState(trying)).toBe("reconnecting");
     // Both suppress freshness; only the banner copy differs, and `failed` must not claim
     // a retry is in flight when none is.
-    expect(publishedConnectionState(stopped)).toBe("disconnected");
+    expect(selectPublishedConnectionState(stopped)).toBe("disconnected");
   });
 });
 
-describe("retryDelayMs", () => {
+describe("computeRetryDelayMs", () => {
   it("draws from [0, base × 2^(n−1)) with full jitter, exactly as ADR 31 states", () => {
     // The inequality is the decision. `random()` scales the cap directly, so the two
     // endpoints of the injected randomness pin both bounds.
-    expect(retryDelayMs(1, () => 0)).toBe(0);
-    expect(retryDelayMs(1, () => 0.999)).toBeLessThan(RETRY_BASE_DELAY_MS);
-    expect(retryDelayMs(3, () => 1)).toBe(RETRY_BASE_DELAY_MS * 4);
+    expect(computeRetryDelayMs(1, () => 0)).toBe(0);
+    expect(computeRetryDelayMs(1, () => 0.999)).toBeLessThan(RETRY_BASE_DELAY_MS);
+    expect(computeRetryDelayMs(3, () => 1)).toBe(RETRY_BASE_DELAY_MS * 4);
   });
 
   it("never reaches the 30-second ceiling, however many attempts have failed", () => {
     for (const attempts of [6, 7, 10, 100, 10_000]) {
-      expect(retryDelayMs(attempts, () => 0.999)).toBeLessThan(RETRY_DELAY_CEILING_MS);
-      expect(retryDelayMs(attempts, () => 1)).toBe(RETRY_DELAY_CEILING_MS);
+      expect(computeRetryDelayMs(attempts, () => 0.999)).toBeLessThan(RETRY_DELAY_CEILING_MS);
+      expect(computeRetryDelayMs(attempts, () => 1)).toBe(RETRY_DELAY_CEILING_MS);
     }
   });
 
   it("treats attempt counts below one as the first retry rather than shrinking to zero", () => {
-    expect(retryDelayMs(0, () => 1)).toBe(RETRY_BASE_DELAY_MS);
+    expect(computeRetryDelayMs(0, () => 1)).toBe(RETRY_BASE_DELAY_MS);
   });
 
   it("caps the initial probe at three attempts, the number the banner copy states", () => {

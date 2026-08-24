@@ -11,7 +11,7 @@ import {
 import type { StreamConnectionState } from "@/context/connectionContext";
 import {
   INITIAL_STREAM_STATE,
-  publishedConnectionState,
+  selectPublishedConnectionState,
   type StreamState,
   type StreamTerminalCause,
 } from "@/lib/streamLifecycle";
@@ -100,9 +100,9 @@ export function useFleetTransport(
     readonly random?: () => number;
   } = {},
 ): FleetTransportState {
-  // Lazy `useState`, not `useMemo`: the store and transport are identity-critical
-  // (all fleet state, the one open socket), and React reserves the right to drop a
-  // `useMemo` cache; only state guarantees they survive every re-render.
+  // Lazy state owns this identity-critical resource for the lifetime of the mount.
+  // Its setter is intentionally unavailable: replacing the store is not a supported
+  // transition, and the scoped state convention documents that narrow exception.
   const [store] = useState(() => createFleetStore());
   // One piece of state, because the published value and the attempt count are two views
   // of one fact and holding them separately is how they come to disagree.
@@ -177,7 +177,7 @@ export function useFleetTransport(
 
   return {
     store,
-    connectionState: publishedConnectionState(streamState),
+    connectionState: selectPublishedConnectionState(streamState),
     lastEventAt: streamState.lastConnectedAt,
     attempt: streamState.attempt,
     terminalCause: streamState.terminalCause,
