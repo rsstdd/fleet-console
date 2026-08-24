@@ -140,9 +140,30 @@
       "id": "D28",
       "question": "Web folder vocabulary and test placement for external readability",
       "adr": 36
+    },
+    {
+      "id": "D29",
+      "question": "Which exports require a doc comment",
+      "adr": 37
     }
   ],
   "mechanicalRules": [
+    {
+      "path": "scripts/generateWebTokens.mjs",
+      "adr": 5
+    },
+    {
+      "path": "scripts/checkTokens.mjs",
+      "adr": 5
+    },
+    {
+      "path": "scripts/webTokenLint.mjs",
+      "adr": 5
+    },
+    {
+      "path": "packages/web/.stylelintrc.json",
+      "adr": 5
+    },
     {
       "path": "packages/contracts/src/envelope/envelopeSchema.ts",
       "adr": 10

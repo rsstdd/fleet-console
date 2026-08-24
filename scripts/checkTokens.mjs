@@ -1,4 +1,4 @@
-// The design system's two colour sources, held to agreeing, and its contrast measured.
+// The generated token artifact and its authored palette, held to agreeing, with contrast measured.
 //
 // WHY THIS IS A SCRIPT AND NOT A TEST IN `packages/web`. Both checks need to read
 // `tokens.css` as text. `packages/web` is a browser package whose `tsconfig.app.json`
@@ -11,13 +11,9 @@
 //
 // WHAT IT PREVENTS.
 //
-// 1. **Two spellings of one colour.** `tokens.css` is the design system's source and
-//    `TENANT_PALETTE` in `src/config/tenantTheme.ts` is what MUI's theme needs as
-//    JavaScript; neither can read the other at runtime without a build step this
-//    repository does not have. ADR 21 met the same shape and chose a test over a
-//    mechanical join because the failure was loud. Here it is **silent** — a drifted hex
-//    just looks slightly wrong, on one theme — so pinning it matters more, not less
-//    (`packages/FIXME.md` F8, Principle 8).
+// 1. **A stale generated file.** `tokens.ts` is the one authored source; tokens.css is
+//    generated from it. The generator check catches byte drift, while this check keeps a
+//    reviewer-facing disagreement message for individual palette values.
 //
 // 2. **Contrast regressions.** Principle 6 makes WCAG 2.2 AA a release requirement.
 //    Computing the ratios is cheap and exact; recording them once in a document is how
@@ -29,7 +25,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TOKENS = path.join(ROOT, "packages/web/src/styles/tokens.css");
-const PALETTE = path.join(ROOT, "packages/web/src/config/tenantTheme.ts");
+const PALETTE = path.join(ROOT, "packages/web/src/styles/tokens.ts");
 
 /** WCAG 2.2 AA: body text. */
 export const AA_TEXT = 4.5;
@@ -211,6 +207,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error(`\nToken problems:\n${problems.map((line) => `  - ${line}`).join("\n")}`);
     process.exitCode = 1;
   } else {
-    console.log("\nTokens agree with the palette, and every measured ratio clears WCAG 2.2 AA.");
+    console.log(
+      "\nGenerated tokens agree with the authored palette, and every measured ratio clears WCAG 2.2 AA.",
+    );
   }
 }

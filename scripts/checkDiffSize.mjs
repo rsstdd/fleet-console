@@ -58,6 +58,7 @@ export const OVERRIDE_TRAILER = "Oversized-diff:";
 const GENERATED = [
   /^pnpm-lock\.yaml$/, // pnpm install
   /^packages\/adapters\/src\/vendors\/[^/]+\/__fixtures__\/.*\.json$/, // pnpm record:fixtures (ADR 13)
+  /^packages\/web\/src\/styles\/tokens\.css$/, // pnpm --filter web tokens:generate (ADR 5)
   /^docs\/PENDING_ARCHITECTURE_DECISIONS\.md$/, // pnpm docs:decisions
 ];
 

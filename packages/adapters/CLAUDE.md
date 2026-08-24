@@ -14,7 +14,7 @@ In particular:
 - Count unknown fields per adapter, retain raw input only for technician diagnosis, and never leak raw vendor payloads into fleet state or WebSocket deltas.
 - Accept server-provided `receivedAt`, normalize vendor time to `reportedAt`, and never derive freshness in this package.
 - Add vendors locally without changing the canonical model for vendor convenience.
-- Add one-sentence doc comments to exports, document non-trivial coupling on both sides, and prefer focused test-first diffs. Lint rejects a comment that only restates its signature, so the sentence has to earn its place (ADR 28).
+- Add one-sentence doc comments to everything exported or re-exported by the declared public entry points, `src/index.ts` and `src/testing/index.ts` (ADR 37), document non-trivial coupling on both sides, and prefer focused test-first diffs. Lint rejects a comment that only restates its signature, so the sentence has to earn its place (ADR 28).
 - Stop and surface any conflict with `PRINCIPLES.md` or an ADR.
 
 Do not duplicate the detailed scoped rules here. Update [`AGENTS.md`](./AGENTS.md) when the adapter package's architecture or workflow changes so the two agent entry points cannot drift.

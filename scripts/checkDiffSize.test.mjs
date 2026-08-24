@@ -37,6 +37,7 @@ test("generated output does not count, because nobody wrote or reads it", () => 
     "pnpm-lock.yaml",
     "packages/adapters/src/vendors/a/__fixtures__/representative.json",
     "packages/adapters/src/vendors/c/__fixtures__/representative.json",
+    "packages/web/src/styles/tokens.css",
     "docs/PENDING_ARCHITECTURE_DECISIONS.md",
   ]) {
     assert.equal(isGenerated(filePath), true, filePath);

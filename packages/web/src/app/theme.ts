@@ -1,15 +1,14 @@
-// The shell's theme bridge. Two separate jobs, deliberately not merged:
-// tokens.css owns the CSS custom properties for both themes and switches on the
-// `data-theme` attribute; MUI needs the same palette as a JS theme object.
+// The shell's theme bridge.
+// - tokens.ts owns the authored values; its generated CSS switches them on the
+// `data-theme` attribute
+// - MUI consumes the same source as a theme object
 //
-// This module does NOT write custom properties inline. An earlier version set ten
-// of them on documentElement, which beat tokens.css on specificity and left the
-// other twenty-six at their dark values on a light background — the light theme
-// was broken precisely because this file tried to help. Setting the attribute is
-// the whole job (01_APP_SHELL.md section 2, "Theme").
+// This module does NOT write custom properties inline.
 import { createTheme } from "@mui/material";
+import { toggleButtonClasses } from "@mui/material/ToggleButton";
 
-import { TENANT_PALETTE, type TenantTheme } from "@/config/tenantTheme";
+import type { TenantTheme } from "@/config/tenantTheme";
+import { MUI_SHAPE_BORDER_RADIUS, TENANT_PALETTE } from "@/styles/tokens";
 
 /**
  * Points the token layer at a tenant by setting `data-theme` on the document element.
@@ -24,9 +23,7 @@ export function applyTenantTheme(mode: TenantTheme): void {
 }
 
 /**
- * Mirrors the token palette into MUI so `sx` and global CSS cannot disagree: both sides
- * read `TENANT_PALETTE`, one through the `data-theme` attribute and one through the
- * theme object returned here, so neither carries a second set of colours or type sizes.
+ * Builds MUI from the same authored tokens that generate the CSS custom properties.
  */
 export function buildMuiTheme(mode: TenantTheme) {
   const palette = TENANT_PALETTE[mode];
@@ -47,20 +44,32 @@ export function buildMuiTheme(mode: TenantTheme) {
       },
       divider: palette.line,
     },
+    /*
+     * Every variant the app actually renders is mapped, not just some of them. An
+     * unmapped variant is not inert: MUI substitutes its own default, so `variant="h2"`
+     * rendered at 3.75rem/300 — MUI's, not this design system's — while `--text-h2`
+     * (1.25rem) went unread, and `body2`, the most used variant in the package, sat at
+     * MUI's 0.875rem instead of the `--text-small` step. global.css states the same
+     * treatment for the bare `h2` element, but `.MuiTypography-h2` is a class and beats
+     * an element selector, so the stylesheet never corrected it. Adding a variant to the
+     * scale means adding it here as well as to tokens.css.
+     */
     typography: {
       fontFamily: "var(--font-sans)",
       h1: { fontSize: "var(--text-h1)", lineHeight: "var(--leading-tight)", fontWeight: 500 },
+      h2: { fontSize: "var(--text-h2)", lineHeight: "var(--leading-snug)", fontWeight: 500 },
       h3: { fontSize: "var(--text-h3)", lineHeight: "var(--leading-snug)", fontWeight: 500 },
       body1: { fontSize: "var(--text-body)", lineHeight: "var(--leading-normal)" },
+      body2: { fontSize: "var(--text-small)", lineHeight: "var(--leading-normal)" },
       caption: { fontSize: "var(--text-caption)", fontFamily: "var(--font-mono)" },
       overline: {
         fontSize: "var(--text-overline)",
         fontFamily: "var(--font-mono)",
-        letterSpacing: "0.06em",
+        letterSpacing: "var(--tracking-overline)",
         textTransform: "uppercase",
       },
     },
-    shape: { borderRadius: 6 },
+    shape: { borderRadius: MUI_SHAPE_BORDER_RADIUS },
     components: {
       MuiCssBaseline: {
         styleOverrides: { body: { backgroundColor: "var(--bg)", color: "var(--ink)" } },
@@ -70,7 +79,7 @@ export function buildMuiTheme(mode: TenantTheme) {
         styleOverrides: {
           root: {
             backgroundImage: "none",
-            border: "1px solid var(--line)",
+            border: "var(--border-width) solid var(--line)",
             borderRadius: "var(--radius)",
           },
         },
@@ -88,7 +97,7 @@ export function buildMuiTheme(mode: TenantTheme) {
             fontFamily: "var(--font-mono)",
             fontSize: "var(--text-overline)",
             textTransform: "uppercase",
-            letterSpacing: "0.06em",
+            letterSpacing: "var(--tracking-overline)",
           },
         },
       },
@@ -98,7 +107,7 @@ export function buildMuiTheme(mode: TenantTheme) {
             textTransform: "none",
             borderColor: "var(--line)",
             color: "var(--ink-soft)",
-            "&.Mui-selected": {
+            [`&.${toggleButtonClasses.selected}`]: {
               backgroundColor: "var(--accent)",
               color: "var(--on-accent)",
               borderColor: "var(--accent)",

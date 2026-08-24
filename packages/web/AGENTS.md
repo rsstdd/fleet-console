@@ -87,7 +87,7 @@ StrictMode + react-hooks + React Compiler lints. Violations = bugs.
 
 - Every async surface: loading, empty, partial/stale, offline, recoverable error, terminal error as applicable.
 - WCAG 2.2 AA: semantic HTML, keyboard, accessible names, visible logical focus.
-- MUI + existing tokens only. No second styling system; no raw visual literals except lint-permitted spots (ADR 5).
+- MUI + existing tokens only. `styles/tokens.ts` authors repeated colour and size decisions and generates `tokens.css`; lint rejects raw hex and `px`/`rem` literals plus numeric width/height-family values elsewhere (ADR 5).
 - Tenant identity, theme, flags, endpoints travel together via typed config. Never branch on tenant in a component (ADR 17, 21).
 - UI may hide/disable actions; it never authorizes them.
 - No `dangerouslySetInnerHTML`. No secrets in client env. No sensitive data in localStorage.
@@ -119,10 +119,14 @@ rather than restating it.
 - Default to no comment. If naming or structure can carry the idea, change those first.
 - A comment explains rationale, constraint, edge case, ownership, or a historical
   failure. It never explains the next statement.
-- Export docs stay mandatory (ADR 28): one informative sentence on every exported
-  function, type, and component, saying something the signature does not. A
-  self-documenting declaration is not an exemption — make the summary explain the
-  contract, the constraint, the edge case, or the reason.
+- Export docs are mandatory on this package's public surface (ADR 37): one informative
+  sentence on every function, type, and component that another layer imports — `features`
+  reaching into `components`/`hooks`/`utils`/`types`/`lib`/`config`/`stores`/`context`, or
+  anything the app shell composes. A self-documenting declaration is not an exemption —
+  make the summary explain the contract, the constraint, the edge case, or the reason.
+- Inside a module or feature slice, document an export only where the sentence carries a
+  contract, constraint, edge case, ownership fact, or historical failure. Absence is not a
+  review finding there; a restated comment is one everywhere (ADR 28).
 - Add `@param` / `@returns` only where the contract is complex or ambiguous: outcome
   unions with different retry semantics, identity guarantees a caller depends on,
   injected ports, units, ranges, ordering requirements. Never to raise tag coverage on
@@ -179,18 +183,18 @@ After package spec / decision-linked rule / audit / TODO / decision mapping: `pn
 
 Read one matching row, then its narrow follow-up. Do not preload all web source, page specs, component specs, or ADRs.
 
-| Task                                   | Start                                    | Then                                                                                  |
-| -------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------- |
-| Status, ownership, layer policy        | `docs/03_package-specs/05_WEB.md`        | `packages/web/eslint.config.js` (imports)                                             |
-| Entry, providers, routes               | `src/main.tsx`                           | `src/app/appRouter.tsx` or `appShell.tsx`; `docs/01_page-specs/01_APP_SHELL.md`       |
-| Fleet page, filter, group, scale       | `src/features/fleet/fleetPage.tsx`       | `src/hooks/`, `src/utils/robotSelectors.ts`; `docs/01_page-specs/02_FLEET.md`         |
-| Robot detail, persona, panels          | `src/features/robot/robotDetailPage.tsx` | `capabilityPanels.tsx`, `panelVisibility.ts`; `docs/01_page-specs/03_ROBOT_DETAIL.md` |
-| Map, site facet, markers               | `src/features/map/mapPage.tsx`           | `src/utils/robotSelectors.ts`; `docs/01_page-specs/04_MAP.md`; ADR 35                 |
-| Envelope → browser model               | `src/utils/fromEnvelope.ts`              | `types/robot.ts`, `utils/robotSelectors.ts`; `packages/contracts/src/index.ts`        |
-| Fleet/robot resource state             | `src/hooks/useFleetRobots.ts`            | `useRobotDetail.ts`; feature consumer                                                 |
-| Connection / transport util            | `src/context/connectionContext.ts`       | ADR 23; domain interpretation stays in the data layers                                |
-| Presentational primitive               | matching `docs/02_component-specs/`      | same-named module in `src/components/`                                                |
-| Tenant, theme, flags, endpoints, proxy | `src/config/tenant.ts`                   | `tenantTheme.ts`, `tenantSelection.ts`, `devServerTarget.ts`, or `vite.config.ts`     |
-| Tokens / global style                  | `docs/DESIGN_SYSTEM.md`                  | `src/styles/`, `src/app/theme.ts`                                                     |
-| Boundary / a11y / style lint           | `eslint.config.js`                       | `src/**/__boundary-violation__/` or `.stylelintrc.json`                               |
-| Bundle / prod build                    | `vite.config.ts`                         | `scripts/checkBundleBudget.mjs`; ADR 22                                               |
+| Task                                   | Start                                    | Then                                                                                    |
+| -------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| Status, ownership, layer policy        | `docs/03_package-specs/05_WEB.md`        | `packages/web/eslint.config.js` (imports)                                               |
+| Entry, providers, routes               | `src/main.tsx`                           | `src/app/appRouter.tsx` or `appShell.tsx`; `docs/01_page-specs/01_APP_SHELL.md`         |
+| Fleet page, filter, group, scale       | `src/features/fleet/fleetPage.tsx`       | `src/hooks/`, `src/utils/robotSelectors.ts`; `docs/01_page-specs/02_FLEET.md`           |
+| Robot detail, persona, panels          | `src/features/robot/robotDetailPage.tsx` | `capabilityPanels.tsx`, `panelVisibility.ts`; `docs/01_page-specs/03_ROBOT_DETAIL.md`   |
+| Map, site facet, markers               | `src/features/map/mapPage.tsx`           | `src/utils/robotSelectors.ts`; `docs/01_page-specs/04_MAP.md`; ADR 35                   |
+| Envelope → browser model               | `src/utils/fromEnvelope.ts`              | `types/robot.ts`, `utils/robotSelectors.ts`; `packages/contracts/src/index.ts`          |
+| Fleet/robot resource state             | `src/hooks/useFleetRobots.ts`            | `useRobotDetail.ts`; feature consumer                                                   |
+| Connection / transport util            | `src/context/connectionContext.ts`       | ADR 23; domain interpretation stays in the data layers                                  |
+| Presentational primitive               | matching `docs/02_component-specs/`      | same-named module in `src/components/`                                                  |
+| Tenant, theme, flags, endpoints, proxy | `src/config/tenant.ts`                   | `tenantTheme.ts`, `tenantSelection.ts`, `devServerTarget.ts`, or `vite.config.ts`       |
+| Tokens / global style                  | `docs/DESIGN_SYSTEM.md`                  | `src/styles/tokens.ts`, generated CSS, `src/styles/global.css`, then `src/app/theme.ts` |
+| Boundary / a11y / style lint           | `eslint.config.js`                       | `src/**/__boundary-violation__/` or `.stylelintrc.json`                                 |
+| Bundle / prod build                    | `vite.config.ts`                         | `scripts/checkBundleBudget.mjs`; ADR 22                                                 |

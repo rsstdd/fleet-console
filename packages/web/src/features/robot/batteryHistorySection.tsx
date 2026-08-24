@@ -92,7 +92,7 @@ function Sparkline({ history }: { readonly history: RobotBatteryHistory }): Reac
         aria-label={`Battery history for ${history.robotId}: ${formatPercent(minimum)} to ${formatPercent(maximum)} over the last ${String(history.windowMs / 1_000)} seconds`}
         viewBox={`0 0 ${String(CHART_WIDTH)} ${String(CHART_HEIGHT)}`}
         preserveAspectRatio="none"
-        style={{ width: "100%", height: "var(--sparkline-height)", display: "block" }}
+        className="chart-surface chart-surface--sparkline"
       >
         {/* The full axis frame, so a cluster of points reads against the whole window. */}
         <rect
@@ -198,7 +198,7 @@ export function BatteryHistoryContent({ state }: { readonly state: RobotHistoryS
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             Loading battery history…
           </Typography>
-          <Skeleton variant="rectangular" height={96} />
+          <Skeleton variant="rectangular" height="var(--sparkline-height)" />
         </Paper>
       );
 

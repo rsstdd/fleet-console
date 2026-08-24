@@ -66,7 +66,7 @@ export function MapCanvas({
       aria-label={`Map of ${siteLabel}: ${String(positionedCount)} of ${String(totalCount)} robots positioned`}
       viewBox={`0 0 ${String(viewBox.width)} ${String(viewBox.height)}`}
       preserveAspectRatio="xMidYMid meet"
-      style={{ width: "100%", height: "var(--map-height)", display: "block" }}
+      className="chart-surface chart-surface--map"
     >
       <rect
         x="0"

@@ -5,7 +5,21 @@ import { SectionLabel } from "@/components/sectionLabel";
 
 import { MONO } from "./detailStyles";
 
-/** Keeps the label/value relationship semantic while CSS presents it as two columns. */
+/*
+ * Hoisted to name the three row roles and avoid rebuilding their values in JSX.
+ * `styled()` is not the alternative it looks like here:
+ * a styled MUI component loses the `component` prop's polymorphic typing, and the `as`
+ * prop emotion offers instead replaces the MUI component with a bare tag, dropping its
+ * variant and surface styles.
+ */
+const ROW_SX = { justifyContent: "space-between" } as const;
+const TERM_SX = { color: "text.secondary" } as const;
+const VALUE_SX = { m: 0, ...MONO } as const;
+
+/**
+ * Keeps every detail label/value row semantic, including the capability-panel rows
+ * `capabilityPanels.tsx` composes from it.
+ */
 export function Field({
   label,
   value,
@@ -14,11 +28,11 @@ export function Field({
   readonly value: string;
 }): ReactNode {
   return (
-    <Stack direction="row" spacing={2} sx={{ justifyContent: "space-between" }}>
-      <Typography variant="body2" component="dt" sx={{ color: "text.secondary" }}>
+    <Stack direction="row" spacing={2} sx={ROW_SX}>
+      <Typography variant="body2" component="dt" sx={TERM_SX}>
         {label}
       </Typography>
-      <Typography variant="body2" component="dd" sx={{ m: 0, ...MONO }}>
+      <Typography variant="body2" component="dd" sx={VALUE_SX}>
         {value}
       </Typography>
     </Stack>

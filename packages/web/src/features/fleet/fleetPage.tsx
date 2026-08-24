@@ -162,8 +162,8 @@ export function FleetPage(): ReactNode {
       {resource.kind === "loading" ? (
         <Box aria-busy="true" aria-live="polite">
           <Typography sx={{ mb: 2, color: "text.secondary" }}>Loading fleet…</Typography>
-          <Skeleton variant="rounded" height={48} sx={{ mb: 1 }} />
-          <Skeleton variant="rounded" height={240} />
+          <Skeleton variant="rounded" height="var(--skeleton-line-height)" sx={{ mb: 1 }} />
+          <Skeleton variant="rounded" height="var(--skeleton-content-height)" />
         </Box>
       ) : null}
 

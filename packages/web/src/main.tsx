@@ -5,7 +5,6 @@ import { BrowserRouter } from "react-router";
 
 import "./styles/global.css";
 import "./styles/tokens.css";
-import "./styles/utilities.css";
 import "@fontsource/ibm-plex-sans/400.css";
 import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-mono/400.css";

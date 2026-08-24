@@ -313,10 +313,9 @@ Remaining alignment work is concrete:
   still carries the rule**. That is a real trade — duplicated-and-overriding styling for one
   unasserted CSS rule — and it is named here rather than glossed;
 
-- ~~JavaScript `TENANT_PALETTE` duplicates values in `tokens.css`~~ — **closed 20 August 2026.** The duplication is unavoidable without a build step (CSS custom properties are
-  the design source; MUI needs JavaScript values), so it is pinned instead:
-  `scripts/checkTokens.mjs` fails CI if any of the nine colours disagrees between the two
-  files, and fails if a new palette key is added that the check does not cover;
+- ~~JavaScript `TENANT_PALETTE` duplicates values in `tokens.css`~~ — **closed 24 August 2026.** The earlier drift pin was replaced when the token generator landed: authored
+  `styles/tokens.ts` now supplies MUI and generates committed `tokens.css`, whose drift and
+  contrast are checked by `pnpm check:tokens`;
 - ~~the stylelint selector rule rejects spec-required BEM element names, requiring local
   suppressions~~ — **closed 20 August 2026.** `selector-class-pattern` admitted
   `block` and `block--modifier` but not `block__element`, while
@@ -333,7 +332,7 @@ Remaining alignment work is concrete:
   **It found a real failure on its first run.** `--status-neutral` measured **2.84:1** in
   the dark theme, below the 3:1 non-text threshold, on a token used for a freshness dot and
   a chip. Lightened to `#767068` (3.34:1 on `--surface`, 3.66:1 on `--bg`) with the
-  reasoning recorded beside it in `tokens.css`. Every other token already cleared.
+  reasoning recorded beside it in authored `tokens.ts`. Every other token already cleared.
 
   Forced-colors mode is still unrecorded and still needs a person.
 
