@@ -181,9 +181,10 @@ export function useFleetTransport(
   });
 
   // Binds the external WebSocket's lifecycle to this mount's. `transport` never changes
-  // identity, so this runs exactly once; cleanup disconnects, which is what stops a
-  // StrictMode double-mount, a route teardown, or a hot reload from leaving a second
-  // socket streaming into a store nothing renders any more.
+  // identity, so this runs once per mount rather than once per render — development
+  // StrictMode still replays setup and cleanup. Cleanup disconnects, which is what stops
+  // that replay, a route teardown, or a hot reload from leaving a second socket streaming
+  // into a store nothing renders any more.
   useEffect(() => {
     transport.connect();
     return () => {

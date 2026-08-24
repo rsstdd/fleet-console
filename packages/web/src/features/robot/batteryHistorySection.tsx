@@ -30,15 +30,17 @@ import { Section } from "./detailSection";
  */
 
 /**
- * The drawn coordinate space, in SVG user units; the SVG scales into
- * `--sparkline-height` and `preserveAspectRatio="none"` means only the ratio survives.
+ * The drawn coordinate space, in SVG user units.
  *
- * A shape decision, not a size one. 5:1 is wide enough that sixty points across a minute
- * stay distinguishable and flat enough that ordinary battery drift does not read as a
- * cliff — the axes are fixed precisely so two charts are comparable, and a ratio that
- * exaggerated the y-axis would defeat that. The width matches the map canvas so the two
- * derived-coordinate surfaces share one unit. ADR 33 fixes the window and the point
- * budget and says nothing about these; they are an unresolved design choice.
+ * A resolution decision, not a shape one: `preserveAspectRatio="none"` scales x and y
+ * independently to fill the rendered box, so the on-screen proportions come from the CSS
+ * `width: 100%` / `--sparkline-height` pair and this 5:1 ratio never reaches the viewer.
+ * Filling the section is what that mode buys, and the fixed axes — not the ratio — are what
+ * make two charts comparable; switch to uniform scaling only to letterbox on purpose. The
+ * units still have to be fine enough to draw on: 120 vertical units give a one-percent
+ * battery step its own unit, which is what `round` below is sized against, and both strokes
+ * carry `vectorEffect="non-scaling-stroke"` because the independent scaling would otherwise
+ * thicken them along one axis. ADR 33 fixes the window and the point budget, not these.
  */
 const CHART_WIDTH = 600;
 const CHART_HEIGHT = 120;

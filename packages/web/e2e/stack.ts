@@ -136,7 +136,12 @@ async function waitForHttp(url: string, processes: readonly ManagedProcess[]): P
   let lastFailure = "no attempt made";
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(url);
+      // Bounded by what is left of the deadline: a socket that connects and then never
+      // sends headers parks this await indefinitely, and the loop condition is only
+      // reached between attempts — so the fixture would never get to tear the stack down.
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(Math.max(0, deadline - Date.now())),
+      });
       if (response.ok) return;
       lastFailure = `status ${String(response.status)}`;
     } catch (error) {

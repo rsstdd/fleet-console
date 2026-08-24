@@ -22,8 +22,9 @@ export interface FetchedResourceContext {
  * @param ports - `apiBaseUrl` is a parameter because the data layers may not import
  *   `config` (ADR 4); `fetchLike` is injectable so tests map outcomes to states without
  *   a network. Both are effect dependencies and must keep a stable identity.
- * @param load - Must be a module-level function, not an inline closure: it is an effect
- *   dependency too, and a fresh identity per render would re-fetch on every render. It
+ * @param load - Must keep a stable identity across renders unless a reload is wanted — a
+ *   module-level function, or one the caller memoizes: it is an effect dependency too, and a
+ *   fresh identity per render would re-fetch on every render. It
  *   is handed the retry callback to embed in whatever failure state it returns, and is
  *   expected to resolve with that state rather than to reject.
  * @returns The loaded value once it describes this `id`, and `{ status: "loading" }`
@@ -54,14 +55,17 @@ export function useFetchedResource<TValue>(
   // Synchronizes an external HTTP request with the two inputs that decide which answer
   // is wanted: `id` and `attempt`. The rest of the dependency list is stable by contract
   // (see the parameter docs), so a re-run means the wanted resource genuinely changed.
-  // Cleanup aborts, which is what makes a completion landing after an id change or an
-  // unmount stale rather than a write of one id's data under another id's heading.
+  // Cleanup suppresses the in-flight answer rather than cancelling it: the request runs to
+  // completion and its result is dropped, so a completion landing after an id change or an
+  // unmount cannot write one id's data under another id's heading.
   useEffect(() => {
     const request: FetchLike = fetchLike ?? ((url) => fetch(url));
     // An `AbortController` rather than a captured boolean: the compiler cannot see that a
     // cleanup closure flips a `let` across an await, so it narrows the flag to `true` and
     // the guard reads as dead code. `signal.aborted` is honest to both the reader and the
-    // analyzer, and it is the handle a cancelling `fetch` would want anyway.
+    // analyzer. The signal reaches no `fetch`: `FetchLike` takes a url only
+    // (`lib/transportDecoding.ts`), so this cancels nothing on the wire today — it is a
+    // staleness flag, and the handle a cancelling `fetch` would want if that port grows one.
     const cancellation = new AbortController();
 
     void (async () => {
