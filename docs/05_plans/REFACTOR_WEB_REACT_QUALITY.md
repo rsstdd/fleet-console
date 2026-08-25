@@ -135,6 +135,7 @@ reasoning. Kept: the restated-not-imported deviation, the fail-closed default, t
 was already conforming and is unchanged; `connectionContext.test.ts` kept the banner-coupling
 note and lost four others. Behavioral changes: none.
 
+
 **Resolved 2026-08-25 by `ROBOT_DETAIL_FAILURE_LIFECYCLE.md`.** The detail fetch could not
 satisfy spec §10's retention row, because a success is final: `retry` is carried only by the
 recoverable-error state, so `ready` never transitions to `error` and no earlier value can
