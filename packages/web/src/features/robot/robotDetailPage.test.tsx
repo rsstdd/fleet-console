@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConnectionContext, type StreamConnectionState } from "@/context/connectionContext";
 import { StreamDiagnosticsContext } from "@/context/streamDiagnosticsContext";
-import { SCHEMA_VERSION, type CanonicalEnvelope } from "@fleet/contracts";
+import { SCHEMA_VERSION, type CanonicalEnvelope, type FleetSnapshot } from "@fleet/contracts";
 import { createFleetStore } from "@/stores/fleetStore";
 import { FleetStoreContext } from "@/stores/fleetStoreContext";
 
@@ -457,6 +457,18 @@ describe("live detail reconciliation", () => {
     };
   }
 
+  /** The fleet a snapshot would seed, so a later frame has a fleet to join. */
+  function buildFleetSnapshot(robots: FleetSnapshot["robots"]): FleetSnapshot {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+      flushSequence: 0,
+      capturedAt: Date.now(),
+      sites: [{ siteId: "zone-a", label: "Zone A" }],
+      robots,
+    };
+  }
+
   async function renderWithStore(store: ReturnType<typeof createFleetStore>): Promise<void> {
     render(
       <FleetStoreContext.Provider value={store}>
@@ -476,6 +488,9 @@ describe("live detail reconciliation", () => {
     const fetchSpy = vi.fn(createFixtureFetch());
     vi.stubGlobal("fetch", fetchSpy);
     const store = createFleetStore();
+    // A fleet without this robot yet: the page renders the fetched detail alone, and
+    // the frame below is the first thing the store knows about R-118.
+    store.applySnapshot(buildFleetSnapshot([]));
     await renderWithStore(store);
 
     const summary = screen.getByRole("region", { name: "Summary" });
@@ -512,13 +527,7 @@ describe("live detail reconciliation", () => {
   async function renderFailedDetailWithRow(): Promise<void> {
     vi.stubGlobal("fetch", createFailingDetailFetch());
     const store = createFleetStore();
-    store.applyBatch({
-      schemaVersion: SCHEMA_VERSION,
-      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
-      flushSequence: 1,
-      sentAt: Date.now(),
-      robots: [buildLiveEnvelope()],
-    });
+    store.applySnapshot(buildFleetSnapshot([buildLiveEnvelope()]));
     await renderWithStore(store);
   }
 
