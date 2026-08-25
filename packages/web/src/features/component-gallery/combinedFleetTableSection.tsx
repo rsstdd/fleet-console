@@ -36,25 +36,28 @@ const NumericText = styled("span", {
   color: isCurrent ? theme.palette.text.primary : theme.palette.text.disabled,
 }));
 
+const SECTION_SX = { minWidth: 0, overflow: "hidden" } as const;
+const SECTION_HEADER_SX = { px: 3, py: 2 } as const;
+const HEADING_SX = { mt: 1 } as const;
+const DESCRIPTION_SX = { mt: 0.5 } as const;
+const DIVIDER_SX = { borderColor: "var(--line)" } as const;
+const DATA_PLATE_CONTAINER_SX = { px: 3 } as const;
+
 export function CombinedFleetTableSection(): ReactElement {
   return (
-    <Paper
-      component="section"
-      aria-labelledby="gallery-combined-heading"
-      sx={{ minWidth: 0, overflow: "hidden" }}
-    >
-      <Box sx={{ px: 3, py: 2 }}>
+    <Paper component="section" aria-labelledby="gallery-combined-heading" sx={SECTION_SX}>
+      <Box sx={SECTION_HEADER_SX}>
         <SectionLabel>06 — Combined usage</SectionLabel>
-        <Typography variant="h3" component="h2" id="gallery-combined-heading" sx={{ mt: 1 }}>
+        <Typography variant="h3" component="h2" id="gallery-combined-heading" sx={HEADING_SX}>
           Fleet table
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+        <Typography variant="body2" color="text.secondary" sx={DESCRIPTION_SX}>
           Status and freshness read together. A row whose freshness is not LIVE shows its status
           chip in the last-known treatment and its battery value as an em dash, never a stale number
           presented as current.
         </Typography>
       </Box>
-      <Divider sx={{ borderColor: "var(--line)" }} />
+      <Divider sx={DIVIDER_SX} />
       <TableContainer>
         <Table size="small" aria-label="Fleet sample">
           <TableHead>
@@ -92,7 +95,7 @@ export function CombinedFleetTableSection(): ReactElement {
           </TableBody>
         </Table>
       </TableContainer>
-      <Box sx={{ px: 3 }}>
+      <Box sx={DATA_PLATE_CONTAINER_SX}>
         <DataPlate>Fleet snapshot · live · {GALLERY_CAPTURED_AT_ISO} · source: fleet-api</DataPlate>
       </Box>
     </Paper>

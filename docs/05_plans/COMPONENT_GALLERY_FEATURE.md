@@ -78,12 +78,12 @@ and switches its nested tenant theme without changing the deployment theme on th
 
 ## Verification
 
-- Focused gallery/router Vitest: 13/13 passed; `pnpm --filter web typecheck` and
-  `pnpm --filter web lint` passed.
+- Focused tenant/gallery Vitest: 30/30 passed; the prior gallery/router integration run passed
+  13/13; `pnpm --filter web typecheck` and `pnpm --filter web lint` passed.
 - `pnpm check:doc-comments`, `pnpm check:dependencies`, `pnpm docs:decisions`, and
   `pnpm check:architecture-docs` passed.
-- `pnpm test` passed: 38 web files / 409 web tests; 1,220 tests across all packages.
-- `pnpm --filter web build` and `pnpm check:bundle` passed at 609.27 kB raw / 183.57 kB
+- `pnpm test` passed: 38 web files / 410 web tests; 1,221 tests across all packages.
+- `pnpm --filter web build` and `pnpm check:bundle` passed at 609.33 kB raw / 183.59 kB
   gzip against the 720/300 budget. The production output contained no gallery marker or
   gallery-named chunk.
 - A running Vite development build passed a real Chromium check of `/dev/ui`: shell and
@@ -92,8 +92,8 @@ and switches its nested tenant theme without changing the deployment theme on th
   empty-state recovery. The new Chromium project passed 2/2: it holds the 320px document-width
   reflow boundary and checks the status-size and current/last-known visual differences through
   computed styles.
-- Before the gallery project was added, the unchanged smoke suite passed all 26 Chromium and
-  Firefox scenarios. Its 13 WebKit scenarios could not launch because this host lacks the
+- The smoke suite passed all 26 Chromium and Firefox scenarios. Its 13 WebKit scenarios could
+  not launch because this host lacks the
   required GTK, GStreamer, AVIF, Wayland, enchant, secret, and GLES libraries; CI remains the
   WebKit environment.
 - `git diff HEAD --check` passed. `pnpm check:diff-size` is not yet valid evidence for this

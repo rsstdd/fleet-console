@@ -57,9 +57,10 @@ Load the `clean-code` skill alongside this one for the style and structure rules
   component renders twice — anything impure surfaces as a heisenbug.
 - Keys: stable and identity-bearing. Array index as key is a defect wherever the list can
   reorder, insert, or filter — it silently transplants state between rows.
-- **Hooks top-level only:** Never call hooks inside loops, conditions, nested functions, or
-  `try/catch`, or after an early return. React tracks state via an internal linked list;
-  conditional execution shifts indices and corrupts state.
+- **Hooks top-level only:** Except for React `use(resource)`, never call hooks inside loops,
+  conditions, nested functions, or `try/catch`, or after an early return. `use(resource)` may be
+  called in loops and conditions, but never inside `try/catch` or a nested function. React tracks
+  state via an internal linked list; conditional execution shifts indices and corrupts state.
 - **Hooks React-only:** Call hooks exclusively from functional components or custom hooks,
   never from plain JS, classes, or event handlers.
 - `useRef`: Never read or write `ref.current` during render (breaks Concurrent React);

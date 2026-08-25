@@ -149,6 +149,6 @@ reconciliations where it meets binding repository authority:
 
 ## Completion
 
-All slices are implemented on `refactor-web` (2026-08-23). Archive under
-`docs/04_archive/` once the branch merges; name the merged PR and the commit series
-(`6bb879c`…hygiene) as the replacement evidence.
+All slices were implemented on `refactor-web` (2026-08-23) and archived 2026-08-25 after
+they merged through PRs #31–#37, including commit `6bb879c`. ADR 36 and PR #38 (`394d6c8`)
+subsequently replaced the test-directory convention with colocated tests.

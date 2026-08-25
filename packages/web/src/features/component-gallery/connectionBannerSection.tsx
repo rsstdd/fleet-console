@@ -17,6 +17,10 @@ const RESPONSIVE_TOGGLE_GROUP_SX = {
   alignItems: "stretch",
   flexDirection: { xs: "column", sm: "row" },
 } as const;
+const SECTION_SX = { p: 3 } as const;
+const HEADING_SX = { mt: 1 } as const;
+const DESCRIPTION_SX = { mt: 0.5, mb: 2 } as const;
+const CONTROLS_SX = { mb: 2 } as const;
 
 function isConnectionState(value: unknown): value is ConnectionState {
   return (
@@ -73,17 +77,22 @@ export function ConnectionBannerSection(): ReactElement {
   } satisfies ConnectionBannerProps;
 
   return (
-    <Paper component="section" aria-labelledby="gallery-connection-banner-heading" sx={{ p: 3 }}>
+    <Paper component="section" aria-labelledby="gallery-connection-banner-heading" sx={SECTION_SX}>
       <SectionLabel>05 — ConnectionBanner</SectionLabel>
-      <Typography variant="h3" component="h2" id="gallery-connection-banner-heading" sx={{ mt: 1 }}>
+      <Typography
+        variant="h3"
+        component="h2"
+        id="gallery-connection-banner-heading"
+        sx={HEADING_SX}
+      >
         ConnectionBanner states and retry
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 2 }}>
+      <Typography variant="body2" color="text.secondary" sx={DESCRIPTION_SX}>
         The live region remains mounted while connected. Reconnecting shows attempt and last event
         metadata; retry increments the visible attempt. Disconnected demonstrates every terminal
         cause.
       </Typography>
-      <Stack spacing={2} sx={{ mb: 2 }}>
+      <Stack spacing={2} sx={CONTROLS_SX}>
         <ToggleButtonGroup
           exclusive
           size="small"

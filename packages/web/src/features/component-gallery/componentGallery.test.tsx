@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { createTheme } from "@mui/material/styles";
 
+import { TENANT_THEME_PREVIEWS } from "@/config/tenant";
 import type { TenantTheme } from "@/config/tenantTheme";
 import { ComponentGallery } from "./componentGallery";
 
@@ -118,6 +119,10 @@ describe("ComponentGallery", () => {
     const user = userEvent.setup();
     document.documentElement.setAttribute("data-theme", "dark");
     renderGallery();
+
+    for (const { label } of TENANT_THEME_PREVIEWS) {
+      expect(screen.getByRole("button", { name: label })).toBeVisible();
+    }
 
     await user.click(screen.getByRole("button", { name: "Tenant B · light" }));
 

@@ -124,7 +124,6 @@ Per-slice, in the same PR as the code it describes: `packages/web/AGENTS.md`,
 ## Completion
 
 All slices implemented 2026-08-23 on `refactor/reorganize-web`; ADR 36 is marked
-Implemented. Archive under `docs/04_archive/` once the branch merges, naming ADR 36 and
-the PR series as replacement evidence. Note for the merge: commit `63b9fad` was pushed
-holding only the entity-layer renames; its content edits ride in the following commit
-(or an amended, force-pushed replacement) — squash-merge makes this moot.
+Implemented. Archived 2026-08-25 after the implementation merged in PR #38 (`394d6c8`);
+ADR 36, the web package specification, and the current README folder maps are the
+replacement evidence.
