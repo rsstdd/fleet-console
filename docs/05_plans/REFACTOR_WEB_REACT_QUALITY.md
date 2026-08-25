@@ -2,7 +2,7 @@
 
 **Authority:** Planning only.
 **Status:** Active
-**Updated:** 2026-08-21
+**Updated:** 2026-08-25
 
 ## Outcome
 
@@ -108,6 +108,35 @@ files while `entities/robot/selectors.ts` owns its siblings
 `selectUnpositionedRobots` selectors (pure, unit-tested first) and consume them from the
 feature, restoring one authoritative implementation (Principle 1).
 
+### F7 — Hook and context comment pass (2026-08-25)
+
+Applies ADR 39 to the files it touches: `useFleetRobots.ts`, `useRobotDetail.ts`,
+`useRobotHistory.ts`, `stores/fleetStoreContext.ts`, `context/streamDiagnosticsContext.ts`.
+Rationale that ADR 3, 4, 20, 23, 33, and 34 already own was removed; the surviving comments
+state absence semantics, identity requirements, and the delta-store constraint. Behavioral
+changes: none. Structural changes: `useFleetSites` now reads the resource union through an
+exhaustive `selectSiteDirectory` switch rather than a `"data" in state` structural test, and
+`useRobotHistory`'s failure mapping is an exhaustive switch rather than a ternary — both so a
+new union member fails the build here. New tests cover the site-directory identity guarantee
+and the stream-diagnostics default. `context/connectionContext.ts` keeps its older prose; ADR
+39 is applied when a file is touched, not as a sweep.
+
+**Resolved 2026-08-25 by `ROBOT_DETAIL_FAILURE_LIFECYCLE.md`.** The detail fetch could not
+satisfy spec §10's retention row, because a success is final: `retry` is carried only by the
+recoverable-error state, so `ready` never transitions to `error` and no earlier value can
+exist. The resolution splits — the hook's error variants stopped promising a retained robot,
+and the page now retains from the live fleet row, which is where the data actually is. A
+`previous` value threaded through `useFetchedResource` was implemented and reverted as a seam
+no path reaches.
+
+### F8 — Retry is silent while it runs (resolved)
+
+`useFetchedResource` kept the failed value on screen while a retry ran, so the detail alert and
+the battery-history section looked identical from click to answer. Resolved 2026-08-25 by
+`ROBOT_DETAIL_FAILURE_LIFECYCLE.md`: the hook derives `isReloading` from the attempt its held
+value answered, each resource union carries `retrying`, and a polite `role="status"` beside
+each alert reports it while the control stays operable.
+
 ### Out-of-scope note — dev gallery
 
 The component gallery was excluded from this plan when it was a 592-line app module with
@@ -181,6 +210,15 @@ tree-shaken from production.
 - [x] `pnpm --filter web test && pnpm --filter web lint && pnpm --filter web build` green
       after every slice; `pnpm test:e2e` after F3 (user-facing surface), plus
       `pnpm test:e2e:scale` (120/120 frames applied at 9.76 Hz, delta→paint p95 50.9 ms).
+- [x] The F7 comment pass changes no behavior: `pnpm --filter web test`,
+      `pnpm --filter web lint`, `pnpm --filter web build`, and `pnpm check:doc-comments`
+      green on 2026-08-25. The e2e suites were not re-run — no rendered output changed.
+- [x] F7 lifecycle audit (2026-08-25): loading, success, both failure kinds, retry, id change,
+      unmount, and reconnection traced through `useFetchedResource`, the two entity hooks, and
+      the store transitions. `useRobotDetail.test.ts` adds hook-level coverage for ready,
+      not-found, unreachable→retry→ready, and terminal contract failure. Two unresolved items
+      recorded above and below: spec §10 retention, and the absence of in-flight feedback while
+      a retry runs.
 - [ ] Unverified items recorded here honestly at completion. Known so far: the e2e
       webkit project cannot launch on the development WSL host (missing system
       libraries); smoke evidence covers chromium and firefox only.

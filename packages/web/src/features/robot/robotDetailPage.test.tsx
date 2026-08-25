@@ -495,6 +495,52 @@ describe("live detail reconciliation", () => {
     expect(await within(summary).findByText("42%")).toBeInTheDocument();
     expect(fetchSpy.mock.calls.length).toBe(fetchesAfterLoad);
   });
+
+  /** The detail endpoint is down; history and health still answer. */
+  function createFailingDetailFetch(): ReturnType<typeof createFixtureFetch> {
+    const fixtures = createFixtureFetch();
+    return (url: string) =>
+      url.includes("/robots/") && !url.endsWith("/history")
+        ? Promise.resolve({
+            ok: false,
+            status: 503,
+            json: () => Promise.reject(new Error("no body")),
+          })
+        : fixtures(url);
+  }
+
+  async function renderFailedDetailWithRow(): Promise<void> {
+    vi.stubGlobal("fetch", createFailingDetailFetch());
+    const store = createFleetStore();
+    store.applyBatch({
+      schemaVersion: SCHEMA_VERSION,
+      serverSessionId: "8f7a2c9e-1b3d-4e5f-9a6b-0c1d2e3f4a5b",
+      flushSequence: 1,
+      sentAt: Date.now(),
+      robots: [buildLiveEnvelope()],
+    });
+    await renderWithStore(store);
+  }
+
+  it("keeps the live fleet row on screen when the detail request fails", async () => {
+    await renderFailedDetailWithRow();
+
+    expect(screen.getByRole("alert")).toHaveTextContent("The robot could not be loaded");
+    const summary = screen.getByRole("region", { name: "Summary" });
+    expect(within(summary).getByText("42%")).toBeInTheDocument();
+    // Named apart from the battery-history section's own retry, which is on screen too.
+    expect(screen.getByRole("button", { name: "Retry loading robot detail" })).toBeInTheDocument();
+  });
+
+  it("reports diagnostics as unread by this console, not as never sent by the robot", async () => {
+    await renderFailedDetailWithRow();
+    await showTechnicianView();
+
+    const diagnostics = screen.getByRole("region", { name: "Diagnostics" });
+    expect(diagnostics).toHaveTextContent("served only by the robot detail request");
+    // The registered-robot prose would blame the machine for the console's failed read.
+    expect(screen.queryByText(/has not reported yet/)).toBeNull();
+  });
 });
 
 describe("stream diagnostics in the technician view", () => {

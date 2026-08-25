@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Box } from "@mui/material";
 
-import type { RobotDetail } from "@/types/robot";
+import type { Robot } from "@/types/robot";
 import { selectPanelCapabilities } from "@/utils/robotSelectors";
 
 import { TENANT } from "@/config/tenant";
@@ -19,7 +19,7 @@ import { selectDisabledPanels } from "./panelVisibility";
  * no tenant name in this file and no flag read inside a panel body, which is
  * what Principle 13 asks for structurally rather than by review.
  */
-export function CapabilitiesSection({ robot }: { readonly robot: RobotDetail }): ReactNode {
+export function CapabilitiesSection({ robot }: { readonly robot: Robot }): ReactNode {
   const capabilities = selectPanelCapabilities(robot, selectDisabledPanels(TENANT.flags));
   if (capabilities.length === 0) {
     return null;

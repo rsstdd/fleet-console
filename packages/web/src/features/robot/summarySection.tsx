@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Paper, Stack } from "@mui/material";
 
-import type { RobotDetail, RobotHealth } from "@/types/robot";
+import type { Robot, RobotHealth } from "@/types/robot";
 import {
   selectBatteryDisplay,
   selectPositionDisplay,
@@ -26,7 +26,7 @@ function formatHealth(health: RobotHealth | null): string {
 }
 
 /** Core fields only. Capability payloads never appear here, and vice versa. */
-export function SummarySection({ robot }: { readonly robot: RobotDetail }): ReactNode {
+export function SummarySection({ robot }: { readonly robot: Robot }): ReactNode {
   const presentation = selectStatusPresentation(robot);
 
   return (

@@ -7,14 +7,16 @@ import { PersonaToggle, type Persona } from "@/components/personaToggle";
 import { StatusChip } from "@/components/statusChip";
 import { isStreamConnected, useConnectionState } from "@/context/connectionContext";
 import { useFleetSites } from "@/hooks/useFleetRobots";
-import type { RobotDetail } from "@/types/robot";
+import type { Robot } from "@/types/robot";
 import { selectStatusPresentation } from "@/utils/robotSelectors";
 import { selectSiteLabel } from "@/utils/siteLabel";
 
 import { MONO } from "./detailStyles";
 
 interface DetailHeaderProps {
-  readonly robot: RobotDetail;
+  readonly robot: Robot;
+  /** When the server received the payload behind the fetched detail; null when none was fetched. */
+  readonly receivedAt: string | null;
   readonly persona: Persona;
   readonly onPersonaChange: (persona: Persona) => void;
 }
@@ -27,14 +29,18 @@ export function BackToFleet(): ReactNode {
   );
 }
 
-export function DetailHeader({ robot, persona, onPersonaChange }: DetailHeaderProps): ReactNode {
+export function DetailHeader({
+  robot,
+  receivedAt,
+  persona,
+  onPersonaChange,
+}: DetailHeaderProps): ReactNode {
   const status = selectStatusPresentation(robot);
   const streamConnected = isStreamConnected(useConnectionState());
   const sites = useFleetSites();
 
   const siteLabel = selectSiteLabel(robot.siteId, sites);
   const modelLabel = robot.model ?? "—";
-  const receivedAt = robot.diagnostics?.receivedAt;
 
   return (
     <Stack
@@ -70,7 +76,7 @@ export function DetailHeader({ robot, persona, onPersonaChange }: DetailHeaderPr
             <FreshnessLabel
               state={robot.freshness}
               asOf={robot.lastSeenAt}
-              {...(receivedAt !== null && receivedAt !== undefined ? { receivedAt } : {})}
+              {...(receivedAt === null ? {} : { receivedAt })}
               isCompact
             />
           )}

@@ -182,6 +182,19 @@ export function BatteryHistorySection({ robotId }: { readonly robotId: string })
 }
 
 /**
+ * Reports an attempt while it runs, beside the failure rather than inside it: the alert is
+ * an assertive region, so writing progress into it would re-announce the failure each time.
+ * The control stays operable, because disabling it on activation moves focus to the body.
+ */
+function RetryStatus({ isRetrying }: { readonly isRetrying: boolean }): ReactNode {
+  return (
+    <Typography role="status" variant="body2" component="span" sx={{ color: "text.secondary" }}>
+      {isRetrying ? "Retrying…" : null}
+    </Typography>
+  );
+}
+
+/**
  * Renders one `RobotHistoryState` exhaustively, inside whatever section frame
  * the caller provides.
  *
@@ -206,16 +219,19 @@ export function BatteryHistoryContent({ state }: { readonly state: RobotHistoryS
       if (state.recoverable) {
         // The page around this section stays; only the history degrades.
         return (
-          <Alert
-            severity="warning"
-            action={
-              <Button color="inherit" size="small" onClick={state.retry}>
-                Retry
-              </Button>
-            }
-          >
-            Battery history could not be loaded. The server did not answer.
-          </Alert>
+          <>
+            <Alert
+              severity="warning"
+              action={
+                <Button color="inherit" size="small" onClick={state.retry}>
+                  Retry
+                </Button>
+              }
+            >
+              Battery history could not be loaded. The server did not answer.
+            </Alert>
+            <RetryStatus isRetrying={state.retrying} />
+          </>
         );
       }
       return (

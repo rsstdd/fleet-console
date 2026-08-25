@@ -141,7 +141,7 @@ export function selectFreshnessSummary(robots: readonly Robot[]): FreshnessSumma
  * that is not current is an em dash, not a number. Two readings on one surface
  * disagreeing about what "current" means is worse than either rule alone.
  */
-export function selectPositionDisplay(robot: RobotDetail): string {
+export function selectPositionDisplay(robot: Robot): string {
   if (robot.freshness !== "live" || robot.position === null) {
     return "—";
   }
@@ -174,14 +174,14 @@ export function selectPositionDisplay(robot: RobotDetail): string {
  * hold (ADR 17). Coupling: the list is produced by
  * `features/robot/panelVisibility.ts` from `TenantFlags`.
  *
- * @param robot - Detail read model whose capability keys are declarations, not payload
+ * @param robot - Any read model of the robot; capability keys are declarations, not payload
  *   truthiness checks.
  * @param disabled - Deployment-owned panel exclusions, already mapped from tenant flags.
  * @returns Declared and enabled operator panels in canonical contract order, never object
  *   insertion order.
  */
 export function selectPanelCapabilities(
-  robot: RobotDetail,
+  robot: Robot,
   disabled: readonly PanelCapabilityName[] = [],
 ): readonly PanelCapabilityName[] {
   return OPERATOR_CAPABILITY_NAMES.filter(
