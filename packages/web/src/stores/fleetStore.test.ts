@@ -259,6 +259,52 @@ describe("createFleetStore", () => {
     expect(getFleetData(store).robots.map((robot) => robot.id)).toStrictEqual(["rbt-2"]);
   });
 
+  it("lists a snapshot's robots in id order, whatever order they arrived in", () => {
+    const store = createFleetStore(scheduleImmediately);
+
+    store.applySnapshot(
+      buildSnapshot([buildEnvelope("rbt-3"), buildEnvelope("rbt-1"), buildEnvelope("rbt-2")]),
+    );
+
+    expect(getFleetData(store).robots.map((robot) => robot.id)).toStrictEqual([
+      "rbt-1",
+      "rbt-2",
+      "rbt-3",
+    ]);
+  });
+
+  it("places a robot that joins on a frame in id order rather than at the end", () => {
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1"), buildEnvelope("rbt-3")]));
+
+    store.applyBatch(buildBatch([buildEnvelope("rbt-2")]));
+
+    expect(getFleetData(store).robots.map((robot) => robot.id)).toStrictEqual([
+      "rbt-1",
+      "rbt-2",
+      "rbt-3",
+    ]);
+  });
+
+  it("leaves order and untouched rows alone when a frame only replaces robots", () => {
+    // Ordering is restored on membership change, not per frame: the hot path at scale
+    // is a keyed replace, and it must not rebuild rows it did not name.
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(
+      buildSnapshot([buildEnvelope("rbt-1"), buildEnvelope("rbt-2"), buildEnvelope("rbt-3")]),
+    );
+    const untouched = store.getRobot("rbt-3");
+
+    store.applyBatch(buildBatch([buildEnvelope("rbt-2", { freshness: "stale" })]));
+
+    expect(getFleetData(store).robots.map((robot) => robot.id)).toStrictEqual([
+      "rbt-1",
+      "rbt-2",
+      "rbt-3",
+    ]);
+    expect(store.getRobot("rbt-3")).toBe(untouched);
+  });
+
   it("returns the same state object until something changes", () => {
     // useSyncExternalStore compares by identity, so a fresh object every call is an
     // infinite render loop rather than a performance note.
@@ -277,19 +323,69 @@ describe("createFleetStore", () => {
     // synchronous, so the store never lies about what it already knows.
     const pending: (() => void)[] = [];
     const store = createFleetStore((notify) => pending.push(notify));
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1"), buildEnvelope("rbt-2")]));
+    for (const notify of pending.splice(0)) notify();
+    let woken = 0;
+    store.subscribe(() => {
+      woken += 1;
+    });
+
+    store.applyBatch(buildBatch([buildEnvelope("rbt-1", { freshness: "stale" })]));
+    store.applyBatch(buildBatch([buildEnvelope("rbt-2", { freshness: "stale" })]));
+    expect(woken).toBe(0);
+    expect(store.getRobot("rbt-1")?.freshness).toBe("stale");
+    expect(store.getRobot("rbt-2")?.freshness).toBe("stale");
+
+    for (const notify of pending.splice(0)) notify();
+    expect(woken).toBe(1);
+  });
+
+  it("ignores a frame that arrives before the snapshot it would belong to", () => {
+    // The transport always snapshots before it streams. A frame reaching the store
+    // first has no fleet to join, and applying it would leave `getRobot` answering
+    // for a robot no resource state lists.
+    const store = createFleetStore(scheduleImmediately);
     let woken = 0;
     store.subscribe(() => {
       woken += 1;
     });
 
     store.applyBatch(buildBatch([buildEnvelope("rbt-1")]));
-    store.applyBatch(buildBatch([buildEnvelope("rbt-2")]));
-    expect(woken).toBe(0);
-    expect(store.getRobot("rbt-1")).toBeDefined();
-    expect(store.getRobot("rbt-2")).toBeDefined();
 
-    for (const notify of pending.splice(0)) notify();
+    expect(store.getState()).toStrictEqual({ kind: "loading" });
+    expect(store.getRobot("rbt-1")).toBeUndefined();
+    expect(woken).toBe(0);
+  });
+
+  it("wakes subscribers once for a run of attempts that all mean refreshing", () => {
+    // Reconnect backoff starts an attempt per retry (ADR 31); repeating a phase the
+    // store is already in would re-render the fleet to show what is already there.
+    const store = createFleetStore(scheduleImmediately);
+    store.applySnapshot(buildSnapshot([buildEnvelope("rbt-1")]));
+    let woken = 0;
+    store.subscribe(() => {
+      woken += 1;
+    });
+
+    store.snapshotStart();
+    store.snapshotStart();
+    store.snapshotStart();
+
+    expect(store.getState().kind).toBe("refreshing");
     expect(woken).toBe(1);
+  });
+
+  it("stays silent when an attempt starts and the store is already loading", () => {
+    const store = createFleetStore(scheduleImmediately);
+    let woken = 0;
+    store.subscribe(() => {
+      woken += 1;
+    });
+
+    store.snapshotStart();
+
+    expect(store.getState()).toStrictEqual({ kind: "loading" });
+    expect(woken).toBe(0);
   });
 
   it("ignores an empty frame rather than waking every subscriber for nothing", () => {

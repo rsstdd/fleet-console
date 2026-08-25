@@ -10,10 +10,7 @@ import {
 
 describe("DEFAULT_CONNECTION_STATE", () => {
   it("fails closed when no provider is above the consumer", () => {
-    // The asymmetry is the whole point. A missing provider is a programming error,
-    // and defaulting to `connected` would make every row assert a currency nothing
-    // is supplying — the defect ADR 23 replaced. `disconnected` suppresses the
-    // labels and shows the banner, so the mistake is visible on screen.
+    // The asymmetry is the point: the wrong default is invisible, this one is on screen.
     expect(DEFAULT_CONNECTION_STATE).toBe("disconnected");
     expect(isStreamConnected(DEFAULT_CONNECTION_STATE)).toBe(false);
   });
@@ -30,15 +27,13 @@ describe("isStreamConnected", () => {
   });
 
   it("treats connecting as not delivering", () => {
-    // A first attempt in flight has delivered nothing yet; suppressing until the join
-    // completes is what keeps the fleet table honest during startup (ADR 31).
+    // A first attempt in flight has delivered nothing yet (ADR 31).
     expect(isStreamConnected("connecting")).toBe(false);
   });
 
   it("treats reconnecting as not delivering", () => {
-    // Nothing updates freshness during a reconnect, so the last value ages
-    // silently — the same lie as a dead socket, and the case most likely to be
-    // waved through as "nearly connected" (ADR 3).
+    // The case most likely to be waved through as "nearly connected", though the last
+    // value is ageing silently — the same lie as a dead socket (ADR 3).
     expect(isStreamConnected("reconnecting")).toBe(false);
   });
 
@@ -47,8 +42,6 @@ describe("isStreamConnected", () => {
   });
 
   it("covers the whole vocabulary, so a new state cannot default to permissive", () => {
-    // A fourth state added to the union without a decision here would be a
-    // compile error at this array, not a silently-suppressing runtime surprise.
     const all: readonly StreamConnectionState[] = [
       "connecting",
       "connected",
@@ -59,10 +52,8 @@ describe("isStreamConnected", () => {
   });
 
   it("agrees with the banner's vocabulary, which is declared separately", () => {
-    // Coupling: `components/connectionBanner.tsx` holds a structurally identical
-    // union, restated because `context` and `components` may not import each
-    // other (ADR 4, ADR 23). Structural typing is what keeps them interchangeable;
-    // this assignment is the check that they still are.
+    // `components/connectionBanner.tsx` restates this union because the two layers may
+    // not import each other; this assignment is the check that they stay interchangeable.
     const fromBanner: "connecting" | "connected" | "reconnecting" | "disconnected" = "reconnecting";
     const asContextState: StreamConnectionState = fromBanner;
     expect(isStreamConnected(asContextState)).toBe(false);

@@ -118,8 +118,22 @@ changes: none. Structural changes: `useFleetSites` now reads the resource union 
 exhaustive `selectSiteDirectory` switch rather than a `"data" in state` structural test, and
 `useRobotHistory`'s failure mapping is an exhaustive switch rather than a ternary — both so a
 new union member fails the build here. New tests cover the site-directory identity guarantee
-and the stream-diagnostics default. `context/connectionContext.ts` keeps its older prose; ADR
-39 is applied when a file is touched, not as a sweep.
+and the stream-diagnostics default.
+
+**Second pass over `context/` (2026-08-25).** The first pass left
+`context/connectionContext.ts` alone, on the rule that ADR 39 applies when a file is touched
+rather than as a sweep. It has now been touched, so that exemption is spent. Its 26-line
+module header restated ADR 23 paragraph for paragraph — the `features`-may-not-import-`app`
+argument, the D15 register reference, the list of what belongs elsewhere — and is now the one
+rule editing this file could break: connection state is not robot state, and a dead socket is
+never a per-robot "unreachable". The file is 90 lines to 41. Also removed: the
+`Provided in app/appShell.tsx` pointer (accurate, but not load-bearing and free to drift), the
+`AppShell` prop-default archaeology, and the pointer mirroring `StatusPresentationVariant`'s
+reasoning. Kept: the restated-not-imported deviation, the fail-closed default, the
+`connecting`/`reconnecting` suppression semantics, and the `isStreamLive` naming collision.
+`tenantConfigContext.ts` lost its only comment as restatement; `streamDiagnosticsContext.ts`
+was already conforming and is unchanged; `connectionContext.test.ts` kept the banner-coupling
+note and lost four others. Behavioral changes: none.
 
 **Resolved 2026-08-25 by `ROBOT_DETAIL_FAILURE_LIFECYCLE.md`.** The detail fetch could not
 satisfy spec §10's retention row, because a success is final: `retry` is carried only by the
@@ -213,6 +227,9 @@ tree-shaken from production.
 - [x] The F7 comment pass changes no behavior: `pnpm --filter web test`,
       `pnpm --filter web lint`, `pnpm --filter web build`, and `pnpm check:doc-comments`
       green on 2026-08-25. The e2e suites were not re-run — no rendered output changed.
+- [x] The F7 second pass over `context/` changes no behavior: `pnpm --filter web test`
+      427/427, `pnpm --filter web lint`, and `pnpm check:doc-comments` green on
+      2026-08-25. The e2e suites were not re-run — no rendered output changed.
 - [x] F7 lifecycle audit (2026-08-25): loading, success, both failure kinds, retry, id change,
       unmount, and reconnection traced through `useFetchedResource`, the two entity hooks, and
       the store transitions. `useRobotDetail.test.ts` adds hook-level coverage for ready,
