@@ -1,11 +1,15 @@
 import type { FreshnessState } from "@/components/freshnessLabel";
 import type { StatusVariant } from "@/components/statusChip";
 
-const GALLERY_CAPTURED_AT_MS = Date.now();
+const GALLERY_CAPTURED_AT_MS = Date.parse("2026-08-19T09:41:20.000Z");
+
+const instantBeforeCapture = (msBeforeCapture: number): string =>
+  new Date(GALLERY_CAPTURED_AT_MS - msBeforeCapture).toISOString();
 
 export const GALLERY_CAPTURED_AT_ISO = new Date(GALLERY_CAPTURED_AT_MS).toISOString();
+export const GALLERY_LAST_EVENT_AT_ISO = instantBeforeCapture(18_000);
+export const GALLERY_SOURCE_AT_ISO = instantBeforeCapture(19_000);
 
-/** Sample fleet rows spanning every freshness state, for the combined-usage table. */
 export const FLEET_ROWS: ReadonlyArray<{
   readonly id: string;
   readonly vendor: "A" | "B" | "C";
@@ -21,7 +25,7 @@ export const FLEET_ROWS: ReadonlyArray<{
     statusVariant: "active",
     statusLabel: "Busy",
     freshness: "live",
-    asOf: new Date(GALLERY_CAPTURED_AT_MS - 2_000).toISOString(),
+    asOf: instantBeforeCapture(2_000),
     battery: "91%",
   },
   {
@@ -30,7 +34,7 @@ export const FLEET_ROWS: ReadonlyArray<{
     statusVariant: "charging",
     statusLabel: "Charging",
     freshness: "live",
-    asOf: new Date(GALLERY_CAPTURED_AT_MS - 5_000).toISOString(),
+    asOf: instantBeforeCapture(5_000),
     battery: "34%",
   },
   {
@@ -39,7 +43,7 @@ export const FLEET_ROWS: ReadonlyArray<{
     statusVariant: "fault",
     statusLabel: "Fault",
     freshness: "live",
-    asOf: new Date(GALLERY_CAPTURED_AT_MS - 9_000).toISOString(),
+    asOf: instantBeforeCapture(9_000),
     battery: "12%",
   },
   {
@@ -48,7 +52,7 @@ export const FLEET_ROWS: ReadonlyArray<{
     statusVariant: "active",
     statusLabel: "Busy (last known)",
     freshness: "stale",
-    asOf: new Date(GALLERY_CAPTURED_AT_MS - 18_000).toISOString(),
+    asOf: instantBeforeCapture(18_000),
     battery: "67%",
   },
   {
@@ -57,12 +61,11 @@ export const FLEET_ROWS: ReadonlyArray<{
     statusVariant: "neutral",
     statusLabel: "Idle (last known)",
     freshness: "unreachable",
-    asOf: new Date(GALLERY_CAPTURED_AT_MS - 1_740_000).toISOString(),
+    asOf: instantBeforeCapture(1_740_000),
     battery: "—",
   },
 ];
 
-/** The six status variants with demo labels — one per state the canonical model can produce. */
 export const STATUS_VARIANTS: ReadonlyArray<{
   readonly variant: StatusVariant;
   readonly label: string;
@@ -75,31 +78,9 @@ export const STATUS_VARIANTS: ReadonlyArray<{
   { variant: "unknown", label: "Unknown" },
 ];
 
-/** All four states FreshnessLabel renders; nothing makes a fifth a compile error here. */
 export const FRESHNESS_STATES: ReadonlyArray<FreshnessState> = [
   "live",
   "stale",
   "unreachable",
   "unknown",
-];
-
-/** Prop lists copied by hand: no check compares them to the components, so they drift silently. */
-export const COMPONENT_PROPS: ReadonlyArray<{
-  readonly component: string;
-  readonly props: string;
-}> = [
-  {
-    component: "ConnectionBanner",
-    props: "state · lastEventAt? · attempt? · onRetry? · className?",
-  },
-  { component: "DataPlate", props: "children · as? · className?" },
-  { component: "EmptyState", props: "title · description? · action? · className?" },
-  {
-    component: "FreshnessLabel",
-    props: "state · asOf · receivedAt? · isCompact? · className?",
-  },
-  { component: "PersonaToggle", props: "value · onChange · isDisabled? · className?" },
-  { component: "SectionLabel", props: "children · className?" },
-  { component: "Stat", props: "label · value · hint? · tone? · className?" },
-  { component: "StatusChip", props: "variant · label · isCurrent · size? · className?" },
 ];

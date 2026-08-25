@@ -20,13 +20,13 @@ import type { StackOptions } from "./e2e/fixtures.ts";
  */
 export default defineConfig<StackOptions>({
   testDir: "./e2e",
-  // One production build for the whole run; the stacks serve it via `vite preview`.
+  // Production projects share this build; the DEV-only gallery project uses Vite development.
   globalSetup: "./e2e/globalSetup.ts",
   fullyParallel: false,
   workers: 1,
   forbidOnly: process.env.CI !== undefined,
   retries: process.env.CI === undefined ? 0 : 1,
-  // A test here starts a real server, a real simulator and a preview build, then waits
+  // A test here starts a real server, a real simulator and a Vite server, then waits
   // on production clocks rather than test knobs: `config/freshness.json` degrades a
   // silent robot at 2s and 10s, and ADR 31's recovery backs off under a 30-second
   // ceiling, with the restart scenario spending most of one. 120s covers the longest of
@@ -77,6 +77,16 @@ export default defineConfig<StackOptions>({
         serverPort: 8396,
         vitePort: 5396,
         viteOutDir: "dist-tenant-b",
+      },
+    },
+    {
+      name: "component-gallery-chromium",
+      testMatch: /componentGallery\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        serverPort: 8397,
+        vitePort: 5397,
+        viteMode: "development",
       },
     },
   ],

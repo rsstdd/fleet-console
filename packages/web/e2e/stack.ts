@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 /**
  * The real-stack harness: the actual server, the actual simulator, and the actual Vite
- * dev server, each on an isolated port, with explicit readiness and bounded teardown
+ * server, each on an isolated port, with explicit readiness and bounded teardown
  * (ADR 32).
  *
  * Built on Node built-ins only, deliberately: the one new dependency ADR 32 admits is
@@ -17,11 +17,12 @@ import { fileURLToPath } from "node:url";
  * page itself for Vite — never slept for. Stdout and stderr are retained per process so
  * a failing test can attach the logs that explain it.
  *
- * The console is served as `vite preview` over the production bundle built once in
+ * Product scenarios use `vite preview` over the production bundle built once in
  * `globalSetup.ts`, not as the dev server: the development build's render cost at 10 Hz
  * is measured to starve the browser, and the claim under test is about the build users
  * get. Preview forwards `/api` and `/ws` exactly as the dev proxy does
- * (`vite.config.ts`).
+ * (`vite.config.ts`). The DEV-only component-gallery project selects the development
+ * server because that route is intentionally absent from production output.
  *
  * Coupling: port wiring mirrors production configuration, not test doubles. The server
  * reads `FLEET_SERVER_PORT` (`packages/server/src/config/runtimeEndpoints.ts`), Vite's
@@ -173,7 +174,7 @@ export interface StackPorts {
 
 /** A running stack, with the independent process controls the scenarios drive. */
 export interface Stack {
-  /** The console's origin — the Vite dev server, proxying `/api` and `/ws`. */
+  /** The console's origin — the selected Vite server, proxying `/api` and `/ws`. */
   readonly consoleUrl: string;
   /** Direct server origin, for readiness checks and snapshot capture. */
   readonly serverUrl: string;
@@ -196,6 +197,7 @@ export async function startStack(
   ports: StackPorts,
   options: {
     readonly simulator?: boolean;
+    readonly viteMode?: "development" | "preview";
     /**
      * Which production bundle `vite preview` serves. Defaults to `dist`, the
      * tenant-A build from `globalSetup.ts`; the tenant-B project points this at
@@ -249,11 +251,12 @@ export async function startStack(
     await spawnServer();
     if (options.simulator !== false) spawnSimulator();
 
+    const viteMode = options.viteMode ?? "preview";
     const vite = launch(
       "vite",
       path.join(WEB_DIR, "node_modules", ".bin", "vite"),
       [
-        "preview",
+        ...(viteMode === "preview" ? ["preview"] : []),
         "--port",
         String(ports.vite),
         "--strictPort",
@@ -268,7 +271,9 @@ export async function startStack(
         // test in every project at once.
         "--host",
         LOOPBACK_HOST,
-        ...(options.outDir === undefined ? [] : ["--outDir", options.outDir]),
+        ...(viteMode === "preview" && options.outDir !== undefined
+          ? ["--outDir", options.outDir]
+          : []),
       ],
       {
         cwd: WEB_DIR,

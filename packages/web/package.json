@@ -16,7 +16,7 @@
     "test": "vitest run",
     "test:token-lint": "node --test stylelintConfig.node.mjs",
     "test:watch": "vitest",
-    "test:e2e": "playwright test --project=smoke-chromium --project=smoke-firefox --project=smoke-webkit",
+    "test:e2e": "playwright test --project=smoke-chromium --project=smoke-firefox --project=smoke-webkit --project=component-gallery-chromium",
     "test:e2e:scale": "playwright test --project=scale-chromium",
     "test:e2e:tenant": "playwright test --project=tenant-b-chromium",
     "lint:js": "eslint . --ignore-pattern '**/__boundary-violation__/**'"

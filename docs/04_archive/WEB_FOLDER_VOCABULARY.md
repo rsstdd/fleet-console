@@ -1,8 +1,11 @@
 # Web Folder Vocabulary Migration
 
-**Authority:** Planning only.
-**Status:** Active
-**Updated:** 2026-08-23
+**Authority:** Historical only. ADR 36 and the current web tree govern folder ownership.
+**Status:** Done
+**Archived:** 2026-08-25
+**Superseded by:** [ADR 36](../00_adr/36_CONVENTIONAL_REACT_FOLDER_VOCABULARY_IN_WEB.md),
+the implementation merged in PR #38 (`394d6c8`), the web package specification, and the
+current folder maps in the root and web READMEs.
 
 ## Outcome
 
@@ -39,7 +42,7 @@ pnpm --filter web build` green after every slice, an unchanged collected-test co
 
 - kebab-case filenames (declined in ADR 36).
 - Any behavior, selector, transport, or state change; memoization (D27-gated).
-- `app/dev` gallery relocation (ADR 36 open question; current lean: stays).
+- Component-gallery relocation, completed as a follow-up on 2026-08-25 under ADR 36.
 - Historical documents (`SIMULATOR.md` recipes, archived plans) — they record what was
   true when executed.
 
@@ -58,7 +61,7 @@ pnpm --filter web build` green after every slice, an unchanged collected-test co
 2. **PR 1 — fleetPage split.** Extract `fleetSummary.tsx`, `fleetFilters.tsx`,
    `fleetTable.tsx` (mechanical, existing suite unchanged as evidence); dated note on
    `REFACTOR_WEB_REACT_QUALITY.md` F3. Run `pnpm test:e2e:scale` (ADR 24 surface).
-3. **PR 2 — colocate tests in non-moving directories** (`app/`, `app/dev/`, `config/`,
+3. **PR 2 — colocate tests in non-moving directories** (`app/`, `config/`,
    `features/*`): pure `git mv` + sibling-import rewrites; `robotDetailFixtures.ts` back
    beside its consumers. Same-PR doc sync: web `AGENTS.md` Tests bullet, `05_WEB.md` §4,
    `features/robot/TODO.md`, the fixtures placement comment, ADR 24 pin, and the path in

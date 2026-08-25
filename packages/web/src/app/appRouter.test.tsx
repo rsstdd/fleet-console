@@ -33,12 +33,21 @@ describe("AppRouter", () => {
     expect(screen.getByRole("main")).toHaveAttribute("id", "main");
   });
 
+  it("renders the development component gallery inside the shell at /dev/ui", () => {
+    renderAt("/dev/ui");
+
+    const gallery = screen.getByRole("article", { name: "Component demo" });
+    expect(gallery).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Component demo" })).toBeInTheDocument();
+    expect(screen.getByRole("main")).toContainElement(gallery);
+  });
+
   it("puts the skip link before the content it skips", () => {
     renderAt("/");
 
     const skipLink = screen.getByRole("link", { name: /skip to main content/i });
     expect(skipLink).toHaveAttribute("href", "#main");
-    // Node.compareDocumentPosition: 4 means skipLink precedes main in the tree.
+    // DOCUMENT_POSITION_FOLLOWING is relative to the argument: main follows skipLink.
     expect(skipLink.compareDocumentPosition(screen.getByRole("main"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );

@@ -182,18 +182,18 @@ After package spec / decision-linked rule / audit / TODO / decision mapping: `pn
 
 Read one matching row, then its narrow follow-up. Do not preload all web source, page specs, component specs, or ADRs.
 
-| Task                                   | Start                                    | Then                                                                                    |
-| -------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------- |
-| Status, ownership, layer policy        | `docs/03_package-specs/05_WEB.md`        | `packages/web/eslint.config.js` (imports)                                               |
-| Entry, providers, routes               | `src/main.tsx`                           | `src/app/appRouter.tsx` or `appShell.tsx`; `docs/01_page-specs/01_APP_SHELL.md`         |
-| Fleet page, filter, group, scale       | `src/features/fleet/fleetPage.tsx`       | `src/hooks/`, `src/utils/robotSelectors.ts`; `docs/01_page-specs/02_FLEET.md`           |
-| Robot detail, persona, panels          | `src/features/robot/robotDetailPage.tsx` | `capabilityPanels.tsx`, `panelVisibility.ts`; `docs/01_page-specs/03_ROBOT_DETAIL.md`   |
-| Map, site facet, markers               | `src/features/map/mapPage.tsx`           | `src/utils/robotSelectors.ts`; `docs/01_page-specs/04_MAP.md`; ADR 35                   |
-| Envelope → browser model               | `src/utils/fromEnvelope.ts`              | `types/robot.ts`, `utils/robotSelectors.ts`; `packages/contracts/src/index.ts`          |
-| Fleet/robot resource state             | `src/hooks/useFleetRobots.ts`            | `useRobotDetail.ts`; feature consumer                                                   |
-| Connection / transport util            | `src/context/connectionContext.ts`       | ADR 23; domain interpretation stays in the data layers                                  |
-| Presentational primitive               | matching `docs/02_component-specs/`      | same-named module in `src/components/`                                                  |
-| Tenant, theme, flags, endpoints, proxy | `src/config/tenant.ts`                   | `tenantTheme.ts`, `tenantSelection.ts`, `devServerTarget.ts`, or `vite.config.ts`       |
-| Tokens / global style                  | `docs/DESIGN_SYSTEM.md`                  | `src/styles/tokens.ts`, generated CSS, `src/styles/global.css`, then `src/app/theme.ts` |
-| Boundary / a11y / style lint           | `eslint.config.js`                       | `src/**/__boundary-violation__/` or `.stylelintrc.json`                                 |
-| Bundle / prod build                    | `vite.config.ts`                         | `scripts/checkBundleBudget.mjs`; ADR 22                                                 |
+| Task                                   | Start                                    | Then                                                                                                              |
+| -------------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Status, ownership, layer policy        | `docs/03_package-specs/05_WEB.md`        | `packages/web/eslint.config.js` (imports)                                                                         |
+| Entry, providers, routes               | `src/main.tsx`                           | `src/app/appRouter.tsx` or `appShell.tsx`; `docs/01_page-specs/01_APP_SHELL.md`                                   |
+| Fleet page, filter, group, scale       | `src/features/fleet/fleetPage.tsx`       | `src/hooks/`, `src/utils/robotSelectors.ts`; `docs/01_page-specs/02_FLEET.md`                                     |
+| Robot detail, persona, panels          | `src/features/robot/robotDetailPage.tsx` | `capabilityPanels.tsx`, `panelVisibility.ts`; `docs/01_page-specs/03_ROBOT_DETAIL.md`                             |
+| Map, site facet, markers               | `src/features/map/mapPage.tsx`           | `src/utils/robotSelectors.ts`; `docs/01_page-specs/04_MAP.md`; ADR 35                                             |
+| Envelope → browser model               | `src/utils/fromEnvelope.ts`              | `types/robot.ts`, `utils/robotSelectors.ts`; `packages/contracts/src/index.ts`                                    |
+| Fleet/robot resource state             | `src/hooks/useFleetRobots.ts`            | `useRobotDetail.ts`; feature consumer                                                                             |
+| Connection / transport util            | `src/context/connectionContext.ts`       | ADR 23; domain interpretation stays in the data layers                                                            |
+| Presentational primitive               | matching `docs/02_component-specs/`      | same-named module in `src/components/`                                                                            |
+| Tenant, theme, flags, endpoints, proxy | `src/config/tenant.ts`                   | `tenantTheme.ts`, `tenantSelection.ts`, `devServerTarget.ts`, or `vite.config.ts`                                 |
+| Tokens / global style                  | `docs/DESIGN_SYSTEM.md`                  | `src/styles/tokens.ts`, generated CSS, `src/styles/global.css`, then `src/app/theme.ts` and `src/app/muiTheme.ts` |
+| Boundary / a11y / style lint           | `eslint.config.js`                       | `src/**/__boundary-violation__/` or `.stylelintrc.json`                                                           |
+| Bundle / prod build                    | `vite.config.ts`                         | `scripts/checkBundleBudget.mjs`; ADR 22                                                                           |

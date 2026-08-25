@@ -105,13 +105,11 @@ optimization target (the audience changed) from thrash.
   relocate to `utils/__boundary-violation__/`.
 - `entities/site/model.ts` splits: its type to `types/site.ts`, `selectSiteLabel` to
   `utils/siteLabel.ts`.
-- Execution is sequenced in `docs/05_plans/WEB_FOLDER_VOCABULARY.md`.
+- Execution was sequenced in `docs/04_archive/WEB_FOLDER_VOCABULARY.md`.
 
 ## Open questions
 
-- Whether `app/dev` (the gallery) should become a feature under `features/dev-gallery/`.
-  Current lean: no — it is app-wired, DEV-gated tooling, not a product feature. Resolves
-  if the gallery ever gains a product surface.
+None.
 
 ## Observed consequences
 
@@ -120,6 +118,11 @@ optimization target (the audience changed) from thrash.
   slice, and e2e smoke 24/24 on chromium + firefox after the final move. The
   boundary-violation suite failed once mid-migration on the reworded ban message and
   passed after the assertion followed it — the enforcement rule demonstrated live.
+- 2026-08-25 — The component-review surface moved from `app/dev` to
+  `features/component-gallery`. Its local interaction state and multi-section composition
+  make feature ownership clearer even though the route remains DEV-only. `AppRouter`
+  injects the app-owned MUI theme factory, preserving feature ↛ app and the config
+  layer's data-only restriction.
 
 ## Related
 
@@ -127,8 +130,8 @@ optimization target (the audience changed) from thrash.
 - ADR 22, ADR 24 — measured gates; unaffected by moves, verified per slice.
 - ADR 27 — diff-size gate; pure renames make the migration affordable.
 - ADR 23, 31, 33, 35 — pinned web paths that move with this decision.
-- Plan `docs/05_plans/WEB_FOLDER_VOCABULARY.md` — execution sequence.
-- Plan `docs/05_plans/WEB_TEST_LAYOUT_AND_DECOMPOSITION.md` — established the `tests/`
+- Archived plan `docs/04_archive/WEB_FOLDER_VOCABULARY.md` — execution sequence.
+- Archived plan `docs/04_archive/WEB_TEST_LAYOUT_AND_DECOMPOSITION.md` — established the `tests/`
   convention this ADR reverses; its layering and decomposition outcomes stand.
 
 ## Notes

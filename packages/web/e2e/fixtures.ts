@@ -20,8 +20,9 @@ import { startStack, type Stack } from "./stack.ts";
 export interface StackOptions {
   readonly serverPort: number;
   readonly vitePort: number;
-  /** The bundle `vite preview` serves; undefined means the default `dist` build. */
+  /** The bundle `vite preview` serves; ignored in development mode. */
   readonly viteOutDir: string | undefined;
+  readonly viteMode: "development" | "preview";
 }
 
 interface StackFixtures {
@@ -34,14 +35,15 @@ export const test = base.extend<TestExtensions>({
   serverPort: [8390, { option: true }],
   vitePort: [5390, { option: true }],
   viteOutDir: [undefined, { option: true }],
+  viteMode: ["preview", { option: true }],
 
   // Playwright calls this parameter `use`; renamed so the React hooks lint, which has
   // no way to know this file never renders, does not read it as the `use()` hook.
-  stack: async ({ serverPort, vitePort, viteOutDir }, provide, testInfo) => {
+  stack: async ({ serverPort, vitePort, viteOutDir, viteMode }, provide, testInfo) => {
     const portConfig = { server: serverPort, vite: vitePort };
     const viteConfig = viteOutDir ? { outDir: viteOutDir } : {};
 
-    const stack = await startStack(portConfig, viteConfig);
+    const stack = await startStack(portConfig, { ...viteConfig, viteMode });
 
     try {
       await provide(stack);
