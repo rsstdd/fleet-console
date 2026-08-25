@@ -4,7 +4,6 @@ import type { AdapterHealthCounters } from "@/utils/fromEnvelope";
 import type { Connectivity, HealthSeverity, Robot, SequenceHealth } from "@/types/robot";
 import type { FetchLike } from "@/lib/transportDecoding";
 
-// Feature tests cannot import src/test; sibling robot tests are this module's only consumers.
 interface VendorFixture {
   readonly model: string;
   readonly adapterId: string;
@@ -237,7 +236,6 @@ export function buildHealthResponse(): unknown {
   };
 }
 
-/** Shared fleet rows used by every detail response builder in this feature's tests. */
 export function buildFixtureRobots(): readonly Robot[] {
   const now = Date.now();
   const formatSecondsAgo = (elapsedSeconds: number) =>

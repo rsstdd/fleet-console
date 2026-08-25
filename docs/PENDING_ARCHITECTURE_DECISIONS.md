@@ -36,7 +36,7 @@ This file is intentionally short: resolved entries are tombstones linking to the
 | D26 | Implemented | [ADR 35](./00_adr/35_MAP_SPATIAL_CONTEXT_DERIVED_CLIENT_SIDE.md)                                       | Map spatial context when the wire carries no bounds                              |
 | D27 | Open        | —                                                                                                      | Enable the React Compiler build transform in web                                 |
 | D28 | Implemented | [ADR 36](./00_adr/36_CONVENTIONAL_REACT_FOLDER_VOCABULARY_IN_WEB.md)                                   | Web folder vocabulary and test placement for external readability                |
-| D29 | Implemented | [ADR 39](./00_adr/39_COMMENTS_PRESERVE_ONLY_NON_OBVIOUS_CONTRACTS_AND_CONSTRAINTS.md)                  | Which exports require a doc comment                                              |
+| D29 | Implemented | [ADR 39](./00_adr/39_COMMENTS_PRESERVE_ONLY_NON_OBVIOUS_CONTRACTS_AND_CONSTRAINTS.md)                  | When does a non-obvious contract or constraint require a source comment          |
 | D30 | Implemented | [ADR 38](./00_adr/38_EXACT_OPTIONAL_PROPERTIES_AND_READONLY_MEMBERS_AS_SHARED_TYPE_SAFETY_BASELINE.md) | Exact optional-property and readonly-member TypeScript baseline                  |
 
 ## Open stubs

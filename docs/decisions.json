@@ -143,7 +143,7 @@
     },
     {
       "id": "D29",
-      "question": "Which exports require a doc comment",
+      "question": "When does a non-obvious contract or constraint require a source comment",
       "adr": 39
     },
     {

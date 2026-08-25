@@ -3,29 +3,24 @@
 **Reviewed version:** tag [`v1`](https://github.com/rsstdd/fleet-console/tree/v1) — commit `50b7afe`, the tree as sent on 21 August 2026.
 **Diff:** https://github.com/rsstdd/fleet-console/compare/v1...main
 
-At a glance: 143 files changed, 47 of them renames. No feature was added and no behavior
+At a glance: 200 files changed, 44 of them renames. No feature was added and no behavior
 was intentionally changed; the work is structural, plus the defects that surfaced while
-doing it. The unit suite is at 402 passing cases across 36 files (v1: 34 files), green at
-every step.
+doing it. The final tree has 406 passing unit tests across 37 files (v1: 34 files). The
+decomposed orchestrators are 238 lines for `fleetPage.tsx`, 199 for
+`robotDetailPage.tsx`, and 151 for `componentGallery.tsx`.
 
-> **TODO (Ross):** re-run the Playwright e2e suite and the ADR 22 bundle gate on the final
-> v2 tree before sending, and state the result here. Do not claim a gate you have not run.
+Final-tree verification on 25 August 2026: `pnpm test:e2e` passed Chromium 13/13 and
+Firefox 13/13. WebKit could not launch locally because the host lacks its GTK,
+GStreamer, and GLES libraries. `pnpm check:bundle` passed at 608.53 kB raw and
+183.27 kB gzip against ADR 22's 720/300 kB budgets.
 
 ---
 
 ## 1. Feedback → change
 
-> **TODO (Ross):** fill the left column with Dimitri's and Enrique's actual words from the
-> 21 August session, one row each, and delete any row below that does not correspond to
-> feedback they gave. Rows already carrying a quote are the ones recorded in the ADRs.
-
 | What you said                                                                                                                      | What changed                                                                                                                                                                                                                                                                                                                        | Where to look                                                                                       |
 | ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | The package was hard to navigate — FSD vocabulary (`entities/`, `shared/ui`, `shared/lib`) is not what a React developer looks for | `packages/web/src` re-expressed in the ecosystem's standard vocabulary: `features/`, `components/`, `hooks/`, `stores/`, `context/`, `lib/`, `utils/`, `types/`, `config/`. The one-directional dependency rules did not change — they are still mechanically enforced by `eslint-plugin-boundaries`, now over the renamed elements | [ADR 36](00_adr/36_CONVENTIONAL_REACT_FOLDER_VOCABULARY_IN_WEB.md), `packages/web/eslint.config.js` |
-| _(feedback point)_                                                                                                                 | Page components decomposed into focused files: `fleetPage.tsx` 569 → 238 lines, `robotDetailPage.tsx` 552 → 184 across five section files, the dev gallery 592 → 155 with fixtures and sections extracted                                                                                                                           | `packages/web/src/features/robot/`, `features/fleet/`                                               |
-| _(feedback point)_                                                                                                                 | Unit tests colocated as `foo.test.tsx` beside `foo.tsx` — where a reviewer looks first                                                                                                                                                                                                                                              | anywhere under `packages/web/src`                                                                   |
-| _(feedback point)_                                                                                                                 | Two hooks that had each grown their own copy of the same per-id fetch lifecycle now share one, written test-first: `useFetchedResource` owns loading/retry/stale-answer-discard, and `useRobotDetail` / `useRobotHistory` own only their URLs and outcome mapping                                                                   | `packages/web/src/hooks/useFetchedResource.ts`                                                      |
-| _(feedback point)_                                                                                                                 | Naming pass across the package, and a comment pass so comments carry rationale rather than narrating the line below them                                                                                                                                                                                                            | commits `8359901`, `d3c7212`                                                                        |
 
 ## 2. Defects the refactor surfaced
 

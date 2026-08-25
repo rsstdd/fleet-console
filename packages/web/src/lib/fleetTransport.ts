@@ -73,7 +73,6 @@ const REAL_TIMER: RetryTimer = {
   },
 };
 
-/** Everything the transport reports outward. */
 export interface FleetTransportHandlers {
   /** The initial fleet, already reconciled; replaces whatever the caller held. */
   readonly onSnapshot: (snapshot: FleetSnapshot) => void;

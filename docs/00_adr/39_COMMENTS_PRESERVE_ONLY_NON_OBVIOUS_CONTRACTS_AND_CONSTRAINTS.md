@@ -8,7 +8,7 @@
 
 ADR 37 reduced the repository's former blanket documentation rule but still required one
 sentence on every declared package export and every web cross-layer export. Package guidance
-also required duplicated coupling comments and construct-triggered prose around effects,
+also required coupling comments on both sides and construct-triggered prose around effects,
 numeric values, dimensions, and regular expressions. These rules create comments because a
 declaration has a particular shape or location, not because a maintainer needs information the
 code cannot carry.

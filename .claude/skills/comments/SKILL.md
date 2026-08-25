@@ -90,8 +90,6 @@ const value = Date.parse(robot.lastSeenAt);
 // Timestamp of the robot's most recent report.
 ```
 
-````
-
 Prefer:
 
 ```ts
@@ -440,4 +438,3 @@ Flag:
 
 Do **not** flag uncommented code merely because it contains an effect,
 memoization, a constant, an internal export, or a non-trivial function.
-````
