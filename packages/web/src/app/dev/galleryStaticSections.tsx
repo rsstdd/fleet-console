@@ -24,7 +24,7 @@ import {
   COMPONENT_PROPS,
   FLEET_ROWS,
   FRESHNESS_STATES,
-  NOW,
+  GALLERY_CAPTURED_AT_ISO,
   STATUS_VARIANTS,
 } from "./galleryFixtures";
 
@@ -51,7 +51,7 @@ const SampleRow = styled(TableRow)({
 /** `isCurrent={false}` is the last-known treatment: same figure, dimmed ink. */
 const NumericText = styled("span", {
   shouldForwardProp: (prop) => prop !== "isCurrent",
-})<{ isCurrent: boolean }>(({ theme, isCurrent }) => ({
+})<{ readonly isCurrent: boolean }>(({ theme, isCurrent }) => ({
   fontFamily: "var(--font-mono)",
   fontVariantNumeric: "tabular-nums",
   color: isCurrent ? theme.palette.text.primary : theme.palette.text.disabled,
@@ -287,7 +287,7 @@ export function CombinedFleetTableSection(): ReactNode {
         </Table>
       </TableContainer>
       <Box sx={{ px: 3 }}>
-        <DataPlate>Fleet snapshot · live · {NOW.toISOString()} · source: fleet-api</DataPlate>
+        <DataPlate>Fleet snapshot · live · {GALLERY_CAPTURED_AT_ISO} · source: fleet-api</DataPlate>
       </Box>
     </Paper>
   );

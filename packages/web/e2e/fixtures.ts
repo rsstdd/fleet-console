@@ -1,5 +1,4 @@
 import { test as base } from "@playwright/test";
-
 import { startStack, type Stack } from "./stack.ts";
 
 /**
@@ -25,11 +24,13 @@ export interface StackOptions {
   readonly viteOutDir: string | undefined;
 }
 
-interface Fixtures {
-  stack: Stack;
+interface StackFixtures {
+  readonly stack: Stack;
 }
 
-export const test = base.extend<Fixtures & StackOptions>({
+type TestExtensions = StackOptions & StackFixtures;
+
+export const test = base.extend<TestExtensions>({
   serverPort: [8390, { option: true }],
   vitePort: [5390, { option: true }],
   viteOutDir: [undefined, { option: true }],
@@ -37,13 +38,21 @@ export const test = base.extend<Fixtures & StackOptions>({
   // Playwright calls this parameter `use`; renamed so the React hooks lint, which has
   // no way to know this file never renders, does not read it as the `use()` hook.
   stack: async ({ serverPort, vitePort, viteOutDir }, provide, testInfo) => {
-    const stack = await startStack({ server: serverPort, vite: vitePort }, { outDir: viteOutDir });
+    const portConfig = { server: serverPort, vite: vitePort };
+    const viteConfig = viteOutDir ? { outDir: viteOutDir } : {};
+
+    const stack = await startStack(portConfig, viteConfig);
+
     try {
       await provide(stack);
     } finally {
       await stack.dispose();
+
       if (testInfo.status !== testInfo.expectedStatus) {
-        await testInfo.attach("stack-logs", { body: stack.logs(), contentType: "text/plain" });
+        await testInfo.attach("stack-logs", {
+          body: stack.logs(),
+          contentType: "text/plain",
+        });
       }
     }
   },

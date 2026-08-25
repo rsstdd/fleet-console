@@ -29,7 +29,7 @@ describe("fetchFleetSnapshot", () => {
 
   function createRespondingFetch(
     body: unknown,
-    init: { ok?: boolean; status?: number } = {},
+    init: { readonly ok?: boolean; readonly status?: number } = {},
   ): FetchLike {
     return () =>
       Promise.resolve({
@@ -154,7 +154,7 @@ describe("fetchRobotDetail", () => {
   };
 
   const createRespondingFetch =
-    (body: unknown, init: { ok?: boolean; status?: number } = {}): FetchLike =>
+    (body: unknown, init: { readonly ok?: boolean; readonly status?: number } = {}): FetchLike =>
     () =>
       Promise.resolve({
         ok: init.ok ?? true,
@@ -255,7 +255,7 @@ describe("fetchBatteryHistory", () => {
 
   function createRespondingFetch(
     body: unknown,
-    init: { ok?: boolean; status?: number } = {},
+    init: { readonly ok?: boolean; readonly status?: number } = {},
   ): FetchLike {
     return () =>
       Promise.resolve({

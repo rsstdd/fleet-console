@@ -80,6 +80,7 @@ export default tseslint.config(
       // Principles 2 and 15: boundary values stay `unknown` until validation;
       // explicit `any` would opt this package out of the checked contract.
       "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/prefer-readonly": "error",
       "no-restricted-globals": [
         "error",
         { name: "Date", message: CLOCK_MESSAGE },

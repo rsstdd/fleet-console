@@ -91,6 +91,23 @@ describe("RobotDetailPage", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("rejects a route id outside the canonical identifier grammar before fetching", () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    render(
+      <MemoryRouter initialEntries={["/robots/R%20invalid"]}>
+        <Routes>
+          <Route path="/robots/:id" element={<RobotDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("That address does not name a robot.")).toBeInTheDocument();
+    expect(screen.queryByText("Loading robot…")).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("names the robot in a single h1 and offers the route back to fleet", async () => {
     await renderRobot("R-118");
 
@@ -104,9 +121,9 @@ describe("RobotDetailPage", () => {
     await renderRobot("R-118");
 
     const header = screen.getByRole("heading", { level: 1 }).parentElement;
-    expect(header).not.toBeNull();
-    expect(within(header as HTMLElement).getByText("Busy")).toBeInTheDocument();
-    expect(within(header as HTMLElement).getByText("Live")).toBeInTheDocument();
+    if (header === null) throw new Error("robot heading must have a header container");
+    expect(within(header).getByText("Busy")).toBeInTheDocument();
+    expect(within(header).getByText("Live")).toBeInTheDocument();
   });
 
   it("suppresses the freshness label while the stream is down (ADR 3)", async () => {
@@ -117,17 +134,18 @@ describe("RobotDetailPage", () => {
     await renderRobot("R-118", "disconnected");
 
     const header = screen.getByRole("heading", { level: 1 }).parentElement;
-    expect(header).not.toBeNull();
-    expect(within(header as HTMLElement).getByText("Busy")).toBeInTheDocument();
-    expect(within(header as HTMLElement).queryByText("Live")).toBeNull();
-    expect(within(header as HTMLElement).queryByText("Unreachable")).toBeNull();
+    if (header === null) throw new Error("robot heading must have a header container");
+    expect(within(header).getByText("Busy")).toBeInTheDocument();
+    expect(within(header).queryByText("Live")).toBeNull();
+    expect(within(header).queryByText("Unreachable")).toBeNull();
   });
 
   it("suppresses it while reconnecting too", async () => {
     await renderRobot("R-118", "reconnecting");
 
     const header = screen.getByRole("heading", { level: 1 }).parentElement;
-    expect(within(header as HTMLElement).queryByText("Live")).toBeNull();
+    if (header === null) throw new Error("robot heading must have a header container");
+    expect(within(header).queryByText("Live")).toBeNull();
   });
 
   it("keeps the frozen values visible while the label is suppressed", async () => {

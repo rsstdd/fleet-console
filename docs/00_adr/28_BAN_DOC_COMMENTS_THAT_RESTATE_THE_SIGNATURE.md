@@ -69,7 +69,7 @@ The honest limit is worth stating plainly: this catches lazy comments, not wrong
 
 - **Should `excludedTags` be configured?** No tag is excluded today. If a `@param`-heavy style ever arrives, `@category`-style tags would be the first candidates.
 - **Does this belong on test files too?** It currently applies to every `.ts`/`.tsx`, tests included. Test names carry a lot of this codebase's reasoning, and no test comment was flagged, so the wider scope costs nothing today.
-- **Is there a rule for the more dangerous case** — a comment that is informative and _wrong_? Not mechanically. The nearest thing this repository has is the coupling convention: document a coupling on both sides, so a stale claim has a second place to contradict.
+- **Is there a rule for the more dangerous case** — a comment that is informative and _wrong_? Not mechanically. ADR 39 minimizes that risk by preferring shared types, tests, and owning documentation to duplicated source prose; surviving comments still require review.
 
 ## Observed consequences
 
@@ -78,6 +78,7 @@ The honest limit is worth stating plainly: this catches lazy comments, not wrong
 - **The defaults' gap was found by probing rather than by reading the documentation.** Six redundant fixtures, one caught. Every one of the four the tuned list added is a verb form this codebase writes constantly.
 - **The first version of the enforcement test failed for an unrelated reason**, and the reason is worth recording: these packages lint with type-aware rules, whose project service rejects a `filePath` it has never seen with a fatal parsing error rather than a rule result. Linting a string still works, but the path has to name a file the TypeScript project already covers. A test that filtered only for its own rule id — as the first draft did — would have read that fatal error as "no findings" and passed vacuously once the assertion was inverted. It now asserts no fatal message before it counts anything.
 - ADR number 27 was claimed by a concurrent session mid-work; this is 28, and the references in seven files were updated together.
+- 25 August 2026: ADR 39 superseded the two-sided coupling convention and the public-surface mandate. This rule remains the mechanical minimum for comments that survive the exceptional-comment review.
 
 ## Related
 

@@ -58,7 +58,7 @@ const { FleetPage } = await import("./fleetPage");
  * Every fourth robot takes the next state, so the summary counts are known
  * arithmetic rather than something the test has to recount from the fixture.
  */
-function buildFleet(size: number): Robot[] {
+function buildFleet(size: number): readonly Robot[] {
   const freshness = ["live", "stale", "unreachable", "unknown"] as const;
   return Array.from({ length: size }, (_, index) => ({
     id: `R-${String(index).padStart(4, "0")}`,

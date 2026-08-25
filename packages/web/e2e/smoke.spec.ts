@@ -1,4 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
+import { parseFleetSnapshot } from "@fleet/contracts";
 
 import { expect, test } from "./fixtures.ts";
 
@@ -97,6 +98,17 @@ test.describe("fleet console against the real stack", () => {
       await page.getByRole("link", { name: "← Fleet" }).click();
       await expect(getRobotLinks(page)).toHaveCount(50, { timeout: 15_000 });
     }
+  });
+
+  test("rejects a malformed robot route before either detail resource loads", async ({
+    page,
+    stack,
+  }) => {
+    await page.goto(new URL("/robots/R%20invalid", stack.consoleUrl).toString());
+
+    await expect(page.getByRole("heading", { name: "Robot not found" })).toBeVisible();
+    await expect(page.getByText("That address does not name a robot.")).toBeVisible();
+    await expect(page.getByText("Loading robot…")).toHaveCount(0);
   });
 
   test("is keyboard operable end to end, and streaming updates never steal focus", async ({
@@ -296,8 +308,13 @@ test.describe("fleet console against the real stack", () => {
     // snapshots are terminal — retrying returns the same bytes (ADR 20).
     await page.route("**/api/fleet", async (route) => {
       const response = await route.fetch();
-      const body = (await response.json()) as Record<string, unknown>;
-      delete body["sites"];
+      const rawBody: unknown = await response.json();
+      const decoded = parseFleetSnapshot(rawBody);
+      if (!decoded.ok) {
+        throw new Error("the real server must return a valid fleet snapshot before corruption");
+      }
+      const { schemaVersion, serverSessionId, flushSequence, capturedAt, robots } = decoded.value;
+      const body = { schemaVersion, serverSessionId, flushSequence, capturedAt, robots };
       await route.fulfill({ response, json: body });
     });
     await page.goto(stack.consoleUrl);

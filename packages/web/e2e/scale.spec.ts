@@ -89,7 +89,11 @@ function calculatePercentile(values: readonly number[], percentileRank: number):
   return lowValue + (highValue - lowValue) * (rank - low);
 }
 
-function summarize(values: readonly number[]): { p50: number; p95: number; max: number } {
+function summarize(values: readonly number[]): {
+  readonly p50: number;
+  readonly p95: number;
+  readonly max: number;
+} {
   return {
     p50: calculatePercentile(values, 50),
     p95: calculatePercentile(values, 95),
@@ -335,7 +339,9 @@ test.describe("500-robot live-stream measurement", () => {
 
 /** Reads Chromium's used JS heap through CDP; precise, unlike `performance.memory`. */
 async function readHeap(cdp: {
-  send(method: "Performance.getMetrics"): Promise<{ metrics: { name: string; value: number }[] }>;
+  readonly send: (method: "Performance.getMetrics") => Promise<{
+    readonly metrics: readonly { readonly name: string; readonly value: number }[];
+  }>;
 }): Promise<number> {
   const { metrics } = await cdp.send("Performance.getMetrics");
   return metrics.find((metric) => metric.name === "JSHeapUsedSize")?.value ?? Number.NaN;

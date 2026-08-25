@@ -8,7 +8,10 @@ import type { Freshness, Robot } from "@/types/robot";
  */
 
 /** The Reporting-status choices in display order; the values are the ADR 3 freshness vocabulary. */
-export const FRESHNESS_FILTER_OPTIONS: ReadonlyArray<{ value: Freshness; label: string }> = [
+export const FRESHNESS_FILTER_OPTIONS: ReadonlyArray<{
+  readonly value: Freshness;
+  readonly label: string;
+}> = [
   { value: "live", label: "Live" },
   { value: "stale", label: "Stale" },
   { value: "unreachable", label: "Unreachable" },
@@ -60,20 +63,15 @@ export function toFreshnessFilter(value: string): Freshness | null {
  * @returns True when the robot belongs in the table under these filters.
  */
 export function matchesFilters(robot: Robot, filters: Filters): boolean {
-  if (filters.site !== null && robot.siteId !== filters.site) {
-    return false;
-  }
-  if (filters.vendor !== null && robot.vendor !== filters.vendor) {
-    return false;
-  }
-  if (filters.freshness !== null && robot.freshness !== filters.freshness) {
-    return false;
-  }
-  if (filters.search.trim() !== "") {
-    const needle = filters.search.trim().toLowerCase();
-    if (!robot.id.toLowerCase().includes(needle)) {
-      return false;
-    }
-  }
-  return true;
+  const search = filters.search.trim().toLowerCase();
+
+  const siteMatches = filters.site === null || robot.siteId === filters.site;
+
+  const vendorMatches = filters.vendor === null || robot.vendor === filters.vendor;
+
+  const freshnessMatches = filters.freshness === null || robot.freshness === filters.freshness;
+
+  const searchMatches = robot.id.toLowerCase().includes(search);
+
+  return siteMatches && vendorMatches && freshnessMatches && searchMatches;
 }

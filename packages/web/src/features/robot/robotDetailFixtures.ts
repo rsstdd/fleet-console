@@ -1,55 +1,25 @@
 import { SCHEMA_VERSION, type CapabilityWireEntry } from "@fleet/contracts";
 
 import type { AdapterHealthCounters } from "@/utils/fromEnvelope";
-import type { HealthSeverity, Robot, SequenceHealth } from "@/types/robot";
+import type { Connectivity, HealthSeverity, Robot, SequenceHealth } from "@/types/robot";
 import type { FetchLike } from "@/lib/transportDecoding";
 
-/**
- * The wire responses `GET /api/robots/:id` and `GET /api/health` would serve, for tests
- * that render the real detail page.
- *
- * These used to live inside `useRobotDetail`, standing in for a server that did not exist.
- * They moved here rather than being deleted when the fetch landed, because the tests that
- * use them exercise the **true** path — serialize, decode with the contract's own parser,
- * map with `fromEnvelope` — and mocking the hook instead would have deleted that coverage
- * rather than moved it.
- *
- * It sits beside the page rather than under `src/test/**` because tests inherit their
- * production layer: the boundaries config classifies everything under `features/robot/`
- * as the robot feature, and a feature may not import `test`. Nothing but the sibling
- * suites imports this, so it is absent from the bundle. This same-feature location
- * remains authoritative until fixture construction is materially copied across layers
- * or feature directories (`docs/03_package-specs/05_WEB.md` § 4, ADR 36).
- */
-
+// Feature tests cannot import src/test; sibling robot tests are this module's only consumers.
 interface VendorFixture {
   readonly model: string;
   readonly adapterId: string;
   readonly adapterVersion: string;
-  readonly position: { readonly frame: string; readonly x: number; readonly y: number } | null;
+  readonly position: {
+    readonly frame: string;
+    readonly x: number;
+    readonly y: number;
+  } | null;
   readonly capabilities: readonly CapabilityWireEntry[];
   readonly counters: AdapterHealthCounters;
-  /**
-   * This robot's sequence continuity as the server would report it on the wire
-   * (ADR 25). On the fixture rather than in `counters` because it is per-robot and
-   * travels on the envelope; `counters` is what genuinely is not.
-   */
   readonly sequenceHealth: SequenceHealth;
   readonly rawPayload: Readonly<Record<string, unknown>>;
 }
 
-/**
- * ADR 1's three dialects, as capability declarations, matching what the real adapters
- * produce from the recorded payloads: A declares dock + lidarHealth + sequence, B declares
- * dock alone, and C declares dock + waterLevel + sequence. B is therefore both
- * lidar-less and sequence-less. C reports an undocumented field its adapter counted
- * rather than dropped. Capabilities are in wire form — an array of entries —
- * because that is what JSON carries; the schema decodes them to the record
- * (ADR 1).
- *
- * Nothing downstream branches on vendor. The differences reach the console
- * only as which capabilities exist (Principle 3).
- */
 const FIXTURE_BY_VENDOR: Readonly<Record<string, VendorFixture>> = {
   A: {
     model: "Courier 4",
@@ -74,18 +44,9 @@ const FIXTURE_BY_VENDOR: Readonly<Record<string, VendorFixture>> = {
     adapterId: "vendor-b",
     adapterVersion: "0.9.2",
     position: { frame: "site-map", x: 7.4, y: 62.1 },
-    capabilities: [
-      // Dock alone. ADR 1 § Observed consequences resolved vendor B to this profile —
-      // its payload carries no lidar source data — and the real adapter agrees: decoding
-      // the recorded B fixture yields `dock` and nothing else. This file used to declare
-      // `lidarHealth` here, which made the console's own tests assert a fleet the system
-      // cannot produce (`packages/FIXME.md` **F1**).
-      { name: "dock", payload: { docked: true, dockId: "dock-a3" } },
-    ],
+    capabilities: [{ name: "dock", payload: { docked: true, dockId: "dock-a3" } }],
     counters: { unknownFieldCount: 0 },
-    // No sequence declared, so there is nothing to count gaps in. "Not
-    // evaluated" and "no gaps observed" are different statements (ADR 1), and
-    // the discriminated shape is what makes the second unrepresentable here.
+    // Vendor B has no sequence source; unevaluated is distinct from zero observed gaps.
     sequenceHealth: { evaluated: false },
     rawPayload: { state: "charging", battery_pct: 34, x_cm: 740, y_cm: 6210 },
   },
@@ -110,20 +71,13 @@ const FIXTURE_BY_VENDOR: Readonly<Record<string, VendorFixture>> = {
   },
 };
 
-/**
- * Vendor-supplied health prose, which arrives only when there is something to
- * say. A nominal robot has no description, which is why the contract makes the
- * field optional rather than an empty string.
- */
 const HEALTH_DESCRIPTION: Partial<Record<HealthSeverity, string>> = {
   degraded: "Drive current above nominal",
   critical: "Obstacle sensor unresponsive",
 };
 
-/** A positive skew keeps the technician clock-delta path exercised; the value is arbitrary. */
 const FIXTURE_RECEIPT_DELAY_MS = 120;
 
-/** Handles the dialect split where one vendor nests identity and the others keep it flat. */
 function withRobotId(
   payload: Readonly<Record<string, unknown>>,
   id: string,
@@ -135,32 +89,9 @@ function withRobotId(
   return { ...payload, id };
 }
 
-/**
- * Connectivity is `unknown` for every fixture, because it is `unknown` for every real
- * robot.
- *
- * This used to derive the value from freshness — `online` unless the robot was
- * unreachable — which is the inference ADR 1 forbids: reported link state, server-derived
- * freshness and the console's socket state are three disjoint facts, and deriving one from
- * another manufactures telemetry (`packages/FIXME.md` **F1** was the same class of error in
- * capabilities). It was also simply false. Decoding all nine recorded payloads through the
- * real registry yields `connectivity: "unknown"` for every one of them, because **no vendor
- * dialect reports a link state at all** (ADR 30 § Implications).
- *
- * So there is nothing to choose and no stand-in to outlive its fixture. If the dialects
- * ever report connectivity — ADR 30's open question, leaning yes — this constant is where
- * the fixture starts varying, and the case worth adding then is one where connectivity and
- * freshness **disagree**, which cannot be constructed from anything the system produces
- * today.
- */
-const FIXTURE_CONNECTIVITY = "unknown" as const;
+// No current vendor reports connectivity; never infer it from freshness.
+const FIXTURE_CONNECTIVITY = "unknown" satisfies Connectivity;
 
-/**
- * Builds the JSON body `GET /api/robots/:id` will serve, for a robot that has
- * reported at least once. Returns `unknown` deliberately: the value crosses the
- * decode boundary like any other response and gets no type until the schema
- * gives it one.
- */
 function buildWireResponse(robot: Robot, fixture: VendorFixture, reportedAt: number): unknown {
   const description = robot.health === null ? undefined : HEALTH_DESCRIPTION[robot.health.severity];
 
@@ -194,7 +125,6 @@ function buildWireResponse(robot: Robot, fixture: VendorFixture, reportedAt: num
   };
 }
 
-/** The manifest entry for a robot that is registered and has never reported. */
 function buildRegisteredResponse(robot: Robot): unknown {
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -205,19 +135,6 @@ function buildRegisteredResponse(robot: Robot): unknown {
   };
 }
 
-/**
- * A `fetch` stub answering the three requests the detail page makes.
- *
- * All three, because the robot, the health counters and the battery history are separate
- * resources that fail independently — a test that stubbed only the robot would exercise
- * paths the console never takes. History has its own overrides for the same reason health
- * does: its failure modes are section-local and the page must survive each of them.
- *
- * @param options - Independent health and history responses or failures; omitted fields
- *   use the same internally consistent fixture set as the robot response.
- * @returns A request seam that routes by URL and preserves the three resources' distinct
- *   failure behavior without touching the network.
- */
 export function createFixtureFetch(
   options: {
     readonly health?: unknown;
@@ -255,37 +172,17 @@ export function createFixtureFetch(
   };
 }
 
-/**
- * Uses the registered-only contract for a robot with no report rather than fabricating
- * nullable telemetry fields.
- *
- * @param id - Robot id looked up in the shared fleet fixture.
- * @returns An observed diagnostic envelope, a registered-only body, or null when the id
- *   is absent and the request seam should answer 404.
- */
 export function buildRobotResponse(id: string): unknown {
   const robot = buildFixtureRobots().find((candidate) => candidate.id === id);
   if (robot === undefined) return null;
 
   const fixture = FIXTURE_BY_VENDOR[robot.vendor];
   const reportedAt = robot.lastSeenAt === null ? null : Date.parse(robot.lastSeenAt);
-  // A robot that has never reported is a different contract, not an envelope full of
-  // nulls: it has no telemetry instant and no core (ADR 1).
+  // A never-reported robot uses the registered-only contract, not nullable telemetry.
   if (reportedAt === null || fixture === undefined) return buildRegisteredResponse(robot);
   return buildWireResponse(robot, fixture, reportedAt);
 }
 
-/**
- * The wire body `GET /api/robots/:id/history` would serve for one fixture robot.
- *
- * A robot that has reported gets a short declining ramp ending at its current battery,
- * so the chart a test renders agrees with the Summary beside it (Principle 1); a robot
- * that has never reported — or has no battery — gets the contract's honest empty shapes.
- *
- * @param id - Robot whose shared fixture supplies the battery and reporting state.
- * @returns A contract-valid history body whose empty variants distinguish no telemetry
- *   from telemetry containing no battery samples.
- */
 export function buildHistoryResponse(id: string): unknown {
   const robot = buildFixtureRobots().find((candidate) => candidate.id === id);
   const capturedAt = Date.now();
@@ -316,11 +213,6 @@ export function buildHistoryResponse(id: string): unknown {
   };
 }
 
-/**
- * Keeps fleet-wide adapter counters aligned with the same vendor fixtures as detail.
- *
- * @returns A contract-valid health body with one counter entry per fixture vendor.
- */
 export function buildHealthResponse(): unknown {
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -345,25 +237,14 @@ export function buildHealthResponse(): unknown {
   };
 }
 
-/**
- * The fleet rows these fixture responses describe.
- *
- * One set of core values, so a fixture detail response cannot disagree with the row a test
- * would have clicked to reach it (Principle 1). Timestamps are relative to `Date.now()`
- * because freshness varies across the set on purpose — a suite asserting on an exact
- * instant should pass its own.
- *
- * @returns Fleet rows whose ids, vendors, core values, and reporting state agree with
- *   every response builder in this module.
- */
-export function buildFixtureRobots(): Robot[] {
+/** Shared fleet rows used by every detail response builder in this feature's tests. */
+export function buildFixtureRobots(): readonly Robot[] {
   const now = Date.now();
   const formatSecondsAgo = (elapsedSeconds: number) =>
     new Date(now - elapsedSeconds * 1_000).toISOString();
   const formatMinutesAgo = (elapsedMinutes: number) =>
     new Date(now - elapsedMinutes * 60_000).toISOString();
 
-  /** Fleet-row core values; the observed-only detail fields are filled below. */
   const rows: ReadonlyArray<
     Omit<Robot, "observed" | "model" | "connectivity" | "position" | "capabilities">
   > = [
@@ -445,8 +326,7 @@ export function buildFixtureRobots(): Robot[] {
       health: { severity: "nominal" },
       freshness: "unknown",
       batteryPercent: null,
-      // A robot with freshness "unknown" has never reported — it cannot
-      // have a last-seen time, so this stays null rather than "just now".
+      // Unknown freshness means this robot has never reported.
       lastSeenAt: null,
     },
     {
@@ -471,10 +351,7 @@ export function buildFixtureRobots(): Robot[] {
     },
   ];
 
-  // A row with freshness "unknown" has never reported, so the observed-only
-  // fields stay absent for it the way `toRegisteredRobot` leaves them; the
-  // rest carry minimal observed values, since these rows exercise the fleet
-  // table's columns rather than the detail panels.
+  // Registered-only rows have no observed fields; other rows carry minimal fleet values.
   return rows.map((row) => {
     const observed = row.freshness !== "unknown";
     return {

@@ -44,6 +44,12 @@ const CONNECTION_COLOR: Readonly<Record<ConnectionState, string>> = {
   disconnected: "var(--error)",
 };
 
+// The focused skip link must remain above the sticky header.
+const SHELL_STACK = { header: 5, focusedSkipLink: 10 } as const;
+
+// Must exceed every supported viewport so the unfocused link remains off-screen.
+const SKIP_LINK_HIDDEN_OFFSET = -9999;
+
 /**
  * Renders the operational frame around every route and reflects connection state
  * supplied by the app transport boundary without subscribing to robot telemetry.
@@ -59,6 +65,14 @@ export function AppShell({
   terminalCause,
   onRetry,
 }: AppShellProps): ReactElement {
+  const connectionBannerProps = {
+    state: connectionState,
+    ...(lastEventAt === undefined ? {} : { lastEventAt }),
+    ...(attempt === undefined ? {} : { attempt }),
+    ...(terminalCause === undefined ? {} : { terminalCause }),
+    ...(onRetry === undefined ? {} : { onRetry }),
+  } satisfies ConnectionBannerProps;
+
   return (
     <TenantConfigContext.Provider value={TENANT}>
       <ConnectionContext.Provider value={connectionState}>
@@ -75,9 +89,9 @@ export function AppShell({
             href="#main"
             sx={{
               position: "absolute",
-              left: -9999,
+              left: SKIP_LINK_HIDDEN_OFFSET,
               top: 0,
-              zIndex: 10,
+              zIndex: SHELL_STACK.focusedSkipLink,
               p: 2,
               bgcolor: "background.paper",
               color: "text.primary",
@@ -92,7 +106,7 @@ export function AppShell({
             sx={{
               position: "sticky",
               top: 0,
-              zIndex: 5,
+              zIndex: SHELL_STACK.header,
               bgcolor: "var(--header-bg)",
               borderBottom: "var(--border-width) solid",
               borderColor: "divider",
@@ -147,13 +161,7 @@ export function AppShell({
           </Box>
 
           <Container maxWidth="xl">
-            <ConnectionBanner
-              state={connectionState}
-              lastEventAt={lastEventAt}
-              attempt={attempt}
-              terminalCause={terminalCause}
-              onRetry={onRetry}
-            />
+            <ConnectionBanner {...connectionBannerProps} />
           </Container>
 
           {/*

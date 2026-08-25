@@ -1,26 +1,16 @@
 import type { ReactElement } from "react";
 
 /**
- * StatusChip — pure presentational status indicator.
- * Spec: docs/02_component-specs/01_STATUS_CHIP.md.
+ * Presentation vocabulary accepted by the token-backed status primitive; domain
+ * interpretation remains in the data layers.
  *
- * Six variants only, matching the canonical status enum (idle, busy,
- * charging, fault, unknown) plus health severity (degraded). There is no
- * token, and therefore no variant, for a state no adapter can produce —
- * "maintenance" and "info" from the original design system are gone.
- *
- * Every visual decision — colour, tint, border, type, padding, the dot, the
- * small size and the last-known treatment — comes from the .status classes in
- * global.css, which read the --status-* custom properties in tokens.css. This
- * component contributes no inline style and no second styling system
- * (Principle 8).
+ * Coupling: `utils/robotSelectors.ts` mirrors this union as
+ * `StatusPresentationVariant` because the sibling layers cannot import one another.
  */
 export type StatusVariant = "neutral" | "active" | "charging" | "degraded" | "fault" | "unknown";
 
-/** Two sizes: `small` for a table cell, `medium` for a page header. */
 export type StatusChipSize = "small" | "medium";
 
-/** Display-only inputs for a status chip; `isCurrent` is what makes it hollow. */
 export interface StatusChipProps {
   readonly variant: StatusVariant;
   /**
@@ -38,7 +28,6 @@ export interface StatusChipProps {
   readonly className?: string;
 }
 
-/** medium is the base .status rule, so only small carries a modifier class. */
 const SIZE_CLASS: Record<StatusChipSize, string | null> = {
   small: "status--small",
   medium: null,

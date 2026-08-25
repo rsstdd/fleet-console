@@ -1,12 +1,13 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 import { Alert, Box, Button } from "@mui/material";
+import { identifierSchema } from "@fleet/contracts";
 
 import { DataPlate } from "@/components/dataPlate";
 import { EmptyState } from "@/components/emptyState";
 import { type Persona } from "@/components/personaToggle";
 
-import type { RobotDetail } from "@/types/robot";
+import type { Robot, RobotDetail } from "@/types/robot";
 import { useRobotDetail, type RobotDetailState } from "@/hooks/useRobotDetail";
 import { useFleetRobot } from "@/hooks/useFleetRobots";
 import { reconcileDetailWithRow } from "@/utils/fromEnvelope";
@@ -79,16 +80,14 @@ function RobotDetailBody({ robot }: { readonly robot: RobotDetail }): ReactNode 
  * robots do not re-render this page.
  */
 export function RobotDetailPage(): ReactNode {
-  const { id } = useParams<{ id: string }>();
-  // The one boundary condition on the address, resolved here so every data hook
-  // below takes a robot id that exists — none reasons about an absent id mid-render.
-  const isAddressedRobot = typeof id === "string" && id !== "";
+  const { id } = useParams<{ readonly id: string }>();
+  const parsedId = identifierSchema.safeParse(id);
 
   return (
     <Box>
       <BackToFleet />
-      {isAddressedRobot ? (
-        <ResolvedRobotDetail id={id} />
+      {parsedId.success ? (
+        <ResolvedRobotDetail id={parsedId.data} />
       ) : (
         <EmptyState
           title="Robot not found"
@@ -114,18 +113,34 @@ function ResolvedRobotDetail({ id }: { readonly id: string }): ReactNode {
    * `reconcileDetailWithRow` carries those forward from the one fetch.
    */
   const live = useFleetRobot(id);
-  const state = useMemo(() => {
-    if (live === undefined) return fetched;
-    if (fetched.status === "ready") {
-      return { ...fetched, robot: reconcileDetailWithRow(fetched.robot, live) };
-    }
-    if (fetched.status === "error" && fetched.recoverable && fetched.robot !== null) {
-      return { ...fetched, robot: reconcileDetailWithRow(fetched.robot, live) };
-    }
-    return fetched;
-  }, [fetched, live]);
+  const state = reconcileRobotDetailState(fetched, live);
 
   return renderState(state);
+}
+
+function reconcileRobotDetailState(
+  fetched: RobotDetailState,
+  live: Robot | undefined,
+): RobotDetailState {
+  if (live === undefined) {
+    return fetched;
+  }
+
+  if (fetched.status === "ready") {
+    return {
+      ...fetched,
+      robot: reconcileDetailWithRow(fetched.robot, live),
+    };
+  }
+
+  if (fetched.status === "error" && fetched.recoverable && fetched.robot !== null) {
+    return {
+      ...fetched,
+      robot: reconcileDetailWithRow(fetched.robot, live),
+    };
+  }
+
+  return fetched;
 }
 
 /**

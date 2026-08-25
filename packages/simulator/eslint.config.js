@@ -74,6 +74,7 @@ export default tseslint.config(
       // Principles 2 and 15: use precise types or `unknown` plus validation;
       // explicit `any` would opt this producer out of static analysis.
       "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/prefer-readonly": "error",
       "no-restricted-properties": [
         "error",
         { object: "Math", property: "random", message: DETERMINISM_MESSAGE },

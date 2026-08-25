@@ -10,7 +10,11 @@ import {
   Typography,
 } from "@mui/material";
 
-import { ConnectionBanner, type ConnectionState } from "@/components/connectionBanner";
+import {
+  ConnectionBanner,
+  type ConnectionBannerProps,
+  type ConnectionState,
+} from "@/components/connectionBanner";
 import { EmptyState } from "@/components/emptyState";
 import { PersonaToggle, type Persona } from "@/components/personaToggle";
 import { SectionLabel } from "@/components/sectionLabel";
@@ -97,6 +101,14 @@ export function ConnectionBannerSection({
   readonly onStateChange: (next: ConnectionState) => void;
   readonly onRetry: () => void;
 }): ReactNode {
+  const connectionBannerProps = {
+    state: connectionState,
+    ...(connectionState === "reconnecting"
+      ? { attempt: reconnectAttempt, lastEventAt: "2026-08-19T09:41:02.000Z" }
+      : {}),
+    ...(connectionState === "connected" ? {} : { onRetry }),
+  } satisfies ConnectionBannerProps;
+
   const handleConnectionStateChange = (
     _event: unknown,
     nextState: ConnectionState | null,
@@ -127,12 +139,7 @@ export function ConnectionBannerSection({
         <ToggleButton value="reconnecting">Reconnecting</ToggleButton>
         <ToggleButton value="disconnected">Disconnected</ToggleButton>
       </ToggleButtonGroup>
-      <ConnectionBanner
-        state={connectionState}
-        attempt={connectionState === "reconnecting" ? reconnectAttempt : undefined}
-        lastEventAt={connectionState === "reconnecting" ? "2026-08-19T09:41:02.000Z" : undefined}
-        onRetry={connectionState === "connected" ? undefined : onRetry}
-      />
+      <ConnectionBanner {...connectionBannerProps} />
     </Paper>
   );
 }

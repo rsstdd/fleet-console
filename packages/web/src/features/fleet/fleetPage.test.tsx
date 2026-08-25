@@ -194,12 +194,14 @@ describe("FleetPage", () => {
 
     const row = within(getFleetTable()).getByRole("row", { name: /R-118/ });
     const vendorCell = within(row).getAllByRole("cell")[0];
-    expect(vendorCell).toBeDefined();
+    if (vendorCell === undefined) {
+      throw new Error("R-118 must have a vendor cell");
+    }
 
     // Spec §2: activation is the link and nothing else. A row-level handler
     // would fire alongside the link on one pointer click, and would still offer
     // no keyboard path, because a <tr> is not focusable.
-    await user.click(vendorCell as HTMLElement);
+    await user.click(vendorCell);
 
     // Exact, not toHaveTextContent: that matches substrings, and "/robots/R-118"
     // contains "/", so the assertion would pass against the very defect it guards.

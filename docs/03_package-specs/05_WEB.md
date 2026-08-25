@@ -9,8 +9,9 @@
   gate), ADR 23 (connection state through shared lib), ADR 24 (unvirtualized table until
   measured churn), ADR 25 (contracts owns every decoded response), ADR 26 (demo-only raw
   diagnostics), ADR 31 (reconnect and session reconciliation), ADR 32 (browser evidence),
-  ADR 33 (battery history), ADR 34 (site directory on the snapshot); Principles 1–15
-  (see § 13 for the enforcement/evidence mapping)
+  ADR 33 (battery history), ADR 34 (site directory on the snapshot), ADR 38 (shared
+  exact-optional and readonly-member type safety); Principles 1–15 (see § 13 for the
+  enforcement/evidence mapping)
 - **Related specs:** `docs/01_page-specs/`, `docs/02_component-specs/`,
   `docs/DESIGN_SYSTEM.md`
 
@@ -202,15 +203,16 @@ and raises no error; a registered panel with no declaration is never reached.
 
 ## 7. Enforcement
 
-| Rule                                             | Mechanism     | Where                                             |
-| ------------------------------------------------ | ------------- | ------------------------------------------------- |
-| Layer dependency rule                            | Static        | `eslint-plugin-boundaries`, `default: "disallow"` |
-| No cross-feature import                          | Static        | boundaries `feature → feature` denied except self |
-| Module resolution for the above                  | Static        | `eslint-import-resolver-typescript` (ADR 7)       |
-| No raw hex/px/rem or numeric width/height values | Static        | stylelint + ESLint token plugin                   |
-| No `@fleet/adapters` or `@fleet/server` import   | Static        | `no-restricted-imports`                           |
-| Accessibility                                    | Static + Test | a11y lint; component tests for name, role, state  |
-| **The rules above still fire**                   | Test          | `__boundary-violation__` fixtures                 |
+| Rule                                             | Mechanism      | Where                                                |
+| ------------------------------------------------ | -------------- | ---------------------------------------------------- |
+| Layer dependency rule                            | Static         | `eslint-plugin-boundaries`, `default: "disallow"`    |
+| No cross-feature import                          | Static         | boundaries `feature → feature` denied except self    |
+| Module resolution for the above                  | Static         | `eslint-import-resolver-typescript` (ADR 7)          |
+| No raw hex/px/rem or numeric width/height values | Static         | stylelint + ESLint token plugin                      |
+| No `@fleet/adapters` or `@fleet/server` import   | Static         | `no-restricted-imports`                              |
+| Accessibility                                    | Static + Test  | a11y lint; component tests for name, role, state     |
+| Exact optional keys and stable class members     | Types + Static | shared TypeScript baseline and typed ESLint (ADR 38) |
+| **The rules above still fire**                   | Test           | `__boundary-violation__` fixtures                    |
 
 Boundaries are declared with `default: "disallow"`, so every allowance is explicit and a
 new layer is denied until someone writes the rule for it — the opposite of a default-allow
@@ -412,6 +414,11 @@ The joining test in `utils/fromEnvelope.test.ts` now makes the test-only
 `@fleet/adapters` dependency earn its keep for all three dialects (ADR 12). Tenant feature
 flags and validated build-time selection are implemented (ADR 17).
 
+The package inherits exact optional-property semantics and enforces readonly class members under
+the shared TypeScript baseline (ADR 38). Optional JSX and transport keys are omitted when absent;
+external and JSON-derived test values stay unknown until their contract parser or runtime guard
+narrows them.
+
 ## 12. Change rules
 
 - A new capability is a `@fleet/contracts` change first, then an adapter declaration, then
@@ -430,20 +437,20 @@ flags and validated build-time selection are implemented (ADR 17).
 
 ## 13. Principles 1–15: enforcement and evidence
 
-| Principle                              | Enforcement / evidence in this package                                                                 |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 1 — one authoritative implementation   | Selectors own display rules; contracts own decoding; `reconcileDeltaWithSnapshot` imported, not copied |
-| 2 — validate at the boundary           | `lib/transportDecoding.ts` is the only decode site; everything downstream takes decoded values         |
-| 3 — vendor differences as capabilities | Panel registry over declared keys; no vendor `if` in features; open vendor filter options              |
-| 4 — freshness first-class              | Server-derived labels, suppression while disconnected, decoded footer provenance, no client timer      |
-| 5 — complete async states              | `FleetResourceState`, `RobotDetailState`, history state unions; page tests drive every member          |
-| 6 — accessibility                      | Roles/names asserted in component tests; keyboard smoke test in three engines                          |
-| 7 — server authorizes                  | The console renders and never authorizes; ADR 26's demo-only exposure is stated on the surface         |
-| 8 — one styling system                 | MUI + tokens; generated CSS plus stylelint/ESLint enforce the documented literal boundary              |
-| 9 — enforced boundaries                | `eslint-plugin-boundaries` default-disallow plus live `__boundary-violation__` fixtures                |
-| 10 — test-first, verified in browser   | Focused unit suites plus the ADR 32 Playwright evidence against the real stack                         |
-| 11 — state separated by authority      | Store transitions are explicit; observed and requested never collapse; view state stays in features    |
-| 12 — usable at scale                   | 500-row correctness test plus the measured live-stream run (ADR 24 trigger unfired)                    |
-| 13 — deployment in configuration       | Build-time tenant profiles; the tenant-B build is driven in CI, not reasoned about                     |
-| 14 — documented coupling               | Doc comments on every export (ADR 28 lint); coupling named on both sides                               |
-| 15 — proportionate enforcement         | Gates are derived (bundle budget, diff cap); reported-not-gated where no derivation exists (ADR 22)    |
+| Principle                              | Enforcement / evidence in this package                                                                  |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 1 — one authoritative implementation   | Selectors own display rules; contracts own decoding; `reconcileDeltaWithSnapshot` imported, not copied  |
+| 2 — validate at the boundary           | `lib/transportDecoding.ts` is the only decode site; everything downstream takes decoded values          |
+| 3 — vendor differences as capabilities | Panel registry over declared keys; no vendor `if` in features; open vendor filter options               |
+| 4 — freshness first-class              | Server-derived labels, suppression while disconnected, decoded footer provenance, no client timer       |
+| 5 — complete async states              | `FleetResourceState`, `RobotDetailState`, history state unions; page tests drive every member           |
+| 6 — accessibility                      | Roles/names asserted in component tests; keyboard smoke test in three engines                           |
+| 7 — server authorizes                  | The console renders and never authorizes; ADR 26's demo-only exposure is stated on the surface          |
+| 8 — one styling system                 | MUI + tokens; generated CSS plus stylelint/ESLint enforce the documented literal boundary               |
+| 9 — enforced boundaries                | `eslint-plugin-boundaries` default-disallow plus live `__boundary-violation__` fixtures                 |
+| 10 — test-first, verified in browser   | Focused unit suites plus the ADR 32 Playwright evidence against the real stack                          |
+| 11 — state separated by authority      | Store transitions are explicit; observed and requested never collapse; view state stays in features     |
+| 12 — usable at scale                   | 500-row correctness test plus the measured live-stream run (ADR 24 trigger unfired)                     |
+| 13 — deployment in configuration       | Build-time tenant profiles; the tenant-B build is driven in CI, not reasoned about                      |
+| 14 — auditable ownership               | Exceptional comments (ADR 39), informative-doc lint (ADR 28), and coupling expressed by owned contracts |
+| 15 — proportionate enforcement         | Gates are derived (bundle budget, diff cap); reported-not-gated where no derivation exists (ADR 22)     |

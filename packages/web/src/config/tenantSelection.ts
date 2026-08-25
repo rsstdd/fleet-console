@@ -22,7 +22,7 @@ export class TenantConfigError extends Error {
 }
 
 function isTenantId(value: string): value is TenantId {
-  return (TENANT_IDS as readonly string[]).includes(value);
+  return TENANT_IDS.some((tenantId) => tenantId === value);
 }
 
 /**

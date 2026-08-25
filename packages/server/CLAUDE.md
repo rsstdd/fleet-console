@@ -17,7 +17,7 @@ In particular:
 - Serve raw input only as a separate technician diagnostic field on the single-robot endpoint, and report unknown fields at their true per-adapter scope.
 - Keep ingest idempotent, prevent out-of-order regression, and represent sequence checks as not evaluated where the source has no reliable sequence.
 - Authorize protected operations on the server and never collapse requested command state into observed telemetry.
-- Add one-sentence doc comments to everything exported or re-exported by the declared public entry point, `src/index.ts` (ADR 37), document non-trivial coupling on both sides, and prefer focused test-first diffs with injected clocks. Lint rejects a comment that only restates its signature, so the sentence has to earn its place (ADR 28).
+- Keep comments exceptional under ADR 39: export location and coupling do not trigger prose, and any doc comment must preserve a non-obvious contract rather than restate its signature (ADR 28). Prefer focused test-first diffs with injected clocks.
 - Stop and surface any conflict with `PRINCIPLES.md` or an ADR.
 
 Do not duplicate the detailed scoped rules here. Update [`AGENTS.md`](./AGENTS.md) when this package's architecture or workflow changes so the two agent entry points cannot drift.

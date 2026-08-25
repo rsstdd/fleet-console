@@ -69,8 +69,8 @@ This package does not own vendor dialect decoding, transport, persistence, inter
 - A new vendor is not a contracts change. Add its adapter and fixtures under `packages/adapters` unless it introduces genuinely new shared meaning or a deliberately approved capability (Principle 3).
 - A new capability starts here: define its name, payload schema, runtime mapping, wire representation, and tests before adapters or UI consume it.
 - Changing an existing field's meaning, units, requiredness, or serialized shape requires deliberate versioning and coordinated consumer changes; do not make an in-place breaking reinterpretation.
-- Document non-trivial coupling on both sides of a cross-package change with comments naming the related module (Principle 14).
-- Add a one-sentence doc comment to every class, function, and type exported or re-exported by the declared public entry point, `src/index.ts` (ADR 37). Elsewhere, comment only where the sentence says something the declaration cannot.
+- Express cross-package coupling through shared contracts and tests. Add one concise comment at the least-obvious side only when a load-bearing relationship remains easy to violate (ADR 39).
+- Add a source or doc comment only when it preserves an important contract, invariant, constraint, or failure mode that the declaration and owning documentation cannot express. Export from `src/index.ts` does not create a comment requirement; any doc comment must remain informative (ADR 28, ADR 39).
 - Keep changes focused. Do not combine a contract evolution with unrelated cleanup.
 - If a request conflicts with `PRINCIPLES.md` or an ADR, stop and surface the conflict rather than working around it.
 

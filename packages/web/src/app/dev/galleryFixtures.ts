@@ -1,18 +1,19 @@
 import type { FreshnessState } from "@/components/freshnessLabel";
 import type { StatusVariant } from "@/components/statusChip";
 
-/** One capture instant, so every relative fixture timestamp in the gallery agrees. */
-export const NOW = new Date();
+const GALLERY_CAPTURED_AT_MS = Date.now();
+
+export const GALLERY_CAPTURED_AT_ISO = new Date(GALLERY_CAPTURED_AT_MS).toISOString();
 
 /** Sample fleet rows spanning every freshness state, for the combined-usage table. */
 export const FLEET_ROWS: ReadonlyArray<{
-  id: string;
-  vendor: "A" | "B" | "C";
-  statusVariant: StatusVariant;
-  statusLabel: string;
-  freshness: FreshnessState;
-  asOf: string;
-  battery: string;
+  readonly id: string;
+  readonly vendor: "A" | "B" | "C";
+  readonly statusVariant: StatusVariant;
+  readonly statusLabel: string;
+  readonly freshness: FreshnessState;
+  readonly asOf: string;
+  readonly battery: string;
 }> = [
   {
     id: "R-118",
@@ -20,7 +21,7 @@ export const FLEET_ROWS: ReadonlyArray<{
     statusVariant: "active",
     statusLabel: "Busy",
     freshness: "live",
-    asOf: new Date(NOW.getTime() - 2_000).toISOString(),
+    asOf: new Date(GALLERY_CAPTURED_AT_MS - 2_000).toISOString(),
     battery: "91%",
   },
   {
@@ -29,7 +30,7 @@ export const FLEET_ROWS: ReadonlyArray<{
     statusVariant: "charging",
     statusLabel: "Charging",
     freshness: "live",
-    asOf: new Date(NOW.getTime() - 5_000).toISOString(),
+    asOf: new Date(GALLERY_CAPTURED_AT_MS - 5_000).toISOString(),
     battery: "34%",
   },
   {
@@ -38,7 +39,7 @@ export const FLEET_ROWS: ReadonlyArray<{
     statusVariant: "fault",
     statusLabel: "Fault",
     freshness: "live",
-    asOf: new Date(NOW.getTime() - 9_000).toISOString(),
+    asOf: new Date(GALLERY_CAPTURED_AT_MS - 9_000).toISOString(),
     battery: "12%",
   },
   {
@@ -47,7 +48,7 @@ export const FLEET_ROWS: ReadonlyArray<{
     statusVariant: "active",
     statusLabel: "Busy (last known)",
     freshness: "stale",
-    asOf: new Date(NOW.getTime() - 18_000).toISOString(),
+    asOf: new Date(GALLERY_CAPTURED_AT_MS - 18_000).toISOString(),
     battery: "67%",
   },
   {
@@ -56,13 +57,16 @@ export const FLEET_ROWS: ReadonlyArray<{
     statusVariant: "neutral",
     statusLabel: "Idle (last known)",
     freshness: "unreachable",
-    asOf: new Date(NOW.getTime() - 1_740_000).toISOString(),
+    asOf: new Date(GALLERY_CAPTURED_AT_MS - 1_740_000).toISOString(),
     battery: "—",
   },
 ];
 
 /** The six status variants with demo labels — one per state the canonical model can produce. */
-export const STATUS_VARIANTS: ReadonlyArray<{ variant: StatusVariant; label: string }> = [
+export const STATUS_VARIANTS: ReadonlyArray<{
+  readonly variant: StatusVariant;
+  readonly label: string;
+}> = [
   { variant: "neutral", label: "Idle" },
   { variant: "active", label: "Busy" },
   { variant: "charging", label: "Charging" },

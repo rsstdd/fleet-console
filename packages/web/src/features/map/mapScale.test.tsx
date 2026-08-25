@@ -29,7 +29,7 @@ const { MapPage } = await import("./mapPage");
  * A fleet of `size` robots round-robin across three sites, every robot
  * positioned on a deterministic grid inside the simulator's ±40 m box.
  */
-function buildFleet(size: number): Robot[] {
+function buildFleet(size: number): readonly Robot[] {
   const sites = ["zone-a", "zone-b", "zone-c"] as const;
   return Array.from({ length: size }, (_, index) => {
     const siteId = sites[index % SITE_COUNT] ?? "zone-a";

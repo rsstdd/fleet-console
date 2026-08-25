@@ -324,7 +324,8 @@ disagree. The endpoint is credential-stripped before it is logged.
 - A new vendor generator lands here **only after** its adapter module and fixtures are
   designed in `@fleet/adapters`. It must not require a canonical-model change.
 - A dialect change updates this generator, the adapter schema, its fixtures and its
-  exact-output test in the same commit, commented on both sides.
+  exact-output test in the same commit. Those shared contracts and tests make the
+  coupling discoverable without mirrored comments (ADR 39).
 - A new fault mode defines its scope, activation, recovery, interaction with load mode and
   observable server outcome **before** implementation. Malformed-payload modes are
   explicit and opt-in; normal and load modes emit schema-valid data.

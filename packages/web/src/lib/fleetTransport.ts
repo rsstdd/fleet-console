@@ -50,9 +50,9 @@ export interface SocketHandle {
 export type OpenSocket = (
   url: string,
   handlers: {
-    onOpen: () => void;
-    onMessage: (data: string) => void;
-    onClose: () => void;
+    readonly onOpen: () => void;
+    readonly onMessage: (data: string) => void;
+    readonly onClose: () => void;
   },
 ) => SocketHandle;
 
@@ -61,24 +61,24 @@ export type OpenSocket = (
  * testable with fake time rather than by waiting (ADR 31).
  */
 export interface RetryTimer {
-  set(callback: () => void, delayMs: number): unknown;
-  clear(handle: unknown): void;
+  readonly set: (callback: () => void, delayMs: number) => number;
+  readonly clear: (handle: number) => void;
 }
 
 /** The browser's own timer, used when the caller injects nothing. */
 const REAL_TIMER: RetryTimer = {
   set: (callback, delayMs) => setTimeout(callback, delayMs),
   clear: (handle) => {
-    clearTimeout(handle as ReturnType<typeof setTimeout>);
+    clearTimeout(handle);
   },
 };
 
 /** Everything the transport reports outward. */
 export interface FleetTransportHandlers {
   /** The initial fleet, already reconciled; replaces whatever the caller held. */
-  onSnapshot: (snapshot: FleetSnapshot) => void;
+  readonly onSnapshot: (snapshot: FleetSnapshot) => void;
   /** One decoded frame, in order, including buffered ones replayed after the snapshot. */
-  onBatch: (batch: TelemetryBatch) => void;
+  readonly onBatch: (batch: TelemetryBatch) => void;
   /**
    * Reports every lifecycle transition, with both vocabularies.
    *
@@ -88,11 +88,11 @@ export interface FleetTransportHandlers {
    * every transition rather than only on a published change, because an attempt can
    * increment without the published value moving.
    */
-  onConnectionState: (published: StreamConnectionState, state: StreamState) => void;
+  readonly onConnectionState: (published: StreamConnectionState, state: StreamState) => void;
   /** A body this console cannot read. Terminal: retrying returns the same bytes (ADR 20). */
-  onTerminalError: (issues: readonly ContractIssue[]) => void;
+  readonly onTerminalError: (issues: readonly ContractIssue[]) => void;
   /** One frame dropped. Counted for a diagnostics surface, never for the fleet table. */
-  onFrameRejected: () => void;
+  readonly onFrameRejected: () => void;
 }
 
 /** Where to reach the server, from `TENANT.endpoints` and never from a literal (ADR 21). */
@@ -152,7 +152,7 @@ export function createFleetTransport(options: {
    */
   let generation = 0;
   /** The scheduled next attempt, if one is pending. */
-  let pendingRetry: unknown = null;
+  let pendingRetry: number | null = null;
   /** Whether any socket has ever opened; the probe cap applies only before this. */
   let everOpened = false;
   /** Never-opened attempts in the current operator-initiated probe cycle (ADR 31). */
@@ -160,7 +160,7 @@ export function createFleetTransport(options: {
   /** Consecutive failed attempts since the last completed join; drives the backoff. */
   let failedAttempts = 0;
   /** The settled snapshot's identity, against which every live frame is reconciled. */
-  let epoch: { serverSessionId: string; flushSequence: number } | null = null;
+  let epoch: { readonly serverSessionId: string; readonly flushSequence: number } | null = null;
 
   function advance(event: Parameters<typeof nextStreamState>[1]): void {
     const previous = state;

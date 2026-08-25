@@ -49,7 +49,7 @@ const CHART_HEIGHT = 120;
 function toCoordinates(
   point: RobotBatteryHistory["points"][number],
   history: RobotBatteryHistory,
-): { x: number; y: number } {
+): { readonly x: number; readonly y: number } {
   const windowStart = history.capturedAt - history.windowMs;
   return {
     x: ((point.receivedAt - windowStart) / history.windowMs) * CHART_WIDTH,
@@ -113,7 +113,7 @@ function Sparkline({ history }: { readonly history: RobotBatteryHistory }): Reac
         />
       </svg>
       <DataPlate as="figcaption">
-        Server receipt times · 0–100% · window captured at request time
+        Server receipt times · 0-100% · window captured at request time
       </DataPlate>
     </Stack>
   );

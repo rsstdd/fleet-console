@@ -1,45 +1,27 @@
 import type { ReactNode } from "react";
 
 /**
- * ConnectionBanner — stream connection integrity.
- * Spec: docs/02_component-specs/07_CONNECTION_BANNER.md.
+ * Connection truth displayed while features suppress untrustworthy per-robot freshness
+ * for every non-connected state (ADR 3).
  *
- * Load-bearing for ADR 3. Freshness is derived by a server sweep and delivered
- * over the stream, so while the stream is down no per-robot freshness label can
- * be trusted. The feature layer suppresses those labels and this banner carries
- * the connection-level truth instead. Coupling: the suppression itself lives in
- * the fleet and robot features and in `FreshnessLabel`'s callers, not here —
- * this component is necessary but not sufficient for that rule.
- *
- * It does not own the socket, does not implement retry policy (that is
- * transport policy in `lib` or the app layer), and computes no
- * freshness. It reflects state passed from the app layer and invokes `onRetry`.
- *
- * Every visual decision comes from the `.connection-banner` rules in
- * `src/styles/global.css`, which read `--warning` / `--error` in `tokens.css`.
- * No inline style and no second styling system (Principle 8, ADR 5).
+ * `ConnectionState` structurally mirrors `StreamConnectionState` in
+ * `context/connectionContext.ts`. The sibling layers may not import one another, so the
+ * component spec § API owns the vocabulary and a new state updates both declarations.
  */
 export type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
 
 /**
  * Why the transport stopped retrying, when it has (ADR 31). Structurally restated from
  * `lib/streamLifecycle`'s `StreamTerminalCause` for the same sibling-layer reason
- * as `ConnectionState` below.
+ * as `ConnectionState` above. That source names this component as the other end.
  */
 export type ConnectionTerminalCause = "handshake-exhausted" | "contract" | "session-mismatch";
 
-/**
- * Display-only inputs for the banner.
- *
- * `state` is the one required field: ADR 23 makes the banner part of the freshness
- * mechanism's correctness rather than decoration, so a caller cannot omit the fact it
- * exists to carry.
- */
+/** Display-only inputs; socket ownership and retry policy remain outside this component. */
 export interface ConnectionBannerProps {
   readonly state: ConnectionState;
   /** ISO 8601, or epoch ms. Last event actually received on the stream. */
   readonly lastEventAt?: string | number;
-  /** Attempt number, surfaced so the control is visibly doing something. */
   readonly attempt?: number;
   /**
    * Why retrying stopped, shown only while `disconnected`. Distinct copy per cause
@@ -47,28 +29,12 @@ export interface ConnectionBannerProps {
    * answered from one that answered with a different runtime's stream (ADR 31).
    */
   readonly terminalCause?: ConnectionTerminalCause | null;
-  /**
-   * Must force an immediate reconnect attempt and increment `attempt`.
-   * A retry control that does nothing observable is the class of lie this
-   * project exists to argue against.
-   */
+  /** Must force an immediate attempt whose progress becomes externally visible. */
   readonly onRetry?: () => void;
   readonly className?: string;
 }
 
-/**
- * Formats a stream event time as UTC `HH:MM:SSZ`, or null when the value is
- * missing or unparseable.
- *
- * Not `utils/time`'s `formatTimeUtc`, for the same sibling-layer reason as the
- * unions above — and the semantics genuinely differ: null-and-omit here, em dash
- * there. Returns null rather than throwing, which is the opposite of `FreshnessLabel`'s
- * dev-time throw on a bad timestamp, and deliberately so: spec § 10 requires the
- * fragment to be omitted. A banner that crashes the shell during a reconnect
- * storm removes the one surface still telling the operator the truth about
- * currency, and `Invalid Date` in a connection message is worse than no time
- * at all.
- */
+/** Omits missing or invalid timestamps rather than risking the shell's outage surface. */
 function formatEventTime(value: string | number | undefined): string | null {
   if (value === undefined) {
     return null;
@@ -82,11 +48,6 @@ function formatEventTime(value: string | number | undefined): string | null {
   return `${new Date(parsed).toISOString().slice(11, 19)}Z`;
 }
 
-/**
- * Returns the attempt number when it is a real count, or null when it is
- * absent or nonsensical, so the fragment is omitted rather than printing
- * `attempt undefined` or `attempt NaN` (spec § 10).
- */
 function formatAttempt(attempt: number | undefined): string | null {
   if (attempt === undefined || !Number.isFinite(attempt) || attempt < 1) {
     return null;
@@ -125,7 +86,7 @@ export function ConnectionBanner({
       aria-live="polite"
       data-connected={state === "connected" ? "true" : "false"}
     >
-      {state === "connected" ? null : (
+      {state !== "connected" && (
         <>
           <span className="connection-banner__message">
             <ConnectionMessage
@@ -135,11 +96,11 @@ export function ConnectionBanner({
               terminalCause={terminalCause}
             />
           </span>
-          {onRetry ? (
+          {onRetry && (
             <button type="button" className="connection-banner__retry" onClick={onRetry}>
               Retry now
             </button>
-          ) : null}
+          )}
         </>
       )}
     </div>
@@ -164,13 +125,12 @@ function ConnectionMessage({
   readonly terminalCause: ConnectionTerminalCause | null | undefined;
 }): ReactNode {
   const attemptText = formatAttempt(attempt);
-  const attemptFragment =
-    attemptText === null ? null : (
-      <>
-        {" · "}
-        <span className="mono">attempt {attemptText}</span>
-      </>
-    );
+  const attemptFragment = attemptText && (
+    <>
+      {" · "}
+      <span className="mono">attempt {attemptText}</span>
+    </>
+  );
 
   switch (state) {
     // No last-event fragment: nothing has ever been received, so there is no
@@ -190,7 +150,7 @@ function ConnectionMessage({
         <>
           Reconnecting to stream
           {attemptFragment}
-          {eventTime === null ? null : (
+          {eventTime && (
             <>
               {" · "}
               <span className="mono">last event {eventTime}</span>
@@ -207,6 +167,8 @@ function ConnectionMessage({
     case "disconnected":
       switch (terminalCause ?? null) {
         case "handshake-exhausted":
+          // Mirrors lib/streamLifecycle.ts's INITIAL_PROBE_ATTEMPT_LIMIT;
+          // component spec 07 §5 owns the shared copy.
           return <>Unable to connect to stream after 3 attempts</>;
         case "session-mismatch":
           return <>Stream integrity error · showing last known state (may be stale)</>;

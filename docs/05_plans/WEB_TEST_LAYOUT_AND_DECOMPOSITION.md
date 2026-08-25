@@ -2,7 +2,7 @@
 
 **Authority:** Planning only.
 **Status:** Active
-**Updated:** 2026-08-23
+**Updated:** 2026-08-25
 
 ## Outcome
 
@@ -56,7 +56,8 @@ reconciliations where it meets binding repository authority:
   suites stay colocated with their fixtures — the one deliberate exception to the
   `tests/` convention).
 - `features/robot/index.ts` barrel: kept — it exists as the import target of the
-  feature→feature lint fixture; coupling documented on both sides.
+  feature→feature lint fixture, whose test makes that coupling executable without
+  mirrored comments (ADR 39).
 - `entities/site`: checked, not vestigial (`selectSiteLabel` feeds all three pages);
   roster selectors correctly live in `entities/robot`.
 - Resource-banner dedupe across fleet/map (deferred by `REFACTOR_WEB_REACT_QUALITY.md`
