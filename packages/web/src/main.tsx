@@ -10,7 +10,8 @@ import "@fontsource/ibm-plex-sans/500.css";
 import "@fontsource/ibm-plex-mono/400.css";
 
 import { AppRouter } from "@/app/appRouter";
-import { applyTenantTheme, buildMuiTheme } from "@/app/theme";
+import { applyTenantTheme } from "@/app/theme";
+import { buildMuiTheme } from "@/app/muiTheme";
 import { TENANT } from "@/config/tenant";
 
 // Theme is applied before first paint rather than in an effect: the token layer

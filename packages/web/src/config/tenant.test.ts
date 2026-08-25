@@ -4,6 +4,7 @@ import {
   TENANT,
   TENANT_IDS,
   TENANT_PROFILES,
+  TENANT_THEME_PREVIEWS,
   TenantConfigError,
   parseTenantConfig,
   resolveTenantId,
@@ -183,6 +184,15 @@ describe("TENANT_PROFILES", () => {
       expect(TENANT_PROFILES[id].endpoints.apiBaseUrl).toBe("/api");
       expect(TENANT_PROFILES[id].endpoints.streamUrl).toBe("/ws");
     }
+  });
+});
+
+describe("TENANT_THEME_PREVIEWS", () => {
+  it("configures the supported gallery modes and their toggle labels", () => {
+    expect(TENANT_THEME_PREVIEWS).toEqual([
+      { mode: TENANT_PROFILES["tenant-a"].theme, label: "Tenant A · dark" },
+      { mode: TENANT_PROFILES["tenant-b"].theme, label: "Tenant B · light" },
+    ]);
   });
 });
 

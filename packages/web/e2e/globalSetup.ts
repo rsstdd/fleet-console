@@ -3,13 +3,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Builds the console once before any browser project runs (ADR 32).
+ * Builds the console once before the production browser projects run (ADR 32).
  *
  * The harness serves the production bundle through `vite preview` rather than the dev
  * server, deliberately: the development build re-renders the 50-row table through React's
  * dev-mode machinery on every 10 Hz flush, which profiling showed saturates a core and
  * starves every Playwright actionability check. The evidence the suite exists to produce
- * is about what users run, and users run this build.
+ * is about what users run, and users run this build. The component-gallery project is the
+ * deliberate exception: its route exists only in Vite development, so it ignores this build.
  *
  * Always a fresh build, never a staleness check: a preview server silently serving last
  * week's `dist/` would make every green run a lie about today's code.

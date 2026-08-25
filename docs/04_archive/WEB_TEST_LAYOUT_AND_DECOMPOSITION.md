@@ -1,8 +1,11 @@
 # Web test layout, page decomposition, and fetch-hook dedupe
 
-**Authority:** Planning only.
-**Status:** Active
-**Updated:** 2026-08-25
+**Authority:** Historical only. The current implementation, specifications, and ADR 36 govern.
+**Status:** Done
+**Archived:** 2026-08-25
+**Superseded by:** the implementation merged through PRs #31–#37, including commit `6bb879c`;
+[ADR 36](../00_adr/36_CONVENTIONAL_REACT_FOLDER_VOCABULARY_IN_WEB.md) and PR #38
+(`394d6c8`) subsequently replaced its test-directory convention with colocated tests.
 
 ## Outcome
 
@@ -97,9 +100,10 @@ reconciliations where it meets binding repository authority:
    `useRobotDetail` narrows to `id: string`, dead guards deleted.
 6. **Hygiene (slice 6):** default exports deleted; `formatTimeUtc` widened (test
    first); `dataPlate` test added.
-7. **Gallery split (slice 7):** `galleryFixtures` / `galleryStaticSections` /
-   `galleryInteractiveSections`; orchestrator keeps all state; DEV-gated, no bundle
-   gate.
+7. **Gallery split (slice 7):** initially split into fixtures plus static and interactive
+   section groups. A 2026-08-25 follow-up moved it to
+   `features/component-gallery`, gave every section one export, and localized section
+   state; the route remains DEV-gated.
 
 ## Acceptance criteria
 
@@ -111,8 +115,9 @@ reconciliations where it meets binding repository authority:
 - [x] Fixture location and the three documents that describe it agree.
 - [x] The two scoped oversized files are decomposed: `robotDetailPage.tsx` retains
       only the route entry, body, and `renderState` (199 lines, from 552) over five
-      section files; `componentGallery.tsx` retains only orchestration (151 lines,
-      from 592) over three gallery files. `fleetPage.tsx` is 238 lines; its in-file
+      section files; the component gallery's later feature move leaves its orchestrator
+      with only gallery-wide tenant selection and one export per section module.
+      `fleetPage.tsx` is 238 lines; its in-file
       decomposition was settled by `REFACTOR_WEB_REACT_QUALITY.md` F3 and is out of
       scope here.
 - [x] One fetch-lifecycle implementation (`useFetchedResource`, 4 behavior tests
@@ -144,6 +149,6 @@ reconciliations where it meets binding repository authority:
 
 ## Completion
 
-All slices are implemented on `refactor-web` (2026-08-23). Archive under
-`docs/04_archive/` once the branch merges; name the merged PR and the commit series
-(`6bb879c`…hygiene) as the replacement evidence.
+All slices were implemented on `refactor-web` (2026-08-23) and archived 2026-08-25 after
+they merged through PRs #31–#37, including commit `6bb879c`. ADR 36 and PR #38 (`394d6c8`)
+subsequently replaced the test-directory convention with colocated tests.

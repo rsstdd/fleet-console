@@ -13,7 +13,7 @@
 // the build rather than shipping a console with a half-applied brand.
 import { z } from "zod";
 
-import { TENANT_THEMES } from "./tenantTheme";
+import { TENANT_THEMES, type TenantTheme } from "./tenantTheme";
 import { TENANT_IDS, TenantConfigError, resolveTenantId, type TenantId } from "./tenantSelection";
 
 export { TENANT_IDS, TenantConfigError, resolveTenantId, type TenantId } from "./tenantSelection";
@@ -168,6 +168,16 @@ export const TENANT_PROFILES: Readonly<Record<TenantId, TenantConfig>> = {
     flags: { lidarHealthPanel: false },
   }),
 };
+
+export interface TenantThemePreview {
+  readonly mode: TenantTheme;
+  readonly label: string;
+}
+
+export const TENANT_THEME_PREVIEWS = [
+  { mode: TENANT_PROFILES["tenant-a"].theme, label: "Tenant A · dark" },
+  { mode: TENANT_PROFILES["tenant-b"].theme, label: "Tenant B · light" },
+] as const satisfies readonly [TenantThemePreview, ...TenantThemePreview[]];
 
 /**
  * The tenant this build serves, validated at module load.

@@ -111,21 +111,22 @@ of that same-feature helper are reuse, not cross-layer duplication. Reconsider a
 scoped fixture location only if fixture construction or data is copied across production
 layers or feature directories.
 
-| Directory            | Contents                                                                  | Forbidden                                  |
-| -------------------- | ------------------------------------------------------------------------- | ------------------------------------------ |
-| `src/app`            | Providers, router, shell, theme bridge, dev gallery                       | Domain rules, presentational primitives    |
-| `src/features/fleet` | Fleet table, site grouping, summary                                       | Robot-detail components, domain derivation |
-| `src/features/robot` | Robot detail, capability panels, persona views, battery-history sparkline | Fleet components, domain derivation        |
-| `src/features/map`   | Map page, site facet, and marker SVG canvas (page spec 04, ADR 35)        | Fleet components, domain derivation        |
-| `src/hooks`          | Fleet/robot resource hooks, shared fetch lifecycle                        | JSX, MUI imports                           |
-| `src/stores`         | Fleet store state machine and its context                                 | JSX, MUI imports                           |
-| `src/types`          | Robot and site read-model types                                           | JSX, MUI imports, logic                    |
-| `src/components`     | Pure presentational primitives                                            | Any domain reference                       |
-| `src/lib`            | Transport client, wire decoding, retry schedule, cold start               | Domain rules, payload interpretation       |
-| `src/context`        | Connection, stream-diagnostics, and tenant-config contexts                | Domain rules, JSX                          |
-| `src/utils`          | Formatting helpers (`time`)                                               | Domain rules, payload interpretation       |
-| `src/config`         | Tenant themes, feature flags, thresholds                                  | Logic of any kind                          |
-| `src/styles`         | Authored repeated decisions in `tokens.ts`; generated CSS; global styles  | Raw token values outside `tokens.ts`       |
+| Directory                        | Contents                                                                  | Forbidden                                  |
+| -------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------ |
+| `src/app`                        | Providers, router, shell, theme bridge and MUI theme construction         | Domain rules, presentational primitives    |
+| `src/features/component-gallery` | DEV-only shared-component review surface                                  | Product behavior, app imports              |
+| `src/features/fleet`             | Fleet table, site grouping, summary                                       | Robot-detail components, domain derivation |
+| `src/features/robot`             | Robot detail, capability panels, persona views, battery-history sparkline | Fleet components, domain derivation        |
+| `src/features/map`               | Map page, site facet, and marker SVG canvas (page spec 04, ADR 35)        | Fleet components, domain derivation        |
+| `src/hooks`                      | Fleet/robot resource hooks, shared fetch lifecycle                        | JSX, MUI imports                           |
+| `src/stores`                     | Fleet store state machine and its context                                 | JSX, MUI imports                           |
+| `src/types`                      | Robot and site read-model types                                           | JSX, MUI imports, logic                    |
+| `src/components`                 | Pure presentational primitives                                            | Any domain reference                       |
+| `src/lib`                        | Transport client, wire decoding, retry schedule, cold start               | Domain rules, payload interpretation       |
+| `src/context`                    | Connection, stream-diagnostics, and tenant-config contexts                | Domain rules, JSX                          |
+| `src/utils`                      | Formatting helpers (`time`)                                               | Domain rules, payload interpretation       |
+| `src/config`                     | Tenant themes, feature flags, thresholds                                  | Logic of any kind                          |
+| `src/styles`                     | Authored repeated decisions in `tokens.ts`; generated CSS; global styles  | Raw token values outside `tokens.ts`       |
 
 Cross-layer movement is downward only. Shared behaviour between two features moves **down**
 into the data layers (`hooks`, `stores`, `utils`, `types`), never sideways.
@@ -291,11 +292,11 @@ an owner, remove the gate and claim ([ADR 17](../00_adr/17_BUILD_TIME_TENANT_CON
 Tenant endpoints remain typed same-origin paths behind the Vite proxy; a split-origin
 deployment requires an explicit allow-list and integration tests ([ADR 21](../00_adr/21_ENDPOINTS_FROM_THE_ENVIRONMENT_WITH_A_DEV_PROXY.md)).
 
-`app/theme.ts` sets the attribute and builds the MUI theme from the same palette the token
-layer uses. It deliberately does **not** write custom properties inline: an earlier version
-set ten of them on `documentElement`, which beat `tokens.css` on specificity and left the
-other twenty-six at their dark values on a light background — the light theme was broken
-precisely because that file tried to help.
+`app/theme.ts` sets the attribute and `app/muiTheme.ts` builds the MUI theme from the same
+palette the token layer uses. `theme.ts` deliberately does **not** write custom properties
+inline: an earlier version set ten of them on `documentElement`, which beat `tokens.css` on
+specificity and left the other twenty-six at their dark values on a light background — the
+light theme was broken precisely because that file tried to help.
 
 `styles/tokens.ts` is the one authored source for repeated colour and size decisions. The MUI
 theme imports its palette and numeric shape value directly; tenant-specific maps share one key
@@ -373,7 +374,8 @@ server deltas with no client timer involved.
 **Substantially built.** App shell, router, theme bridge and tenant config; the fleet page;
 robot detail with capability panels and the persona toggle; all eight `components`
 primitives with their specs; the robot data layers (types, selectors, stores, hooks); the
-full token layer; the boundary enforcement fixtures; and a development component gallery.
+full token layer; the boundary enforcement fixtures; and the development component gallery
+under `src/features/component-gallery`.
 
 **Built, 20 August 2026.** The map view: `src/features/map` renders one site at a time
 over client-derived extents per page spec 04 and ADR 35, verified by `mapPage.test.tsx`,

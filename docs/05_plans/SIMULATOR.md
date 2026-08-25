@@ -225,7 +225,7 @@ packages/server/TODO.md packages/server/src/http/createApp.test.ts \
 packages/server/src/http/createApp.ts packages/server/src/runServer.test.ts \
 packages/server/src/runServer.ts packages/web/README.md \
 packages/web/UI_PLAN.md packages/web/src/app/appRouter.tsx \
-packages/web/src/app/dev/componentGallery.tsx \
+packages/web/src/features/component-gallery/componentGallery.tsx \
 packages/web/src/entities/robot/TODO.md \
 packages/web/src/features/fleet/TODO.md \
 packages/web/src/features/robot/TODO.md \

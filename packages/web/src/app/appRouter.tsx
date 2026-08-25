@@ -2,7 +2,8 @@ import { useMemo, type ReactNode } from "react";
 import { Link, Route, Routes } from "react-router";
 
 import { AppShell } from "@/app/appShell";
-import { ComponentGallery } from "@/app/dev/componentGallery";
+import { buildMuiTheme } from "@/app/muiTheme";
+import { ComponentGallery } from "@/features/component-gallery/componentGallery";
 import { FleetPage } from "@/features/fleet/fleetPage";
 import { MapPage } from "@/features/map/mapPage";
 import { RobotDetailPage } from "@/features/robot/robotDetailPage";
@@ -50,7 +51,9 @@ export function AppRouter(): ReactNode {
             <Route path="/" element={<FleetPage />} />
             <Route path="/map" element={<MapPage />} />
             <Route path="/robots/:id" element={<RobotDetailPage />} />
-            {import.meta.env.DEV && <Route path="/dev/ui" element={<ComponentGallery />} />}
+            {import.meta.env.DEV && (
+              <Route path="/dev/ui" element={<ComponentGallery buildTheme={buildMuiTheme} />} />
+            )}
             <Route
               path="*"
               element={

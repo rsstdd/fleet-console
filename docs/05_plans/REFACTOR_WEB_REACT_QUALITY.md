@@ -110,9 +110,11 @@ feature, restoring one authoritative implementation (Principle 1).
 
 ### Out-of-scope note — dev gallery
 
-`src/app/dev/componentGallery.tsx` (592 lines, module-level `new Date()` at `:33`) is a
-DEV-only route tree-shaken from production. The ruleset targets product surfaces; the
-gallery is excluded from this plan's scope.
+The component gallery was excluded from this plan when it was a 592-line app module with
+module-load clock reads. A 2026-08-25 follow-up moved it to
+`src/features/component-gallery/componentGallery.tsx`, split its sections, and replaced
+the clock-dependent fixtures with fixed timestamps; the route remains DEV-only and
+tree-shaken from production.
 
 ## Scope
 

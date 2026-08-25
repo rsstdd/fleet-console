@@ -49,8 +49,8 @@ file, tests colocated beside their sources:
 
 ```text
 src/
-  app/         transport lifecycle, routing, shell, theme, dev gallery
-  features/    fleet · map · robot — the three pages and their section components
+  app/         transport lifecycle, routing, shell, and theme composition
+  features/    fleet · map · robot pages, plus the DEV-only component-gallery
   components/  presentational primitives (StatusChip, FreshnessLabel, Stat, …) — domain-free
   hooks/       useFleetRobots · useRobotDetail · useRobotHistory — the data boundary
   stores/      the fleet store state machine and its React context

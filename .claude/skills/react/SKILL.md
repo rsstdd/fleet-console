@@ -1,6 +1,6 @@
 ---
 name: react
-description: Senior-engineer review of React and TypeScript changes — rendering correctness, hooks and effect discipline, state ownership, accessibility, performance, and test integrity. Use for reviewing a component, a hook, a diff, or a frontend package.
+description: Senior-engineer review of React and TypeScript changes — rendering correctness, hooks and effect discipline, state ownership, accessibility, performance, and test integrity. Use whenever the user asks to review, critique, audit, or sanity-check React, TSX, or frontend code — a single component, a custom hook, a diff, a PR, or a whole package — even if they do not say the word "review."
 ---
 
 # React code review
@@ -57,12 +57,22 @@ Load the `clean-code` skill alongside this one for the style and structure rules
   component renders twice — anything impure surfaces as a heisenbug.
 - Keys: stable and identity-bearing. Array index as key is a defect wherever the list can
   reorder, insert, or filter — it silently transplants state between rows.
-- Conditional hooks, hooks in loops, or hooks after an early return — always a defect.
+- **Hooks top-level only:** Except for React `use(resource)`, never call hooks inside loops,
+  conditions, nested functions, or `try/catch`, or after an early return. `use(resource)` may be
+  called in loops and conditions, but never inside `try/catch` or a nested function. React tracks
+  state via an internal linked list; conditional execution shifts indices and corrupts state.
+- **Hooks React-only:** Call hooks exclusively from functional components or custom hooks,
+  never from plain JS, classes, or event handlers.
+- `useRef`: Never read or write `ref.current` during render (breaks Concurrent React);
+  restrict mutations to effects or event handlers.
 - Derived state duplicated into `useState` and resynced by an effect: compute during render
   instead, or key the component to reset it.
 
 ### Effects
 
+- `useState`/`useReducer`: State updates must be pure; direct mutation (e.g., `arr.push()`)
+  skips re-renders. Use functional updates (`setState(prev => next)`) when depending on
+  previous state.
 - An effect whose only job is to transform props into state, or to respond to a user event,
   is the wrong tool. Effects are for synchronizing with something outside React.
 - Every subscription, timer, listener, observer, and in-flight request has a cleanup.
