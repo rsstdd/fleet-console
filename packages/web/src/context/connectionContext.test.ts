@@ -10,7 +10,6 @@ import {
 
 describe("DEFAULT_CONNECTION_STATE", () => {
   it("fails closed when no provider is above the consumer", () => {
-    // The asymmetry is the point: the wrong default is invisible, this one is on screen.
     expect(DEFAULT_CONNECTION_STATE).toBe("disconnected");
     expect(isStreamConnected(DEFAULT_CONNECTION_STATE)).toBe(false);
   });
@@ -27,13 +26,10 @@ describe("isStreamConnected", () => {
   });
 
   it("treats connecting as not delivering", () => {
-    // A first attempt in flight has delivered nothing yet (ADR 31).
     expect(isStreamConnected("connecting")).toBe(false);
   });
 
   it("treats reconnecting as not delivering", () => {
-    // The case most likely to be waved through as "nearly connected", though the last
-    // value is ageing silently — the same lie as a dead socket (ADR 3).
     expect(isStreamConnected("reconnecting")).toBe(false);
   });
 
@@ -42,13 +38,21 @@ describe("isStreamConnected", () => {
   });
 
   it("covers the whole vocabulary, so a new state cannot default to permissive", () => {
-    const all: readonly StreamConnectionState[] = [
-      "connecting",
-      "connected",
-      "reconnecting",
-      "disconnected",
-    ];
-    expect(all.filter(isStreamConnected)).toEqual(["connected"]);
+    // `satisfies` is the enforcement: a fifth state added to the union stops compiling
+    // here until this table decides it, rather than passing as an untested member.
+    const delivering = {
+      connecting: isStreamConnected("connecting"),
+      connected: isStreamConnected("connected"),
+      reconnecting: isStreamConnected("reconnecting"),
+      disconnected: isStreamConnected("disconnected"),
+    } satisfies Record<StreamConnectionState, boolean>;
+
+    expect(delivering).toStrictEqual({
+      connecting: false,
+      connected: true,
+      reconnecting: false,
+      disconnected: false,
+    });
   });
 
   it("agrees with the banner's vocabulary, which is declared separately", () => {

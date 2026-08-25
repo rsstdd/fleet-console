@@ -135,6 +135,22 @@ reasoning. Kept: the restated-not-imported deviation, the fail-closed default, t
 was already conforming and is unchanged; `connectionContext.test.ts` kept the banner-coupling
 note and lost four others. Behavioral changes: none.
 
+**Third pass — mirrors, and `hooks/` (2026-08-25).** A stricter reading of the same rule
+found the remaining defect to be duplication across files rather than verbosity: the
+fail-closed default and the `connecting`/`reconnecting` semantics were each stated twice,
+once at the declaration and once in `connectionContext.test.ts`, which is the drift the
+skill's cross-file rule exists to prevent. The declaration keeps each rule; the test keeps
+only the banner-coupling note, without which its type assignment reads as pointless. Two
+further cuts in `connectionContext.ts`: the `isStreamLive` naming rationale, which ADR 23
+carries verbatim, and the pointer to the test that guards the restated union, which the test
+already carries. `hooks/` was audited whole and is substantially conforming — every comment
+in `useFetchedResource.ts`, `useRobotDetail.ts`, `useRobotHistory.ts`, and `useFleetRobots.ts`
+states an identity guarantee, an absence semantic, or a caller contract that a signature
+cannot. The `AbortController` note ("marks staleness rather than cancelling I/O") and the
+"a fresh seam identity would restart the request forever" constraint are the load-bearing
+ones. Only two test-helper doc comments were cut, both restating their own declarations.
+Behavioral changes: none.
+
 **Resolved 2026-08-25 by `ROBOT_DETAIL_FAILURE_LIFECYCLE.md`.** The detail fetch could not
 satisfy spec §10's retention row, because a success is final: `retry` is carried only by the
 recoverable-error state, so `ready` never transitions to `error` and no earlier value can
@@ -230,6 +246,15 @@ tree-shaken from production.
 - [x] The F7 second pass over `context/` changes no behavior: `pnpm --filter web test`
       427/427, `pnpm --filter web lint`, and `pnpm check:doc-comments` green on
       2026-08-25. The e2e suites were not re-run — no rendered output changed.
+- [x] The F7 third pass (mirrors, `hooks/`) changes no behavior: `pnpm --filter web test`
+      427/427, `pnpm --filter web lint`, and `pnpm check:doc-comments` green on
+      2026-08-25. The e2e suites were not re-run — no rendered output changed.
+- [x] `connectionContext.test.ts`'s vocabulary test now enforces the claim in its name
+      (2026-08-25). It asserted over a `readonly StreamConnectionState[]` literal, which
+      accepts any subset, so a fifth state would have compiled and passed while going
+      untested. The table is now a `satisfies Record<StreamConnectionState, boolean>`;
+      verified by temporarily adding a `"suspended"` member and confirming `tsc` fails at
+      that table (TS1360), then reverting.
 - [x] F7 lifecycle audit (2026-08-25): loading, success, both failure kinds, retry, id change,
       unmount, and reconnection traced through `useFetchedResource`, the two entity hooks, and
       the store transitions. `useRobotDetail.test.ts` adds hook-level coverage for ready,
