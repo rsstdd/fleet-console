@@ -41,11 +41,27 @@ describe("BatteryHistoryContent", () => {
 
   it("offers an inline retry for a failed request, wired to the resource's retry", async () => {
     const retry = vi.fn();
-    render(<BatteryHistoryContent state={{ status: "error", recoverable: true, retry }} />);
+    render(
+      <BatteryHistoryContent
+        state={{ status: "error", recoverable: true, retrying: false, retry }}
+      />,
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("states that an attempt is running while a retry is in flight", () => {
+    render(
+      <BatteryHistoryContent
+        state={{ status: "error", recoverable: true, retrying: true, retry: vi.fn() }}
+      />,
+    );
+
+    expect(screen.getByRole("status")).toHaveTextContent("Retrying…");
+    // The control stays operable so activating it does not throw focus to the body.
+    expect(screen.getByRole("button", { name: "Retry" })).toBeEnabled();
   });
 
   it("renders a contract failure terminally, with no retry to press", () => {

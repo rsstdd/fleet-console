@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
-import { Alert, Box, Button } from "@mui/material";
+import { Alert, Box, Button, Typography } from "@mui/material";
 import { identifierSchema } from "@fleet/contracts";
 
 import { DataPlate } from "@/components/dataPlate";
@@ -19,6 +19,7 @@ import { CapabilitiesSection } from "./capabilitiesSection";
 import { BackToFleet, DetailHeader } from "./detailHeader";
 import { DetailSkeleton } from "./detailSkeleton";
 import { DiagnosticsSection } from "./diagnosticsSection";
+import { FleetRowBody } from "./fleetRowBody";
 import { RawPayloadSection } from "./rawPayloadSection";
 import { SummarySection } from "./summarySection";
 
@@ -47,7 +48,12 @@ function RobotDetailBody({ robot }: { readonly robot: RobotDetail }): ReactNode 
 
   return (
     <>
-      <DetailHeader robot={robot} persona={persona} onPersonaChange={setPersona} />
+      <DetailHeader
+        robot={robot}
+        receivedAt={robot.diagnostics?.receivedAt ?? null}
+        persona={persona}
+        onPersonaChange={setPersona}
+      />
       <SummarySection robot={robot} />
       <BatteryHistorySection robotId={robot.id} />
       <CapabilitiesSection robot={robot} />
@@ -115,32 +121,18 @@ function ResolvedRobotDetail({ id }: { readonly id: string }): ReactNode {
   const live = useFleetRobot(id);
   const state = reconcileRobotDetailState(fetched, live);
 
-  return renderState(state);
+  return renderState(state, live);
 }
 
 function reconcileRobotDetailState(
   fetched: RobotDetailState,
   live: Robot | undefined,
 ): RobotDetailState {
-  if (live === undefined) {
+  if (live === undefined || fetched.status !== "ready") {
     return fetched;
   }
 
-  if (fetched.status === "ready") {
-    return {
-      ...fetched,
-      robot: reconcileDetailWithRow(fetched.robot, live),
-    };
-  }
-
-  if (fetched.status === "error" && fetched.recoverable && fetched.robot !== null) {
-    return {
-      ...fetched,
-      robot: reconcileDetailWithRow(fetched.robot, live),
-    };
-  }
-
-  return fetched;
+  return { ...fetched, robot: reconcileDetailWithRow(fetched.robot, live) };
 }
 
 /**
@@ -148,7 +140,7 @@ function reconcileRobotDetailState(
  * so a new state cannot be added without the compiler naming this file
  * (Principle 5, Principle 11).
  */
-function renderState(state: RobotDetailState): ReactNode {
+function renderState(state: RobotDetailState, live: Robot | undefined): ReactNode {
   switch (state.status) {
     case "loading":
       return <DetailSkeleton />;
@@ -172,19 +164,35 @@ function renderState(state: RobotDetailState): ReactNode {
       if (state.recoverable) {
         return (
           <>
-            {/* Keep whatever is still valid on screen; do not blank the page. */}
-            <Alert
-              severity="warning"
-              action={
-                <Button color="inherit" size="small" onClick={state.retry}>
-                  Retry
-                </Button>
-              }
-              sx={{ mb: 2 }}
-            >
-              {state.message}
-            </Alert>
-            {state.robot === null ? null : <RobotDetailBody robot={state.robot} />}
+            <Box sx={{ mb: 2 }}>
+              <Alert
+                severity="warning"
+                action={
+                  <Button
+                    color="inherit"
+                    size="small"
+                    // Named beyond its visible label because the battery-history section
+                    // can offer its own Retry at the same time (WCAG 2.5.3 keeps "Retry").
+                    aria-label="Retry loading robot detail"
+                    onClick={state.retry}
+                  >
+                    Retry
+                  </Button>
+                }
+              >
+                {state.message}
+              </Alert>
+              {/*
+                Beside the alert, not inside it: `role="alert"` is assertive, so progress
+                written into it re-announces the failure. The control stays operable —
+                disabling it on activation would move focus to the body.
+              */}
+              <Typography role="status" variant="body2" sx={{ color: "text.secondary" }}>
+                {state.retrying ? "Retrying…" : null}
+              </Typography>
+            </Box>
+            {/* The fetch is gone; the stream is not. Whatever the fleet row still knows stays. */}
+            {live === undefined ? null : <FleetRowBody row={live} />}
           </>
         );
       }

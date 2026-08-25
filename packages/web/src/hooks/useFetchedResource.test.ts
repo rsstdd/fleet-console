@@ -43,11 +43,11 @@ describe("useFetchedResource", () => {
     const { calls, load } = createControllableLoader();
     const { result } = renderHook(() => useFetchedResource("R-1", PORTS, load));
 
-    expect(result.current).toEqual({ status: "loading" });
+    expect(result.current.value).toEqual({ status: "loading" });
 
     calls[0]?.resolve({ status: "ready", label: "R-1 answer" });
     await waitFor(() => {
-      expect(result.current).toEqual({ status: "ready", label: "R-1 answer" });
+      expect(result.current.value).toEqual({ status: "ready", label: "R-1 answer" });
     });
   });
 
@@ -68,18 +68,18 @@ describe("useFetchedResource", () => {
     );
 
     rerender({ id: "R-2" });
-    expect(result.current).toEqual({ status: "loading" });
+    expect(result.current.value).toEqual({ status: "loading" });
 
     // The first robot's answer arrives after the switch: it describes a robot
     // nobody is looking at any more and must never render under the new id.
     act(() => {
       calls[0]?.resolve({ status: "ready", label: "stale R-1 answer" });
     });
-    expect(result.current).toEqual({ status: "loading" });
+    expect(result.current.value).toEqual({ status: "loading" });
 
     calls[1]?.resolve({ status: "ready", label: "R-2 answer" });
     await waitFor(() => {
-      expect(result.current).toEqual({ status: "ready", label: "R-2 answer" });
+      expect(result.current.value).toEqual({ status: "ready", label: "R-2 answer" });
     });
   });
 
@@ -89,7 +89,7 @@ describe("useFetchedResource", () => {
 
     calls[0]?.resolve({ status: "ready", label: "first attempt" });
     await waitFor(() => {
-      expect(result.current).toEqual({ status: "ready", label: "first attempt" });
+      expect(result.current.value).toEqual({ status: "ready", label: "first attempt" });
     });
 
     act(() => {
@@ -99,7 +99,26 @@ describe("useFetchedResource", () => {
 
     calls[1]?.resolve({ status: "ready", label: "second attempt" });
     await waitFor(() => {
-      expect(result.current).toEqual({ status: "ready", label: "second attempt" });
+      expect(result.current.value).toEqual({ status: "ready", label: "second attempt" });
+    });
+  });
+
+  it("reports the retry as in flight until the attempt it started settles", async () => {
+    const { calls, load } = createControllableLoader();
+    const { result } = renderHook(() => useFetchedResource("R-1", PORTS, load));
+    calls[0]?.resolve({ status: "ready", label: "first attempt" });
+    await waitFor(() => {
+      expect(result.current.isReloading).toBe(false);
+    });
+
+    act(() => {
+      calls[0]?.context.retry();
+    });
+    expect(result.current.isReloading).toBe(true);
+
+    calls[1]?.resolve({ status: "ready", label: "second attempt" });
+    await waitFor(() => {
+      expect(result.current.isReloading).toBe(false);
     });
   });
 });
