@@ -17,6 +17,7 @@ type Retry = () => void;
 export type NotifyScheduler = (notify: Listener) => void;
 
 export interface FleetData {
+  /** Ascending id order, so rows cannot reshuffle across a reconnect. */
   readonly robots: readonly Robot[];
   readonly sites: readonly FleetSite[];
   readonly capturedAt: number;
@@ -124,7 +125,7 @@ export function createFleetStore(
 
     if (scheduled) return;
 
-    scheduled = true
+    scheduled = true;
     scheduleNotification(() => {
       scheduled = false;
       for (const listener of listeners) listener();
