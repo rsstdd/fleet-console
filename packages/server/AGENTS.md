@@ -104,8 +104,8 @@ This package does not define vendor mappings, canonical domain contracts, simula
 - A new vendor belongs in `packages/adapters`; server changes should normally be limited to registry/configuration wiring.
 - A new canonical field or capability starts in `packages/contracts`; do not patch the server read model with vendor-only data.
 - Transport, persistence, sweep-ownership, or scaling changes that contradict ADRs 2, 3, or 6 require an ADR amendment before implementation.
-- Document non-trivial coupling on both sides of a cross-package change with comments naming the related module (Principle 14).
-- Add a one-sentence doc comment to every class, function, and type exported or re-exported by the declared public entry point, `src/index.ts` (ADR 37). Elsewhere, comment only where the sentence says something the declaration cannot.
+- Express cross-package coupling through shared contracts and tests. Add one concise comment at the least-obvious side only when a load-bearing relationship remains easy to violate (ADR 39).
+- Add a source or doc comment only when it preserves an important contract, invariant, constraint, or failure mode that the declaration and owning documentation cannot express. Export from `src/index.ts` does not create a comment requirement; any doc comment must remain informative (ADR 28, ADR 39).
 - Keep the server thin and diffs focused. Do not build production infrastructure without a demonstrated requirement.
 - If a request conflicts with `PRINCIPLES.md` or an ADR, stop and surface the conflict rather than working around it.
 

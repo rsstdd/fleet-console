@@ -54,6 +54,9 @@ export type TenantFlags = z.infer<typeof tenantFlagsSchema>;
  *
  * A protocol-relative `//host/path` is rejected: it looks root-relative and is not, which
  * is the one mistake here that would silently leave the origin up to the page.
+ *
+ * Coupling: `app/useFleetTransport.ts` maps exactly these four absolute protocols to the
+ * WebSocket form. Admitting another scheme here requires a case there.
  */
 const endpointUrlSchema = z
   .string()
@@ -98,10 +101,13 @@ const tenantEndpointsSchema = z.strictObject({
 /** HTTP and WebSocket endpoints for one deployment tenant. */
 export type TenantEndpoints = z.infer<typeof tenantEndpointsSchema>;
 
+// Bounds fixed shell chrome while admitting both current tenant wordmarks.
+const WORDMARK_MAX_LENGTH = 48;
+
 const tenantConfigSchema = z.strictObject({
   id: z.enum(TENANT_IDS),
   /** Shown in the app shell. Never a hardcoded string in a component. */
-  wordmark: z.string().min(1).max(48),
+  wordmark: z.string().min(1).max(WORDMARK_MAX_LENGTH),
   /** Selects the palette in `tenantTheme.ts`; the two share one declaration. */
   theme: z.enum(TENANT_THEMES),
   endpoints: tenantEndpointsSchema,

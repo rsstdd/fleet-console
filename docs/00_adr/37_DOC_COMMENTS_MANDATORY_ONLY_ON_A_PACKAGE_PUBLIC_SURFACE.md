@@ -1,7 +1,8 @@
 # ADR 37 — A Doc Comment Is Mandatory Only on a Package's Public Surface
 
 **Decision:** A one-sentence doc comment is required on every symbol exported or re-exported by a package's declared public entry points and, in `packages/web`, on the cross-layer and app-shell surface defined below. It is optional elsewhere, where a comment is written only when it says something the declaration cannot.
-**Status:** Decided · 2026-08-24 · Implemented
+**Status:** Superseded · 2026-08-25 · Implemented
+**Superseded by:** ADR 39
 **Group:** Process / documentation quality (which half of ADR 28's bet is mandatory, and where).
 
 ## Issue

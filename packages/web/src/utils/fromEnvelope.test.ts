@@ -69,6 +69,10 @@ function buildDiagnosticEnvelope(
 
 const NO_COUNTERS = { unknownFieldCount: 0 } as const;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 describe("toRobot", () => {
   it("maps the canonical envelope onto a fleet row", () => {
     expect(toRobot(buildEnvelope())).toEqual({
@@ -302,15 +306,15 @@ describe("wire round trip", () => {
   });
 
   it("rejects a malformed response at the boundary rather than coercing it", () => {
-    const wire = JSON.parse(JSON.stringify(encodeCanonicalEnvelope(buildEnvelope()))) as Record<
-      string,
-      unknown
-    >;
+    const wire: unknown = JSON.parse(JSON.stringify(encodeCanonicalEnvelope(buildEnvelope())));
+    if (!isRecord(wire) || !isRecord(wire["core"])) {
+      throw new Error("encoded envelope must remain an object after JSON serialization");
+    }
     // A battery percentage as a string is exactly the coercion Principle 2
     // forbids: it must fail, not become 91.
     const result = parseCanonicalEnvelope({
       ...wire,
-      core: { ...(wire.core as Record<string, unknown>), batteryPercent: "91" },
+      core: { ...wire["core"], batteryPercent: "91" },
     });
 
     expect(result.ok).toBe(false);
@@ -321,10 +325,10 @@ describe("wire round trip", () => {
   });
 
   it("rejects an unknown canonical field as contract drift", () => {
-    const wire = JSON.parse(JSON.stringify(encodeCanonicalEnvelope(buildEnvelope()))) as Record<
-      string,
-      unknown
-    >;
+    const wire: unknown = JSON.parse(JSON.stringify(encodeCanonicalEnvelope(buildEnvelope())));
+    if (!isRecord(wire)) {
+      throw new Error("encoded envelope must remain an object after JSON serialization");
+    }
 
     const result = parseRobotDiagnosticEnvelope({ ...wire, rawPayload: null, surprise: 1 });
 

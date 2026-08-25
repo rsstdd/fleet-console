@@ -91,6 +91,7 @@ export type CapabilitySet = Capabilities;
  */
 export type PanelCapabilityName = OperatorCapabilityName;
 
+/** Observed or manifest-only canonical fleet data mapped into the immutable row shared by web layers. */
 export interface Robot {
   readonly id: string;
   /**

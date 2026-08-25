@@ -102,6 +102,7 @@ export function selectBatteryDisplay(robot: Robot): string {
   return `${String(robot.batteryPercent)}%`;
 }
 
+/** Mutually exclusive counts over server-supplied freshness values for the fleet summary. */
 export interface FreshnessSummary {
   readonly live: number;
   readonly stale: number;

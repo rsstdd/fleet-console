@@ -45,7 +45,7 @@ describe("useFleetRobots", () => {
   it("reads the store the transport is filling", () => {
     const store = createFleetStore();
     store.applySnapshot(buildSnapshot([buildRegisteredRobot("R-001")]));
-    const Wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+    const Wrapper = ({ children }: { readonly children: ReactNode }): ReactNode => (
       <FleetStoreContext.Provider value={store}>{children}</FleetStoreContext.Provider>
     );
 
@@ -59,7 +59,7 @@ describe("useFleetRobots", () => {
 
   it("re-renders when a later snapshot changes the fleet", async () => {
     const store = createFleetStore();
-    const Wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+    const Wrapper = ({ children }: { readonly children: ReactNode }): ReactNode => (
       <FleetStoreContext.Provider value={store}>{children}</FleetStoreContext.Provider>
     );
     const { result } = renderHook(() => useFleetRobots(), { wrapper: Wrapper });
@@ -98,7 +98,7 @@ describe("useFleetRobot", () => {
   it("returns one robot's row by id, and undefined for an id the fleet never carried", () => {
     const store = createFleetStore();
     store.applySnapshot(buildSnapshotWithRobots(["R-001"]));
-    const Wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+    const Wrapper = ({ children }: { readonly children: ReactNode }): ReactNode => (
       <FleetStoreContext.Provider value={store}>{children}</FleetStoreContext.Provider>
     );
 

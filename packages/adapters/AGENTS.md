@@ -51,8 +51,8 @@ This package does not own transport, storage, freshness derivation, UI behavior,
 ## Change rules
 
 - Add a new capability in `packages/contracts` first, with its payload schema and serialization behavior, then consume it here. A capability is a shared architectural change, not a vendor-local shortcut.
-- Document non-trivial coupling on both sides of a cross-package change with comments naming the related module (Principle 14).
-- Add a one-sentence doc comment to every class, function, and type exported or re-exported by the declared public entry points, `src/index.ts` and `src/testing/index.ts` (ADR 37). Elsewhere, comment only where the sentence says something the declaration cannot.
+- Express cross-package coupling through shared contracts and tests. Add one concise comment at the least-obvious side only when a load-bearing relationship remains easy to violate (ADR 39).
+- Add a source or doc comment only when it preserves an important contract, invariant, constraint, or failure mode that the declaration and owning documentation cannot express. Export from `src/index.ts` or `src/testing/index.ts` does not create a comment requirement; any doc comment must remain informative (ADR 28, ADR 39).
 - Keep changes focused. Do not refactor other adapters while adding or correcting one vendor unless the shared behavior itself is the subject of the change.
 - If a request conflicts with `PRINCIPLES.md` or an ADR, stop and surface the conflict rather than working around it.
 

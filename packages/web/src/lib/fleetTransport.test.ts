@@ -97,7 +97,10 @@ describe("createFleetTransport", () => {
     };
   }
 
-  function createTransportHarness(options: { fetchLike: FetchLike; random?: () => number }) {
+  function createTransportHarness(options: {
+    readonly fetchLike: FetchLike;
+    readonly random?: () => number;
+  }) {
     const { sockets, openSocket, last } = createSocketFactory();
     const clock = createFakeTimer();
     const snapshots: FleetSnapshot[] = [];

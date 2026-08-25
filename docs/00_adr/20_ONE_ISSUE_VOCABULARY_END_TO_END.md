@@ -109,7 +109,7 @@ The kind subset is the part that makes "no translation" mechanical rather than a
 - `Principle 1 (one authoritative implementation) — the reason there is one failure vocabulary and one place an error body is built.`
 - `Principle 2 (external contracts are decoded once, at the boundary) — the reason the error body has a schema instead of being trusted JSON.`
 - `Principle 5 (every asynchronous surface defines its complete visible state) — the console's terminal error state is what this vocabulary is for.`
-- `Principle 14 (coupling is documented on both sides) — the reason the contracts issue, the adapter error and the server response module each name the others.`
+- `Principle 14 (one auditable authority) — the reason the contracts issue shape is shared rather than described independently at each consumer.`
 - `Artifact packages/contracts/src/errors/errorEnvelopeSchema.ts — the error envelope, the kind vocabulary, and the issue's runtime schema.`
 - `Artifact packages/contracts/src/shared/primitives.ts — ContractIssue and toContractIssues, including the per-key expansion.`
 - `Artifact packages/adapters/src/core/result.ts — AdapterError on the issue shape, and issuesForKind.`

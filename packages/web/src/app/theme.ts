@@ -6,6 +6,7 @@
 // This module does NOT write custom properties inline.
 import { createTheme } from "@mui/material";
 import { toggleButtonClasses } from "@mui/material/ToggleButton";
+import type { Theme } from "@mui/material/styles";
 
 import type { TenantTheme } from "@/config/tenantTheme";
 import { MUI_SHAPE_BORDER_RADIUS, TENANT_PALETTE } from "@/styles/tokens";
@@ -25,7 +26,7 @@ export function applyTenantTheme(mode: TenantTheme): void {
 /**
  * Builds MUI from the same authored tokens that generate the CSS custom properties.
  */
-export function buildMuiTheme(mode: TenantTheme) {
+export function buildMuiTheme(mode: TenantTheme): Theme {
   const palette = TENANT_PALETTE[mode];
 
   return createTheme({

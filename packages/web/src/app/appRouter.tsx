@@ -24,8 +24,7 @@ import { StreamDiagnosticsContext } from "@/context/streamDiagnosticsContext";
  */
 export function AppRouter(): ReactNode {
   const transport = useFleetTransport();
-  // Session-wide by definition: the transport and its counter live exactly as
-  // long as this router, which mounts once per console session.
+
   const streamDiagnostics = useMemo(
     () => ({ rejectedFrames: transport.rejectedFrames }),
     [transport.rejectedFrames],
@@ -39,17 +38,19 @@ export function AppRouter(): ReactNode {
             element={
               <AppShell
                 connectionState={transport.connectionState}
-                lastEventAt={transport.lastEventAt ?? undefined}
                 attempt={transport.attempt}
                 terminalCause={transport.terminalCause}
                 onRetry={transport.retry}
+                {...(transport.lastEventAt !== null && {
+                  lastEventAt: transport.lastEventAt,
+                })}
               />
             }
           >
             <Route path="/" element={<FleetPage />} />
             <Route path="/map" element={<MapPage />} />
             <Route path="/robots/:id" element={<RobotDetailPage />} />
-            {import.meta.env.DEV ? <Route path="/dev/ui" element={<ComponentGallery />} /> : null}
+            {import.meta.env.DEV && <Route path="/dev/ui" element={<ComponentGallery />} />}
             <Route
               path="*"
               element={

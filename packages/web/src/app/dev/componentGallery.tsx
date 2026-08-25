@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Box,
   CssBaseline,
@@ -39,7 +39,7 @@ import {
  * side without changing the tenant the rest of the console is running as. All demo
  * state lives here; the section components render it and hand changes back up.
  */
-export function ComponentGallery() {
+export function ComponentGallery(): ReactNode {
   const [tenant, setTenant] = useState<TenantTheme>("dark");
   const [isFiltered, setIsFiltered] = useState(false);
   const [persona, setPersona] = useState<Persona>("operator");
@@ -68,11 +68,7 @@ export function ComponentGallery() {
     setIsFiltered(nextIsFiltered);
   };
 
-  // Synchronizes an external DOM boundary React does not own — the `data-theme`
-  // attribute on `documentElement`, which the token layer switches on — with this
-  // gallery's local tenant selection. Cleanup restores the deployment's own theme:
-  // the gallery is mounted inside the running console, so an attribute left switched
-  // would repaint every other route in whichever tenant was last previewed here.
+  // tenant selects documentElement's theme; cleanup restores the deployment theme.
   useEffect(() => {
     applyTenantTheme(tenant);
     return () => {

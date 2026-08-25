@@ -40,7 +40,7 @@ This package does not normalize telemetry, define canonical contracts, derive fr
 - Do not add canonical capability declarations to raw vendor payloads. The adapter decides which canonical capabilities the source data supports.
 - Do not add a sequence to Vendor B. Its adapter synthesizes weaker ordering from timestamps, and same-millisecond duplicates remain a documented limitation.
 - Keep the intentional Vendor C unknown field present in representative simulation/fixture data so the per-adapter unknown-field counter is exercised.
-- When a vendor dialect changes, update its adapter fixtures and exact-output contract tests in the same focused change, documenting the coupling on both sides (Principle 14).
+- When a vendor dialect changes, update its adapter fixtures and exact-output contract tests in the same focused change; prefer those shared contracts and tests to mirrored coupling comments (ADR 39, Principle 14).
 
 ## Robot and telemetry generation
 
@@ -103,8 +103,8 @@ This package does not normalize telemetry, define canonical contracts, derive fr
 - A new vendor requires a vendor generator here only after its adapter module and fixtures are designed under `packages/adapters`. It must not require a vendor-specific canonical-model change.
 - A new vendor field belongs to the raw dialect here and its adapter mapping there. A genuinely new canonical capability starts in `packages/contracts`.
 - Changes to HTTP ingest shape or batching must follow ADR 2 and be coordinated with `packages/server`.
-- Document non-trivial coupling on both sides of a cross-package change with comments naming the related module (Principle 14).
-- Add a one-sentence doc comment to every class, function, and type exported or re-exported by the declared public entry point, `src/index.ts` (ADR 37). Elsewhere, comment only where the sentence says something the declaration cannot.
+- Express cross-package coupling through shared contracts and tests. Add one concise comment at the least-obvious side only when a load-bearing relationship remains easy to violate (ADR 39).
+- Add a source or doc comment only when it preserves an important contract, invariant, constraint, or failure mode that the declaration and owning documentation cannot express. Export from `src/index.ts` does not create a comment requirement; any doc comment must remain informative (ADR 28, ADR 39).
 - Keep diffs focused; do not expand the simulator into provisioning, commands, persistence, or a UI.
 - If a request conflicts with `PRINCIPLES.md` or an ADR, stop and surface the conflict rather than working around it.
 

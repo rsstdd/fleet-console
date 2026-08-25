@@ -17,25 +17,6 @@ import {
 } from "@/lib/streamLifecycle";
 import type { FetchLike } from "@/lib/transportDecoding";
 
-/**
- * The transport boundary: the one place the console owns a socket.
- *
- * `app` owns transport lifecycle (ADR 23), which is why this hook lives here rather than
- * in a feature — and why the connection state it produces travels back down through
- * `ConnectionContext` instead of through props on every route.
- *
- * This is also where the fleet store receives its explicit resource
- * transitions — snapshot-start, snapshot-success, recoverable-failure,
- * terminal-failure, and batches. The transport reports what happened; the
- * fleet store decides what that means for the fleet surface, and no
- * other layer writes to it (Principle 11).
- *
- * The ports are injectable because a hook that constructed a real `WebSocket` could only
- * be tested in a browser, and every rule worth asserting here — that the socket opens
- * before the snapshot is fetched, that a terminal decode does not retry, that unmounting
- * closes the socket — is about sequencing rather than about the network.
- */
-
 /** Keeps connection truth and fleet data separate while publishing both from one boundary. */
 export interface FleetTransportState {
   readonly store: FleetStore;
@@ -56,7 +37,6 @@ export interface FleetTransportState {
   readonly retry: () => void;
 }
 
-/** Adapts browser WebSocket events behind the injectable transport port used by tests. */
 const openBrowserSocket: OpenSocket = (url, handlers) => {
   const socket = new WebSocket(url, []);
   socket.addEventListener("open", () => {
@@ -78,22 +58,8 @@ const openBrowserSocket: OpenSocket = (url, handlers) => {
 };
 
 /**
- * Builds an absolute stream URL from the tenant's same-origin path.
- *
- * `TENANT.endpoints.streamUrl` ships as `/ws`, which `WebSocket` cannot take — it needs a
- * scheme. The origin comes from the page, never from configuration: the console learning
- * the server's real address is what would make its requests cross-origin, and ADR 21's dev
- * proxy exists precisely so it never has to.
- *
- * @param path - `TENANT.endpoints.streamUrl`, resolved as a reference against `origin`, so
- *   the shipped `/ws` becomes a same-origin socket address and an absolute value keeps its
- *   own host. Its scheme is then mapped to the socket equivalent, because ADR 21's
- *   cross-origin deployment is configured as an `https://` URL and `WebSocket` rejects one.
- * @param origin - The page's own origin. Pass `window.location.origin`, never a configured
- *   host — see above.
- * @returns An absolute `ws://` or `wss://` URL, the only form `WebSocket` accepts. Coupling:
- *   that guarantee holds because `endpointUrlSchema` in `config/tenant.ts` admits exactly
- *   these four schemes; a fifth admitted there needs a case here.
+ * Resolves tenant stream addresses against the page origin and maps HTTP schemes to their
+ * WebSocket equivalents. Coupling: `config/tenant.ts` admits exactly these four schemes.
  */
 export function resolveStreamUrl(path: string, origin: string): string {
   const resolved = new URL(path, origin);
@@ -106,15 +72,8 @@ export function resolveStreamUrl(path: string, origin: string): string {
 }
 
 /**
- * Connects on mount, disconnects on unmount, and publishes what the shell renders.
- *
- * @param ports - Replaceable boundaries, each defaulted to the real browser one.
- *   Supplying any is a test affordance, and they are read once when the transport is
- *   built: changing them after mount has no effect, deliberately, because rebuilding
- *   the transport would drop the open socket.
- * @returns The published transport state, rebuilt on every lifecycle transition.
- *   `store` and `retry` hold their identity for the whole mount so subscribers and the
- *   banner's control do not churn; the connection fields move with the socket.
+ * Owns one transport and store per mount. Injected ports are captured on the first render;
+ * replacing them would discard the active socket.
  */
 export function useFleetTransport(
   ports: {
@@ -125,22 +84,15 @@ export function useFleetTransport(
     readonly random?: () => number;
   } = {},
 ): FleetTransportState {
-  // Lazy state owns this identity-critical resource for the lifetime of the mount.
-  // Its setter is intentionally unavailable: replacing the store is not a supported
-  // transition, and the scoped state convention documents that narrow exception.
+  // Store identity is fixed for this mount; replacement is not a supported transition.
   const [store] = useState(() => createFleetStore());
-  // One piece of state, because the published value and the attempt count are two views
-  // of one fact and holding them separately is how they come to disagree.
+  // Published connection state and attempt count must transition together.
   const [streamState, setStreamState] = useState<StreamState>(INITIAL_STREAM_STATE);
   const [rejectedFrames, setRejectedFrames] = useState(0);
 
-  // Built once per mount, capturing the first render's ports. Rebuilding on a state
-  // change would drop the open socket and restart the joining sequence on every frame,
-  // so — as with `store` above — the setter is intentionally unavailable.
+  // Transport identity is fixed so renders cannot restart the joining sequence.
   const [transport] = useState<FleetTransport>(() => {
-    // Named before creation so the retry closure handed to the store can call
-    // back into the transport it belongs to; the closure only runs on a
-    // banner click, long after this factory has returned.
+    // The deferred retry closure needs the transport being constructed here.
     const created: FleetTransport = createFleetTransport({
       endpoints: {
         snapshotUrl: `${TENANT.endpoints.apiBaseUrl}/fleet`,
@@ -148,8 +100,8 @@ export function useFleetTransport(
       },
       openSocket: ports.openSocket ?? openBrowserSocket,
       fetchLike: ports.fetchLike ?? ((url) => fetch(url)),
-      timer: ports.timer,
-      random: ports.random,
+      ...(ports.timer === undefined ? {} : { timer: ports.timer }),
+      ...(ports.random === undefined ? {} : { random: ports.random }),
       handlers: {
         onSnapshot: (snapshot) => {
           store.applySnapshot(snapshot);
@@ -159,11 +111,7 @@ export function useFleetTransport(
         },
         onConnectionState: (_published, next) => {
           setStreamState(next);
-          // The explicit resource transitions, derived once at this boundary.
-          // An attempt in flight is a pending snapshot; a terminal phase with
-          // a retryable cause is the recoverable resource error. The contract
-          // cause is excluded because `onTerminalError` below already carried
-          // its issues to the store.
+          // Contract failures arrive through onTerminalError; only other terminal causes retry.
           if (next.phase === "connecting" || next.phase === "reconnecting") {
             store.snapshotStart();
           }
@@ -188,11 +136,7 @@ export function useFleetTransport(
     return created;
   });
 
-  // Binds the external WebSocket's lifecycle to this mount's. `transport` never changes
-  // identity, so this runs once per mount rather than once per render — development
-  // StrictMode still replays setup and cleanup. Cleanup disconnects, which is what stops
-  // that replay, a route teardown, or a hot reload from leaving a second socket streaming
-  // into a store nothing renders any more.
+  // transport is mount-stable; cleanup prevents WebSocket replay or teardown duplication.
   useEffect(() => {
     transport.connect();
     return () => {
@@ -200,8 +144,6 @@ export function useFleetTransport(
     };
   }, [transport]);
 
-  // Stable per mount (transport never changes identity), so the banner's retry
-  // control does not re-render on every stream-state change.
   const retry = useCallback(() => {
     transport.connect();
   }, [transport]);

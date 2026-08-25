@@ -114,12 +114,13 @@ Binding on every package.
 
 **Source**
 
-- One-sentence doc comment on every class, function, type, and component exported or
-  re-exported by the package's declared public entry points, and in `web` on the surface
-  another layer imports or the app shell composes (ADR 37). Internal exports are
-  documented only where the sentence earns its place.
-- Non-trivial cross-package coupling is commented on **both** sides, naming the other
-  file. Agents find related code by search; implied coupling is invisible.
+- Source comments preserve only important contracts, invariants, constraints, or failure
+  modes that names, types, structure, tests, and owning documentation cannot reasonably
+  express (ADR 39). Export location does not create a documentation requirement; any doc
+  comment that exists must remain informative (ADR 28).
+- Cross-package coupling is expressed through shared types, APIs, tests, or owning
+  documentation. If a load-bearing relationship remains easy to violate, one concise
+  comment belongs at the least-obvious side rather than being mirrored (ADR 39).
 - `export type` for type-only exports, required by `verbatimModuleSyntax`.
 - No dependency without an ADR. `CLAUDE.md` states the rule; ADR 6 § Constraints is the
   first record invoking it, and records a decision **not** to add one. ADR 8 discharges it

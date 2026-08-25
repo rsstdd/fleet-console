@@ -8,6 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packages = ["adapters", "contracts", "server", "simulator", "web"];
 const requiredCompilerOptions = {
   strict: true,
+  exactOptionalPropertyTypes: true,
   noUncheckedIndexedAccess: true,
   noImplicitOverride: true,
   noImplicitReturns: true,
@@ -35,6 +36,7 @@ test("every package inherits strict typing without weakening it", async () => {
     "packages/server/tsconfig.json",
     "packages/simulator/tsconfig.json",
     "packages/web/tsconfig.app.json",
+    "packages/web/tsconfig.e2e.json",
     "packages/web/tsconfig.node.json",
   ];
   for (const configPath of configs) {
@@ -54,11 +56,12 @@ test("every package inherits strict typing without weakening it", async () => {
   }
 });
 
-test("typed ESLint rejects explicit any in every package", async () => {
+test("typed ESLint enforces the shared safety rules in every package", async () => {
   for (const packageName of packages) {
     const configPath = `packages/${packageName}/eslint.config.js`;
     const source = await readFile(path.join(root, configPath), "utf8");
     assert.match(source, /"@typescript-eslint\/no-explicit-any":\s*"error"/, configPath);
+    assert.match(source, /"@typescript-eslint\/prefer-readonly":\s*"error"/, configPath);
     assert.match(source, /strictTypeChecked/, `${configPath} must use typed static analysis`);
   }
 });

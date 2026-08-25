@@ -18,8 +18,8 @@ interface PendingLoad {
 
 /** A loader whose every call is captured for the test to settle in any order. */
 function createControllableLoader(): {
-  calls: PendingLoad[];
-  load: (request: FetchLike, context: FetchedResourceContext) => Promise<TestState>;
+  readonly calls: PendingLoad[];
+  readonly load: (request: FetchLike, context: FetchedResourceContext) => Promise<TestState>;
 } {
   const calls: PendingLoad[] = [];
   return {
@@ -31,10 +31,12 @@ function createControllableLoader(): {
   };
 }
 
+const unusedFetch: FetchLike = () => Promise.reject(new Error("unused"));
+
 const PORTS = {
   apiBaseUrl: "http://example.test/api",
-  fetchLike: (() => Promise.reject(new Error("unused"))) as FetchLike,
-};
+  fetchLike: unusedFetch,
+} satisfies { readonly apiBaseUrl: string; readonly fetchLike: FetchLike };
 
 describe("useFetchedResource", () => {
   it("derives loading until the load for the current id settles, then returns its value", async () => {
@@ -61,7 +63,7 @@ describe("useFetchedResource", () => {
   it("discards a stale in-flight result when the id changes", async () => {
     const { calls, load } = createControllableLoader();
     const { result, rerender } = renderHook(
-      ({ id }: { id: string }) => useFetchedResource(id, PORTS, load),
+      ({ id }: { readonly id: string }) => useFetchedResource(id, PORTS, load),
       { initialProps: { id: "R-1" } },
     );
 

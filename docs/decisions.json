@@ -143,8 +143,13 @@
     },
     {
       "id": "D29",
-      "question": "Which exports require a doc comment",
-      "adr": 37
+      "question": "When does a non-obvious contract or constraint require a source comment",
+      "adr": 39
+    },
+    {
+      "id": "D30",
+      "question": "Exact optional-property and readonly-member TypeScript baseline",
+      "adr": 38
     }
   ],
   "mechanicalRules": [
@@ -295,6 +300,34 @@
     {
       "path": "packages/simulator/src/fleet/manifestParity.test.ts",
       "adr": 14
+    },
+    {
+      "path": "tsconfig.base.json",
+      "adr": 38
+    },
+    {
+      "path": "packages/contracts/eslint.config.js",
+      "adr": 38
+    },
+    {
+      "path": "packages/adapters/eslint.config.js",
+      "adr": 38
+    },
+    {
+      "path": "packages/simulator/eslint.config.js",
+      "adr": 38
+    },
+    {
+      "path": "packages/server/eslint.config.js",
+      "adr": 38
+    },
+    {
+      "path": "packages/web/eslint.config.js",
+      "adr": 38
+    },
+    {
+      "path": "scripts/typeSafetyConfig.test.mjs",
+      "adr": 38
     }
   ],
   "authorityMarkers": {

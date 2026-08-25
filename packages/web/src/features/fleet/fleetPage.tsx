@@ -60,12 +60,12 @@ export function FleetPage(): ReactNode {
   const isFleetStreamConnected = isStreamConnected(useConnectionState());
 
   const data: FleetData | null = "data" in resource ? resource.data : null;
+  // D27 retains manual memoization on this measured 500-row surface.
   const robots = useMemo(() => data?.robots ?? [], [data]);
   const sites = data?.sites ?? [];
 
   const summary = useMemo(() => selectFreshnessSummary(robots), [robots]);
 
-  /** Vendor options observed in the fleet itself; the set is open (ADR 1). */
   const vendorOptions = useMemo(
     () => [...new Set(robots.map((robot) => robot.vendor))].sort(),
     [robots],

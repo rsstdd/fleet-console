@@ -60,18 +60,22 @@ const NOT_LIVE: readonly Freshness[] = ["stale", "unreachable", "unknown"];
 
 describe("selectStatusPresentation", () => {
   it("maps each canonical status to its variant and label", () => {
-    const expected: Record<RobotStatus, { variant: string; label: string }> = {
+    const expected = {
       idle: { variant: "neutral", label: "Idle" },
       busy: { variant: "active", label: "Busy" },
       charging: { variant: "charging", label: "Charging" },
       fault: { variant: "fault", label: "Fault" },
       unknown: { variant: "unknown", label: "Unknown" },
-    };
+    } satisfies Record<RobotStatus, { readonly variant: string; readonly label: string }>;
 
-    for (const [status, want] of Object.entries(expected) as [
-      RobotStatus,
-      { variant: string; label: string },
-    ][]) {
+    // The exhaustive record is also the iteration source, so every status reaches an assertion.
+    const isRobotStatus = (value: string): value is RobotStatus => value in expected;
+
+    for (const status of Object.keys(expected)) {
+      if (!isRobotStatus(status)) {
+        throw new Error(`the expected map carried a non-canonical status: ${status}`);
+      }
+      const want = expected[status];
       const presentation = selectStatusPresentation(buildRobot({ status }));
       expect(presentation.variant).toBe(want.variant);
       expect(presentation.label).toBe(want.label);
@@ -555,7 +559,7 @@ describe("selectMapMarker", () => {
     if (built.position === null) {
       throw new Error("test robot must carry a position");
     }
-    return built as PlottableRobot;
+    return { ...built, position: built.position };
   };
 
   it("is filled only when the robot is live and the stream is connected", () => {

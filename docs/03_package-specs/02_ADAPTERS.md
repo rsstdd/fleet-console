@@ -292,6 +292,6 @@ and own the supported-vendor set while a test guards the simulator copy ([ADR 16
 - A new vendor **field** belongs to the raw dialect in `@fleet/simulator` and its mapping
   here. A genuinely new **capability** starts in `@fleet/contracts`.
 - A dialect change updates the simulator's generator, this package's schema, its fixtures
-  and its exact-output contract test **in the same commit**, with the coupling commented
-  on both sides (Principle 14).
+  and its exact-output contract test **in the same commit**. Those shared contracts and
+  tests make the coupling discoverable without mirrored comments (ADR 39, Principle 14).
 - Shared behaviour between two vendors moves to `src/core/`, never to a sibling import.

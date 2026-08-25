@@ -2,7 +2,7 @@
 
 **Authority:** Planning only.
 **Status:** Active
-**Updated:** 2026-08-23
+**Updated:** 2026-08-25
 
 ## Outcome
 
@@ -56,7 +56,8 @@ reconciliations where it meets binding repository authority:
   suites stay colocated with their fixtures — the one deliberate exception to the
   `tests/` convention).
 - `features/robot/index.ts` barrel: kept — it exists as the import target of the
-  feature→feature lint fixture; coupling documented on both sides.
+  feature→feature lint fixture, whose test makes that coupling executable without
+  mirrored comments (ADR 39).
 - `entities/site`: checked, not vestigial (`selectSiteLabel` feeds all three pages);
   roster selectors correctly live in `entities/robot`.
 - Resource-banner dedupe across fleet/map (deferred by `REFACTOR_WEB_REACT_QUALITY.md`
@@ -104,27 +105,26 @@ reconciliations where it meets binding repository authority:
 
 - [x] Robot detail validates the route id at the boundary; every data hook takes
       `string`; the undefined-id path has a test.
-- [x] Every source directory's unit tests live in `tests/`; convention documented;
-      collected-test count unchanged by the moves (32 files / 380 tests before and
-      after; 24 files moved — the survey's 25 overcounted `shared/lib` by one).
+- [x] The move into per-directory `tests/` folders was completed and documented; ADR 36
+      later reversed that convention. The final tree has 37 collected files / 406 tests
+      (24 files moved — the survey's 25 overcounted `shared/lib` by one).
 - [x] Fixture location and the three documents that describe it agree.
 - [x] The two scoped oversized files are decomposed: `robotDetailPage.tsx` retains
-      only the route entry, body, and `renderState` (189 lines, from 552) over five
-      section files; `componentGallery.tsx` retains only orchestration (135 lines,
-      from 592) over three gallery files. (`fleetPage.tsx`'s in-file decomposition
-      was settled by `REFACTOR_WEB_REACT_QUALITY.md` F3 and is out of scope here.)
+      only the route entry, body, and `renderState` (199 lines, from 552) over five
+      section files; `componentGallery.tsx` retains only orchestration (151 lines,
+      from 592) over three gallery files. `fleetPage.tsx` is 238 lines; its in-file
+      decomposition was settled by `REFACTOR_WEB_REACT_QUALITY.md` F3 and is out of
+      scope here.
 - [x] One fetch-lifecycle implementation (`useFetchedResource`, 4 behavior tests
       written first); facades keep their pinned paths and ADR 33 citations
       (`pnpm check:architecture-docs` green).
 - [x] `pnpm --filter web test && pnpm --filter web lint && pnpm --filter web build`
-      green after every slice; `pnpm test:e2e` after the repair slice and after the
-      detail-page split completed (24/24, chromium + firefox).
-- [x] Unverified items recorded honestly: the e2e webkit project cannot launch on
-      the development WSL host (missing system libraries) — smoke evidence covers
-      chromium and firefox only. Commit `6bb879c` on `refactor-web` holds the 25
-      pure renames without the import rewrites and does not build standalone; it
-      was already pushed, so it was completed by the following commit rather than
-      amended.
+      green after every slice. On the final tree, `pnpm test:e2e` passed 26/26 across
+      Chromium and Firefox (13 per engine); WebKit could not launch on the development
+      host because its GTK, GStreamer, and GLES libraries are missing.
+- [x] Unverified item recorded honestly: commit `6bb879c` on `refactor-web` holds the
+      25 pure renames without the import rewrites and does not build standalone; it was
+      already pushed, so it was completed by the following commit rather than amended.
 
 ## Documentation synchronization
 

@@ -37,6 +37,9 @@ export type StreamPhase =
 /**
  * Why the transport stopped retrying (ADR 31). Metadata beside the phase, not more
  * phases: the three causes transition identically and differ only in operator copy.
+ *
+ * Coupling: `components/connectionBanner.tsx` mirrors this union because `components`
+ * cannot import `lib`; component spec 07 § API owns the shared vocabulary.
  */
 export type StreamTerminalCause =
   /** Three initial-probe attempts and the socket never opened once. */
@@ -163,6 +166,9 @@ export function selectPublishedConnectionState(state: StreamState): StreamConnec
  * Attempts per operator-initiated initial probe cycle before the transport gives up
  * (ADR 31). Applies only while no socket has ever opened; manual retry grants a new
  * cycle, and after one successful open automatic retries are uncapped.
+ *
+ * Coupling: `components/connectionBanner.tsx` states this number in the
+ * `handshake-exhausted` copy; component spec 07 §5 requires both to change together.
  */
 export const INITIAL_PROBE_ATTEMPT_LIMIT = 3;
 

@@ -1,10 +1,11 @@
+import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import {
-  ConnectionContext,
   DEFAULT_CONNECTION_STATE,
   type StreamConnectionState,
   isStreamConnected,
+  useConnectionState,
 } from "./connectionContext";
 
 describe("DEFAULT_CONNECTION_STATE", () => {
@@ -18,11 +19,8 @@ describe("DEFAULT_CONNECTION_STATE", () => {
   });
 
   it("is the context's default, not merely a constant beside it", () => {
-    // Reading React's own default rather than trusting the two agree by inspection.
-    const contextDefault = (
-      ConnectionContext as unknown as { readonly _currentValue: StreamConnectionState }
-    )._currentValue;
-    expect(contextDefault).toBe(DEFAULT_CONNECTION_STATE);
+    const { result } = renderHook(() => useConnectionState());
+    expect(result.current).toBe(DEFAULT_CONNECTION_STATE);
   });
 });
 
