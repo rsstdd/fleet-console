@@ -9,14 +9,12 @@ import { useFetchedResource, type FetchedResourceContext } from "./useFetchedRes
 type TestState =
   { readonly status: "loading" } | { readonly status: "ready"; readonly label: string };
 
-/** One controllable in-flight load: the test decides when and with what it settles. */
 interface PendingLoad {
   readonly context: FetchedResourceContext;
   readonly request: FetchLike;
   readonly resolve: (state: TestState) => void;
 }
 
-/** A loader whose every call is captured for the test to settle in any order. */
 function createControllableLoader(): {
   readonly calls: PendingLoad[];
   readonly load: (request: FetchLike, context: FetchedResourceContext) => Promise<TestState>;
