@@ -10,11 +10,16 @@ import {
 } from "@/lib/fleetTransport";
 import type { StreamConnectionState } from "@/context/connectionContext";
 import {
+  createStreamDiagnosticsRecorder,
+  type StreamDiagnosticsSource,
+} from "@/context/streamDiagnosticsContext";
+import {
   INITIAL_STREAM_STATE,
   selectPublishedConnectionState,
   type StreamState,
   type StreamTerminalCause,
 } from "@/lib/streamLifecycle";
+import { requestDeadlineSignal } from "@/lib/requestDeadline";
 import type { FetchLike } from "@/lib/transportDecoding";
 
 /** Keeps connection truth and fleet data separate while publishing both from one boundary. */
@@ -29,10 +34,12 @@ export interface FleetTransportState {
   readonly terminalCause: StreamTerminalCause | null;
   /**
    * Frames dropped for failing to decode this session, across all robots.
-   * Published to technician diagnostics through `StreamDiagnosticsContext`,
-   * never to the fleet table.
+   *
+   * A subscribable source rather than a count, so a bad stream wakes the technician
+   * diagnostics field and nothing else. Held as a number here it would re-render every
+   * route at frame rate, the fleet table included.
    */
-  readonly rejectedFrames: number;
+  readonly diagnostics: StreamDiagnosticsSource;
   /** Forces a connection attempt. The banner's control calls this. */
   readonly retry: () => void;
 }
@@ -88,7 +95,8 @@ export function useFleetTransport(
   const [store] = useState(() => createFleetStore());
   // Published connection state and attempt count must transition together.
   const [streamState, setStreamState] = useState<StreamState>(INITIAL_STREAM_STATE);
-  const [rejectedFrames, setRejectedFrames] = useState(0);
+  // Recorder identity is fixed for this mount, as the store's is: it is the subscription.
+  const [diagnostics] = useState(createStreamDiagnosticsRecorder);
 
   // Transport identity is fixed so renders cannot restart the joining sequence.
   const [transport] = useState<FleetTransport>(() => {
@@ -99,7 +107,9 @@ export function useFleetTransport(
         streamUrl: resolveStreamUrl(TENANT.endpoints.streamUrl, window.location.origin),
       },
       openSocket: ports.openSocket ?? openBrowserSocket,
-      fetchLike: ports.fetchLike ?? ((url) => fetch(url)),
+      fetchLike:
+        ports.fetchLike ??
+        ((url) => fetch(url, { signal: requestDeadlineSignal(TENANT.requestPolicy.timeoutMs) })),
       ...(ports.timer === undefined ? {} : { timer: ports.timer }),
       ...(ports.random === undefined ? {} : { random: ports.random }),
       handlers: {
@@ -125,7 +135,7 @@ export function useFleetTransport(
           store.terminalFailure(issues);
         },
         onFrameRejected: () => {
-          setRejectedFrames((count) => count + 1);
+          diagnostics.recordRejectedFrame();
         },
       },
     });
@@ -150,7 +160,7 @@ export function useFleetTransport(
     lastEventAt: streamState.lastConnectedAt,
     attempt: streamState.attempt,
     terminalCause: streamState.terminalCause,
-    rejectedFrames,
+    diagnostics,
     retry,
   };
 }

@@ -26,7 +26,7 @@ function StreamDiagnosticsRow(): ReactNode {
   return (
     <Field
       label="Rejected stream frames (console session, all robots)"
-      value={String(rejectedFrames)}
+      value={rejectedFrames === null ? "Not measured" : String(rejectedFrames)}
     />
   );
 }
