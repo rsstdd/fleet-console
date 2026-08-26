@@ -387,12 +387,25 @@ test.describe("fleet console against the real stack", () => {
     });
     await expect(canvas).toBeVisible({ timeout: 15_000 });
 
-    // Live robots are drawn as markers; the count matches the accounting line.
+    // Live robots are drawn as markers; the count matches the accounting line. Both are
+    // rendered from one store snapshot, so they agree at any instant — but the fleet keeps
+    // gaining positions, so a count read once and asserted later races the stream. Sample
+    // the pair together and retry until they agree, rather than freezing one side of it.
     const accounting = page.getByText(/^\d+ of \d+ robots positioned$/);
     await expect(accounting).toBeVisible();
-    const positioned = Number(/^(\d+) of/.exec((await accounting.textContent()) ?? "")?.[1]);
-    expect(positioned).toBeGreaterThan(0);
-    await expect(canvas.locator("circle")).toHaveCount(positioned);
+    const markers = canvas.locator("circle");
+    await expect
+      .poll(
+        async () => {
+          const positioned = Number(
+            /^(\d+) of/.exec((await accounting.textContent()) ?? "")?.[1] ?? "-1",
+          );
+          return (await markers.count()) - positioned;
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(0);
+    expect(await markers.count()).toBeGreaterThan(0);
 
     // The side list is the activation path: a robot link opens its detail page.
     const list = page.getByRole("region", { name: "Robots" });
