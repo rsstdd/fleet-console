@@ -103,9 +103,13 @@ describe("decodeFrame", () => {
     expect(outcome.issues.length).toBeGreaterThan(0);
   });
 
-  it("reports a non-JSON message in the same shape as a schema failure", () => {
-    // One path to count and one path to render; the empty issue list says which it was.
-    expect(decodeFrameText("<html>proxy error</html>")).toStrictEqual({ ok: false, issues: [] });
+  it("names a non-JSON message with a path and a code, not an empty issue list", () => {
+    // ADR 20 gives the console one failure vocabulary; a surface that could say what went
+    // wrong and does not is the opacity that vocabulary exists to prevent.
+    expect(decodeFrameText("<html>proxy error</html>")).toStrictEqual({
+      ok: false,
+      issues: [{ path: "(root)", code: "invalid_json", message: "Frame body is not JSON." }],
+    });
   });
 
   it("decodes a frame delivered as text", () => {
