@@ -17,6 +17,8 @@
 - **Revision 5 (20 Aug 2026):** ADR 23's fleet-summary open question resolved (fleet TODO **A7**). The summary is a labelled section under a visible `h2` that reads "Fleet freshness" while the stream is connected and "Fleet freshness · last known" in any other state. Counts stay visible during an outage; the qualification is one shared heading, not a per-metric tag, and adds no `aria-live` region and no client timestamp. §§ 2, 3, 8, 9, 10, 11 updated.
 - **Revision 7 (20 Aug 2026):** the § 2 Map row updated from "Not on this route for MVP" to point at the scheduled map route (page spec 04, ADR 35). No behaviour on this page changes; the map remains off this route.
 - **Revision 8 (21 Aug 2026):** operator copy renamed: the summary `h2` reads "Fleet reporting status" / "Fleet reporting status · last known", and the filter and table column read "Reporting status" (plan `FLEET_REPORTING_STATUS_COPY`). Strictly a visible-copy rename — the domain term "freshness" (ADR 3), the state labels, `FreshnessLabel`, and all behaviour are unchanged. §§ 2, 3, 8, 9, 11 updated.
+- **Revision 9 (26 Aug 2026):** battery currency corrected (plan `WEB_DATA_LIFECYCLE_AUDIT`, **F1**). The battery cell is suppressed to an em dash whenever the stream is not connected, not only when `freshness` is not LIVE: during an outage `freshness` is frozen at the last delta received, so a retained LIVE cannot carry a currency claim the page has already withdrawn by suppressing the reporting-status label beside it. `selectBatteryDisplay` takes `isStreamConnected` as `selectMapMarker` already did. §§ 6, 9, 10 updated.
+- **Revision 10 (26 Aug 2026):** fleet filters move into the address bar (plan `WEB_DATA_LIFECYCLE_AUDIT`, **F9**). A narrowed triage view is now shareable and survives a reload; the URL is decoded at the boundary, an unavailable site or vendor is not applied, and filter changes replace rather than push. No change to the controls, the predicate, or any rendered state. §§ 6, 8, 10 updated.
 - **Governing documents:** `PRINCIPLES.md` (esp. 4, 5, 9, 11, 12); ADR 2 (delta transport, measurement commitment); ADR 3 (freshness, server-derived); ADR 4 (structure); component specs 01–07; wireframes Fleet view
 
 ## 1. Product intent
@@ -68,15 +70,15 @@ Page reads from entity selectors / hooks only (no adapter imports).
 
 Required fields per row (canonical read model):
 
-| Field                 | Notes                                                                                                                                  |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `robotId`             | Stable key                                                                                                                             |
-| `vendor`              | e.g. "A", "B", "C" — displayed, and filterable                                                                                         |
-| `siteId` / site label | Grouping and filter. The label resolves against the snapshot's `sites` directory (ADR 34); the raw id is only a pre-directory fallback |
-| `status`              | Mapped to `StatusChip` variant + label, via `utils/robotSelectors`                                                                     |
-| `freshness`           | Server-derived, arrives as a field on the envelope (ADR 3). Never computed in this feature                                             |
-| `batteryPercent`      | Normalized 0–100 display; omitted (em dash) when freshness is not LIVE                                                                 |
-| `lastSeenAt`          | Display only (`reportedAt`). The sweep reads `receivedAt` server-side; this value is not an input to any client derivation             |
+| Field                 | Notes                                                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `robotId`             | Stable key                                                                                                                                                   |
+| `vendor`              | e.g. "A", "B", "C" — displayed, and filterable                                                                                                               |
+| `siteId` / site label | Grouping and filter. The label resolves against the snapshot's `sites` directory (ADR 34); the raw id is only a pre-directory fallback                       |
+| `status`              | Mapped to `StatusChip` variant + label, via `utils/robotSelectors`                                                                                           |
+| `freshness`           | Server-derived, arrives as a field on the envelope (ADR 3). Never computed in this feature                                                                   |
+| `batteryPercent`      | Normalized 0–100 display; omitted (em dash) when freshness is not LIVE **or the stream is not connected** — a retained LIVE is not a current reading (ADR 3) |
+| `lastSeenAt`          | Display only (`reportedAt`). The sweep reads `receivedAt` server-side; this value is not an input to any client derivation                                   |
 
 Summary counts are selector-derived from freshness state, not hardcoded and not derived from status. The selector counts the freshness field it is given; it does not evaluate ages.
 
@@ -87,6 +89,15 @@ Updates apply as deltas keyed by `robotId` on a scheduled frame, never synchrono
 **Rows are keyed by `robotId`**, never by array index. A delta that reorders or filters the list must patch existing rows rather than remount them; index keys would discard row state and defeat the point of a normalized store keyed by the same identifier.
 
 Filter selections are local view state owned by this feature. They are never written back to the store and never merged with observed telemetry (Principle 11).
+
+They are held in the **address bar** — `?site=`, `?vendor=`, `?status=`, `?q=` — so a view an operator narrowed to during an incident survives a reload and can be handed to a colleague as a link. Consequences that follow, and are tested:
+
+- The URL is untrusted input and is decoded at the boundary like any other payload (Principle 2). Site and vendor go through the contract's `identifierSchema`; a reporting status outside the ADR 3 vocabulary is dropped. Each dimension degrades to "filters nothing" on its own, so one unreadable parameter never costs the others.
+- A site or vendor the fleet does not currently offer is **not applied** — a shared link naming a decommissioned site shows the fleet, not an empty table under a control with no matching option. The address keeps the value, so a site arriving in a later snapshot re-engages its filter.
+- Filter changes **replace** the history entry rather than pushing one. A filter is a view of this page, not a place; pushing would make Back walk a narrowing one keystroke at a time.
+- Clearing the filters leaves a clean address, not a row of empty parameters.
+
+Persona and the map's selected site remain local component state; only the fleet filters are addressable.
 
 ## 7. Component composition
 
@@ -106,7 +117,7 @@ No feature-to-feature imports.
 
 - Filter changes are local view state; they do not mutate server or observed state (Principle 11)
 - Activation is the robot id link: pointer click, Enter when focused. There is no separate row handler
-- Connection loss: table remains with last data; per-robot freshness labels are suppressed in favour of the shell banner (ADR 3); the banner states the condition. The summary keeps its four counts but its heading changes to "Fleet reporting status · last known" — the group-level qualification that lets last-known counts remain without asserting currency (ADR 23, Principle 4)
+- Connection loss: table remains with last data; per-robot freshness labels are suppressed in favour of the shell banner (ADR 3), **and the battery cell is suppressed with them** — the label and the number rest on the same claim, so withdrawing one while keeping the other asserts a currency the page has just disclaimed; the banner states the condition. The summary keeps its four counts but its heading changes to "Fleet reporting status · last known" — the group-level qualification that lets last-known counts remain without asserting currency (ADR 23, Principle 4)
 
 ## 9. Accessibility
 
@@ -121,18 +132,18 @@ No feature-to-feature imports.
 
 Complete asynchronous state set (Principle 5):
 
-| Condition             | Behaviour                                                                                                                                                                                |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Initial load          | `loading` resource state: "Loading fleet…" with skeletons; never an indefinite spinner over the whole page                                                                               |
-| Background refresh    | `refreshing` resource state: existing rows stay visible and in place under a quiet status line; no full-table flash                                                                      |
-| No robots registered  | `EmptyState`: "No robots registered". Not an error                                                                                                                                       |
-| Filters exclude all   | `EmptyState`: "No robots match these filters" plus a clear action                                                                                                                        |
-| Partial data          | Rows render with the fields present; a missing optional field shows an em dash, never a zero                                                                                             |
-| Stale data            | Row-level freshness treatment; battery becomes an em dash when freshness is not LIVE                                                                                                     |
-| Offline / stream down | Shell banner; table retains last-known data; per-robot freshness labels suppressed (ADR 3); summary counts stay visible under the "Fleet reporting status · last known" heading (ADR 23) |
-| Recoverable error     | `recoverable-error` state: warning banner with the one Retry control; retained rows stay below when any exist, and the copy says whether it is a failed load or a failed refresh         |
-| Terminal error        | `terminal-error` state: a malformed snapshot is terminal by decision — error banner naming the contract issue paths and codes (ADR 20), **no retry**, retained rows kept below           |
-| Malformed frame       | A malformed stream frame is dropped and counted, surfaced in technician diagnostics with its session-wide scope; never coerced and never crashes the list (Principle 2)                  |
+| Condition             | Behaviour                                                                                                                                                                                                         |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Initial load          | `loading` resource state: "Loading fleet…" with skeletons; never an indefinite spinner over the whole page                                                                                                        |
+| Background refresh    | `refreshing` resource state: existing rows stay visible and in place under a quiet status line; no full-table flash                                                                                               |
+| No robots registered  | `EmptyState`: "No robots registered". Not an error                                                                                                                                                                |
+| Filters exclude all   | `EmptyState`: "No robots match these filters" plus a clear action                                                                                                                                                 |
+| Partial data          | Rows render with the fields present; a missing optional field shows an em dash, never a zero                                                                                                                      |
+| Stale data            | Row-level freshness treatment; battery becomes an em dash when freshness is not LIVE, and whenever the stream is not connected                                                                                    |
+| Offline / stream down | Shell banner; table retains last-known data; per-robot freshness labels **and battery readings** suppressed (ADR 3); summary counts stay visible under the "Fleet reporting status · last known" heading (ADR 23) |
+| Recoverable error     | `recoverable-error` state: warning banner with the one Retry control; retained rows stay below when any exist, and the copy says whether it is a failed load or a failed refresh                                  |
+| Terminal error        | `terminal-error` state: a malformed snapshot is terminal by decision — error banner naming the contract issue paths and codes (ADR 20), **no retry**, retained rows kept below                                    |
+| Malformed frame       | A malformed stream frame is dropped and counted, surfaced in technician diagnostics with its session-wide scope; never coerced and never crashes the list (Principle 2)                                           |
 
 ## 11. Verification
 

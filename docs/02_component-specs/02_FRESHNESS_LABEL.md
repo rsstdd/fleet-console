@@ -4,6 +4,7 @@
 - **Revision 5:** the optional boolean prop is renamed from `compact` to
   intention-revealing `isCompact`; compact rendering is unchanged.
 - **Revision 4:** `asOf` widens to `string | null`. A robot registered but never seen has freshness `unknown` and no observation time at all (ADR 3), which a required string could only satisfy by inventing one — the failure Principle 4 exists to prevent. `null` means never observed and is not the same as a missing prop. Adds the disconnected-stream rule from ADR 3. Conditional rendering switched from `&&` to explicit ternaries.
+- **Revision 5 (26 Aug 2026):** § 2 corrected (plan `WEB_DATA_LIFECYCLE_AUDIT`, **F8**). It offered "relative-time formatting from `utils`", which the layer boundary has always forbidden and lint has always rejected; `AGENTS.md` outranks a component spec, so the line was the error. § 3's formatting note follows it. No prop, state or rendered output changes.
 - **Revision 3:** `asOf` required rather than optional; `receivedAt` added for receipt time where transport delay matters (Principle 4). Token mapping moved to the `--status-*` / `--ink-*` role names; the `--online` / `--offline` family no longer exists.
 
 Implementation: `components/freshnessLabel.tsx`
@@ -17,7 +18,7 @@ It does not compute freshness from timestamps (entity/selector owns that, per Pr
 ## 2. Dependencies
 
 - Design tokens (see § 6 for the current mapping)
-- Optional: relative-time formatting from `utils` (pure function only)
+- **No `utils` import.** `components` may import `components` and external packages only, enforced by `eslint-plugin-boundaries` (ADR 4, Principle 9). A caller that wants this component to show a time it formatted passes the string; this component formats only what its own props carry
 - No domain entity imports (Principle 9)
 
 ## 3. Public contract
@@ -80,7 +81,7 @@ When `asOf` is `null` the component renders the state word alone. That is the ne
 
 - Always visible text for state.
 - The component is pure: it formats only from its props and never reads `Date.now()` during render. Relative ages are computed by the caller from an injected clock, which is what makes freshness testable at a controlled time (Principle 10).
-- `asOf` formatting is tabular mono; prefer absolute UTC in technician contexts, relative in operator table if space-constrained — caller chooses by passing preformatted string or raw value to a shared formatter.
+- `asOf` formatting is tabular mono and absolute UTC. Its `Intl.DateTimeFormat` is built once at module scope with a pinned locale, so two operators watching one fleet cannot see day and month in different orders.
 - If `receivedAt` is provided (e.g. in technician diagnostics where transport delay matters), append it as a secondary timestamp.
 - Do not invent "connected" or vendor-specific wording (Principle 3).
 

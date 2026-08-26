@@ -179,6 +179,8 @@ test.describe("fleet console against the real stack", () => {
     await expect(
       page.getByRole("heading", { name: "Fleet reporting status", exact: true }),
     ).toBeVisible();
+    const batteryReadings = fleetTable.getByText(/^\d+%$/);
+    await expect(batteryReadings.first()).toBeVisible();
 
     await stack.stopServer();
 
@@ -189,6 +191,10 @@ test.describe("fleet console against the real stack", () => {
     await expect(getRobotLinks(page)).toHaveCount(50);
     await expect(fleetTable.getByText("Live")).toHaveCount(0);
     await expect(fleetTable.getByText("Unreachable")).toHaveCount(0);
+    // The battery number rests on the same claim as the label beside it: while the stream
+    // is down `freshness` is frozen at the last delta, so a retained `live` cannot keep a
+    // reading on screen that the suppressed label has already withdrawn (ADR 3).
+    await expect(batteryReadings).toHaveCount(0);
 
     // The summary keeps its four counts but withdraws the currency claim: one shared
     // heading qualifies the whole group as last known (ADR 23, fleet spec § 2).
@@ -274,6 +280,14 @@ test.describe("fleet console against the real stack", () => {
     const rows = page.getByRole("table", { name: "Fleet" }).getByRole("row");
     await expect(rows.nth(1).getByText("North site")).toBeVisible();
     await expect(page.getByRole("table", { name: "Fleet" }).getByText("South site")).toHaveCount(0);
+
+    // The narrowed view is an address, so an operator triaging an incident can hand it to
+    // a colleague and get it back after a reload.
+    await expect(page).toHaveURL(/[?&]site=/);
+    const narrowedRowCount = await getRobotLinks(page).count();
+    await page.reload();
+    await expect(getRobotLinks(page)).toHaveCount(narrowedRowCount);
+    await expect(page.getByRole("combobox", { name: "Site" })).toHaveText("North site");
   });
 
   test("shows a first-load failure with a working retry when the server is down from the start", async ({

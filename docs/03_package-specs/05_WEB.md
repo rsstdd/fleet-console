@@ -261,7 +261,12 @@ unrelated rows' identity, and the per-id snapshot bails out on it).
 
 **Stream diagnostics.** The transport's session-wide rejected-frame count travels through
 `StreamDiagnosticsContext` in `context` (the ADR 23 pattern) to the technician
-Diagnostics section, which states its scope: console session, all robots. Whether a run
+Diagnostics section, which states its scope: console session, all robots. The context
+carries a **subscribable source**, not the number: `AppRouter` renders every route, so a
+count held in its state repainted the fleet table at frame rate on a bad stream to move one
+technician-only field. The count also distinguishes "no transport publishing" from a
+measured zero, and the context default is the former — fails closed, as
+`connectionContext` does. Whether a run
 of rejections should escalate to a terminal state remains trigger-deferred (fleet TODO
 A4).
 
@@ -279,6 +284,14 @@ exhaustively checkable.
 once per visit, its own discriminated state, never joined to the delta stream, and its
 failure degrades the section inline rather than blanking valid robot detail. A future
 "live sparkline" is a new decision, not a refetch interval added to this hook.
+
+**Request deadline.** `requestPolicy.timeoutMs` is validated with the rest of the profile at
+module load. It reaches the resource hooks through their `ports` argument, beside
+`apiBaseUrl` and for the same reason: the address and the deadline are both deployment
+policy, which `app` and `features` may read and the data layers may not (ADR 4, ADR 21).
+`app/useFleetTransport.ts` applies the same deadline to the snapshot fetch, so a hung
+snapshot fails its attempt and retries on the ADR 31 schedule instead of holding the
+cold-start buffer open.
 
 **Theme and tenant.** `data-theme="dark" | "light"` is set on `<html>` from tenant
 configuration at boot. Dark and light are not a user preference — they are the two tenant
@@ -317,7 +330,23 @@ The rules that matter most:
 
 - **Never present stale data as current.** A non-`live` row uses an outline status chip
   labelled `(last known)` and an em dash in place of a battery number. The suffix matters
-  more than the colour: a reader scanning the status column alone must not be misled.
+  more than the colour: a reader scanning the status column alone must not be misled. The
+  battery number is withdrawn whenever the stream is down as well, because `freshness`
+  freezes at the last delta received and a retained `live` cannot outlive the connection
+  that earned it (ADR 3).
+- **The join buffer is bounded.** Frames arriving while the snapshot is in flight are held
+  in `lib/coldStart.ts` up to `COLD_START_BUFFER_LIMIT`. Past it the buffer reports an
+  overflow and the transport abandons the attempt rather than settling, because a replay
+  missing a frame the snapshot does not cover leaves those rows silently frozen — the
+  failure the open-before-fetch ordering exists to prevent. The retry fetches a snapshot
+  that covers the gap.
+- **No request waits forever.** Every HTTP request runs under
+  `requestPolicy.timeoutMs` from tenant configuration, applied per request in
+  `lib/requestDeadline.ts`. An expired request rejects, which the boundary already reads as
+  `unreachable` — recoverable, with the retry each resource hook already offers — so the
+  deadline adds no state to the matrix and no vocabulary to ADR 20. Without it a server that
+  accepts a connection and never answers leaves the surface in `loading` for the life of the
+  page, which this section counts as a defect rather than an edge case.
 - **Malformed payloads split by surface.** A malformed snapshot is **terminal**: the
   resource enters `terminal-error` with the decoder's issue paths and codes, no retry is
   offered, and retained rows stay on screen under the banner. A malformed stream frame is
