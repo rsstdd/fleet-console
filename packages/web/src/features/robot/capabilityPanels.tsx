@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Paper, Stack, Typography } from "@mui/material";
 
 import type { CapabilitySet, PanelCapabilityName } from "@/types/robot";
+import { selectHealthSeverityLabel } from "@/utils/robotSelectors";
 
 // Capability values reuse robot detail's one label/value row implementation.
 import { Field } from "./detailSection";
@@ -64,7 +65,7 @@ const CAPABILITY_PANELS: Readonly<Record<PanelCapabilityName, CapabilityPanelEnt
       return (
         <>
           {/* Severity is a word, never a colour alone (spec §9). */}
-          <Field label="Severity" value={lidar.severity} />
+          <Field label="Severity" value={selectHealthSeverityLabel(lidar.severity)} />
           <Field label="Rotation" value={lidar.rpm === null ? "—" : `${String(lidar.rpm)} rpm`} />
         </>
       );

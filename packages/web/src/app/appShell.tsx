@@ -5,6 +5,7 @@ import { NavLink, Outlet } from "react-router";
 import { TenantConfigContext } from "@/context/tenantConfigContext";
 import { TENANT } from "@/config/tenant";
 import { ConnectionContext } from "@/context/connectionContext";
+import { formatTimeUtcOrNull } from "@/utils/time";
 import {
   ConnectionBanner,
   type ConnectionBannerProps,
@@ -23,7 +24,8 @@ export interface AppShellProps {
    * default. Failing closed shows the banner and suppresses the labels instead.
    */
   readonly connectionState?: ConnectionState;
-  readonly lastEventAt?: ConnectionBannerProps["lastEventAt"];
+  /** The last stream event's instant; formatted here, because the banner may not. */
+  readonly lastEventAt?: string | number;
   readonly attempt?: number;
   /** Why retrying stopped, forwarded to the banner's terminal copy (ADR 31). */
   readonly terminalCause?: ConnectionBannerProps["terminalCause"];
@@ -65,9 +67,13 @@ export function AppShell({
   terminalCause,
   onRetry,
 }: AppShellProps): ReactElement {
+  const lastEventLabel = formatTimeUtcOrNull(lastEventAt ?? null);
   const connectionBannerProps = {
     state: connectionState,
-    ...(lastEventAt === undefined ? {} : { lastEventAt }),
+    // The shell may read `utils`; the banner may not, so the formatting happens here and
+    // one module owns this timestamp spelling (ADR 4). Absent or unparseable omits the
+    // fragment: this surface states an outage, and a dash there reads as a failed value.
+    ...(lastEventLabel === null ? {} : { lastEventLabel }),
     ...(attempt === undefined ? {} : { attempt }),
     ...(terminalCause === undefined ? {} : { terminalCause }),
     ...(onRetry === undefined ? {} : { onRetry }),

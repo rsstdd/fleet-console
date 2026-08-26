@@ -135,10 +135,10 @@ export interface Robot {
    *
    * Carried whatever the freshness, and **suppressed at presentation**:
    * `selectBatteryDisplay` in `utils/robotSelectors.ts` refuses to render a number for a robot
-   * that is not live, because the last reading is not a current reading (fleet
-   * page spec §6). The value survives so the detail view can show a last-known
-   * figure with its age beside it; nulling it here would destroy that and put
-   * a display rule in the read model.
+   * that is not live, or whenever the stream is down and that `live` is merely the last one
+   * received, because neither is a current reading (fleet page spec §6). The value survives
+   * so the detail view can show a last-known figure with its age beside it; nulling it here
+   * would destroy that and put a display rule in the read model.
    */
   readonly batteryPercent: number | null;
   /**

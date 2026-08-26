@@ -20,8 +20,15 @@ export type ConnectionTerminalCause = "handshake-exhausted" | "contract" | "sess
 /** Display-only inputs; socket ownership and retry policy remain outside this component. */
 export interface ConnectionBannerProps {
   readonly state: ConnectionState;
-  /** ISO 8601, or epoch ms. Last event actually received on the stream. */
-  readonly lastEventAt?: string | number;
+  /**
+   * The last stream event's time, already formatted by the caller.
+   *
+   * A string rather than an instant: this layer may not reach `utils/time`, and
+   * reimplementing that formatter here left the console with two spellings of one format
+   * and no test holding them together. Omitted where there is nothing to show — this
+   * surface states an outage and must not put an em dash where a time belongs.
+   */
+  readonly lastEventLabel?: string;
   readonly attempt?: number;
   /**
    * Why retrying stopped, shown only while `disconnected`. Distinct copy per cause
@@ -32,20 +39,6 @@ export interface ConnectionBannerProps {
   /** Must force an immediate attempt whose progress becomes externally visible. */
   readonly onRetry?: () => void;
   readonly className?: string;
-}
-
-/** Omits missing or invalid timestamps rather than risking the shell's outage surface. */
-function formatEventTime(value: string | number | undefined): string | null {
-  if (value === undefined) {
-    return null;
-  }
-
-  const parsed = typeof value === "number" ? value : Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    return null;
-  }
-
-  return `${new Date(parsed).toISOString().slice(11, 19)}Z`;
 }
 
 function formatAttempt(attempt: number | undefined): string | null {
@@ -69,7 +62,7 @@ function formatAttempt(attempt: number | undefined): string | null {
  */
 export function ConnectionBanner({
   state,
-  lastEventAt,
+  lastEventLabel,
   attempt,
   terminalCause,
   onRetry,
@@ -91,7 +84,7 @@ export function ConnectionBanner({
           <span className="connection-banner__message">
             <ConnectionMessage
               state={state}
-              lastEventAt={lastEventAt}
+              lastEventLabel={lastEventLabel}
               attempt={attempt}
               terminalCause={terminalCause}
             />
@@ -115,12 +108,12 @@ export function ConnectionBanner({
  */
 function ConnectionMessage({
   state,
-  lastEventAt,
+  lastEventLabel,
   attempt,
   terminalCause,
 }: {
   readonly state: Exclude<ConnectionState, "connected">;
-  readonly lastEventAt: string | number | undefined;
+  readonly lastEventLabel: string | undefined;
   readonly attempt: number | undefined;
   readonly terminalCause: ConnectionTerminalCause | null | undefined;
 }): ReactNode {
@@ -143,22 +136,19 @@ function ConnectionMessage({
         </>
       );
 
-    case "reconnecting": {
-      const eventTime = formatEventTime(lastEventAt);
-
+    case "reconnecting":
       return (
         <>
           Reconnecting to stream
           {attemptFragment}
-          {eventTime && (
+          {lastEventLabel !== undefined && (
             <>
               {" · "}
-              <span className="mono">last event {eventTime}</span>
+              <span className="mono">last event {lastEventLabel}</span>
             </>
           )}
         </>
       );
-    }
     // Fixed strings, with no attempt or last-event fragment: once the stream is
     // gone the age of the last event is a detail beside the fact that nothing
     // on screen is current, and § 5 fixes these sentences exactly. The cause
