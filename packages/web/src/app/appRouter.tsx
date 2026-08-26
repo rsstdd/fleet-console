@@ -1,67 +1,12 @@
-import type { ReactNode } from "react";
-import { Link, Route, Routes } from "react-router";
-
-import { AppShell } from "@/app/appShell";
-import { buildMuiTheme } from "@/app/muiTheme";
-import { ComponentGallery } from "@/features/component-gallery/componentGallery";
+import { Route, Routes } from "react-router";
 import { FleetPage } from "@/features/fleet/fleetPage";
-import { MapPage } from "@/features/map/mapPage";
 import { RobotDetailPage } from "@/features/robot/robotDetailPage";
-import { EmptyState } from "@/components/emptyState";
-import { useFleetTransport } from "@/app/useFleetTransport";
-import { FleetStoreContext } from "@/stores/fleetStoreContext";
-import { StreamDiagnosticsContext } from "@/context/streamDiagnosticsContext";
 
-/**
- * Route table for the console. Every route renders inside `AppShell`, so the
- * header, skip link and `#main` outlet exist on all of them including not-found.
- *
- * The gallery at /dev/ui is registered only when import.meta.env.DEV is true, so
- * it and its sample data are tree-shaken out of a production bundle (app-shell spec § 3).
- *
- * This is also where the console's one socket is owned. `app` owns transport lifecycle
- * (ADR 23), and the router is the outermost thing that renders on every route, so a
- * transport held here opens once for the session rather than once per page.
- */
-export function AppRouter(): ReactNode {
-  const transport = useFleetTransport();
-
+export function AppRouter() {
   return (
-    <FleetStoreContext.Provider value={transport.store}>
-      <StreamDiagnosticsContext.Provider value={transport.diagnostics}>
-        <Routes>
-          <Route
-            element={
-              <AppShell
-                connectionState={transport.connectionState}
-                attempt={transport.attempt}
-                terminalCause={transport.terminalCause}
-                onRetry={transport.retry}
-                {...(transport.lastEventAt !== null && {
-                  lastEventAt: transport.lastEventAt,
-                })}
-              />
-            }
-          >
-            <Route path="/" element={<FleetPage />} />
-            <Route path="/map" element={<MapPage />} />
-            <Route path="/robots/:id" element={<RobotDetailPage />} />
-            {import.meta.env.DEV && (
-              <Route path="/dev/ui" element={<ComponentGallery buildTheme={buildMuiTheme} />} />
-            )}
-            <Route
-              path="*"
-              element={
-                <EmptyState
-                  title="Page not found"
-                  description="That address does not match a fleet or robot view."
-                  action={<Link to="/">Return to Fleet</Link>}
-                />
-              }
-            />
-          </Route>
-        </Routes>
-      </StreamDiagnosticsContext.Provider>
-    </FleetStoreContext.Provider>
+    <Routes>
+      <Route path="/" element={<FleetPage />} />
+      <Route path="/robots/:robotId" element={<RobotDetailPage />} />
+    </Routes>
   );
 }

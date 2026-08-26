@@ -1,196 +1,133 @@
-import { useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router";
-import { Alert, Box, Button, Typography } from "@mui/material";
-import { identifierSchema } from "@fleet/contracts";
+import { useState } from "react";
+import { Link as RouterLink, useParams } from "react-router";
+import Box from "@mui/material/Box";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Link from "@mui/material/Link";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
+import Typography from "@mui/material/Typography";
+import { EmptyState, ErrorState, Loading } from "@/components/asyncState";
+import { FreshnessLabel } from "@/components/freshnessLabel";
+import { Stat } from "@/components/stat";
+import { StatusChip } from "@/components/statusChip";
+import { useFleetContext } from "@/context/fleetContext";
+import { useRobotDetail } from "@/hooks/useRobotDetail";
+import {
+  NO_HONEST_VALUE,
+  selectBatteryDisplay,
+  selectClockDeltaDisplay,
+  selectPanelCapabilities,
+  selectPositionDisplay,
+  selectSequenceDisplay,
+  selectStatusPresentation,
+} from "@/utils/robotSelectors";
+import { CapabilityPanel } from "@/features/robot/capabilityPanels";
 
-import { EmptyState } from "@/components/emptyState";
-import { type Persona } from "@/components/personaToggle";
+export function RobotDetailPage() {
+  const { robotId = "" } = useParams();
+  const state = useRobotDetail(robotId);
+  const { connection } = useFleetContext();
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
-import type { Robot } from "@/types/robot";
-import { useRobotDetail, type RobotDetailState } from "@/hooks/useRobotDetail";
-import { useFleetRobot } from "@/hooks/useFleetRobots";
-import { reconcileDetailWithRow } from "@/utils/fromEnvelope";
-
-import { TENANT } from "@/config/tenant";
-
-import { DetailBody, type DetailBodySource } from "./detailBody";
-import { BackToFleet } from "./detailHeader";
-import { DetailSkeleton } from "./detailSkeleton";
-
-/**
- * Robot detail — page spec 03. Renders one machine's state, its declared
- * capabilities, and (for technicians) what the adapter saw.
- *
- * The panel set comes from the robot's declared capabilities through the
- * registry in `capabilityPanels.tsx`; nothing here branches on vendor
- * (Principle 3). Freshness is displayed, never derived — the header label
- * changes because a delta changed it, and this page holds no timer (ADR 3).
- *
- * Live by overlay, not by polling: the page fetches diagnostics and history
- * once per visit, then keeps core values and freshness current by reconciling
- * this robot's fleet row — fed by the same stream the fleet page reads — over
- * the fetched detail. No delta re-triggers a fetch, and deltas for other
- * robots do not re-render this page.
- */
-export function RobotDetailPage(): ReactNode {
-  const { id } = useParams<{ readonly id: string }>();
-  const parsedId = identifierSchema.safeParse(id);
-
-  return (
-    <Box>
-      <BackToFleet />
-      {parsedId.success ? (
-        <ResolvedRobotDetail id={parsedId.data} />
-      ) : (
-        <EmptyState
-          title="Robot not found"
-          description="That address does not name a robot."
-          action={<Link to="/">Back to fleet</Link>}
-        />
-      )}
-    </Box>
-  );
-}
-
-/** The addressed half of the page: `id` is guaranteed, so every data hook runs unconditionally. */
-function ResolvedRobotDetail({ id }: { readonly id: string }): ReactNode {
-  // The address is deployment configuration; this layer may read it and the hooks may
-  // not (ADR 4, ADR 21).
-  const fetched: RobotDetailState = useRobotDetail(id, {
-    apiBaseUrl: TENANT.endpoints.apiBaseUrl,
-    requestTimeoutMs: TENANT.requestPolicy.timeoutMs,
-  });
-  /*
-   * The live half: this robot's fleet row, updated by stream deltas. Identity-
-   * stable while frames name other robots, so this page re-renders only for its
-   * own machine, and the overlay never refetches diagnostics or history —
-   * `reconcileDetailWithRow` carries those forward from the one fetch.
-   */
-  const live = useFleetRobot(id);
-  const state = reconcileRobotDetailState(fetched, live);
-  /*
-   * Persona is local view state owned by this feature: not written to the store, not
-   * derived from telemetry, not shared with the shell (spec §8, Principle 11). It lives
-   * here rather than in the body because the body is replaced when the detail request
-   * fails or recovers, and an operator's choice must outlive that (component spec 08).
-   */
-  const [persona, setPersona] = useState<Persona>("operator");
-
-  return renderState(state, live, { persona, onPersonaChange: setPersona });
-}
-
-/** The persona the rendered body reads, owned one level above every branch that shows one. */
-interface PersonaControls {
-  readonly persona: Persona;
-  readonly onPersonaChange: (next: Persona) => void;
-}
-
-/**
- * Renders the notice and the body in one shape for every state that has a body.
- *
- * The slots are positional on purpose: a `null` notice still occupies its place, so the
- * body keeps its position and its type across a failure or a recovery and React reconciles
- * it rather than remounting — which is what stops the battery history refetching.
- */
-function renderDetailFrame(
-  notice: ReactNode,
-  source: DetailBodySource | null,
-  { persona, onPersonaChange }: PersonaControls,
-): ReactNode {
-  return (
-    <>
-      {notice}
-      {source === null ? null : (
-        <DetailBody source={source} persona={persona} onPersonaChange={onPersonaChange} />
-      )}
-    </>
-  );
-}
-
-function reconcileRobotDetailState(
-  fetched: RobotDetailState,
-  live: Robot | undefined,
-): RobotDetailState {
-  if (live === undefined || fetched.status !== "ready") {
-    return fetched;
+  if (state.kind === "loading") {
+    return <Loading label={`Loading ${robotId}…`} />;
+  }
+  if (state.kind === "error") {
+    return state.failure.kind === "not-found" ? (
+      <EmptyState title={`No robot ${robotId} on the roster.`} />
+    ) : (
+      <ErrorState title="Could not load this robot." />
+    );
   }
 
-  return { ...fetched, robot: reconcileDetailWithRow(fetched.robot, live) };
-}
+  const robot = state.robot;
+  const isStreamConnected = connection === "connected";
+  const panels = selectPanelCapabilities(robot);
 
-/**
- * The complete asynchronous state set from spec §10, in one exhaustive switch
- * so a new state cannot be added without the compiler naming this file
- * (Principle 5, Principle 11).
- */
-function renderState(
-  state: RobotDetailState,
-  live: Robot | undefined,
-  controls: PersonaControls,
-): ReactNode {
-  switch (state.status) {
-    case "loading":
-      return <DetailSkeleton />;
+  return (
+    <Stack spacing={3}>
+      <Link component={RouterLink} to="/">
+        ← All robots
+      </Link>
 
-    case "ready":
-      return renderDetailFrame(null, { kind: "detail", robot: state.robot }, controls);
+      <Box>
+        <Typography variant="h1" className="mono">
+          {robot.id}
+        </Typography>
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center", mt: 1 }}>
+          <StatusChip presentation={selectStatusPresentation(robot)} />
+          {robot.observed ? (
+            <FreshnessLabel freshness={robot.freshness} suppressed={!isStreamConnected} />
+          ) : (
+            <Typography variant="body2">Never reported</Typography>
+          )}
+        </Stack>
+      </Box>
 
-    case "not-found":
-      // Not an error banner: an unknown id is a navigation outcome, not a
-      // failure of the console (spec §10). The id is never empty here: the
-      // route boundary answers an absent address before any fetch can run.
-      return (
-        <EmptyState
-          title="Robot not found"
-          description={`No robot with id ${state.id} is registered.`}
-          action={<Link to="/">Back to fleet</Link>}
-        />
-      );
+      <Paper sx={{ p: 2 }}>
+        <Stack direction="row" spacing={4} sx={{ flexWrap: "wrap" }} useFlexGap>
+          <Stat label="Vendor" value={robot.vendor} />
+          <Stat label="Model" value={robot.model ?? NO_HONEST_VALUE} />
+          <Stat label="Site" value={robot.siteId} />
+          <Stat label="Battery" value={selectBatteryDisplay(robot, isStreamConnected)} />
+          <Stat label="Position" value={selectPositionDisplay(robot, isStreamConnected)} />
+          <Stat label="Last reported" value={robot.lastSeenAt ?? NO_HONEST_VALUE} />
+        </Stack>
+      </Paper>
 
-    case "error":
-      if (state.recoverable) {
-        const notice = (
-          <Box sx={{ mb: 2 }}>
-            <Alert
-              severity="warning"
-              action={
-                <Button
-                  color="inherit"
-                  size="small"
-                  // Named beyond its visible label because the battery-history section
-                  // can offer its own Retry at the same time (WCAG 2.5.3 keeps "Retry").
-                  aria-label="Retry loading robot detail"
-                  onClick={state.retry}
-                >
-                  Retry
-                </Button>
+      {panels.length > 0 && (
+        <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }} useFlexGap>
+          {panels.map((name) => (
+            <CapabilityPanel key={name} robot={robot} name={name} />
+          ))}
+        </Stack>
+      )}
+
+      <FormControlLabel
+        control={
+          <Switch
+            checked={showDiagnostics}
+            onChange={(event) => {
+              setShowDiagnostics(event.target.checked);
+            }}
+          />
+        }
+        label="Technician diagnostics"
+      />
+
+      {showDiagnostics && robot.diagnostics !== null && (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h2" sx={{ mb: 2 }}>
+            Diagnostics
+          </Typography>
+          <Stack direction="row" spacing={4} sx={{ flexWrap: "wrap" }} useFlexGap>
+            <Stat label="Adapter" value={robot.diagnostics.adapterId} />
+            <Stat label="Adapter version" value={robot.diagnostics.adapterVersion} />
+            <Stat label="Schema" value={robot.diagnostics.schemaVersion} />
+            <Stat
+              label="Sequence"
+              value={
+                robot.diagnostics.sequence === null
+                  ? "Not reported"
+                  : String(robot.diagnostics.sequence)
               }
-            >
-              {state.message}
-            </Alert>
-            {/*
-                Beside the alert, not inside it: `role="alert"` is assertive, so progress
-                written into it re-announces the failure. The control stays operable —
-                disabling it on activation would move focus to the body.
-              */}
-            <Typography role="status" variant="body2" sx={{ color: "text.secondary" }}>
-              {state.retrying ? "Retrying…" : null}
-            </Typography>
-          </Box>
-        );
-        // The fetch is gone; the stream is not. Whatever the fleet row still knows stays.
-        return renderDetailFrame(
-          notice,
-          live === undefined ? null : { kind: "row", robot: live },
-          controls,
-        );
-      }
-      return (
-        <EmptyState
-          title="Robot detail unavailable"
-          description={state.message}
-          action={<Link to="/">Back to fleet</Link>}
-        />
-      );
-  }
+            />
+            <Stat label="Gaps" value={selectSequenceDisplay(robot, "gaps")} />
+            <Stat label="Duplicates" value={selectSequenceDisplay(robot, "duplicates")} />
+            <Stat label="Clock delta" value={selectClockDeltaDisplay(robot)} />
+          </Stack>
+
+          {robot.rawPayload !== null && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" sx={{ color: "var(--text-muted)" }}>
+                Raw vendor payload, as received
+              </Typography>
+              <pre className="raw-payload">{JSON.stringify(robot.rawPayload, null, 2)}</pre>
+            </Box>
+          )}
+        </Paper>
+      )}
+    </Stack>
+  );
 }

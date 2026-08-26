@@ -1,64 +1,39 @@
-/**
- * Public entry point for `@fleet/server`.
- *
- * The runtime composition root lives in `runServer.ts`; this library surface exports the
- * framework-independent pieces it assembles so consumers and tests do not depend on the
- * executable process entry point.
- */
+export { createAdapterRegistry, type AdapterRegistry } from "./adapters/registry.ts";
 
 export {
-  ADR3_BASELINE_FRESHNESS_POLICY,
-  ConfigValidationError,
-  freshnessPolicySchema,
-  parseFreshnessPolicy,
-  type FreshnessPolicy,
-} from "./config/freshnessPolicy.ts";
+  isSupportedVendor,
+  SUPPORTED_VENDORS,
+  type AdapterError,
+  type AdapterResult,
+  type SupportedVendor,
+} from "./adapters/result.ts";
 
 export {
-  fleetManifestSchema,
+  loadServerConfiguration,
   parseFleetManifest,
+  parseFreshnessPolicy,
+  readRuntimeEndpoints,
   type FleetManifest,
-} from "./config/fleetManifest.ts";
-
-export { loadServerConfiguration, type ServerConfiguration } from "./config/serverConfiguration.ts";
-
-export {
-  ENDPOINT_DEFAULTS,
-  ENDPOINT_ENV_KEYS,
-  loadRuntimeEndpoints,
-  parseRuntimeEndpoints,
+  type FreshnessPolicy,
   type RuntimeEndpoints,
-} from "./config/runtimeEndpoints.ts";
+  type ServerConfiguration,
+} from "./config.ts";
 
-export { PendingDeltaSet } from "./fanout/pendingDeltas.ts";
+export { DeltaFanOut, type FanOutClient } from "./fanout.ts";
 
-export { FreshnessSweep, type FreshnessSweepOptions } from "./freshness/freshnessSweep.ts";
+export { FreshnessSweep } from "./freshness.ts";
 
-export { HealthMetrics, type HealthSnapshot } from "./health/healthMetrics.ts";
-
-export {
-  selectIngestVendor,
-  type IngestRejectionReason,
-  type VendorRejected,
-  type VendorSelected,
-  type VendorSelection,
-} from "./ingest/selectVendor.ts";
-
-export { fixedClock, manualClock, systemClock, type Clock } from "./runtime/clock.ts";
-
-export { RingBuffer } from "./state/ringBuffer.ts";
+export { createHealthCounters, ingestTelemetry } from "./ingest.ts";
 
 export {
-  CurrentStateStore,
-  HISTORY_CAPACITY,
-  type BatteryHistorySample,
-  type CurrentRobotState,
-  type ManifestRobot,
-  type UnobservedRobotState,
-  type UpsertResult,
-} from "./state/currentStateStore.ts";
+  manualClock,
+  manualMonotonicClock,
+  silentLogger,
+  systemClock,
+  type Clock,
+  type Logger,
+} from "./runtime.ts";
 
-export {
-  selectBatteryHistory,
-  type SelectBatteryHistoryInput,
-} from "./history/selectBatteryHistory.ts";
+export { startServer, type RunningServer } from "./runServer.ts";
+
+export { CurrentStateStore, type CurrentRobotState, type ManifestRobot } from "./store.ts";

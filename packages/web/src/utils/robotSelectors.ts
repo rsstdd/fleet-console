@@ -1,58 +1,23 @@
-import { OPERATOR_CAPABILITY_NAMES } from "@fleet/contracts";
+import { OPERATOR_CAPABILITY_NAMES, type OperatorCapabilityName } from "@fleet/contracts";
+import type { FreshnessState, HealthSeverity, RobotStatus } from "@fleet/contracts";
+import type { Robot, RobotDetail } from "@/types/robot";
 
-import type {
-  Connectivity,
-  Freshness,
-  HealthSeverity,
-  PanelCapabilityName,
-  Position,
-  Robot,
-  RobotDetail,
-  RobotHealth,
-  RobotStatus,
-} from "@/types/robot";
+/** Values that cannot be vouched for are suppressed rather than shown as current. */
+export const NO_HONEST_VALUE = "—";
 
-/**
- * Structurally identical to components/statusChip's StatusVariant, but not
- * imported from it. The data layers may never import components
- * (ADR 4; ADR 36) — and more fundamentally, importing the type here would be
- * exactly the unification the component-set spec's own prose forbids:
- * "they are not the same types and must not be unified." Declaring the
- * same string-literal union independently, rather than importing it, is
- * what makes the two layers stay decoupled. TypeScript's structural typing
- * makes a value typed this way assignable wherever StatusChip's `variant`
- * prop is expected, with no import and no boundary crossed.
- */
-export type StatusPresentationVariant =
-  "neutral" | "active" | "charging" | "degraded" | "fault" | "unknown";
+const LAST_KNOWN_SUFFIX = "(last known)";
 
-const STATUS_VARIANT: Record<RobotStatus, StatusPresentationVariant> = {
+/** Distinct from a measured zero. */
+const NOT_EVALUATED = "Not evaluated";
+
+export type StatusVariant = "neutral" | "active" | "charging" | "degraded" | "fault" | "unknown";
+
+const STATUS_VARIANT: Record<RobotStatus, StatusVariant> = {
   idle: "neutral",
   busy: "active",
   charging: "charging",
   fault: "fault",
   unknown: "unknown",
-};
-
-/**
- * Operator words for the canonical health severities.
- *
- * A table rather than a pass-through: `nominal` is a wire value, and an operator surface
- * that prints it is showing the reader the protocol instead of the fact. Exhaustive by
- * `Record`, so a severity added to the contract fails the build here rather than leaking
- * through in lower case.
- */
-const HEALTH_SEVERITY_LABEL: Record<HealthSeverity, string> = {
-  nominal: "Nominal",
-  degraded: "Degraded",
-  critical: "Critical",
-};
-
-/** Operator words for the canonical connectivity values; same argument as the severities. */
-const CONNECTIVITY_LABEL: Record<Connectivity, string> = {
-  online: "Online",
-  offline: "Offline",
-  unknown: "Unknown",
 };
 
 const STATUS_LABEL: Record<RobotStatus, string> = {
@@ -63,493 +28,123 @@ const STATUS_LABEL: Record<RobotStatus, string> = {
   unknown: "Unknown",
 };
 
+export const FRESHNESS_LABEL: Record<FreshnessState, string> = {
+  live: "LIVE",
+  stale: "STALE",
+  unreachable: "UNREACHABLE",
+  unknown: "UNKNOWN",
+};
+
+export const SEVERITY_LABEL: Record<HealthSeverity, string> = {
+  nominal: "Nominal",
+  degraded: "Degraded",
+  critical: "Critical",
+};
+
 export interface StatusPresentation {
-  readonly variant: StatusPresentationVariant;
+  readonly variant: StatusVariant;
   readonly label: string;
-  /** false drives StatusChip's outline/hollow "last known" treatment. */
   readonly isCurrent: boolean;
 }
 
-/**
- * Health severity outranks status where it is the more serious of the two.
- *
- * `critical` maps to the `fault` variant rather than passing through to the
- * status colour: the fleet table has no health column (fleet spec §2), so the
- * chip is the only health signal there, and leaving `critical` unmapped chipped
- * a critically unhealthy idle robot as ordinary "Idle" while the *lesser*
- * `degraded` severity was visible. No new variant or token was added — the
- * existing danger colour already means "needs attention now" (ADR 1, Observed
- * consequences, 19 August 2026).
- *
- * The label still names the status, so severity and status stay two facts
- * rather than one word: a critical idle robot reads "Idle" on a fault chip.
- */
-function selectVariant(status: RobotStatus, health: RobotHealth | null): StatusPresentationVariant {
-  if (status === "fault" || health?.severity === "critical") {
-    return "fault";
-  }
-  if (health?.severity === "degraded") {
-    return "degraded";
-  }
-  // A robot with no health reported at all falls through to its status, which
-  // for a never-seen robot is `unknown` — the honest chip.
-  return STATUS_VARIANT[status];
+/** Stale status remains visible only because its label marks it last known. */
+function isSelfReportedLive(robot: Robot): boolean {
+  return robot.freshness === "live";
 }
 
-/**
- * Maps a robot's canonical status, health severity, and freshness into what
- * StatusChip needs to render. The caller passes `label` straight through —
- * the "(last known)" wording is decided here, once, rather than duplicated
- * at each call site.
- */
+/** Unmarked telemetry values require live freshness and a connected stream. */
+function isTelemetryTrustworthy(robot: Robot, isStreamConnected: boolean): boolean {
+  return isStreamConnected && isSelfReportedLive(robot);
+}
+
+/** The displayed variant reflects the worst applicable status or severity. */
+function selectStatusVariant(robot: Robot): StatusVariant {
+  const severity = robot.health?.severity;
+
+  if (robot.status === "fault" || severity === "critical") {
+    return "fault";
+  }
+
+  if (severity === "degraded") {
+    return "degraded";
+  }
+
+  return STATUS_VARIANT[robot.status];
+}
+
+function formatStatusLabel(status: RobotStatus, isCurrent: boolean): string {
+  const label = STATUS_LABEL[status];
+
+  return isCurrent ? label : `${label} ${LAST_KNOWN_SUFFIX}`;
+}
+
 export function selectStatusPresentation(robot: Robot): StatusPresentation {
-  const isCurrent = robot.freshness === "live";
-  const variant = selectVariant(robot.status, robot.health);
-  const baseLabel = STATUS_LABEL[robot.status];
+  const isCurrent = isSelfReportedLive(robot);
 
   return {
-    variant,
-    label: isCurrent ? baseLabel : `${baseLabel} (last known)`,
+    variant: selectStatusVariant(robot),
+    label: formatStatusLabel(robot.status, isCurrent),
     isCurrent,
   };
 }
 
-/**
- * Battery is only meaningful when current; an em dash is honest where a stale or absent
- * number is not.
- *
- * @param isStreamConnected - The console's own socket state, not a fact about this robot
- *   (Principle 11). False suppresses the number whatever `freshness` says: while the
- *   stream is down `freshness` is frozen at its last delta, so a `live` that outlived the
- *   connection which earned it cannot carry a currency claim (ADR 3).
- */
 export function selectBatteryDisplay(robot: Robot, isStreamConnected: boolean): string {
-  const NO_HONEST_VALUE = "—";
-  const hasCurrentReading = isStreamConnected && robot.freshness === "live";
-  if (!hasCurrentReading) return NO_HONEST_VALUE;
-  if (robot.batteryPercent === null) return NO_HONEST_VALUE;
-  return `${String(robot.batteryPercent)}%`;
-}
-
-/** Mutually exclusive counts over server-supplied freshness values for the fleet summary. */
-export interface FreshnessSummary {
-  readonly live: number;
-  readonly stale: number;
-  readonly unreachable: number;
-  readonly unknown: number;
-}
-
-/**
- * Freshness counts only, per fleet page spec §2 — mutually exclusive,
- * totalling the fleet exactly. Status distribution is not counted here; it
- * belongs to the table and its filters, not a second summary strip.
- */
-export function selectFreshnessSummary(robots: readonly Robot[]): FreshnessSummary {
-  const initial: FreshnessSummary = { live: 0, stale: 0, unreachable: 0, unknown: 0 };
-
-  return robots.reduce<FreshnessSummary>((acc, robot) => {
-    const key: Freshness = robot.freshness;
-    switch (key) {
-      case "live":
-        return { ...acc, live: acc.live + 1 };
-      case "stale":
-        return { ...acc, stale: acc.stale + 1 };
-      case "unreachable":
-        return { ...acc, unreachable: acc.unreachable + 1 };
-      case "unknown":
-        return { ...acc, unknown: acc.unknown + 1 };
-    }
-  }, initial);
-}
-
-/**
- * Position in its native map frame, frame named alongside the numbers so an
- * operator knows what they mean (robot detail spec §6).
- *
- * Deliberately the same currency rule as `selectBatteryDisplay`: a coordinate
- * that is not current is an em dash, not a number. Two readings on one surface
- * disagreeing about what "current" means is worse than either rule alone.
- */
-export function selectPositionDisplay(robot: Robot, isStreamConnected: boolean): string {
-  if (!isStreamConnected || robot.freshness !== "live" || robot.position === null) {
-    return "—";
+  if (!isTelemetryTrustworthy(robot, isStreamConnected) || robot.batteryPercent === null) {
+    return NO_HONEST_VALUE;
   }
+
+  return `${String(Math.round(robot.batteryPercent))}%`;
+}
+
+export function selectPositionDisplay(robot: Robot, isStreamConnected: boolean): string {
+  if (!isTelemetryTrustworthy(robot, isStreamConnected) || robot.position === null) {
+    return NO_HONEST_VALUE;
+  }
+
   const { frame, x, y } = robot.position;
+
   return `${frame} · ${x.toFixed(1)}, ${y.toFixed(1)}`;
 }
 
-/**
- * The capabilities robot detail may render as panels: those the robot actually
- * declared, minus the diagnostic-only ones and minus any the deployment
- * disabled, in a stable order.
- *
- * Which capabilities are operator-facing is a domain question, answered once in
- * `@fleet/contracts`' `CAPABILITY_KINDS` and read here as
- * `OPERATOR_CAPABILITY_NAMES` — already in canonical order and already without
- * the diagnostic ones. This file used to restate both the order and the
- * exclusion, which meant a fifth capability could be added to the contract and
- * silently reach neither surface (ADR 19). How each one draws is still the
- * feature's registry (Principle 1).
- *
- * The order is the contract's and is fixed, rather than derived from key
- * insertion order, so a delta that re-declares a capability cannot reshuffle the
- * grid under the operator (robot detail spec §7). That property used to come from
- * a local copy of `CAPABILITY_NAMES` that happened to agree with it.
- *
- * `disabled` is injected rather than read from tenant configuration: the
- * dependency rule forbids the data layers importing `config`, and the separation is
- * the right one anyway — whether a panel is *offered* is a deployment decision,
- * whether it is *declared* is a vendor fact. A panel renders only when both
- * hold (ADR 17). Coupling: the list is produced by
- * `features/robot/panelVisibility.ts` from `TenantFlags`.
- *
- * @param robot - Any read model of the robot; capability keys are declarations, not payload
- *   truthiness checks.
- * @param disabled - Deployment-owned panel exclusions, already mapped from tenant flags.
- * @returns Declared and enabled operator panels in canonical contract order, never object
- *   insertion order.
- */
-export function selectPanelCapabilities(
-  robot: Robot,
-  disabled: readonly PanelCapabilityName[] = [],
-): readonly PanelCapabilityName[] {
-  return OPERATOR_CAPABILITY_NAMES.filter(
-    (name) => robot.capabilities[name] !== undefined && !disabled.includes(name),
-  );
+export type FreshnessSummary = Record<FreshnessState, number>;
+
+function emptyFreshnessSummary(): FreshnessSummary {
+  return { live: 0, stale: 0, unreachable: 0, unknown: 0 };
 }
 
-/**
- * Clock delta as a signed, human-readable millisecond figure, or an em dash
- * when either timestamp is missing. A missing delta is not a zero delta.
- */
+export function selectFreshnessSummary(robots: readonly Robot[]): FreshnessSummary {
+  const summary = emptyFreshnessSummary();
+
+  for (const robot of robots) {
+    summary[robot.freshness] += 1;
+  }
+
+  return summary;
+}
+
+/** Capability presence, never vendor identity, controls panel availability. */
+export function selectPanelCapabilities(robot: Robot): readonly OperatorCapabilityName[] {
+  return OPERATOR_CAPABILITY_NAMES.filter((name) => robot.capabilities[name] !== undefined);
+}
+
+export function selectSequenceDisplay(robot: RobotDetail, field: "gaps" | "duplicates"): string {
+  const health = robot.diagnostics?.sequenceHealth;
+
+  if (health === undefined || !health.evaluated) {
+    return NOT_EVALUATED;
+  }
+
+  return String(health[field]);
+}
+
 export function selectClockDeltaDisplay(robot: RobotDetail): string {
   const delta = robot.diagnostics?.clockDeltaMs ?? null;
+
   if (delta === null) {
-    return "—";
+    return NO_HONEST_VALUE;
   }
-  return `${delta > 0 ? "+" : ""}${String(delta)} ms`;
-}
 
-/**
- * Sequence gap count, distinguishing "none observed" from "not evaluated".
- * Showing "0" for a robot nobody checks is a false statement to an operator
- * (ADR 1, Implications).
- *
- * Reads the contract's discriminated `sequenceHealth` (ADR 25). The previous
- * `number | null` made the wrong answer reachable by forgetting a null check;
- * here there is no count to read until `evaluated` has been checked, so the
- * distinction is structural rather than remembered.
- *
- * Absent diagnostics still means not evaluated: a robot with no diagnostic
- * response has had nothing counted for it either.
- */
-export function selectSequenceGapDisplay(robot: RobotDetail): string {
-  const health = robot.diagnostics?.sequenceHealth;
-  if (health === undefined || !health.evaluated) {
-    return "Not evaluated";
-  }
-  return String(health.gaps);
-}
+  const sign = delta > 0 ? "+" : "";
 
-/**
- * Duplicate-reading count on the same terms as gaps.
- *
- * Its own selector rather than a second return from the one above, because a
- * caller that wanted only gaps should not have to know duplicates exist. Both
- * read one field, so they cannot disagree about whether it was evaluated.
- */
-export function selectSequenceDuplicateDisplay(robot: RobotDetail): string {
-  const health = robot.diagnostics?.sequenceHealth;
-  if (health === undefined || !health.evaluated) {
-    return "Not evaluated";
-  }
-  return String(health.duplicates);
-}
-
-/*
- * ------------------------------------------------------------------ map --
- * Pure projection pipeline for the map view (page spec 04, ADR 35).
- * Coupling: `features/map/mapPage.tsx` composes these and owns the
- * per-session extents state (Principle 11).
- */
-
-/** Axis-aligned bounds of one site frame, in metres (ADR 35). */
-export interface SiteExtents {
-  readonly minX: number;
-  readonly maxX: number;
-  readonly minY: number;
-  readonly maxY: number;
-}
-
-/** The SVG coordinate space a projection targets, in user units. */
-export interface ViewBoxSize {
-  readonly width: number;
-  readonly height: number;
-}
-
-/** A robot the map can plot: its `position` is proven non-null by selection. */
-export interface PlottableRobot extends Robot {
-  readonly position: Position;
-}
-
-/** One fully derived marker; the canvas computes nothing (page spec 04 § 7). */
-export interface MapMarker {
-  readonly robotId: string;
-  /** ViewBox coordinates, already projected and y-inverted. */
-  readonly x: number;
-  readonly y: number;
-  readonly variant: StatusPresentationVariant;
-  /** Hollow when freshness is not live or the stream is not connected. */
-  readonly hollow: boolean;
-}
-
-/**
- * Fraction of each axis span added on both sides of a derived bounding box.
- *
- * Ten percent is ADR 35's own figure. It exists so a robot sitting exactly on an
- * observed extreme is not drawn on the frame's edge, where the marker's own radius
- * would put half of it outside the viewBox.
- */
-const EXTENTS_PAD_RATIO = 0.1;
-
-/**
- * Smallest axis span in metres, applied after padding (ADR 35's "minimum span floor").
- *
- * The constraint, not the number: one robot, or a cluster that has not moved, yields a
- * zero-span box, and `projectToViewBox` would divide by it. Ten metres is a site aisle's
- * order of magnitude, so a lone robot renders centred in a plausible frame rather than
- * filling one. ADR 35 fixes that a floor exists and leaves the value open — this is an
- * unresolved design choice, not a measured one.
- */
-const MIN_EXTENT_SPAN_METRES = 10;
-
-/**
- * The site's robots the canvas can plot: membership by `siteId`, with a
- * position (page spec 04 § 6).
- */
-export function selectPlottableRobots(
-  robots: readonly Robot[],
-  siteId: string,
-): readonly PlottableRobot[] {
-  return robots.filter(
-    (robot): robot is PlottableRobot => robot.siteId === siteId && robot.position !== null,
-  );
-}
-
-/**
- * One site's robots, positioned or not — the roster a site-scoped surface
- * starts from (page spec 04 § 2).
- */
-export function selectSiteRobots(robots: readonly Robot[], siteId: string): readonly Robot[] {
-  return robots.filter((robot) => robot.siteId === siteId);
-}
-
-/**
- * The robots in the given roster that never reported a position, so a surface
- * can account for them rather than silently dropping them (Principle 4).
- */
-export function selectUnpositionedRobots(robots: readonly Robot[]): readonly Robot[] {
-  return robots.filter((robot) => robot.position === null);
-}
-
-/** Widens one axis to the pad ratio, then to the minimum span, around its centre. */
-function padAxis(min: number, max: number): { readonly min: number; readonly max: number } {
-  const pad = (max - min) * EXTENTS_PAD_RATIO;
-  let lower = min - pad;
-  let upper = max + pad;
-  if (upper - lower < MIN_EXTENT_SPAN_METRES) {
-    const centre = (lower + upper) / 2;
-    lower = centre - MIN_EXTENT_SPAN_METRES / 2;
-    upper = centre + MIN_EXTENT_SPAN_METRES / 2;
-  }
-  return { min: lower, max: upper };
-}
-
-/**
- * Padded bounding box of the given positions, or null when there are none
- * (ADR 35, Principle 4).
- *
- * @param positions - Positions in one site's frame, in metres. Frames are never mixed:
- *   the caller selects by `siteId` first, and two sites' coordinates share no origin.
- * @returns A box padded and floored so both spans are strictly positive, which is what
- *   `projectToViewBox` relies on. Null when there are no positions — an empty site has
- *   no frame, and inventing one would draw axes nothing sits on.
- */
-export function computeSiteExtents(positions: readonly Position[]): SiteExtents | null {
-  const first = positions[0];
-  if (first === undefined) {
-    return null;
-  }
-  let minX = first.x;
-  let maxX = first.x;
-  let minY = first.y;
-  let maxY = first.y;
-  for (const position of positions) {
-    minX = Math.min(minX, position.x);
-    maxX = Math.max(maxX, position.x);
-    minY = Math.min(minY, position.y);
-    maxY = Math.max(maxY, position.y);
-  }
-  const paddedXAxis = padAxis(minX, maxX);
-  const paddedYAxis = padAxis(minY, maxY);
-  return {
-    minX: paddedXAxis.min,
-    maxX: paddedXAxis.max,
-    minY: paddedYAxis.min,
-    maxY: paddedYAxis.max,
-  };
-}
-
-/**
- * Union of two extents, so the box only widens within a session (ADR 35).
- *
- * @param previous - The session's running box, or null before the first one.
- * @param next - The box just derived, or null when nothing is positioned now.
- * @returns The union, never smaller than `previous`, so the canvas does not rescale
- *   under the operator as robots wander. Null on either side yields the other, and a
- *   union that widens nothing returns `previous` **by reference** — `mapPage` compares
- *   identity to decide whether to write during render, so that is load-bearing.
- */
-export function mergeExtents(
-  previous: SiteExtents | null,
-  next: SiteExtents | null,
-): SiteExtents | null {
-  if (previous === null) {
-    return next;
-  }
-  if (next === null) {
-    return previous;
-  }
-  const minX = Math.min(previous.minX, next.minX);
-  const maxX = Math.max(previous.maxX, next.maxX);
-  const minY = Math.min(previous.minY, next.minY);
-  const maxY = Math.max(previous.maxY, next.maxY);
-  if (
-    minX === previous.minX &&
-    maxX === previous.maxX &&
-    minY === previous.minY &&
-    maxY === previous.maxY
-  ) {
-    return previous;
-  }
-  return { minX, maxX, minY, maxY };
-}
-
-/**
- * ViewBox dimensions matching the extents' aspect ratio at the given width.
- *
- * @param extents - Must have strictly positive spans; `computeSiteExtents`' floor
- *   guarantees it, so nothing here guards against a zero divisor.
- * @param width - Drawn coordinate width in SVG user units, `MAP_VIEWBOX_WIDTH`. Not
- *   pixels — the rendered height is the `--map-height` token.
- * @returns The width unchanged, and a height that keeps a metre the same length on both
- *   axes; anything else would stretch the site rather than scale it.
- */
-export function computeViewBoxSize(extents: SiteExtents, width: number): ViewBoxSize {
-  const spanX = extents.maxX - extents.minX;
-  const spanY = extents.maxY - extents.minY;
-  return { width, height: roundCoordinate((width * spanY) / spanX) };
-}
-
-/**
- * Projects a position into the viewBox, inverting y (SVG y grows downward).
- *
- * @param position - A metre position, expected inside `extents` — the running box is
- *   built from these same positions, so a point outside it means the caller merged the
- *   wrong site's extents.
- * @param extents - Must have positive spans; `computeSiteExtents`' floor guarantees it.
- * @param viewBox - The target coordinate space, from `computeViewBoxSize`.
- * @returns Rounded viewBox coordinates with y inverted, ready to write straight onto a
- *   `<circle>`.
- */
-export function projectToViewBox(
-  position: Position,
-  extents: SiteExtents,
-  viewBox: ViewBoxSize,
-): { readonly x: number; readonly y: number } {
-  const fractionX = (position.x - extents.minX) / (extents.maxX - extents.minX);
-  const fractionY = (position.y - extents.minY) / (extents.maxY - extents.minY);
-  return {
-    x: roundCoordinate(fractionX * viewBox.width),
-    y: roundCoordinate((1 - fractionY) * viewBox.height),
-  };
-}
-
-/**
- * Rounds a projected coordinate to two decimal places.
- *
- * Two, not zero: across 600 units of a site tens of metres wide one unit is centimetres,
- * so integers would visibly quantize marker motion. Not full precision either — an
- * unrounded float writes a seventeen-digit SVG attribute that changes on floating-point
- * noise alone, which churns the DOM diff and makes a trace unreadable.
- */
-function roundCoordinate(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-/**
- * Everything the canvas needs for one marker: colour from the shared status
- * selector, fill encoding freshness, forced hollow while the stream is down
- * (ADR 3).
- *
- * @param robot - A robot whose `position` selection has already proven non-null.
- * @param extents - The session's merged box. Must be the one `viewBox` was derived from,
- *   or every marker lands at the wrong scale with nothing to reveal it.
- * @param viewBox - The canvas coordinate space.
- * @param isStreamConnected - The console's own socket state, not a fact about this robot
- *   (Principle 11). False forces `hollow` whatever the robot's freshness says: while the
- *   stream is down no per-robot currency claim can be trusted (ADR 3).
- * @returns One fully derived marker. The canvas computes nothing from it (page spec
- *   04 § 7), so every decision above has to be made here.
- */
-export function selectMapMarker(
-  robot: PlottableRobot,
-  extents: SiteExtents,
-  viewBox: ViewBoxSize,
-  isStreamConnected: boolean,
-): MapMarker {
-  const { x, y } = projectToViewBox(robot.position, extents, viewBox);
-  return {
-    robotId: robot.id,
-    x,
-    y,
-    variant: selectStatusPresentation(robot).variant,
-    hollow: !isStreamConnected || robot.freshness !== "live",
-  };
-}
-
-/** The "N of M robots positioned" accounting for one site (page spec 04 § 2). */
-export interface PositionedSummary {
-  readonly positioned: number;
-  readonly total: number;
-}
-
-/**
- * Counts a site's robots and how many carry a position, so the surface can
- * state the unplottable rest (Principle 4).
- */
-export function selectPositionedSummary(
-  robots: readonly Robot[],
-  siteId: string,
-): PositionedSummary {
-  const siteRobots = robots.filter((robot) => robot.siteId === siteId);
-  return {
-    positioned: siteRobots.filter((robot) => robot.position !== null).length,
-    total: siteRobots.length,
-  };
-}
-
-/** The operator word for one canonical health severity. */
-export function selectHealthSeverityLabel(severity: HealthSeverity): string {
-  return HEALTH_SEVERITY_LABEL[severity];
-}
-
-/**
- * The operator word for a robot's connectivity.
- *
- * @param connectivity - Null where the vendor reported none. That is a different fact
- *   from the reported value `unknown`, and the two never share a word (Principle 4).
- */
-export function selectConnectivityLabel(connectivity: Connectivity | null): string {
-  return connectivity === null ? "Not reported" : CONNECTIVITY_LABEL[connectivity];
+  return `${sign}${String(delta)} ms`;
 }

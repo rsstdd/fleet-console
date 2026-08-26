@@ -1,549 +1,110 @@
-/*
- * Element defaults and the class contracts the `components` primitives render
- * against. MUI owns component styling; everything here is either a base the
- * theme cannot reach or a token mapping a spec fixes (ADR 5).
- */
+/* Light is the default palette; dark follows the system unless the viewer overrides it. */
+:root {
+  color-scheme: light;
+  --bg: #f4f2ec;
+  --surface: #ffffff;
+  --border: #d9d4c8;
+  --text: #1a1d1b;
+  --text-muted: #6b6860;
+  --accent: #a67c3a;
 
-@import "./tokens.css";
+  --live: #2f7d56;
+  --stale: #a67c1a;
+  --unreachable: #b33e2a;
+  --unknown: #6b6860;
+  --charging: #2e6a86;
+  --neutral: #5a554f;
 
-*,
-*::before,
-*::after {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --radius: 6px;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #141816;
+    --surface: #1c211e;
+    --border: #2e3430;
+    --text: #e8e6e1;
+    --text-muted: #8e8b82;
+    --accent: #c2a671;
+
+    --live: #3d9b6e;
+    --stale: #c4a035;
+    --unreachable: #c75138;
+    --unknown: #8e8b82;
+    --charging: #3b82a0;
+    --neutral: #767068;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #141816;
+  --surface: #1c211e;
+  --border: #2e3430;
+  --text: #e8e6e1;
+  --text-muted: #8e8b82;
+  --accent: #c2a671;
+
+  --live: #3d9b6e;
+  --stale: #c4a035;
+  --unreachable: #c75138;
+  --unknown: #8e8b82;
+  --charging: #3b82a0;
+  --neutral: #767068;
+}
+
+* {
   box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
-  -webkit-text-size-adjust: 100%;
-}
-
-html,
-body,
-#root {
-  min-height: 100%;
 }
 
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: var(--text-body);
-  line-height: var(--leading-normal);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  transition:
-    background-color var(--duration-normal) var(--ease),
-    color var(--duration-normal) var(--ease);
-}
-
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  margin: 0;
-  font-family: var(--font-sans);
-  font-weight: 500;
-  color: var(--ink);
-  line-height: var(--leading-tight);
-}
-
-h1 {
-  font-size: var(--text-h1);
-}
-h2 {
-  font-size: var(--text-h2);
-  line-height: var(--leading-snug);
-}
-h3 {
-  font-size: var(--text-h3);
-  line-height: var(--leading-snug);
-}
-
-p {
-  margin: 0;
-  color: var(--ink-soft);
-}
-
-small {
-  font-size: var(--text-small);
-  color: var(--ink-muted);
-}
-
-.mono,
-code,
-kbd,
-samp,
-pre {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-code {
-  font-size: 0.9em;
-}
-
-pre {
-  margin: 0;
-  overflow: auto;
-}
-
-.overline {
-  font-family: var(--font-mono);
-  font-size: var(--text-overline);
-  line-height: 1.2;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-}
-
-a {
-  color: inherit;
-  text-decoration-thickness: var(--border-width);
-  text-underline-offset: var(--text-underline-offset);
-  transition: color var(--duration-fast) var(--ease);
-}
-
-a:hover {
-  color: var(--accent-text);
-}
-/*
- * The two rules are one decision and must stay together. `:focus` drops the user
- * agent's ring so a pointer click leaves no artefact; `:focus-visible` puts a token
- * ring back for every keyboard arrival. Keeping only the first is WCAG 2.4.7 failed
- * outright — it would remove the sole focus indicator some engines draw. The offset
- * lifts the ring clear of an element's own border, which the tinted chip and banner
- * surfaces both have. Components do not restate this; `personaToggle.tsx` records why
- * a second authority for the same ring is a defect rather than a safety net.
- */
-:focus {
-  outline: none;
+  color: var(--text);
+  font-family:
+    "IBM Plex Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
 }
 
 :focus-visible {
-  outline: var(--focus-ring-width) solid var(--focus-ring);
-  outline-offset: var(--focus-ring-offset);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
-::selection {
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
-  color: var(--ink);
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-  color: inherit;
-}
-
-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-/* Six variants match the canonical status enum plus health severity. A tested
-   selector in utils/robotSelectors chooses one, so this stylesheet never learns
-   what a robot is. */
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--status-gap);
-  padding: var(--status-padding-block) var(--status-padding-inline);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-mono);
-  font-size: var(--text-caption);
-  line-height: 1.2;
-  border: var(--border-width) solid transparent;
-  white-space: nowrap;
-}
-
-.status::before {
-  content: "";
-  width: var(--status-dot-size);
-  height: var(--status-dot-size);
-  border-radius: 50%;
-  background: currentColor;
-  flex-shrink: 0;
-}
-
-.status--neutral {
-  color: var(--status-neutral);
-  background: var(--status-neutral-bg);
-  border-color: var(--status-neutral-border);
-}
-
-.status--active {
-  color: var(--status-active);
-  background: var(--status-active-bg);
-  border-color: var(--status-active-border);
-}
-
-.status--charging {
-  color: var(--status-charging);
-  background: var(--status-charging-bg);
-  border-color: var(--status-charging-border);
-}
-
-.status--degraded {
-  color: var(--status-degraded);
-  background: var(--status-degraded-bg);
-  border-color: var(--status-degraded-border);
-}
-
-.status--fault {
-  color: var(--status-fault);
-  background: var(--status-fault-bg);
-  border-color: var(--status-fault-border);
-}
-
-.status--unknown {
-  color: var(--status-unknown);
-  background: var(--status-unknown-bg);
-  border-color: var(--status-unknown-border);
-}
-
-/*
- * isCurrent={false}: this is the last value received, not the current one.
- * Fill drops away and the dot goes hollow, so the status column alone cannot
- * mislead a reader who never reaches the freshness column.
- */
-.status--last-known {
-  background: transparent;
-  color: var(--ink-muted);
-  border-color: var(--line-strong);
-}
-
-.status--last-known::before {
-  background: transparent;
-  box-shadow: inset 0 0 0 var(--border-width) currentColor;
-}
-
-/* Table density. Size is a class so StatusChip stays free of inline style. */
-.status--small {
-  gap: var(--status-small-gap);
-  padding: var(--status-small-padding-block) var(--status-small-padding-inline);
-  font-size: var(--text-overline);
-}
-
-/*
- * Forced colours: the tint is allowed to disappear, the border and the label
- * are not. Without an explicit border colour the chip loses its outline and
- * the last-known treatment stops reading as different from the current one.
- */
-@media (forced-colors: active) {
-  .status {
-    border-color: currentColor;
-  }
-
-  /*
-   * box-shadow is dropped under forced colours, so the hollow dot cannot carry
-   * "last known" there. The dashed border does, and the label says it outright.
-   */
-  .status--last-known {
-    border-style: dashed;
-  }
-}
-
-/* Freshness is not a status and does not share the status palette. Emphasis and
-   the visible state word carry it instead. */
-.freshness {
-  display: inline-flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-  max-width: 100%;
-  padding: var(--status-padding-block) var(--status-padding-inline);
-  border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: var(--text-caption);
-  font-variant-numeric: tabular-nums;
-  line-height: var(--leading-snug);
-}
-
-/* Emphasis, not hue: the state word carries the meaning and the weight of the ink carries
-   the degradation. The rules this replaced coloured the label from the status palette,
-   which the comment above forbids — and they were dead anyway, targeting `.state` and
-   `.age` class names the component does not render (`packages/FIXME.md` F8). */
-.freshness--stale {
-  color: var(--ink-soft);
-}
-.freshness--unreachable,
-.freshness--unknown {
-  color: var(--ink-muted);
-}
-
-.freshness__dot {
-  display: inline-block;
-  width: var(--status-dot-size);
-  height: var(--status-dot-size);
-  border-radius: 50%;
-  flex-shrink: 0;
-  align-self: center;
-  background-color: var(--status-neutral);
-}
-
-.freshness--live .freshness__dot {
-  background-color: var(--status-active);
-}
-.freshness--stale .freshness__dot {
-  background-color: var(--ink-soft);
-}
-.freshness--unreachable .freshness__dot,
-.freshness--unknown .freshness__dot {
-  background-color: var(--ink-muted);
-}
-
-.freshness__asOf,
-.freshness__received {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* Dotted underline on a stale timestamp: the one place freshness marks the *time* rather
-   than the word, because a stale reading's age is what must not be trusted. */
-.freshness--stale .freshness__asOf {
-  text-decoration: underline dotted;
-  text-underline-offset: var(--text-underline-offset);
-}
-
-/* A value carried over from a robot that has stopped reporting. */
-.value--last-known {
-  color: var(--ink-muted);
-}
-
-/* Only warning and error roles map into components/connectionBanner.tsx; a
-   --status-* token would mislabel transport integrity as robot state (spec 07 §6). */
-/* stylelint-disable selector-class-pattern -- Component spec 07 §4 fixes the
-   connection-banner__* selectors; connectionBanner.test.tsx covers them. */
-.connection-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  width: 100%;
-  padding: var(--space-2) var(--space-4);
-  border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
-  font-size: var(--text-small);
-  line-height: var(--leading-normal);
-}
-
-/*
- * Connected: present in the accessibility tree, absent from the layout.
- * display:none and visibility:hidden both remove the region from that tree,
- * which would defeat the entire point of mounting it early (spec § 4), so the
- * container is clipped out of flow instead and reserves no strip.
- */
-.connection-banner--connected {
+.visually-hidden {
   position: absolute;
-  width: var(--visually-hidden-size);
-  height: var(--visually-hidden-size);
+  width: 1px;
+  height: 1px;
+  margin: -1px;
   padding: 0;
-  border: 0;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
 }
 
-/* Connecting shares the warning treatment: not an outage, not yet a stream (spec § 6). */
-.connection-banner--connecting,
-.connection-banner--reconnecting {
-  color: var(--warning);
-  background: var(--warning-bg);
-  border-color: var(--warning-border);
-}
-
-.connection-banner--disconnected {
-  color: var(--error);
-  background: var(--error-bg);
-  border-color: var(--error-border);
-}
-
-/* Wraps freely; the retry control beside it never compresses to nothing (§7). */
-.connection-banner__message {
-  min-width: 0;
-}
-
-.connection-banner__retry {
-  flex-shrink: 0;
-  padding: var(--space-1) var(--space-3);
-  border: var(--border-width) solid currentColor;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: inherit;
-  font-size: var(--text-small);
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--ease);
-}
-
-.connection-banner__retry:hover {
-  background: color-mix(in srgb, currentColor 12%, transparent);
-}
-/* stylelint-enable selector-class-pattern */
-
-.data-plate {
+.mono {
   font-family: var(--font-mono);
-  font-size: var(--text-overline);
-  color: var(--ink-muted);
-  border-top: var(--border-width) solid var(--line);
-  padding-top: var(--data-plate-spacing);
-  margin-top: var(--space-3);
-}
-
-.section-label {
-  display: flex;
-  align-items: center;
-  gap: var(--section-label-gap);
-  font-family: var(--font-mono);
-  font-size: var(--text-overline);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-}
-
-.section-label::before {
-  content: "";
-  width: var(--section-label-line-width);
-  height: var(--section-label-line-height);
-  background: var(--accent);
-  flex-shrink: 0;
-}
-
-/* The visual half of components/stat.tsx: tone classes stay aligned with component
-   spec 05 while the parent retains ownership of layout and any card surface. */
-/* stylelint-disable selector-class-pattern -- Component spec 05 requires the
-   stat__* public selectors; stat.test.tsx covers that output contract. */
-.stat__value {
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: var(--text-h2);
-  font-weight: 500;
   font-variant-numeric: tabular-nums;
-  line-height: var(--leading-tight);
-  white-space: nowrap;
 }
 
-.stat__label {
-  margin-top: var(--space-1);
-  color: var(--ink-muted);
-  font-size: var(--text-small);
-  line-height: var(--leading-normal);
-}
-
-.stat__hint {
-  color: var(--ink-muted);
-  font-size: var(--text-caption);
-  line-height: var(--leading-normal);
-}
-
-.stat--warning .stat__value {
-  color: var(--warning);
-}
-
-.stat--critical .stat__value {
-  color: var(--error);
-}
-/* stylelint-enable selector-class-pattern */
-
-/* The title of components/emptyState.tsx is an h2 at h3 scale: component spec 06 §4
-   fixes the level for the document outline, §6 fixes the size for the visual hierarchy,
-   and they are deliberately two different decisions. No surface, border, illustration or
-   accent here — the parent owns any card, as it does for .stat, and §6 rules out
-   decoration. */
-/* stylelint-disable selector-class-pattern -- Component spec 06 §4 requires the
-   empty-state__* public selectors; emptyState.test.tsx covers that output contract. */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-6) var(--space-4);
-  text-align: center;
-}
-
-.empty-state__title {
-  color: var(--ink);
-  font-size: var(--text-h3);
-  line-height: var(--leading-snug);
-}
-
-.empty-state__description {
-  /* Readable measure rather than a fixed width, so the text wraps at 320px
-     without a media query (spec §7). */
-  max-width: 44ch;
-  color: var(--ink-soft);
-  font-size: var(--text-body);
-  line-height: var(--leading-normal);
-}
-
-.empty-state__action {
-  margin-top: var(--space-2);
-}
-/* stylelint-enable selector-class-pattern */
-
-/* The two derived-coordinate SVG surfaces (map canvas, battery sparkline). Their box is
-   a class rather than an inline `style` for the same reason .status--small is: a raw
-   `style` attribute is a second styling authority no token can reach, and these heights
-   are tokens (ADR 5, ADR 33). Width is 100% because the viewBox does the scaling; the
-   block display removes the inline-element baseline gap under the figure. */
-.chart-surface {
-  display: block;
-  width: 100%;
-}
-
-.chart-surface--map {
-  height: var(--map-height);
-}
-
-.chart-surface--sparkline {
-  height: var(--sparkline-height);
-}
-
-/* Deliberately minimal: a general utility layer is a second styling system arriving by
-   the back door, which ADR 5 rejects. Surface and elevation helpers are absent because
-   MUI Paper already owns that job, and two ways to make a panel means no rule about
-   which to use.
-
-   These three exist only because they name text roles that MUI typography variants do
-   not cover, and they are prefixed so they cannot collide. Roles, not colours: a tenant
-   supplying a different accent leaves a class named for a colour lying about what it
-   does. */
-.u-text-soft {
-  color: var(--ink-soft);
-}
-.u-text-muted {
-  color: var(--ink-muted);
-}
-.u-text-accent {
-  color: var(--accent-text);
-}
-
-/*
- * 0.01ms rather than 0: a zero duration cancels the animation in some engines, so
- * `animationend` / `transitionend` never fires and anything sequenced on completion
- * stalls silently. A hundredth of a millisecond is imperceptible but still completes,
- * which removes the motion without removing the event. Capping the iteration count
- * stops an infinite animation from re-firing that event forever at the new duration.
- */
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+.raw-payload {
+  max-height: 20rem;
+  overflow: auto;
+  padding: var(--space-3);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
 }

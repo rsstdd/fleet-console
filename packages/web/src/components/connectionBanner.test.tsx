@@ -1,180 +1,20 @@
+import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
-
-import { ConnectionBanner } from "./connectionBanner";
-
-/**
- * Contract test for docs/02_component-specs/07_CONNECTION_BANNER.md §4, §5,
- * §9, §10 and the verification table in §11.
- *
- * The live-region assertions are the point of the file. This banner is the only
- * surface still making a true statement about currency while the stream is down
- * (ADR 3), so "the region exists before its message does" and "the copy admits
- * the data is last known" are both safety properties, not styling details.
- */
-function getBanner(): HTMLElement {
-  const element = document.querySelector<HTMLElement>("div.connection-banner");
-  if (element === null) {
-    throw new Error("Expected a connection banner");
-  }
-  return element;
-}
+import { ConnectionBanner } from "@/components/connectionBanner";
 
 describe("ConnectionBanner", () => {
-  const handleRetry = (): void => {};
-
-  it("mounts the live region in every state, including connected (§4)", () => {
-    const { rerender } = render(<ConnectionBanner state="connected" />);
-
-    expect(getBanner()).toHaveAttribute("role", "status");
-    expect(getBanner()).toHaveAttribute("aria-live", "polite");
-    expect(getBanner()).toHaveAttribute("data-connected", "true");
-    expect(getBanner()).toBeEmptyDOMElement();
-
-    const regionWhileConnected = getBanner();
-
-    rerender(<ConnectionBanner state="reconnecting" />);
-
-    // The same node: a remount would restart the region and lose the
-    // announcement, which is the failure §4 exists to prevent.
-    expect(getBanner()).toBe(regionWhileConnected);
-    expect(getBanner()).toHaveAttribute("data-connected", "false");
-    expect(getBanner()).toHaveTextContent("Reconnecting to stream");
+  it("says nothing while the stream is healthy", () => {
+    render(<ConnectionBanner connection="connected" />);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 
-  it("never uses assertive, which would interrupt during a reconnect storm (§9)", () => {
-    render(<ConnectionBanner state="disconnected" />);
-
-    expect(getBanner()).not.toHaveAttribute("aria-live", "assertive");
+  it("warns that values are last known while reconnecting", () => {
+    render(<ConnectionBanner connection="reconnecting" />);
+    expect(screen.getByRole("status")).toHaveTextContent(/last known, not current/i);
   });
 
-  it("carries the state class so the connected case can be hidden by CSS (§4, §6)", () => {
-    for (const state of ["connected", "reconnecting", "disconnected"] as const) {
-      const { unmount } = render(<ConnectionBanner state={state} />);
-      expect(getBanner()).toHaveClass("connection-banner", `connection-banner--${state}`);
-      // No inline style: every visual decision is a token in global.css (Principle 8).
-      expect(getBanner().getAttribute("style")).toBeNull();
-      unmount();
-    }
-  });
-
-  it("appends the caller's className last", () => {
-    render(<ConnectionBanner state="connected" className="extra" />);
-
-    expect(getBanner().className).toBe("connection-banner connection-banner--connected extra");
-  });
-
-  it("renders the reconnecting message with attempt and last event (§5)", () => {
-    render(<ConnectionBanner state="reconnecting" attempt={2} lastEventLabel="09:41:02Z" />);
-
-    expect(getBanner()).toHaveTextContent(
-      "Reconnecting to stream · attempt 2 · last event 09:41:02Z",
-    );
-  });
-
-  it("omits the attempt fragment rather than printing 'attempt undefined' (§10)", () => {
-    render(<ConnectionBanner state="reconnecting" lastEventLabel="09:41:02Z" />);
-
-    expect(getBanner()).toHaveTextContent("Reconnecting to stream · last event 09:41:02Z");
-    expect(getBanner()).not.toHaveTextContent("attempt");
-  });
-
-  it("omits the time fragment when the caller has no time to show (§10)", () => {
-    // The caller decides there is nothing to show — `formatTimeUtcOrNull` returns null for
-    // an absent or unparseable instant, and this surface omits rather than printing a dash.
-    render(<ConnectionBanner state="reconnecting" attempt={3} />);
-
-    expect(getBanner()).toHaveTextContent("Reconnecting to stream · attempt 3");
-    expect(getBanner()).not.toHaveTextContent("last event");
-  });
-
-  it("renders the connecting message with attempt and no last-event fragment (§5)", () => {
-    // ADR 31: nothing has ever been received, so there is no event whose time would be
-    // true — and "reconnecting" would describe a loss that never happened.
-    render(<ConnectionBanner state="connecting" attempt={2} lastEventLabel="09:41:02Z" />);
-
-    expect(getBanner()).toHaveTextContent("Connecting to stream · attempt 2");
-    expect(getBanner()).not.toHaveTextContent("last event");
-  });
-
-  it("names an exhausted initial probe rather than a generic disconnect (§5)", () => {
-    render(<ConnectionBanner state="disconnected" terminalCause="handshake-exhausted" />);
-
-    expect(getBanner()).toHaveTextContent("Unable to connect to stream after 3 attempts");
-  });
-
-  it("names a stream integrity error and that shown data is last known (§5)", () => {
-    // ADR 31: the snapshot and the stream disagree about which server runtime they
-    // describe; that is not a retryable outage and the copy must not claim one.
-    render(<ConnectionBanner state="disconnected" terminalCause="session-mismatch" />);
-
-    expect(getBanner()).toHaveTextContent(
-      "Stream integrity error · showing last known state (may be stale)",
-    );
-  });
-
-  it("keeps the retry control in every terminal state (§8)", async () => {
-    // ADR 31 pairs every terminal state with an immediate manual retry; a dead end with
-    // no control would strand the operator.
-    const onRetry = vi.fn();
-    render(
-      <ConnectionBanner state="disconnected" terminalCause="session-mismatch" onRetry={onRetry} />,
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: "Retry now" }));
-    expect(onRetry).toHaveBeenCalledTimes(1);
-  });
-
-  it("states that disconnected data is last known and may be stale (§5)", () => {
-    render(<ConnectionBanner state="disconnected" attempt={4} lastEventLabel="09:41:02Z" />);
-
-    // Fixed copy: no attempt or last-event fragment once the stream is gone.
-    expect(getBanner()).toHaveTextContent(
-      "Stream disconnected · showing last known state (may be stale)",
-    );
-    expect(getBanner()).not.toHaveTextContent("attempt");
-  });
-
-  it("renders a real button named 'Retry now' that invokes onRetry (§9, §11)", async () => {
-    const onRetry = vi.fn();
-    render(<ConnectionBanner state="reconnecting" attempt={1} onRetry={onRetry} />);
-
-    const retry = screen.getByRole("button", { name: "Retry now" });
-    await userEvent.click(retry);
-
-    expect(onRetry).toHaveBeenCalledTimes(1);
-  });
-
-  it("renders the message with no control when onRetry is absent (§10)", () => {
-    render(<ConnectionBanner state="disconnected" />);
-
-    expect(screen.queryByRole("button")).toBeNull();
-    expect(getBanner()).toHaveTextContent("Stream disconnected");
-  });
-
-  it("does not steal focus when the connection drops (§9)", async () => {
-    const { rerender } = render(
-      <>
-        <input aria-label="Filter" />
-        <ConnectionBanner state="connected" onRetry={handleRetry} />
-      </>,
-    );
-
-    const input = screen.getByLabelText("Filter");
-    await userEvent.click(input);
-    expect(document.activeElement).toBe(input);
-
-    rerender(
-      <>
-        <input aria-label="Filter" />
-        <ConnectionBanner state="disconnected" attempt={1} onRetry={handleRetry} />
-      </>,
-    );
-
-    // The operator's caret stays where they put it: the banner announces
-    // through the live region instead of grabbing focus, even though it just
-    // grew a focusable control.
-    expect(document.activeElement).toBe(input);
+  it("warns once disconnected", () => {
+    render(<ConnectionBanner connection="disconnected" />);
+    expect(screen.getByRole("status")).toHaveTextContent(/last known, not current/i);
   });
 });

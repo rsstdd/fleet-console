@@ -1,73 +1,9 @@
-# Dependencies
-node_modules/
-.pnpm-store/
-.pnpm-debug.log*
-
-# Build & Compilation
-dist/
-build/
-out/
+node_modules
+dist
+coverage
+test-results
+playwright-report
 *.tsbuildinfo
-
-# Testing & Coverage
-coverage/
-.nyc_output/
-playwright-report/
-test-results/
-
-# Playwright (do not commit)
-playwright-report/
-test-results/
-blob-report/
-playwright/.cache/
-
-# Tenant-B build output
-dist-tenant-b/
-
-# Demo driver
-demo/.logs/
-
-# Environment & Secrets
+.DS_Store
 .env
 .env.local
-.env.*.local
-*.local
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Caches & Temporary Files
-.cache/
-.vite/
-.eslintcache
-.stylelintcache
-*.pid
-*.seed
-*.pid.lock
-
-# Editor & IDE
-.claude/
-.idea/
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-*.swp
-*.swo
-.history/
-
-# OS Generated Files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Fleet Console Specific (Optional)
-# Add any specific simulator state files, recorded fixtures, or local DBs if needed
-# packages/simulator/local-state.json

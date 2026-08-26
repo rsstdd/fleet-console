@@ -1,65 +1,23 @@
 packages:
   - "packages/*"
 
-# Lifecycle scripts are opt-in: a postinstall script is arbitrary code from a
-# package author, run before any of this repository's checks have seen the tree.
-# Each entry below is a decision to run one.
 allowBuilds:
-  # esbuild ships a platform-specific native binary and needs its postinstall to
-  # link it. Approved because `tsx` is the workspace's TypeScript runtime (ADR 9)
-  # and tsx is an esbuild wrapper; without this, `pnpm dev` and `pnpm start` fail.
-  esbuild: true
+  esbuild: true # tsx requires the esbuild binary.
 
-  # unrs-resolver reaches this workspace through eslint-import-resolver-typescript,
-  # which the boundary rules (Principle 8) depend on. Its postinstall is
-  # `napi-postinstall`, a fallback that fetches a platform binary when the package's
-  # optional dependencies did not deliver one. They do: the lockfile pins
-  # `@unrs/resolver-binding-linux-x64-gnu` and the matching musl build, and the
-  # `.node` file is present without the script ever having run. Denied rather than
-  # approved because a fallback that this workspace never reaches is arbitrary
-  # install-time code bought for nothing, which is the trade this file exists to
-  # refuse. If a platform ever lands here with no published binding, lint will fail
-  # loudly at resolution and this line is the first thing to revisit.
-  unrs-resolver: false
-
-# Workspace deps resolve to the local package first; `workspace:*` in a
-# package.json is still required to make the link mandatory rather than
-# opportunistic.
 linkWorkspacePackages: deep
 preferWorkspacePackages: true
-
-# `pnpm install` fails rather than warns when the local toolchain does not
-# match `engines` in the root package.json.
 engineStrict: true
 
-# One version of the shared toolchain across every package. Packages opt in
-# with "typescript": "catalog:" instead of restating a range.
 catalog:
   "@types/node": ^24.13.3
-  "@vitest/coverage-v8": ^4.1.11
   eslint: ^10.8.1
-  eslint-plugin-jsdoc: ^64.2.1
   typescript: ~6.0.2
   typescript-eslint: ^8.67.0
   vitest: ^4.1.11
   zod: ^4.4.3
 
-# Supply-chain quarantine (ADR 29). A version published in the last week does not
-# install, so a compromised release or a typosquat has to survive public exposure
-# before it can reach this workspace. Seven days is chosen because that is the
-# window npm's own malicious-package takedowns have historically landed inside;
-# it is long enough to catch the published-and-yanked case and short enough that
-# a genuine security patch is not blocked for a sprint. Shortening it is a
-# decision to accept more of that exposure, so change the ADR with it.
-#
-# 10080 minutes = 7 days. pnpm reads this value in minutes.
+# New package releases must age seven days before installation.
 minimumReleaseAge: 10080
-
-# Versions installed before the quarantine existed. pnpm appended the vitest set
-# when the catalog pinned it; they are grandfathered rather than re-vetted, and
-# each one leaving the catalog should leave this list with it. Entries are pinned
-# to an exact version on purpose — the exception expires the moment the version
-# moves, so the next bump is quarantined normally.
 minimumReleaseAgeExclude:
   - "@vitest/coverage-v8@4.1.11"
   - "@vitest/expect@4.1.11"
@@ -70,21 +28,7 @@ minimumReleaseAgeExclude:
   - "@vitest/spy@4.1.11"
   - "@vitest/utils@4.1.11"
   - vitest@4.1.11
-
-  # 19 August 2026: the first install under `minimumReleaseAge` rejected these ten,
-  # all already committed to the lockfile. Nine are the dependency closure of
-  # eslint-plugin-jsdoc (ADR 27), added two days earlier; the rest are transitive
-  # refreshes that came with it. Excepted rather than reverted because the
-  # quarantine is a rule about what enters next, and reverting another workstream's
-  # ratified tooling to satisfy a policy added after it is not that rule's job
-  # (ADR 29 § Observed consequences).
-  - "@csstools/color-helpers@6.1.1"
-  - "@csstools/css-color-parser@4.2.0"
-  - "@csstools/css-syntax-patches-for-csstree@1.1.8"
-  - "@es-joy/jsdoccomment@0.95.1"
   - "baseline-browser-mapping@2.11.15"
   - "electron-to-chromium@1.5.408"
   - "es-module-lexer@2.3.2"
-  - "eslint-plugin-jsdoc@64.2.1"
   - "get-tsconfig@4.14.3"
-  - "jsdoc-type-pratt-parser@9.1.2"

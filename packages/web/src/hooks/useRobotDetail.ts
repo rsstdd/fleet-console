@@ -1,111 +1,56 @@
-import type { ContractIssue } from "@fleet/contracts";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { readEndpoints } from "@/config/endpoints";
+import { useFleetContext } from "@/context/fleetContext";
+import { fetchRobotDetail, type RobotDetailFailure } from "@/lib/transportDecoding";
+import type { Robot, RobotDetail } from "@/types/robot";
 
-import {
-  fetchHealth,
-  fetchRobotDetail,
-  type FetchLike,
-  type RobotDetailFailure,
-  type RobotDetailResponse,
-} from "@/lib/transportDecoding";
-
-import { toRegisteredRobotDetail, toRobotDetail } from "@/utils/fromEnvelope";
-import type { RobotDetail } from "@/types/robot";
-import { useFetchedResource, type FetchedResourceContext } from "./useFetchedResource";
+export type RobotDetailState =
+  | { readonly kind: "loading" }
+  | { readonly kind: "ready"; readonly robot: RobotDetail }
+  | { readonly kind: "error"; readonly failure: RobotDetailFailure };
 
 /**
- * No error variant carries a robot, because this resource is fetched once per visit: a
- * failure means nothing decoded, and a success is never followed by one. Spec §10's
- * retention is served from the live fleet row in `robotDetailPage.tsx`, not from here.
+ * The detail request supplies diagnostics; the live fleet row supplies freshness.
+ * Merging them stops this view showing a status the fleet table has already moved past.
  */
-export type RobotDetailState =
-  | { readonly status: "loading" }
-  | { readonly status: "ready"; readonly robot: RobotDetail }
-  | { readonly status: "not-found"; readonly id: string }
-  | {
-      readonly status: "error";
-      readonly recoverable: true;
-      readonly message: string;
-      /** An attempt is running; `message` still describes the one that failed. */
-      readonly retrying: boolean;
-      readonly retry: () => void;
-    }
-  | {
-      readonly status: "error";
-      readonly recoverable: false;
-      readonly message: string;
+export function useRobotDetail(robotId: string): RobotDetailState {
+  const { store } = useFleetContext();
+  const [fetched, setFetched] = useState<{
+    readonly robotId: string;
+    readonly state: RobotDetailState;
+  } | null>(null);
+  const endpoints = useMemo(() => readEndpoints(), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchRobotDetail((url) => fetch(url), endpoints.robotUrl(robotId)).then((outcome) => {
+      if (cancelled) {
+        return;
+      }
+      setFetched({
+        robotId,
+        state: outcome.ok
+          ? { kind: "ready", robot: outcome.value }
+          : { kind: "error", failure: outcome.failure },
+      });
+    });
+    return () => {
+      cancelled = true;
     };
+  }, [endpoints, robotId]);
 
-function describeIssues(issues: readonly ContractIssue[]): string {
-  const summary = issues.map((issue) => `${issue.path}: ${issue.code}`).join(", ");
-  return `The robot response did not match the canonical contract (${summary}).`;
-}
+  const live: Robot | undefined = useSyncExternalStore(
+    (listener) => store.subscribe(listener),
+    () => store.getRobot(robotId),
+  );
 
-function mapResponseToDetail(
-  response: RobotDetailResponse,
-  unknownFieldCount: number | null,
-): RobotDetail {
-  return response.observed
-    ? toRobotDetail(response.envelope, { unknownFieldCount })
-    : toRegisteredRobotDetail(response.registered);
-}
-
-function buildFailureState(
-  failure: RobotDetailFailure,
-  id: string,
-  retry: () => void,
-): RobotDetailState {
-  switch (failure.kind) {
-    case "not-found":
-      return { status: "not-found", id };
-    case "unreachable":
-      return {
-        status: "error",
-        recoverable: true,
-        message: "The robot could not be loaded. The server did not answer.",
-        retrying: false,
-        retry,
-      };
-    case "contract":
-      // Contract-invalid bytes are terminal: retrying cannot change them, and nothing
-      // decoded from them may stay on screen.
-      return { status: "error", recoverable: false, message: describeIssues(failure.issues) };
-  }
-}
-
-async function loadRobotDetail(
-  request: FetchLike,
-  { id, apiBaseUrl, retry }: FetchedResourceContext,
-): Promise<RobotDetailState> {
-  const [robot, health] = await Promise.all([
-    fetchRobotDetail(request, `${apiBaseUrl}/robots/${encodeURIComponent(id)}`),
-    fetchHealth(request, `${apiBaseUrl}/health`),
-  ]);
-
-  if (robot.ok) {
-    const vendorId = robot.robot.observed
-      ? robot.robot.envelope.vendorId
-      : robot.robot.registered.vendorId;
-    // Null means health was unavailable; zero is a measured count.
-    const unknownFieldCount = health.ok
-      ? (health.health.byAdapter[vendorId]?.unknownFields.total ?? null)
-      : null;
-    return { status: "ready", robot: mapResponseToDetail(robot.robot, unknownFieldCount) };
-  }
-
-  return buildFailureState(robot.failure, id, retry);
-}
-
-/** Only the robot request can fail this page; an unread health total is reported as absent. */
-export function useRobotDetail(
-  id: string,
-  ports: {
-    readonly apiBaseUrl: string;
-    readonly requestTimeoutMs: number;
-    readonly fetchLike?: FetchLike;
-  },
-): RobotDetailState {
-  const { value, isReloading } = useFetchedResource(id, ports, loadRobotDetail);
-  return isReloading && value.status === "error" && value.recoverable
-    ? { ...value, retrying: true }
-    : value;
+  // Deriving "loading" from the requested id avoids a setState on every navigation.
+  return useMemo(() => {
+    const state: RobotDetailState =
+      fetched?.robotId === robotId ? fetched.state : { kind: "loading" };
+    if (state.kind !== "ready" || live === undefined) {
+      return state;
+    }
+    return { kind: "ready", robot: { ...state.robot, ...live } };
+  }, [fetched, robotId, live]);
 }

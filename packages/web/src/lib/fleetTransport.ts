@@ -1,85 +1,83 @@
-import { reconcileDeltaWithSnapshot } from "@fleet/contracts";
-import type {
-  ContractIssue,
-  FleetSnapshot,
-  ReconciliationEpoch,
-  TelemetryBatch,
-} from "@fleet/contracts";
-
-import { createColdStart, type ColdStart } from "./coldStart";
-import type { StreamConnectionState } from "@/context/connectionContext";
 import {
-  INITIAL_PROBE_ATTEMPT_LIMIT,
-  INITIAL_STREAM_STATE,
-  nextStreamState,
-  computeRetryDelayMs,
-  selectPublishedConnectionState,
-  type StreamEvent,
-  type StreamState,
-  type StreamTerminalCause,
-} from "./streamLifecycle";
+  type ContractIssue,
+  type FleetSnapshot,
+  type ReconciliationEpoch,
+  reconcileDeltaWithSnapshot,
+  type TelemetryBatch,
+} from "@fleet/contracts";
 import {
   decodeFrameText,
   fetchFleetSnapshot,
   type FetchLike,
   type RequestFailure,
-} from "./transportDecoding";
+} from "@/lib/transportDecoding";
 
-/**
- * The stream client: socket first, snapshot second, reconcile, recover.
- *
- * **The order is the contract.** Open and buffer before fetching; a fetch that goes first
- * loses every delta emitted in the gap, and the symptom is a row that quietly stops
- * updating rather than an error (ADR 18, ADR 31).
- *
- * A new snapshot's session replaces the epoch wholesale rather than being compared against
- * it, which is what lets sequence numbers restart at zero across a server restart without
- * rows silently freezing.
- */
+export type ConnectionState = "connecting" | "connected" | "reconnecting" | "disconnected";
+export type TerminalCause = "handshake-exhausted" | "contract" | "session-mismatch";
+
+export interface StreamState {
+  readonly phase: "idle" | "connecting" | "connected" | "reconnecting" | "failed";
+  readonly attempt: number;
+  readonly lastConnectedAt: number | null;
+  readonly terminalCause: TerminalCause | null;
+}
+
+export const INITIAL_STREAM_STATE: StreamState = {
+  phase: "idle",
+  attempt: 0,
+  lastConnectedAt: null,
+  terminalCause: null,
+};
+
+export function publishedConnectionState(state: StreamState): ConnectionState {
+  switch (state.phase) {
+    case "connected":
+      return "connected";
+    case "connecting":
+      return "connecting";
+    case "reconnecting":
+      return "reconnecting";
+    default:
+      return "disconnected";
+  }
+}
+
+export const INITIAL_PROBE_ATTEMPT_LIMIT = 3;
+export const COLD_START_BUFFER_LIMIT = 1000;
+const RETRY_BASE_DELAY_MS = 1000;
+const RETRY_DELAY_CEILING_MS = 30_000;
+
+/** Full jitter prevents clients from retrying a restarted server in lockstep. */
+export function computeRetryDelayMs(failedAttempts: number, random: () => number): number {
+  const exponent = Math.min(Math.max(failedAttempts, 1) - 1, 15);
+  return random() * Math.min(RETRY_DELAY_CEILING_MS, RETRY_BASE_DELAY_MS * 2 ** exponent);
+}
 
 export interface SocketHandle {
   close(): void;
 }
-
 export interface SocketHandlers {
   readonly onOpen: () => void;
   readonly onMessage: (frameText: string) => void;
   readonly onClose: () => void;
 }
-
 export type OpenSocket = (url: string, handlers: SocketHandlers) => SocketHandle;
 
-export interface RetryTimer {
-  readonly set: (onElapsed: () => void, delayMs: number) => number;
-  readonly clear: (timerHandle: number) => void;
-}
-
-const BROWSER_TIMER: RetryTimer = {
-  set: (onElapsed, delayMs) => setTimeout(onElapsed, delayMs),
-  clear: (timerHandle) => {
-    clearTimeout(timerHandle);
-  },
-};
-
-export interface FleetTransportHandlers {
-  readonly onSnapshot: (snapshot: FleetSnapshot) => void;
-  readonly onBatch: (batch: TelemetryBatch) => void;
-  readonly onConnectionState: (published: StreamConnectionState, state: StreamState) => void;
-  readonly onTerminalError: (issues: readonly ContractIssue[]) => void;
-  readonly onFrameRejected: () => void;
-}
-
-export interface FleetTransportEndpoints {
-  readonly snapshotUrl: string;
-  readonly streamUrl: string;
-}
-
 export interface FleetTransportOptions {
-  readonly endpoints: FleetTransportEndpoints;
+  readonly endpoints: { readonly snapshotUrl: string; readonly streamUrl: string };
   readonly openSocket: OpenSocket;
   readonly fetchLike: FetchLike;
-  readonly handlers: FleetTransportHandlers;
-  readonly timer?: RetryTimer;
+  readonly handlers: {
+    readonly onSnapshot: (snapshot: FleetSnapshot) => void;
+    readonly onBatch: (batch: TelemetryBatch) => void;
+    readonly onConnectionState: (published: ConnectionState, state: StreamState) => void;
+    readonly onTerminalError: (issues: readonly ContractIssue[]) => void;
+    readonly onFrameRejected: () => void;
+  };
+  readonly timer?: {
+    set(onElapsed: () => void, delayMs: number): number;
+    clear(handle: number): void;
+  };
   readonly random?: () => number;
 }
 
@@ -89,285 +87,260 @@ export interface FleetTransport {
   readonly state: StreamState;
 }
 
-type AttemptJoin =
-  | { readonly status: "buffering" }
-  | { readonly status: "joined"; readonly epoch: ReconciliationEpoch };
-
-/**
- * One connection attempt: its identity, its buffer, and where its frames currently go.
- * Every socket and fetch callback carries the attempt it was created for, so a callback that
- * outlives its attempt recognises itself and reaches nothing the live attempt owns.
- */
 interface Attempt {
   readonly generation: number;
-  readonly coldStart: ColdStart;
-  join: AttemptJoin;
+  buffered: TelemetryBatch[];
+  join:
+    | { readonly status: "buffering" }
+    | { readonly status: "joined"; readonly epoch: ReconciliationEpoch };
   handshake: "opening" | "open";
 }
 
-/**
- * @param options - `handlers` run synchronously inside the transport's own sequencing. A
- *   throw from a socket callback propagates to whatever dispatched it; a throw while the
- *   snapshot settles rejects a promise nothing awaits, so it surfaces as an unhandled
- *   rejection rather than reaching a caller. `onConnectionState` fires on every transition,
- *   including ones the published value does not reflect.
- * @returns A transport that has opened nothing until `connect()`. Its `state` is a live
- *   getter rather than a snapshot, so a caller polling it after an event sees the result
- *   of that event.
- */
+/** Open and buffer before fetching; reversing this order loses in-flight deltas. */
 export function createFleetTransport(options: FleetTransportOptions): FleetTransport {
   const {
     endpoints,
     openSocket,
     fetchLike,
     handlers,
-    timer = BROWSER_TIMER,
+    timer = {
+      set: (onElapsed, delayMs) => setTimeout(onElapsed, delayMs) as unknown as number,
+      clear: (handle) => {
+        clearTimeout(handle);
+      },
+    },
     random = Math.random,
   } = options;
 
   let streamState = INITIAL_STREAM_STATE;
-  let liveAttempt: Attempt | null = null;
-  let activeSocketHandle: SocketHandle | null = null;
-  let liveAttemptGeneration = 0;
-  let pendingRetryHandle: number | null = null;
+  let attempt: Attempt | null = null;
+  let socket: SocketHandle | null = null;
+  let generation = 0;
+  let retryHandle: number | null = null;
   let handshakeEverSucceeded = false;
-  let initialProbeFailureCount = 0;
-  let consecutiveFailedAttemptCount = 0;
+  let probeFailures = 0;
+  let consecutiveFailures = 0;
 
-  function applyStreamEvent(event: StreamEvent): void {
-    const previousStreamState = streamState;
-    streamState = nextStreamState(streamState, event);
-    if (streamState !== previousStreamState) {
-      handlers.onConnectionState(selectPublishedConnectionState(streamState), streamState);
+  function setState(next: StreamState): void {
+    const changed =
+      next.phase !== streamState.phase ||
+      next.attempt !== streamState.attempt ||
+      next.lastConnectedAt !== streamState.lastConnectedAt ||
+      next.terminalCause !== streamState.terminalCause;
+    streamState = next;
+    if (changed) {
+      handlers.onConnectionState(publishedConnectionState(next), next);
     }
   }
 
-  function cancelPendingRetry(): void {
-    if (pendingRetryHandle !== null) {
-      timer.clear(pendingRetryHandle);
-      pendingRetryHandle = null;
+  const pendingPhase = (): "connecting" | "reconnecting" =>
+    streamState.lastConnectedAt === null ? "connecting" : "reconnecting";
+
+  function cancelRetry(): void {
+    if (retryHandle !== null) {
+      timer.clear(retryHandle);
+      retryHandle = null;
     }
   }
 
-  function supersedeAttempt(): void {
-    liveAttemptGeneration += 1;
-    activeSocketHandle?.close();
-    activeSocketHandle = null;
-    liveAttempt = null;
+  function supersede(): void {
+    generation += 1;
+    socket?.close();
+    socket = null;
+    attempt = null;
   }
 
-  function isSuperseded(attempt: Attempt): boolean {
-    return attempt.generation !== liveAttemptGeneration;
+  const isSuperseded = (candidate: Attempt): boolean => candidate.generation !== generation;
+
+  function enterTerminal(cause: TerminalCause): void {
+    cancelRetry();
+    supersede();
+    setState({ ...streamState, phase: "failed", terminalCause: cause });
   }
 
-  function enterTerminalState(cause: StreamTerminalCause): void {
-    cancelPendingRetry();
-    supersedeAttempt();
-    applyStreamEvent({ kind: "give-up", cause });
-  }
-
-  function handleFailedAttempt(): void {
-    supersedeAttempt();
-    consecutiveFailedAttemptCount += 1;
-    applyStreamEvent({ kind: "close" });
+  function failAttempt(): void {
+    supersede();
+    consecutiveFailures += 1;
+    setState({ ...streamState, phase: pendingPhase(), terminalCause: null });
     if (!handshakeEverSucceeded) {
-      initialProbeFailureCount += 1;
-      if (initialProbeFailureCount >= INITIAL_PROBE_ATTEMPT_LIMIT) {
-        enterTerminalState("handshake-exhausted");
+      probeFailures += 1;
+      if (probeFailures >= INITIAL_PROBE_ATTEMPT_LIMIT) {
+        enterTerminal("handshake-exhausted");
         return;
       }
     }
-    scheduleRetry();
-  }
-
-  function scheduleRetry(): void {
-    // Defensive: no reachable path schedules over a live handle today, because every
-    // caller supersedes first. Clearing keeps that a property of this function rather
-    // than of its callers, so a leaked timer cannot outlive the attempt that set it.
-    cancelPendingRetry();
-    pendingRetryHandle = timer.set(
+    cancelRetry();
+    retryHandle = timer.set(
       () => {
-        pendingRetryHandle = null;
-        startAttempt();
+        retryHandle = null;
+        start();
       },
-      computeRetryDelayMs(consecutiveFailedAttemptCount, random),
+      computeRetryDelayMs(consecutiveFailures, random),
     );
   }
 
-  function startAttempt(): void {
-    supersedeAttempt();
-    const attempt: Attempt = {
-      generation: liveAttemptGeneration,
-      coldStart: createColdStart(),
+  function start(): void {
+    supersede();
+    const current: Attempt = {
+      generation,
+      buffered: [],
       join: { status: "buffering" },
       handshake: "opening",
     };
-    liveAttempt = attempt;
-    applyStreamEvent({ kind: "connect" });
+    attempt = current;
+    setState({
+      ...streamState,
+      phase: pendingPhase(),
+      attempt: streamState.attempt + 1,
+      terminalCause: null,
+    });
 
     const handle = openSocket(endpoints.streamUrl, {
       onOpen: () => {
-        handleSocketOpen(attempt);
+        if (isSuperseded(current)) {
+          return;
+        }
+        current.handshake = "open";
+        handshakeEverSucceeded = true;
+        probeFailures = 0;
+        setState({
+          ...streamState,
+          phase: "connected",
+          lastConnectedAt: Date.now(),
+          terminalCause: null,
+        });
+        void join(current);
       },
       onMessage: (frameText) => {
-        handleSocketMessage(attempt, frameText);
+        if (isSuperseded(current)) {
+          return;
+        }
+        const frame = decodeFrameText(frameText);
+        if (!frame.ok) {
+          handlers.onFrameRejected();
+          return;
+        }
+        route(current, frame.batch);
       },
       onClose: () => {
-        handleSocketClose(attempt);
+        if (isSuperseded(current)) {
+          return;
+        }
+        socket = null;
+        attempt = null;
+        if (current.join.status !== "joined") {
+          failAttempt();
+          return;
+        }
+        setState({ ...streamState, phase: pendingPhase(), terminalCause: null });
+        start();
       },
     });
-    // A port that opened, joined and failed inside the call above has already superseded
-    // this attempt; adopting its handle now would leave a socket nothing closes.
-    if (isSuperseded(attempt)) {
+
+    if (isSuperseded(current)) {
       handle.close();
       return;
     }
-    activeSocketHandle = handle;
+    socket = handle;
   }
 
-  function handleSocketOpen(attempt: Attempt): void {
-    if (isSuperseded(attempt)) return;
-    attempt.handshake = "open";
-    handshakeEverSucceeded = true;
-    initialProbeFailureCount = 0;
-    applyStreamEvent({ kind: "open", at: Date.now() });
-    void joinWithSnapshot(attempt);
-  }
-
-  async function joinWithSnapshot(attempt: Attempt): Promise<void> {
-    const snapshotOutcome = await fetchFleetSnapshot(fetchLike, endpoints.snapshotUrl);
-    // A snapshot that outlived its attempt describes a fleet this buffer no longer
-    // matches; the live attempt fetches its own.
-    if (isSuperseded(attempt)) return;
-
-    if (snapshotOutcome.ok) {
-      settleIntoJoinedStream(attempt, snapshotOutcome.snapshot);
+  async function join(current: Attempt): Promise<void> {
+    const outcome = await fetchFleetSnapshot(fetchLike, endpoints.snapshotUrl);
+    if (isSuperseded(current)) {
       return;
     }
-    handleSnapshotFailure(snapshotOutcome.failure);
-  }
-
-  function settleIntoJoinedStream(attempt: Attempt, snapshot: FleetSnapshot): void {
-    const settlement = attempt.coldStart.settle(snapshot);
-    attempt.join = { status: "joined", epoch: toReconciliationEpoch(settlement.snapshot) };
-    handlers.onSnapshot(settlement.snapshot);
-    for (const batch of settlement.replay) {
-      handlers.onBatch(batch);
-    }
-
-    if (settlement.mismatched > 0) {
-      enterTerminalState("session-mismatch");
+    if (!outcome.ok) {
+      handleSnapshotFailure(outcome.failure);
       return;
     }
 
-    consecutiveFailedAttemptCount = 0;
-    applyStreamEvent({ kind: "joined" });
+    const snapshot = outcome.value;
+    const epoch: ReconciliationEpoch = {
+      serverSessionId: snapshot.serverSessionId,
+      flushSequence: snapshot.flushSequence,
+    };
+    current.join = { status: "joined", epoch };
+    handlers.onSnapshot(snapshot);
+
+    let mismatched = 0;
+    for (const batch of current.buffered) {
+      switch (reconcileDeltaWithSnapshot(snapshot, batch)) {
+        case "apply":
+          handlers.onBatch(batch);
+          break;
+        case "session-mismatch":
+          mismatched += 1;
+          break;
+        case "covered":
+          break;
+      }
+    }
+    current.buffered = [];
+
+    if (mismatched > 0) {
+      enterTerminal("session-mismatch");
+      return;
+    }
+    consecutiveFailures = 0;
+    setState({ ...streamState, attempt: 0 });
   }
 
   function handleSnapshotFailure(failure: RequestFailure): void {
     if (failure.kind === "contract") {
       handlers.onTerminalError(failure.issues);
-      enterTerminalState("contract");
+      enterTerminal("contract");
       return;
     }
-    handleFailedAttempt();
+    failAttempt();
   }
 
-  function handleSocketMessage(attempt: Attempt, frameText: string): void {
-    if (isSuperseded(attempt)) return;
-    const decodedFrame = decodeFrameText(frameText);
-    if (!decodedFrame.ok) {
-      handlers.onFrameRejected();
+  function route(current: Attempt, batch: TelemetryBatch): void {
+    const { join: joinState } = current;
+    if (joinState.status === "buffering") {
+      if (current.buffered.length >= COLD_START_BUFFER_LIMIT) {
+        failAttempt();
+        return;
+      }
+      current.buffered.push(batch);
       return;
     }
-    routeBatchByJoinStatus(attempt, decodedFrame.batch);
-  }
-
-  function routeBatchByJoinStatus(attempt: Attempt, batch: TelemetryBatch): void {
-    const { join } = attempt;
-    switch (join.status) {
-      case "buffering":
-        bufferUntilSnapshot(attempt, batch);
-        return;
-      case "joined":
-        routeBatchByReconciliation(attempt, join.epoch, batch);
-        return;
-    }
-  }
-
-  function bufferUntilSnapshot(attempt: Attempt, batch: TelemetryBatch): void {
-    switch (attempt.coldStart.receive(batch)) {
-      case "buffered":
-        return;
-      case "overflowed":
-        handleFailedAttempt();
-        return;
-    }
-  }
-
-  function routeBatchByReconciliation(
-    attempt: Attempt,
-    epoch: ReconciliationEpoch,
-    batch: TelemetryBatch,
-  ): void {
-    switch (reconcileDeltaWithSnapshot(epoch, batch)) {
+    switch (reconcileDeltaWithSnapshot(joinState.epoch, batch)) {
       case "apply":
-        // The epoch tracks what was applied, not what the snapshot covered, so a frame
-        // behind the last applied one is refused as covered. Left pinned to the snapshot,
-        // every frame above it applies in arrival order and correctness rests on the
-        // socket delivering in order rather than on anything this module checks.
-        attempt.join = {
+        current.join = {
           status: "joined",
-          epoch: { serverSessionId: epoch.serverSessionId, flushSequence: batch.flushSequence },
+          epoch: {
+            serverSessionId: joinState.epoch.serverSessionId,
+            flushSequence: batch.flushSequence,
+          },
         };
         handlers.onBatch(batch);
         return;
+      case "session-mismatch":
+        enterTerminal("session-mismatch");
+        return;
       case "covered":
         return;
-      case "session-mismatch":
-        enterTerminalState("session-mismatch");
-        return;
     }
-  }
-
-  function handleSocketClose(attempt: Attempt): void {
-    if (isSuperseded(attempt)) return;
-    activeSocketHandle = null;
-    liveAttempt = null;
-    if (attempt.join.status !== "joined") {
-      handleFailedAttempt();
-      return;
-    }
-    applyStreamEvent({ kind: "close" });
-    startAttempt();
   }
 
   return {
     get state(): StreamState {
       return streamState;
     },
-
     connect(): void {
-      if (liveAttempt?.handshake === "open") return;
-      cancelPendingRetry();
-      initialProbeFailureCount = 0;
-      startAttempt();
+      if (attempt?.handshake === "open") {
+        return;
+      }
+      cancelRetry();
+      probeFailures = 0;
+      start();
     },
-
     disconnect(): void {
-      cancelPendingRetry();
-      supersedeAttempt();
-      consecutiveFailedAttemptCount = 0;
-      initialProbeFailureCount = 0;
-      applyStreamEvent({ kind: "disconnect" });
+      cancelRetry();
+      supersede();
+      consecutiveFailures = 0;
+      probeFailures = 0;
+      setState({ ...streamState, phase: "idle", attempt: 0, terminalCause: null });
     },
-  };
-}
-
-/** Keeps only what reconciliation reads, so a join does not retain the whole fleet. */
-function toReconciliationEpoch(snapshot: FleetSnapshot): ReconciliationEpoch {
-  return {
-    serverSessionId: snapshot.serverSessionId,
-    flushSequence: snapshot.flushSequence,
   };
 }
