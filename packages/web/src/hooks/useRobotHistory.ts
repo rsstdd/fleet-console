@@ -1,10 +1,6 @@
 import type { ContractIssue, RobotBatteryHistory } from "@fleet/contracts";
 
-import {
-  fetchBatteryHistory,
-  type BatteryHistoryFailure,
-  type FetchLike,
-} from "@/lib/transportDecoding";
+import { fetchBatteryHistory, type FetchLike, type RequestFailure } from "@/lib/transportDecoding";
 
 import { useFetchedResource, type FetchedResourceContext } from "./useFetchedResource";
 
@@ -25,7 +21,7 @@ function describeIssues(issues: readonly ContractIssue[]): string {
   return `The battery history response did not match its contract (${summary}).`;
 }
 
-function buildFailureState(failure: BatteryHistoryFailure, retry: () => void): RobotHistoryState {
+function buildFailureState(failure: RequestFailure, retry: () => void): RobotHistoryState {
   switch (failure.kind) {
     case "unreachable":
       return { status: "error", recoverable: true, retrying: false, retry };

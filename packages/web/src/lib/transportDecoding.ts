@@ -1,8 +1,23 @@
+/**
+ * The console's boundary: bytes from the network become contract types here, or they are
+ * refused here.
+ *
+ * **A failed request and a failed decode are different outcomes and are not merged.** A
+ * connection refused is recoverable; a body that does not satisfy the canonical schema is
+ * terminal, because the server did not stumble — it sent bytes this console cannot read,
+ * and retrying returns the same bytes (ADR 20, web spec § 9). Collapsing them produces a
+ * console that retries forever against a contract mismatch, showing a spinner where it
+ * should show an error naming the field.
+ *
+ * Every issue carries `path` and `code` but never a rejected value (ADR 20), so a
+ * diagnostics surface can name what disagreed without a payload reaching a screen.
+ */
+
 import {
   parseFleetSnapshot,
   parseHealthResponse,
-  parseRobotBatteryHistory,
   parseRegisteredRobotState,
+  parseRobotBatteryHistory,
   parseRobotDiagnosticEnvelope,
   parseTelemetryBatch,
 } from "@fleet/contracts";
@@ -10,142 +25,132 @@ import type {
   ContractIssue,
   FleetSnapshot,
   HealthResponse,
-  RobotBatteryHistory,
+  ParseResult,
   RegisteredRobotState,
+  RobotBatteryHistory,
   RobotDiagnosticEnvelope,
   TelemetryBatch,
 } from "@fleet/contracts";
 
-/**
- * The console's boundary: bytes from the network become contract types here, or they are
- * refused here.
- *
- * Principle 2 puts one decode at the boundary and forbids casting a payload into a trusted
- * type anywhere else. Everything downstream — the store, the mappers, the components —
- * takes a decoded value, so no component ever reaches into a response.
- *
- * **A failed decode and a failed request are different outcomes and are not merged.** A
- * connection refused is recoverable and retrying is the right response; a body that does
- * not satisfy the canonical schema is terminal, because the server did not stumble, it
- * sent bytes this console cannot read, and retrying returns the same bytes
- * (ADR 20, web spec § 9). Collapsing them produces a console that retries
- * forever against a contract mismatch, showing a spinner where it should show an error
- * naming the field.
- *
- * The issues travel with the terminal outcome rather than being flattened to a string.
- * They carry `path` and `code` from the contract's own failure shape and never a rejected
- * value (ADR 20), so a diagnostics surface can say which field disagreed without a
- * vendor payload reaching an operator's screen.
- */
+const NOT_FOUND_STATUS = 404;
 
-/** Why a snapshot request produced no usable fleet. */
-export type SnapshotFailure =
-  /** The request never completed, or the server answered with a status. Retry is correct. */
+export type RequestFailure =
   | { readonly kind: "unreachable"; readonly status: number | null }
-  /** The body decoded to something this console's contract does not accept. Terminal. */
   | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
 
-/** Preserves the retryable-request versus terminal-contract distinction for a snapshot. */
-export type SnapshotOutcome =
-  | { readonly ok: true; readonly snapshot: FleetSnapshot }
-  | { readonly ok: false; readonly failure: SnapshotFailure };
-
-/** The subset of `fetch` this module uses, so a test needs no network and no globals. */
-export type FetchLike = (url: string) => Promise<{
+export interface FetchResponse {
   readonly ok: boolean;
   readonly status: number;
   json(): Promise<unknown>;
-}>;
+}
+
+export type FetchLike = (url: string) => Promise<FetchResponse>;
+
+type JsonRequest =
+  | { readonly ok: true; readonly body: unknown }
+  | { readonly ok: false; readonly status: number | null };
+
+type DecodeOutcome<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly failure: RequestFailure };
+
+/**
+ * Performs the request half of every fetch here, leaving each caller its own policy over
+ * the status and its own decode of the body.
+ *
+ * @returns A null status for a rejected request — offline, DNS, a refused connection, or
+ *   a body that was not JSON at all. Those are network facts rather than contract facts,
+ *   and all of them are worth retrying.
+ */
+async function requestJson(fetchLike: FetchLike, url: string): Promise<JsonRequest> {
+  try {
+    const response = await fetchLike(url);
+    if (!response.ok) return { ok: false, status: response.status };
+    return { ok: true, body: await response.json() };
+  } catch {
+    return { ok: false, status: null };
+  }
+}
+
+/**
+ * Fetches one JSON body and decodes it, preserving the request-versus-contract
+ * distinction. Endpoints whose failure handling is more than this — a 404 that is a
+ * navigation outcome, or a body with two possible schemas — do their own sequencing.
+ */
+async function fetchDecoded<T>(
+  fetchLike: FetchLike,
+  url: string,
+  parse: (raw: unknown) => ParseResult<T>,
+): Promise<DecodeOutcome<T>> {
+  const request = await requestJson(fetchLike, url);
+  if (!request.ok) {
+    return { ok: false, failure: { kind: "unreachable", status: request.status } };
+  }
+
+  const decoded = parse(request.body);
+  return decoded.ok
+    ? { ok: true, value: decoded.value }
+    : { ok: false, failure: { kind: "contract", issues: decoded.issues } };
+}
+
+export type SnapshotOutcome =
+  | { readonly ok: true; readonly snapshot: FleetSnapshot }
+  | { readonly ok: false; readonly failure: RequestFailure };
 
 /**
  * Fetches and decodes the initial fleet snapshot.
  *
- * The URL comes from `TENANT.endpoints.apiBaseUrl`, which ships as the same-origin path
- * `/api` that Vite's dev proxy forwards (ADR 21). Nothing here may build a host or read
- * an environment variable: the console learning the server's real address is what would
- * make its requests cross-origin.
+ * Nothing here may build a host or read an environment variable (ADR 21): a console that
+ * learns the server's real address is one whose requests are cross-origin.
  *
- * A non-2xx status is `unreachable` rather than `contract`, including a 500. The server
- * failing to produce a body is not the same event as producing one this console cannot
- * read, and only the second is worth refusing to retry.
- *
- * @param fetchLike - The request port; production passes `fetch`, tests pass their own.
  * @param url - Same-origin, built from `TENANT.endpoints.apiBaseUrl`.
- * @returns Never rejects: every failure is a value. `unreachable` must be retried under
- *   ADR 31's schedule; `contract` must not be, and the caller is expected to end the
- *   session on it rather than counting it as one more failed attempt.
+ * @returns Never rejects: every failure is a value. `unreachable` — which any non-2xx
+ *   status is, a 500 included — must be retried under ADR 31's schedule; `contract` must
+ *   not be, and the caller is expected to end the session on it rather than counting it
+ *   as one more failed attempt.
  */
 export async function fetchFleetSnapshot(
   fetchLike: FetchLike,
   url: string,
 ): Promise<SnapshotOutcome> {
-  let body: unknown;
-  try {
-    const response = await fetchLike(url);
-    if (!response.ok) {
-      return { ok: false, failure: { kind: "unreachable", status: response.status } };
-    }
-    body = await response.json();
-  } catch {
-    // A rejected fetch is a network fact, not a contract fact: offline, DNS, a refused
-    // connection, or a body that was not JSON at all. All are worth retrying.
-    return { ok: false, failure: { kind: "unreachable", status: null } };
-  }
-
-  const decoded = parseFleetSnapshot(body);
-  return decoded.ok
-    ? { ok: true, snapshot: decoded.value }
-    : { ok: false, failure: { kind: "contract", issues: decoded.issues } };
+  const outcome = await fetchDecoded(fetchLike, url, parseFleetSnapshot);
+  return outcome.ok ? { ok: true, snapshot: outcome.value } : outcome;
 }
 
-/** Keeps rejected-frame issues available for diagnostics without ending the stream. */
 export type FrameOutcome =
   | { readonly ok: true; readonly batch: TelemetryBatch }
   | { readonly ok: false; readonly issues: readonly ContractIssue[] };
 
-/**
- * Decodes one frame from the stream.
- *
- * A frame that fails is **dropped and counted**, not terminal, because a stream is many
- * messages and the next one may be fine — where a snapshot is one response whose failure
- * retrying cannot fix. The cost of dropping one is a missed update for the robots it
- * named, which the server's next flush or freshness sweep corrects.
- *
- * That is deliberately not free: a run of failures means the contract is broken and the
- * console is degrading silently, which is why the caller counts them for a diagnostics
- * surface (fleet TODO **A4**). Whether a run should escalate to terminal is **not
- * decided** — see the note in that item.
- */
 export function decodeFrame(raw: unknown): FrameOutcome {
   const decoded = parseTelemetryBatch(raw);
   return decoded.ok ? { ok: true, batch: decoded.value } : { ok: false, issues: decoded.issues };
 }
 
-/** Parses a socket message's data before decoding it, without trusting either step. */
 export function decodeFrameText(text: string): FrameOutcome {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch {
-    // Not JSON at all. Reported in the same shape as a schema failure so a caller has one
-    // path to count and one path to render, with the empty issue list saying which it was.
-    return { ok: false, issues: [] };
+    return {
+      ok: false,
+      issues: [
+        {
+          path: "(root)",
+          code: "invalid_json",
+          message: "Frame body is not JSON.",
+        },
+      ],
+    };
   }
   return decodeFrame(raw);
 }
 
-/** One robot as the detail endpoint serves it: observed with diagnostics, or registered. */
 export type RobotDetailResponse =
   | { readonly observed: true; readonly envelope: RobotDiagnosticEnvelope }
   | { readonly observed: false; readonly registered: RegisteredRobotState };
 
-/** Why a single-robot request produced no robot. */
-export type RobotDetailFailure =
-  | { readonly kind: "not-found" }
-  | { readonly kind: "unreachable"; readonly status: number | null }
-  | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
+export type RobotDetailFailure = { readonly kind: "not-found" } | RequestFailure;
 
-/** Distinguishes a wrong id, a retryable request failure, and an unreadable contract. */
 export type RobotDetailOutcome =
   | { readonly ok: true; readonly robot: RobotDetailResponse }
   | { readonly ok: false; readonly failure: RobotDetailFailure };
@@ -157,121 +162,69 @@ export type RobotDetailOutcome =
  * serves `robotDiagnosticEnvelopeSchema` for a robot that has reported and
  * `registeredRobotStateSchema` for one the manifest registered and nothing has been heard
  * from, and `@fleet/contracts` exports no combined schema the way it does for the same two
- * populations inside a fleet snapshot. Trying both here is the explicit boundary policy:
- * the diagnostic shape is tried first because it is the strictly larger one, so a
- * registered robot cannot satisfy it by accident. If another consumer needs the same
- * union, move that authority into contracts instead of copying this ordering.
+ * populations inside a fleet snapshot. Trying both here is the explicit boundary policy: if
+ * another consumer needs the same union, move that authority into contracts instead of
+ * copying it.
  *
  * A 404 is its own outcome, not an error: an unknown robot id is a wrong link, and the
  * page renders an empty state with a way back rather than a failure banner (robot detail
  * spec § 10).
  *
- * @param fetchLike - The request port.
  * @param url - `/api/robots/:id`, with the id already percent-encoded by the caller.
- * @returns Never rejects, and its three failures are not interchangeable: `not-found` is
- *   a navigation outcome and must not render as a fault, `unreachable` earns a retry,
- *   and `contract` is terminal. Success still discriminates observed from registered,
- *   because the endpoint serves two shapes and a registered robot has no telemetry.
+ * @returns Never rejects. `not-found` is a navigation outcome and must not render as a
+ *   fault; success still discriminates observed from registered, because the endpoint
+ *   serves two shapes and a registered robot has no telemetry.
  */
 export async function fetchRobotDetail(
   fetchLike: FetchLike,
   url: string,
 ): Promise<RobotDetailOutcome> {
-  let body: unknown;
-  try {
-    const response = await fetchLike(url);
-    if (response.status === 404) return { ok: false, failure: { kind: "not-found" } };
-    if (!response.ok) {
-      return { ok: false, failure: { kind: "unreachable", status: response.status } };
-    }
-    body = await response.json();
-  } catch {
-    return { ok: false, failure: { kind: "unreachable", status: null } };
+  const request = await requestJson(fetchLike, url);
+  if (!request.ok) {
+    return { ok: false, failure: toRobotDetailRequestFailure(request.status) };
   }
-
-  const observed = parseRobotDiagnosticEnvelope(body);
-  if (observed.ok) return { ok: true, robot: { observed: true, envelope: observed.value } };
-
-  const registered = parseRegisteredRobotState(body);
-  if (registered.ok) return { ok: true, robot: { observed: false, registered: registered.value } };
-
-  // The diagnostic issues, not the registered ones: a body that failed both is far more
-  // likely a malformed envelope than a malformed two-field registration, and reporting the
-  // narrower schema's complaints would point a reader at the wrong shape.
-  return { ok: false, failure: { kind: "contract", issues: observed.issues } };
+  return decodeRobotDetail(request.body);
 }
 
-/** What one health request produced; a failure is never terminal, since health is advisory. */
+/** A missing robot is a navigation outcome; every other status is worth a retry. */
+function toRobotDetailRequestFailure(status: number | null): RobotDetailFailure {
+  return status === NOT_FOUND_STATUS ? { kind: "not-found" } : { kind: "unreachable", status };
+}
+
+/** Tries the larger shape first, so a registered robot cannot satisfy it by accident. */
+function decodeRobotDetail(body: unknown): RobotDetailOutcome {
+  const diagnostic = parseRobotDiagnosticEnvelope(body);
+  if (diagnostic.ok) {
+    return { ok: true, robot: { observed: true, envelope: diagnostic.value } };
+  }
+
+  const registration = parseRegisteredRobotState(body);
+  if (registration.ok) {
+    return { ok: true, robot: { observed: false, registered: registration.value } };
+  }
+
+  // The diagnostic issues, not the registration's: a body that failed both is far more
+  // likely a malformed envelope than a malformed two-field registration, and reporting the
+  // narrower schema's complaints would point a reader at the wrong shape.
+  return { ok: false, failure: { kind: "contract", issues: diagnostic.issues } };
+}
+
 export type HealthOutcome =
   { readonly ok: true; readonly health: HealthResponse } | { readonly ok: false };
 
-/**
- * Fetches the operational counters.
- *
- * Its failure is deliberately shapeless. Health decorates a technician panel with a
- * fleet-wide unknown-field count; a console that could not read it still knows everything
- * about the robot it is showing, so degrading to "not reported" is right and blocking the
- * page on it would be a diagnostics surface taking the operator's view down with it.
- *
- * @param fetchLike - The request port; production passes `fetch`, tests pass their own.
- * @param url - Same-origin health endpoint built from tenant configuration by the caller.
- * @returns Never rejects. Any request, status, JSON, or contract failure becomes the
- *   same advisory absence because none may take the robot page down.
- */
 export async function fetchHealth(fetchLike: FetchLike, url: string): Promise<HealthOutcome> {
-  try {
-    const response = await fetchLike(url);
-    if (!response.ok) return { ok: false };
-    const decoded = parseHealthResponse(await response.json());
-    return decoded.ok ? { ok: true, health: decoded.value } : { ok: false };
-  } catch {
-    return { ok: false };
-  }
+  const outcome = await fetchDecoded(fetchLike, url, parseHealthResponse);
+  return outcome.ok ? { ok: true, health: outcome.value } : { ok: false };
 }
 
-/** Why a battery-history request produced no usable history. */
-export type BatteryHistoryFailure =
-  | { readonly kind: "unreachable"; readonly status: number | null }
-  | { readonly kind: "contract"; readonly issues: readonly ContractIssue[] };
-
-/** Preserves whether retry can change an unavailable battery-history result. */
 export type BatteryHistoryOutcome =
   | { readonly ok: true; readonly history: RobotBatteryHistory }
-  | { readonly ok: false; readonly failure: BatteryHistoryFailure };
+  | { readonly ok: false; readonly failure: RequestFailure };
 
-/**
- * Fetches and decodes one robot's battery history (ADR 33).
- *
- * The same recoverable/terminal split as every fetch here: a refused connection
- * or non-2xx status is `unreachable` and worth an inline retry, a body the
- * contract's cross-field invariants refuse is `contract` and is not — the
- * server sent bytes this console cannot trust, and retrying returns the same
- * bytes. A 404 lands in `unreachable` deliberately: the page only asks about a
- * robot it is already showing, so an unregistered id here means the console and
- * server disagree about the roster mid-navigation, which a retry can resolve
- * and a terminal state cannot.
- *
- * @param fetchLike - The request port.
- * @param url - `/api/robots/:id/history`, with the id already percent-encoded.
- * @returns Never rejects. `unreachable` is worth an inline retry that degrades this
- *   section alone and never the page; `contract` is terminal and must not offer one.
- */
 export async function fetchBatteryHistory(
   fetchLike: FetchLike,
   url: string,
 ): Promise<BatteryHistoryOutcome> {
-  let body: unknown;
-  try {
-    const response = await fetchLike(url);
-    if (!response.ok) {
-      return { ok: false, failure: { kind: "unreachable", status: response.status } };
-    }
-    body = await response.json();
-  } catch {
-    return { ok: false, failure: { kind: "unreachable", status: null } };
-  }
-
-  const decoded = parseRobotBatteryHistory(body);
-  if (decoded.ok) return { ok: true, history: decoded.value };
-  return { ok: false, failure: { kind: "contract", issues: decoded.issues } };
+  const outcome = await fetchDecoded(fetchLike, url, parseRobotBatteryHistory);
+  return outcome.ok ? { ok: true, history: outcome.value } : outcome;
 }
