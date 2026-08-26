@@ -133,6 +133,11 @@ export async function startServer(options: StartServerOptions): Promise<RunningS
         deltas.remove(client);
       },
     },
+    // A stream that fails is a client-triggered event on a healthy server, so it is
+    // counted where the other connection-integrity events are read, not thrown.
+    onStreamError: (error) => {
+      logger.log("warn", "stream.socket_error", { name: error.name, message: error.message });
+    },
     app: createHttpApp({
       allowedOrigins: endpoints.allowedOrigins,
       readFleet: () =>
