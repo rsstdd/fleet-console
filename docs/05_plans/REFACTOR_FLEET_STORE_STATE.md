@@ -128,10 +128,10 @@ and wakes every subscriber once per attempt while the rendered state is identica
       in `REFACTOR_WEB_REACT_QUALITY.md` (9.76 Hz, delta-to-paint p95 50.9 ms) was taken on
       different hardware and is not comparable to a number from this one:
 
-      | Store        | Frames  | Rate    | delta-to-paint p50 | p95      |
-          | ------------ | ------- | ------- | ------------------ | -------- |
-          | Before       | 120/120 | 9.65 Hz | 137.5 ms           | 179.5 ms |
-          | After        | 120/120 | 9.67 Hz | 129.6 ms           | 165.9 ms |
+| Store  | Frames  | Rate    | delta-to-paint p50 | p95      |
+| ------ | ------- | ------- | ------------------ | -------- |
+| Before | 120/120 | 9.65 Hz | 137.5 ms           | 179.5 ms |
+| After  | 120/120 | 9.67 Hz | 129.6 ms           | 165.9 ms |
 
 - [ ] Unverified, recorded honestly: the `smoke-webkit` project cannot launch on this WSL
       host (missing system libraries), so browser evidence covers chromium and firefox only.

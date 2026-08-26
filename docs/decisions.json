@@ -335,7 +335,7 @@
     "compatibility": ["CLAUDE.md"],
     "historical": [
       "docs/ARCHITECTURE_AUDIT.md",
-      "packages/FIXME.md",
+      "docs/04_archive/FIXME.md",
       "docs/04_archive/WEB_UI_PLAN.md",
       "docs/04_archive/WEB_ALIGNMENT_PLAN.md",
       "docs/04_archive/MAP_VIEW_PLAN.md"
@@ -346,7 +346,7 @@
       "packages/contracts/TODO.md",
       "packages/server/TODO.md",
       "packages/simulator/TODO.md",
-      "packages/web/src/hooks/TODO.md",
+      "docs/04_archive/TODO.md",
       "packages/web/src/features/fleet/TODO.md",
       "packages/web/src/features/robot/TODO.md"
     ]
