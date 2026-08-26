@@ -5,7 +5,10 @@ import type { Robot } from "@/types/robot";
 import {
   ALL_FILTER_VALUE,
   EMPTY_FILTERS,
+  filtersFromSearchParams,
   matchesFilters,
+  searchParamsFromFilters,
+  selectApplicableFilters,
   toFreshnessFilter,
   toIdFilter,
 } from "./fleetFilterModel";
@@ -92,5 +95,71 @@ describe("ALL_FILTER_VALUE", () => {
   it("is not a legal canonical identifier, so no real site or vendor can collide with it", () => {
     // The contract's identifier pattern: alphanumeric first character.
     expect(ALL_FILTER_VALUE).not.toMatch(/^[A-Za-z0-9]/);
+  });
+});
+
+describe("filtersFromSearchParams", () => {
+  it("reads every dimension the URL states", () => {
+    const filters = filtersFromSearchParams(
+      new URLSearchParams("site=zone-a&vendor=A&status=stale&q=R-11"),
+    );
+
+    expect(filters).toStrictEqual({
+      site: "zone-a",
+      vendor: "A",
+      freshness: "stale",
+      search: "R-11",
+    });
+  });
+
+  it("reads an absent URL as the unfiltered view", () => {
+    expect(filtersFromSearchParams(new URLSearchParams())).toStrictEqual(EMPTY_FILTERS);
+  });
+
+  it("drops an identifier the contract's own schema rejects", () => {
+    // A URL is untrusted input and is decoded like any other boundary payload (P2).
+    // `_all_` starts with an underscore, which the identifier pattern forbids — the same
+    // property `ALL_FILTER_VALUE` relies on.
+    const filters = filtersFromSearchParams(new URLSearchParams("site=__all__&vendor=%20"));
+
+    expect(filters.site).toBeNull();
+    expect(filters.vendor).toBeNull();
+  });
+
+  it("drops a reporting status outside the ADR 3 vocabulary", () => {
+    expect(filtersFromSearchParams(new URLSearchParams("status=melting")).freshness).toBeNull();
+  });
+});
+
+describe("searchParamsFromFilters", () => {
+  it("omits every dimension that filters nothing, so an unfiltered view has a clean URL", () => {
+    expect(searchParamsFromFilters(EMPTY_FILTERS).toString()).toBe("");
+  });
+
+  it("round-trips a filtered view", () => {
+    const filters = { site: "zone-a", vendor: "C", freshness: "live", search: "R-2" } as const;
+
+    expect(filtersFromSearchParams(searchParamsFromFilters(filters))).toStrictEqual(filters);
+  });
+});
+
+describe("selectApplicableFilters", () => {
+  it("keeps a site and vendor the fleet offers", () => {
+    const requested = { ...EMPTY_FILTERS, site: "zone-a", vendor: "A" };
+
+    expect(selectApplicableFilters(requested, ["zone-a"], ["A"])).toStrictEqual(requested);
+  });
+
+  it("drops a site the fleet does not offer rather than emptying the table", () => {
+    // The URL keeps it, so a site that appears in a later snapshot re-engages the filter.
+    const requested = { ...EMPTY_FILTERS, site: "zone-x" };
+
+    expect(selectApplicableFilters(requested, ["zone-a"], []).site).toBeNull();
+  });
+
+  it("leaves reporting status alone, whose vocabulary is closed and always offered", () => {
+    const requested = { ...EMPTY_FILTERS, freshness: "unknown" } as const;
+
+    expect(selectApplicableFilters(requested, [], []).freshness).toBe("unknown");
   });
 });
