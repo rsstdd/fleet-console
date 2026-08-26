@@ -1,3 +1,7 @@
+import { randomBytes } from "node:crypto";
+import { once } from "node:events";
+import { connect, type Socket } from "node:net";
+
 import { WebSocket } from "ws";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -42,6 +46,44 @@ import { startListener, type RunningListener } from "./listener.ts";
  * a test that reads the assigned port immediately has no such problem, and hard-coding a
  * port here would make the suite fail on a machine that happens to be using it.
  */
+/**
+ * Completes a handshake without `ws`, so the caller owns the raw socket and can write
+ * bytes the client library would never produce.
+ */
+async function openRawStream(port: number): Promise<Socket> {
+  const socket = connect(port, "127.0.0.1");
+  await once(socket, "connect");
+  socket.write(
+    [
+      "GET /ws HTTP/1.1",
+      `Host: 127.0.0.1:${String(port)}`,
+      "Upgrade: websocket",
+      "Connection: Upgrade",
+      `Sec-WebSocket-Key: ${randomBytes(16).toString("base64")}`,
+      "Sec-WebSocket-Version: 13",
+      "",
+      "",
+    ].join("\r\n"),
+  );
+  const accepted = await new Promise<Buffer>((resolve) => {
+    socket.once("data", (chunk: Buffer) => {
+      resolve(chunk);
+    });
+  });
+  const status = accepted.toString("latin1").split("\r\n")[0] ?? "";
+  if (!status.startsWith("HTTP/1.1 101")) {
+    throw new Error(`upgrade refused: ${status}`);
+  }
+  return socket;
+}
+
+/**
+ * A client-masked text frame with RSV1 set and no extension negotiated, which `ws` refuses
+ * in its receiver — the cheapest byte sequence that makes the server-side socket emit
+ * `error` rather than `message`.
+ */
+const RSV1_SET_FRAME = Buffer.from([0xc1, 0x80, 0x00, 0x00, 0x00, 0x00]);
+
 describe("startListener", () => {
   const readFleet = (): ReturnType<typeof encodeFleetSnapshot> =>
     encodeFleetSnapshot({
@@ -120,6 +162,22 @@ describe("startListener", () => {
     });
 
     expect(outcome).toBe("refused");
+    expect(running.streamClientCount).toBe(0);
+  });
+
+  it("survives a frame it cannot parse, rather than taking the process down with it", async () => {
+    // `ws` emits `error` on the server-side socket for an unparseable frame. An `error`
+    // event with no listener throws out of the EventEmitter and terminates the process,
+    // so every connected console loses a server that is otherwise healthy.
+    const running = await start();
+    const socket = await openRawStream(running.port);
+    expect(running.streamClientCount).toBe(1);
+
+    socket.write(RSV1_SET_FRAME);
+    await once(socket, "close");
+
+    const response = await fetch(`http://127.0.0.1:${String(running.port)}/api/nothing`);
+    expect(response.status).toBe(404);
     expect(running.streamClientCount).toBe(0);
   });
 

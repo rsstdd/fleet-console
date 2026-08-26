@@ -54,6 +54,14 @@ export interface ListenerOptions {
     readonly open: (client: FanOutClient) => void;
     readonly close: (client: FanOutClient) => void;
   };
+  /**
+   * Reports a stream that failed rather than closed.
+   *
+   * Optional because the listener must survive the failure whether or not anyone is
+   * listening — see the `error` registrations in `startListener`. Absent in tests that
+   * only exercise HTTP; `runServer` supplies the process log sink.
+   */
+  readonly onStreamError?: (error: Error) => void;
 }
 
 /** A bound listener, and the only supported way to unbind it. */
@@ -83,6 +91,11 @@ export interface RunningListener {
  */
 export async function startListener(options: ListenerOptions): Promise<RunningListener> {
   const streams = new WebSocketServer({ noServer: true });
+  // The same unhandled-`error` throw the per-socket registration below prevents, for
+  // failures the server raises before any socket exists to carry them.
+  streams.on("error", (error: Error) => {
+    options.onStreamError?.(error);
+  });
 
   const server = await new Promise<ReturnType<typeof serve>>((resolve) => {
     const started = serve(
@@ -114,6 +127,15 @@ export async function startListener(options: ListenerOptions): Promise<RunningLi
         },
       };
       options.streams?.open(client);
+      // `ws` emits `error` on this socket for any frame its receiver refuses — a bad
+      // opcode, a set RSV bit, an oversized payload — and Node throws an `error` event
+      // that has no listener out of the EventEmitter, which ends the process. One
+      // unparseable frame from one client would therefore blind every connected console,
+      // so this registration is load-bearing even when nothing reports it. `ws` follows
+      // the error with `close`, which is where fan-out removal stays owned.
+      socketClient.on("error", (error: Error) => {
+        options.onStreamError?.(error);
+      });
       socketClient.on("close", () => {
         options.streams?.close(client);
       });
