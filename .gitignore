@@ -50,6 +50,7 @@ yarn-error.log*
 *.pid.lock
 
 # Editor & IDE
+.claude/
 .idea/
 .vscode/*
 !.vscode/extensions.json
