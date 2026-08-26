@@ -115,11 +115,7 @@ export function useFleetTransport(
           if (next.phase === "connecting" || next.phase === "reconnecting") {
             store.snapshotStart();
           }
-          if (
-            next.phase === "failed" &&
-            next.terminalCause !== null &&
-            next.terminalCause !== "contract"
-          ) {
+          if (next.phase === "failed" && next.terminalCause !== "contract") {
             store.recoverableFailure({ cause: next.terminalCause }, () => {
               created.connect();
             });

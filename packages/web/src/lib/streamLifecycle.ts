@@ -2,27 +2,9 @@ import type { StreamConnectionState } from "@/context/connectionContext";
 
 /**
  * The stream's complete state, its retry schedule, and the vocabulary the console
- * publishes (ADR 31, register **D22**).
- *
- * Principle 5 requires every asynchronous surface to define its states before it is
- * implemented, and the transport has more states than the banner shows: it can be starting
- * for the first time, recovering after a success, and terminally stopped for three
- * distinct reasons. Those are different operator situations, and a client that cannot
- * tell them apart will say the wrong one.
- *
- * The published vocabulary is the four values ADR 31 fixed: `connecting` is distinct from
- * `reconnecting` because a console that has never received anything and one that is
- * recovering earned different copy, and *why* a console stopped travels as
- * `terminalCause` metadata rather than as more phases — the three causes share every
- * transition and differ only in what the banner should say.
- *
- * A reducer plus pure schedule functions rather than a class: the whole point is that the
- * transitions and delays are inspectable without a socket or a real timer, and pure
- * functions are what make the state matrix and the jitter bounds tests rather than
- * walkthroughs. `fleetTransport` owns the timers and calls these.
+ * publishes (ADR 31, register **D22**). `fleetTransport` owns the timers and calls these.
  */
 
-/** Every state the transport can actually be in. */
 export type StreamPhase =
   /** Nothing has been attempted; the console has not asked for a connection yet. */
   | "idle"
@@ -49,18 +31,30 @@ export type StreamTerminalCause =
   /** The snapshot and the stream came from different server runtimes (ADR 31). */
   | "session-mismatch";
 
-/** The transport's state, including what the banner needs to show its retry control. */
-export interface StreamState {
-  readonly phase: StreamPhase;
+interface StreamStateFields {
   /** Attempts since the last completed join; zero only after a snapshot reconciles. */
   readonly attempt: number;
-  /** When the stream last opened, so "last event" copy has something true to say. */
+  /** Null until the first open: the absence separates a first connect from a recovery. */
   readonly lastConnectedAt: number | null;
-  /** Why the transport gave up; null in every phase except `failed`. */
-  readonly terminalCause: StreamTerminalCause | null;
 }
 
-/** What can happen to a stream. */
+/**
+ * The transport's state, including what the banner needs to show its retry control.
+ *
+ * A cause exists exactly while the phase is `failed`. ADR 31 keeps the three causes as
+ * metadata rather than as more phases; pairing them here costs no phase and spares every
+ * consumer a null check the phase has already answered.
+ */
+export type StreamState =
+  | (StreamStateFields & {
+      readonly phase: Exclude<StreamPhase, "failed">;
+      readonly terminalCause: null;
+    })
+  | (StreamStateFields & {
+      readonly phase: "failed";
+      readonly terminalCause: StreamTerminalCause;
+    });
+
 export type StreamEvent =
   /** An attempt starts: the first, a scheduled retry, or the banner's manual retry. */
   | { readonly kind: "connect" }
@@ -73,10 +67,11 @@ export type StreamEvent =
   | { readonly kind: "joined" }
   /** The socket closed or errored; the client intends to try again. */
   | { readonly kind: "close" }
+  /** The console ended the session itself. Nothing is pending and nothing failed. */
+  | { readonly kind: "disconnect" }
   /** The client has stopped trying, for the stated cause. Only manual retry leaves it. */
   | { readonly kind: "give-up"; readonly cause: StreamTerminalCause };
 
-/** The state before anything has been attempted. */
 export const INITIAL_STREAM_STATE: StreamState = {
   phase: "idle",
   attempt: 0,
@@ -85,68 +80,76 @@ export const INITIAL_STREAM_STATE: StreamState = {
 };
 
 /**
- * Applies one event.
- *
- * `close` from `connected` goes to `reconnecting` rather than `disconnected`-shaped
- * silence, because the client does intend to try again and the banner's retry copy is
- * only honest while that is true. `close` before the first success stays in `connecting`:
- * a failed first attempt is not a reconnection, and telling an operator the connection was
- * lost when it never existed sends them looking for a fault that is not there.
- *
- * @param state - The current state; never mutated.
- * @param event - What happened. `joined`, not `open`, resets the attempt count.
- * @returns The next state, or `state` itself when the event changes nothing — a
- *   `connect` while already connected. `fleetTransport` compares by identity to decide
- *   whether a transition happened, so returning the same reference suppresses a
- *   spurious report rather than merely saving an allocation.
+ * @returns The next state, or `state` itself whenever the event leaves every field equal.
+ *   `fleetTransport` compares by identity to decide whether a transition happened, so
+ *   returning the same reference suppresses a spurious report rather than merely saving an
+ *   allocation.
  */
 export function nextStreamState(state: StreamState, event: StreamEvent): StreamState {
+  const next = reduceStreamState(state, event);
+  return isSameStreamState(state, next) ? state : next;
+}
+
+function reduceStreamState(state: StreamState, event: StreamEvent): StreamState {
   switch (event.kind) {
     case "connect":
-      // From `failed` this is the manual retry the banner's control performs; from `idle`
-      // it is the first attempt; from `connecting`/`reconnecting` it is a scheduled retry
-      // firing. All are an attempt, so all count as one — and starting one clears the
-      // terminal cause, because "why we stopped" is false the moment we are trying again.
-      return state.phase === "connected"
-        ? state
-        : {
-            ...state,
-            phase: state.lastConnectedAt === null ? "connecting" : "reconnecting",
-            attempt: state.attempt + 1,
-            terminalCause: null,
-          };
+      if (state.phase === "connected") return state;
+      // Starting an attempt clears the cause: "why we stopped" is false the moment we are
+      // trying again.
+      return {
+        ...state,
+        phase: pendingAttemptPhase(state),
+        attempt: state.attempt + 1,
+        terminalCause: null,
+      };
 
     case "open":
-      // The attempt count survives: it resets on `joined`, not here, so a socket that
-      // opens onto a failing snapshot fetch keeps counting (ADR 31).
-      return { ...state, phase: "connected", lastConnectedAt: event.at };
+      // No `attempt: 0` here: it resets on `joined`, so a socket that opens onto a failing
+      // snapshot fetch keeps counting (ADR 31).
+      return { ...state, phase: "connected", lastConnectedAt: event.at, terminalCause: null };
 
     case "joined":
       return { ...state, attempt: 0 };
 
     case "close":
-      return {
-        ...state,
-        // Never connected means never reconnecting, however many attempts have failed.
-        phase: state.lastConnectedAt === null ? "connecting" : "reconnecting",
-      };
+      return { ...state, phase: pendingAttemptPhase(state), terminalCause: null };
+
+    case "disconnect":
+      return { ...state, phase: "idle", attempt: 0, terminalCause: null };
 
     case "give-up":
       return { ...state, phase: "failed", terminalCause: event.cause };
   }
 }
 
+/** Never connected means never reconnecting, however many attempts have failed. */
+function pendingAttemptPhase(state: StreamState): "connecting" | "reconnecting" {
+  return state.lastConnectedAt === null ? "connecting" : "reconnecting";
+}
+
+/**
+ * `satisfies` is the enforcement: a field added to `StreamState` fails to compile until it
+ * appears here, so no change can quietly leave a transition unreported.
+ */
+const STREAM_STATE_FIELDS = {
+  phase: (state: StreamState) => state.phase,
+  attempt: (state: StreamState) => state.attempt,
+  lastConnectedAt: (state: StreamState) => state.lastConnectedAt,
+  terminalCause: (state: StreamState) => state.terminalCause,
+} satisfies Record<keyof StreamState, (state: StreamState) => unknown>;
+
+function isSameStreamState(state: StreamState, next: StreamState): boolean {
+  return Object.values(STREAM_STATE_FIELDS).every((read) => read(state) === read(next));
+}
+
 /**
  * Projects the transport's state onto the four values the console publishes (ADR 23 as
  * amended by ADR 31).
  *
- * Everything that is not `connected` collapses to a state that suppresses per-robot
- * freshness labels, which is the property ADR 3 depends on: while the stream is not
- * delivering, no per-robot label can be trusted and the banner carries the
- * connection-level state instead. Getting the projection wrong in the permissive
- * direction is what makes a console assert currency it cannot support, so `idle` maps to
- * `disconnected` rather than to anything optimistic — the same reasoning that made
- * `disconnected` the context default.
+ * Everything that is not `connected` suppresses per-robot freshness labels, which is the
+ * property ADR 3 depends on. Being wrong in the permissive direction is what makes a
+ * console assert currency it cannot support, so `idle` maps to `disconnected` rather than
+ * to anything optimistic.
  */
 export function selectPublishedConnectionState(state: StreamState): StreamConnectionState {
   switch (state.phase) {
@@ -163,7 +166,7 @@ export function selectPublishedConnectionState(state: StreamState): StreamConnec
 }
 
 /**
- * Attempts per operator-initiated initial probe cycle before the transport gives up
+ * Attempts per operator-initiated initial probe cycle before the transport stops retrying
  * (ADR 31). Applies only while no socket has ever opened; manual retry grants a new
  * cycle, and after one successful open automatic retries are uncapped.
  *
@@ -179,29 +182,28 @@ export const RETRY_DELAY_CEILING_MS = 30_000;
 export const RETRY_BASE_DELAY_MS = 1_000;
 
 /**
- * The delay before the next attempt, after `failedAttempts` consecutive failures:
- * full jitter over an exponential cap, `0 ≤ delay < min(30s, 1s × 2^(failedAttempts−1))`
- * (ADR 31).
+ * Past this exponent the cap exceeds the ceiling forever, so clamping keeps the arithmetic
+ * exact instead of drifting through Infinity on a long outage.
+ */
+const RETRY_EXPONENT_LIMIT = 15;
+
+/**
+ * The delay before the next attempt, after `consecutiveFailedAttempts` failures: full
+ * jitter over an exponential cap,
+ * `0 ≤ delay < min(30s, 1s × 2^(consecutiveFailedAttempts−1))` (ADR 31).
  *
- * Full jitter rather than a fixed schedule because every console reconnecting after a
- * server restart reconnects at the same moment, and jitter is what keeps that from being
- * one synchronized stampede. The ceiling keeps recovery time bounded for an operator
- * watching the banner; the absence of an attempt cap is deliberate and separate — see
- * `INITIAL_PROBE_ATTEMPT_LIMIT` for the one bounded case.
- *
- * `random` is injected so the bounds are a test rather than a distribution argument.
- *
- * @param failedAttempts - Consecutive failures since the last completed join. Anything
+ * @param consecutiveFailedAttempts - Failures since the last completed join. Anything
  *   below 1 is treated as 1, so the first retry draws from the full base window.
  * @param random - Uniform source over [0, 1).
- * @returns Milliseconds to wait, `0 ≤ delay < min(30s, 1s × 2^(failedAttempts−1))`. It
- *   genuinely reaches zero; a floor would re-synchronize every console that lost the
- *   same server at the same moment, which is the stampede jitter exists to break.
+ * @returns Milliseconds to wait. It genuinely reaches zero; a floor would re-synchronize
+ *   every console that lost the same server at the same moment, which is the stampede
+ *   jitter exists to break.
  */
-export function computeRetryDelayMs(failedAttempts: number, random: () => number): number {
-  const exponent = Math.max(failedAttempts, 1) - 1;
-  // Beyond 2^15 the cap exceeds the ceiling forever; clamping the exponent keeps the
-  // arithmetic exact instead of drifting through Infinity on a long outage.
-  const cap = Math.min(RETRY_DELAY_CEILING_MS, RETRY_BASE_DELAY_MS * 2 ** Math.min(exponent, 15));
-  return random() * cap;
+export function computeRetryDelayMs(
+  consecutiveFailedAttempts: number,
+  random: () => number,
+): number {
+  const exponent = Math.min(Math.max(consecutiveFailedAttempts, 1) - 1, RETRY_EXPONENT_LIMIT);
+  const delayCapMs = Math.min(RETRY_DELAY_CEILING_MS, RETRY_BASE_DELAY_MS * 2 ** exponent);
+  return random() * delayCapMs;
 }
