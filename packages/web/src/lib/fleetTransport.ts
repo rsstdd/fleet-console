@@ -181,6 +181,10 @@ export function createFleetTransport(options: FleetTransportOptions): FleetTrans
   }
 
   function scheduleRetry(): void {
+    // Defensive: no reachable path schedules over a live handle today, because every
+    // caller supersedes first. Clearing keeps that a property of this function rather
+    // than of its callers, so a leaked timer cannot outlive the attempt that set it.
+    cancelPendingRetry();
     pendingRetryHandle = timer.set(
       () => {
         pendingRetryHandle = null;
@@ -286,7 +290,7 @@ export function createFleetTransport(options: FleetTransportOptions): FleetTrans
         bufferUntilSnapshot(attempt, batch);
         return;
       case "joined":
-        routeBatchByReconciliation(join.epoch, batch);
+        routeBatchByReconciliation(attempt, join.epoch, batch);
         return;
     }
   }
@@ -301,9 +305,21 @@ export function createFleetTransport(options: FleetTransportOptions): FleetTrans
     }
   }
 
-  function routeBatchByReconciliation(epoch: ReconciliationEpoch, batch: TelemetryBatch): void {
+  function routeBatchByReconciliation(
+    attempt: Attempt,
+    epoch: ReconciliationEpoch,
+    batch: TelemetryBatch,
+  ): void {
     switch (reconcileDeltaWithSnapshot(epoch, batch)) {
       case "apply":
+        // The epoch tracks what was applied, not what the snapshot covered, so a frame
+        // behind the last applied one is refused as covered. Left pinned to the snapshot,
+        // every frame above it applies in arrival order and correctness rests on the
+        // socket delivering in order rather than on anything this module checks.
+        attempt.join = {
+          status: "joined",
+          epoch: { serverSessionId: epoch.serverSessionId, flushSequence: batch.flushSequence },
+        };
         handlers.onBatch(batch);
         return;
       case "covered":
