@@ -3,72 +3,19 @@ import { Link, useParams } from "react-router";
 import { Alert, Box, Button, Typography } from "@mui/material";
 import { identifierSchema } from "@fleet/contracts";
 
-import { DataPlate } from "@/components/dataPlate";
 import { EmptyState } from "@/components/emptyState";
 import { type Persona } from "@/components/personaToggle";
 
-import type { Robot, RobotDetail } from "@/types/robot";
+import type { Robot } from "@/types/robot";
 import { useRobotDetail, type RobotDetailState } from "@/hooks/useRobotDetail";
 import { useFleetRobot } from "@/hooks/useFleetRobots";
 import { reconcileDetailWithRow } from "@/utils/fromEnvelope";
 
 import { TENANT } from "@/config/tenant";
 
-import { BatteryHistorySection } from "./batteryHistorySection";
-import { CapabilitiesSection } from "./capabilitiesSection";
-import { BackToFleet, DetailHeader } from "./detailHeader";
+import { DetailBody, type DetailBodySource } from "./detailBody";
+import { BackToFleet } from "./detailHeader";
 import { DetailSkeleton } from "./detailSkeleton";
-import { DiagnosticsSection } from "./diagnosticsSection";
-import { FleetRowBody } from "./fleetRowBody";
-import { RawPayloadSection } from "./rawPayloadSection";
-import { SummarySection } from "./summarySection";
-
-import { formatTimeUtc } from "@/utils/time";
-
-/**
- * The footer's source line: which adapter produced what is on screen, and
- * when. A robot that has never reported has no source to name, and says so.
- */
-function describeSource(robot: RobotDetail): string {
-  const { diagnostics } = robot;
-  if (diagnostics === null) {
-    return "Registered in the fleet manifest · no telemetry received";
-  }
-  const sequence = diagnostics.sequence === null ? "—" : String(diagnostics.sequence);
-  return `Adapter ${diagnostics.adapterId} ${diagnostics.adapterVersion} · sequence ${sequence} · received ${formatTimeUtc(diagnostics.receivedAt)}`;
-}
-
-/** The full detail body for a robot that loaded. */
-function RobotDetailBody({ robot }: { readonly robot: RobotDetail }): ReactNode {
-  // Persona is local view state owned by this feature: not written to the
-  // store, not derived from telemetry, not shared with the shell (spec §8,
-  // Principle 11). Technician sections are additive and appear after the
-  // toggle, so switching needs no focus management (component spec 08).
-  const [persona, setPersona] = useState<Persona>("operator");
-
-  return (
-    <>
-      <DetailHeader
-        robot={robot}
-        receivedAt={robot.diagnostics?.receivedAt ?? null}
-        persona={persona}
-        onPersonaChange={setPersona}
-      />
-      <SummarySection robot={robot} />
-      <BatteryHistorySection robotId={robot.id} />
-      <CapabilitiesSection robot={robot} />
-      {persona === "technician" ? (
-        <>
-          <DiagnosticsSection robot={robot} />
-          <RawPayloadSection robot={robot} />
-        </>
-      ) : null}
-      <Box sx={{ mt: 4 }}>
-        <DataPlate as="footer">{describeSource(robot)}</DataPlate>
-      </Box>
-    </>
-  );
-}
 
 /**
  * Robot detail — page spec 03. Renders one machine's state, its declared
@@ -111,6 +58,7 @@ function ResolvedRobotDetail({ id }: { readonly id: string }): ReactNode {
   // not (ADR 4, ADR 21).
   const fetched: RobotDetailState = useRobotDetail(id, {
     apiBaseUrl: TENANT.endpoints.apiBaseUrl,
+    requestTimeoutMs: TENANT.requestPolicy.timeoutMs,
   });
   /*
    * The live half: this robot's fleet row, updated by stream deltas. Identity-
@@ -120,8 +68,43 @@ function ResolvedRobotDetail({ id }: { readonly id: string }): ReactNode {
    */
   const live = useFleetRobot(id);
   const state = reconcileRobotDetailState(fetched, live);
+  /*
+   * Persona is local view state owned by this feature: not written to the store, not
+   * derived from telemetry, not shared with the shell (spec §8, Principle 11). It lives
+   * here rather than in the body because the body is replaced when the detail request
+   * fails or recovers, and an operator's choice must outlive that (component spec 08).
+   */
+  const [persona, setPersona] = useState<Persona>("operator");
 
-  return renderState(state, live);
+  return renderState(state, live, { persona, onPersonaChange: setPersona });
+}
+
+/** The persona the rendered body reads, owned one level above every branch that shows one. */
+interface PersonaControls {
+  readonly persona: Persona;
+  readonly onPersonaChange: (next: Persona) => void;
+}
+
+/**
+ * Renders the notice and the body in one shape for every state that has a body.
+ *
+ * The slots are positional on purpose: a `null` notice still occupies its place, so the
+ * body keeps its position and its type across a failure or a recovery and React reconciles
+ * it rather than remounting — which is what stops the battery history refetching.
+ */
+function renderDetailFrame(
+  notice: ReactNode,
+  source: DetailBodySource | null,
+  { persona, onPersonaChange }: PersonaControls,
+): ReactNode {
+  return (
+    <>
+      {notice}
+      {source === null ? null : (
+        <DetailBody source={source} persona={persona} onPersonaChange={onPersonaChange} />
+      )}
+    </>
+  );
 }
 
 function reconcileRobotDetailState(
@@ -140,13 +123,17 @@ function reconcileRobotDetailState(
  * so a new state cannot be added without the compiler naming this file
  * (Principle 5, Principle 11).
  */
-function renderState(state: RobotDetailState, live: Robot | undefined): ReactNode {
+function renderState(
+  state: RobotDetailState,
+  live: Robot | undefined,
+  controls: PersonaControls,
+): ReactNode {
   switch (state.status) {
     case "loading":
       return <DetailSkeleton />;
 
     case "ready":
-      return <RobotDetailBody robot={state.robot} />;
+      return renderDetailFrame(null, { kind: "detail", robot: state.robot }, controls);
 
     case "not-found":
       // Not an error banner: an unknown id is a navigation outcome, not a
@@ -162,38 +149,40 @@ function renderState(state: RobotDetailState, live: Robot | undefined): ReactNod
 
     case "error":
       if (state.recoverable) {
-        return (
-          <>
-            <Box sx={{ mb: 2 }}>
-              <Alert
-                severity="warning"
-                action={
-                  <Button
-                    color="inherit"
-                    size="small"
-                    // Named beyond its visible label because the battery-history section
-                    // can offer its own Retry at the same time (WCAG 2.5.3 keeps "Retry").
-                    aria-label="Retry loading robot detail"
-                    onClick={state.retry}
-                  >
-                    Retry
-                  </Button>
-                }
-              >
-                {state.message}
-              </Alert>
-              {/*
+        const notice = (
+          <Box sx={{ mb: 2 }}>
+            <Alert
+              severity="warning"
+              action={
+                <Button
+                  color="inherit"
+                  size="small"
+                  // Named beyond its visible label because the battery-history section
+                  // can offer its own Retry at the same time (WCAG 2.5.3 keeps "Retry").
+                  aria-label="Retry loading robot detail"
+                  onClick={state.retry}
+                >
+                  Retry
+                </Button>
+              }
+            >
+              {state.message}
+            </Alert>
+            {/*
                 Beside the alert, not inside it: `role="alert"` is assertive, so progress
                 written into it re-announces the failure. The control stays operable —
                 disabling it on activation would move focus to the body.
               */}
-              <Typography role="status" variant="body2" sx={{ color: "text.secondary" }}>
-                {state.retrying ? "Retrying…" : null}
-              </Typography>
-            </Box>
-            {/* The fetch is gone; the stream is not. Whatever the fleet row still knows stays. */}
-            {live === undefined ? null : <FleetRowBody row={live} />}
-          </>
+            <Typography role="status" variant="body2" sx={{ color: "text.secondary" }}>
+              {state.retrying ? "Retrying…" : null}
+            </Typography>
+          </Box>
+        );
+        // The fetch is gone; the stream is not. Whatever the fleet row still knows stays.
+        return renderDetailFrame(
+          notice,
+          live === undefined ? null : { kind: "row", robot: live },
+          controls,
         );
       }
       return (
