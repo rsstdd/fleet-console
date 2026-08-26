@@ -492,6 +492,35 @@ describe("createFleetTransport", () => {
     expect(testHarness.clock.delays()).toStrictEqual([1000]);
   });
 
+  it("refuses a delta older than the one it last applied, not merely older than the snapshot", async () => {
+    // The reconciliation epoch has to advance with what was applied. Pinned to the
+    // snapshot, every frame above it applies in arrival order and ordering rests on the
+    // socket delivering in order — true of WebSocket, but a dependency this module never
+    // states and therefore cannot rely on.
+    const harness = createTransportHarness({ fetchLike: createServingFetch(buildSnapshot(0)) });
+    harness.transport.connect();
+    harness.last()?.open();
+    await flush();
+
+    harness.last()?.message(JSON.stringify(buildBatch(5)));
+    harness.last()?.message(JSON.stringify(buildBatch(3)));
+
+    expect(harness.batches.map((batch) => batch.flushSequence)).toEqual([5]);
+  });
+
+  it("keeps applying frames that advance past the last one it accepted", async () => {
+    const harness = createTransportHarness({ fetchLike: createServingFetch(buildSnapshot(0)) });
+    harness.transport.connect();
+    harness.last()?.open();
+    await flush();
+
+    for (const sequence of [1, 2, 3]) {
+      harness.last()?.message(JSON.stringify(buildBatch(sequence)));
+    }
+
+    expect(harness.batches.map((batch) => batch.flushSequence)).toEqual([1, 2, 3]);
+  });
+
   it("never holds two sockets, however quickly retry is pressed", () => {
     const testHarness = createTransportHarness({ fetchLike: createServingFetch(buildSnapshot(0)) });
     testHarness.transport.connect();
