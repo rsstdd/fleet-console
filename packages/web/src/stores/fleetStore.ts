@@ -124,7 +124,7 @@ export function createFleetStore(
 
     if (scheduled) return;
 
-    scheduled = true
+    scheduled = true;
     scheduleNotification(() => {
       scheduled = false;
       for (const listener of listeners) listener();

@@ -117,7 +117,7 @@ and wakes every subscriber once per attempt while the rendered state is identica
       skill's five justifications. Duplicated prose went first: the `data` absence note was
       identical on both error members and now sits once on the union, and
       `FleetRecoverableFailure.cause` repeated its parent. Two caller-visible guarantees were
-      *restored* rather than cut, because a signature cannot carry them — `applyBatch` is
+      _restored_ rather than cut, because a signature cannot carry them — `applyBatch` is
       ignored before a snapshot, and `getState` returns the same reference until something
       changes, which is the guarantee `useSyncExternalStore` depends on. A third was found
       over-cut on review and restored: the pass deleted `FleetData.robots`'s order comment
@@ -129,9 +129,9 @@ and wakes every subscriber once per attempt while the rendered state is identica
       different hardware and is not comparable to a number from this one:
 
       | Store        | Frames  | Rate    | delta-to-paint p50 | p95      |
-      | ------------ | ------- | ------- | ------------------ | -------- |
-      | Before       | 120/120 | 9.65 Hz | 137.5 ms           | 179.5 ms |
-      | After        | 120/120 | 9.67 Hz | 129.6 ms           | 165.9 ms |
+          | ------------ | ------- | ------- | ------------------ | -------- |
+          | Before       | 120/120 | 9.65 Hz | 137.5 ms           | 179.5 ms |
+          | After        | 120/120 | 9.67 Hz | 129.6 ms           | 165.9 ms |
 
 - [ ] Unverified, recorded honestly: the `smoke-webkit` project cannot launch on this WSL
       host (missing system libraries), so browser evidence covers chromium and firefox only.
