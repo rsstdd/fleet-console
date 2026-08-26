@@ -53,7 +53,11 @@ async function loadRobotHistory(
  */
 export function useRobotHistory(
   id: string,
-  ports: { readonly apiBaseUrl: string; readonly fetchLike?: FetchLike },
+  ports: {
+    readonly apiBaseUrl: string;
+    readonly requestTimeoutMs: number;
+    readonly fetchLike?: FetchLike;
+  },
 ): RobotHistoryState {
   const { value, isReloading } = useFetchedResource(id, ports, loadRobotHistory);
   return isReloading && value.status === "error" && value.recoverable

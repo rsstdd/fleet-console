@@ -98,7 +98,11 @@ async function loadRobotDetail(
 /** Only the robot request can fail this page; an unread health total is reported as absent. */
 export function useRobotDetail(
   id: string,
-  ports: { readonly apiBaseUrl: string; readonly fetchLike?: FetchLike },
+  ports: {
+    readonly apiBaseUrl: string;
+    readonly requestTimeoutMs: number;
+    readonly fetchLike?: FetchLike;
+  },
 ): RobotDetailState {
   const { value, isReloading } = useFetchedResource(id, ports, loadRobotDetail);
   return isReloading && value.status === "error" && value.recoverable

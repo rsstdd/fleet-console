@@ -16,6 +16,7 @@ function buildValidProfile(): Record<string, unknown> {
     wordmark: "Fleet Console",
     theme: "dark",
     endpoints: { apiBaseUrl: "/api", streamUrl: "/ws" },
+    requestPolicy: { timeoutMs: 10_000 },
     flags: { lidarHealthPanel: true },
   };
 }
@@ -37,6 +38,14 @@ describe("parseTenantConfig", () => {
     expect(() => parseTenantConfig({ ...buildValidProfile(), theme: "solarized" })).toThrow(
       TenantConfigError,
     );
+  });
+
+  it("rejects a non-positive request deadline, which would abort every request at once", () => {
+    for (const timeoutMs of [0, -1]) {
+      expect(() =>
+        parseTenantConfig({ ...buildValidProfile(), requestPolicy: { timeoutMs } }),
+      ).toThrow(TenantConfigError);
+    }
   });
 
   it("rejects an empty wordmark rather than rendering a blank brand", () => {

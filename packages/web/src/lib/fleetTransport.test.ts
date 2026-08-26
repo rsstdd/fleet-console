@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SCHEMA_VERSION } from "@fleet/contracts";
 import type { FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
 
+import { COLD_START_BUFFER_LIMIT } from "./coldStart";
 import { createFleetTransport, type OpenSocket, type RetryTimer } from "./fleetTransport";
 import { RETRY_DELAY_CEILING_MS } from "./streamLifecycle";
 import type { FetchLike } from "./transportDecoding";
@@ -100,8 +101,10 @@ describe("createFleetTransport", () => {
   function createTransportHarness(options: {
     readonly fetchLike: FetchLike;
     readonly random?: () => number;
+    readonly openSocket?: OpenSocket;
   }) {
-    const { sockets, openSocket, last } = createSocketFactory();
+    const { sockets, openSocket: factoryOpenSocket, last } = createSocketFactory();
+    const openSocket = options.openSocket ?? factoryOpenSocket;
     const clock = createFakeTimer();
     const snapshots: FleetSnapshot[] = [];
     const batches: TelemetryBatch[] = [];
@@ -156,6 +159,45 @@ describe("createFleetTransport", () => {
       return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
     };
   };
+
+  it("abandons a join whose buffer overflows before the snapshot lands", () => {
+    // A snapshot request that never answers, with frames still arriving behind it. The
+    // buffer stops rather than grows, and the attempt is abandoned rather than settled:
+    // settling here would replay a window with a hole in it and freeze whatever rows the
+    // dropped frames named.
+    const testHarness = createTransportHarness({ fetchLike: () => new Promise(() => undefined) });
+    testHarness.transport.connect();
+    const socket = testHarness.last();
+    socket?.open();
+
+    for (let sequence = 1; sequence <= COLD_START_BUFFER_LIMIT + 1; sequence += 1) {
+      socket?.message(JSON.stringify(buildBatch(sequence)));
+    }
+
+    expect(socket?.closedByTransport).toBe(true);
+    expect(testHarness.snapshots).toHaveLength(0);
+    expect(testHarness.clock.pending).toHaveLength(1);
+  });
+
+  it("joins against a socket port that completes its handshake before it returns", async () => {
+    // The browser's WebSocket dispatches `open` on a later task, so no production path
+    // reaches this today. A test double or an in-memory port does, and the transport must
+    // not depend on that timing: reading the handshake off the attempt rather than the
+    // returned handle is what keeps the two independent.
+    const synchronouslyOpeningPort: OpenSocket = (_url, handlers) => {
+      handlers.onOpen();
+      return { close: () => undefined };
+    };
+    const testHarness = createTransportHarness({
+      fetchLike: createServingFetch(buildSnapshot(3)),
+      openSocket: synchronouslyOpeningPort,
+    });
+
+    testHarness.transport.connect();
+    await flush();
+
+    expect(testHarness.snapshots).toHaveLength(1);
+  });
 
   it("opens the socket before fetching, and replays what the snapshot missed", async () => {
     // The whole reason this order exists. Flush 4 arrived while the snapshot (captured at

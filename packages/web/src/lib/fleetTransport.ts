@@ -41,16 +41,6 @@ export interface SocketHandle {
   close(): void;
 }
 
-/**
- * The live attempt's socket and how far its handshake has got. `connect()` reads the
- * status: whether a stream is worth preserving is a fact about the socket, not about the
- * phase the banner is currently showing.
- */
-interface ActiveSocket {
-  readonly handle: SocketHandle;
-  readonly status: "opening" | "open";
-}
-
 export interface SocketHandlers {
   readonly onOpen: () => void;
   readonly onMessage: (frameText: string) => void;
@@ -112,6 +102,7 @@ interface Attempt {
   readonly generation: number;
   readonly coldStart: ColdStart;
   join: AttemptJoin;
+  handshake: "opening" | "open";
 }
 
 /**
@@ -135,7 +126,8 @@ export function createFleetTransport(options: FleetTransportOptions): FleetTrans
   } = options;
 
   let streamState = INITIAL_STREAM_STATE;
-  let activeSocket: ActiveSocket | null = null;
+  let liveAttempt: Attempt | null = null;
+  let activeSocketHandle: SocketHandle | null = null;
   let liveAttemptGeneration = 0;
   let pendingRetryHandle: number | null = null;
   let handshakeEverSucceeded = false;
@@ -159,8 +151,9 @@ export function createFleetTransport(options: FleetTransportOptions): FleetTrans
 
   function supersedeAttempt(): void {
     liveAttemptGeneration += 1;
-    activeSocket?.handle.close();
-    activeSocket = null;
+    activeSocketHandle?.close();
+    activeSocketHandle = null;
+    liveAttempt = null;
   }
 
   function isSuperseded(attempt: Attempt): boolean {
@@ -203,12 +196,14 @@ export function createFleetTransport(options: FleetTransportOptions): FleetTrans
       generation: liveAttemptGeneration,
       coldStart: createColdStart(),
       join: { status: "buffering" },
+      handshake: "opening",
     };
+    liveAttempt = attempt;
     applyStreamEvent({ kind: "connect" });
 
     const handle = openSocket(endpoints.streamUrl, {
       onOpen: () => {
-        handleSocketOpen(attempt, handle);
+        handleSocketOpen(attempt);
       },
       onMessage: (frameText) => {
         handleSocketMessage(attempt, frameText);
@@ -217,12 +212,18 @@ export function createFleetTransport(options: FleetTransportOptions): FleetTrans
         handleSocketClose(attempt);
       },
     });
-    activeSocket = { handle, status: "opening" };
+    // A port that opened, joined and failed inside the call above has already superseded
+    // this attempt; adopting its handle now would leave a socket nothing closes.
+    if (isSuperseded(attempt)) {
+      handle.close();
+      return;
+    }
+    activeSocketHandle = handle;
   }
 
-  function handleSocketOpen(attempt: Attempt, handle: SocketHandle): void {
+  function handleSocketOpen(attempt: Attempt): void {
     if (isSuperseded(attempt)) return;
-    activeSocket = { handle, status: "open" };
+    attempt.handshake = "open";
     handshakeEverSucceeded = true;
     initialProbeFailureCount = 0;
     applyStreamEvent({ kind: "open", at: Date.now() });
@@ -282,10 +283,20 @@ export function createFleetTransport(options: FleetTransportOptions): FleetTrans
     const { join } = attempt;
     switch (join.status) {
       case "buffering":
-        attempt.coldStart.receive(batch);
+        bufferUntilSnapshot(attempt, batch);
         return;
       case "joined":
         routeBatchByReconciliation(join.epoch, batch);
+        return;
+    }
+  }
+
+  function bufferUntilSnapshot(attempt: Attempt, batch: TelemetryBatch): void {
+    switch (attempt.coldStart.receive(batch)) {
+      case "buffered":
+        return;
+      case "overflowed":
+        handleFailedAttempt();
         return;
     }
   }
@@ -305,7 +316,8 @@ export function createFleetTransport(options: FleetTransportOptions): FleetTrans
 
   function handleSocketClose(attempt: Attempt): void {
     if (isSuperseded(attempt)) return;
-    activeSocket = null;
+    activeSocketHandle = null;
+    liveAttempt = null;
     if (attempt.join.status !== "joined") {
       handleFailedAttempt();
       return;
@@ -320,7 +332,7 @@ export function createFleetTransport(options: FleetTransportOptions): FleetTrans
     },
 
     connect(): void {
-      if (activeSocket?.status === "open") return;
+      if (liveAttempt?.handshake === "open") return;
       cancelPendingRetry();
       initialProbeFailureCount = 0;
       startAttempt();
