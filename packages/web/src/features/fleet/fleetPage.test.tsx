@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router";
+import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ReactNode } from "react";
@@ -87,10 +87,20 @@ function buildReadyState(
   return { kind: "ready", data: buildFleetData(robots, over) };
 }
 
-/** Reports the router's current path so navigation can be asserted, or its absence. */
+/**
+ * Reports the router's current address so navigation can be asserted, or its absence.
+ *
+ * The search half is not decoration: the filters live there, so an assertion about what is
+ * on screen and one about what a shared link would carry are the same assertion.
+ */
 function LocationProbe(): ReactNode {
   const location = useLocation();
-  return <div data-testid="location">{location.pathname}</div>;
+  return (
+    <>
+      <div data-testid="location">{location.pathname}</div>
+      <div data-testid="search">{location.search}</div>
+    </>
+  );
 }
 
 /**
@@ -101,12 +111,26 @@ function LocationProbe(): ReactNode {
  * Stating it here rather than relying on a default is the point: ADR 23 made the default
  * fail closed precisely so that "which case is this test covering" has to be answered.
  */
-function renderPage(connection: StreamConnectionState = "connected"): void {
+/**
+ * Walks the router's own history. `window.history` is not it — `MemoryRouter` keeps its
+ * stack in memory, so a test calling `window.history.back()` asserts nothing at all.
+ */
+function BackControl(): ReactNode {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => void navigate(-1)}>
+      Walk history back
+    </button>
+  );
+}
+
+function renderPage(connection: StreamConnectionState = "connected", address = "/"): void {
   render(
     <ConnectionContext.Provider value={connection}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[address]}>
         <FleetPage />
         <LocationProbe />
+        <BackControl />
       </MemoryRouter>
     </ConnectionContext.Provider>,
   );
@@ -125,6 +149,14 @@ function getFreshnessCells(): readonly HTMLElement[] {
     .getAllByRole("row")
     .slice(1)
     .map((row) => row.querySelectorAll<HTMLElement>("th, td")[3])
+    .filter((cell): cell is HTMLElement => cell !== undefined);
+}
+
+function getBatteryCells(): readonly HTMLElement[] {
+  return within(getFleetTable())
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => row.querySelectorAll<HTMLElement>("th, td")[5])
     .filter((cell): cell is HTMLElement => cell !== undefined);
 }
 
@@ -258,6 +290,21 @@ describe("FleetPage", () => {
     renderPage("connected");
     const connected = getFreshnessCells().map((cell) => cell.textContent);
     expect(connected.every((text) => text !== "")).toBe(true);
+  });
+
+  it("withdraws the battery reading of a live robot while the stream is down", () => {
+    // The freshness label and the battery number rest on the same claim. Suppressing
+    // only the label leaves the number asserting a currency the console has already
+    // withdrawn, because `freshness` freezes at the last delta received (ADR 3).
+    renderPage("disconnected");
+
+    expect(getBatteryCells()[0]).toHaveTextContent("—");
+  });
+
+  it("shows that same reading while connected, so the assertion above cannot pass vacuously", () => {
+    renderPage("connected");
+
+    expect(getBatteryCells()[0]).toHaveTextContent("90%");
   });
 
   it("labels the summary Fleet reporting status, without qualification, while connected (ADR 23)", () => {
@@ -540,5 +587,50 @@ describe("FleetPage", () => {
 
     expect(screen.getByText("(root): invalid_type")).toBeInTheDocument();
     expect(screen.queryByRole("table")).toBeNull();
+  });
+});
+
+describe("filters in the address bar", () => {
+  it("applies the filters a shared address arrives with", () => {
+    renderPage("connected", "/?site=zone-b");
+
+    // Two of the four fixture robots sit in zone-b.
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(3);
+  });
+
+  it("writes a chosen filter into the address, so the view can be shared", async () => {
+    renderPage();
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Site" }));
+    await userEvent.click(screen.getByRole("option", { name: "Zone B" }));
+
+    expect(screen.getByTestId("search")).toHaveTextContent("site=zone-b");
+  });
+
+  it("replaces rather than pushes, so Back does not walk one filter at a time", async () => {
+    // A filter is a view of this page, not a place. `MemoryRouter` exposes the difference:
+    // a push would leave the unfiltered entry behind it in the stack.
+    renderPage();
+    await userEvent.click(screen.getByRole("combobox", { name: "Site" }));
+    await userEvent.click(screen.getByRole("option", { name: "Zone B" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Walk history back" }));
+
+    expect(screen.getByTestId("search")).toHaveTextContent("site=zone-b");
+  });
+
+  it("ignores a site the fleet does not have rather than emptying the table", () => {
+    renderPage("connected", "/?site=zone-does-not-exist");
+
+    expect(within(getFleetTable()).getAllByRole("row")).toHaveLength(FIXTURE.length + 1);
+  });
+
+  it("leaves the address clean when the filters are cleared", async () => {
+    // "Clear filters" is offered only where it helps: a filtered view matching nothing.
+    renderPage("connected", "/?site=zone-b&q=matches-nothing");
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+
+    expect(screen.getByTestId("search")).toBeEmptyDOMElement();
   });
 });

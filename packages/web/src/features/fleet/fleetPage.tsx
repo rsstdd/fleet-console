@@ -1,4 +1,5 @@
-import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useMemo, type ChangeEvent, type ReactNode } from "react";
+import { useSearchParams } from "react-router";
 import { Alert, Box, Button, Skeleton, Typography, type SelectChangeEvent } from "@mui/material";
 
 import { EmptyState } from "@/components/emptyState";
@@ -10,7 +11,10 @@ import { useFleetRobots } from "@/hooks/useFleetRobots";
 
 import {
   EMPTY_FILTERS,
+  filtersFromSearchParams,
   matchesFilters,
+  searchParamsFromFilters,
+  selectApplicableFilters,
   toFreshnessFilter,
   toIdFilter,
   type Filters,
@@ -49,7 +53,24 @@ import { FleetTable } from "./fleetTable";
  */
 export function FleetPage(): ReactNode {
   const resource = useFleetRobots();
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
+  /*
+   * The address bar owns the filters, so a triage view an operator narrowed to survives a
+   * reload and can be handed to a colleague as a link. Replace rather than push: a filter
+   * is a view of one page, and pushing would make Back walk it one keystroke at a time.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedFilters = useMemo(() => filtersFromSearchParams(searchParams), [searchParams]);
+  const setFilters = useCallback(
+    (update: (previous: Filters) => Filters) => {
+      setSearchParams(
+        (previous) => searchParamsFromFilters(update(filtersFromSearchParams(previous))),
+        {
+          replace: true,
+        },
+      );
+    },
+    [setSearchParams],
+  );
 
   /*
    * Whether per-robot freshness may be shown at all. Read once here rather than per row:
@@ -69,6 +90,21 @@ export function FleetPage(): ReactNode {
   const vendorOptions = useMemo(
     () => [...new Set(robots.map((robot) => robot.vendor))].sort(),
     [robots],
+  );
+
+  /*
+   * A shared address can name a site or vendor this fleet does not have. Narrowing here
+   * rather than rewriting the URL keeps the control and the table agreeing on one value,
+   * and lets a site that arrives in a later snapshot re-engage the filter it was given.
+   */
+  const filters = useMemo(
+    () =>
+      selectApplicableFilters(
+        requestedFilters,
+        (data?.sites ?? []).map((site) => site.siteId),
+        vendorOptions,
+      ),
+    [requestedFilters, data, vendorOptions],
   );
 
   const filteredRobots = useMemo(
@@ -93,7 +129,7 @@ export function FleetPage(): ReactNode {
   };
 
   const handleClearFilters = (): void => {
-    setFilters(EMPTY_FILTERS);
+    setFilters(() => EMPTY_FILTERS);
   };
 
   return (

@@ -33,7 +33,13 @@ describe("useFleetTransport", () => {
   };
 
   function createTransportPorts(body: unknown = SNAPSHOT) {
-    const control: { open?: () => void; close?: () => void; closed: boolean; opened: number } = {
+    const control: {
+      open?: () => void;
+      close?: () => void;
+      message?: (frameText: string) => void;
+      closed: boolean;
+      opened: number;
+    } = {
       closed: false,
       opened: 0,
     };
@@ -41,6 +47,7 @@ describe("useFleetTransport", () => {
       control.opened += 1;
       control.open = handlers.onOpen;
       control.close = handlers.onClose;
+      control.message = handlers.onMessage;
       return {
         close: () => {
           control.closed = true;
@@ -51,6 +58,28 @@ describe("useFleetTransport", () => {
       Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(body) });
     return { control, openSocket, fetchLike };
   }
+
+  it("counts a rejected frame without re-rendering the hook's consumer", async () => {
+    // The whole reason the count is subscribable. This hook is called by `AppRouter`,
+    // which renders every route, so a re-render here reaches the fleet table — 500 rows
+    // repainted to move one field in a technician-only section.
+    const { control, openSocket, fetchLike } = createTransportPorts();
+    let renders = 0;
+    const { result } = renderHook(() => {
+      renders += 1;
+      return useFleetTransport({ openSocket, fetchLike });
+    });
+    act(() => control.open?.());
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("connected");
+    });
+
+    const rendersBeforeRejection = renders;
+    act(() => control.message?.("this is not a frame"));
+
+    expect(result.current.diagnostics.getSnapshot()).toStrictEqual({ rejectedFrames: 1 });
+    expect(renders).toBe(rendersBeforeRejection);
+  });
 
   it("starts disconnected and reports connected once the socket opens", async () => {
     const { control, openSocket, fetchLike } = createTransportPorts();

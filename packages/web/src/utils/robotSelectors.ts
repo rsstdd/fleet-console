@@ -1,7 +1,9 @@
 import { OPERATOR_CAPABILITY_NAMES } from "@fleet/contracts";
 
 import type {
+  Connectivity,
   Freshness,
+  HealthSeverity,
   PanelCapabilityName,
   Position,
   Robot,
@@ -30,6 +32,27 @@ const STATUS_VARIANT: Record<RobotStatus, StatusPresentationVariant> = {
   charging: "charging",
   fault: "fault",
   unknown: "unknown",
+};
+
+/**
+ * Operator words for the canonical health severities.
+ *
+ * A table rather than a pass-through: `nominal` is a wire value, and an operator surface
+ * that prints it is showing the reader the protocol instead of the fact. Exhaustive by
+ * `Record`, so a severity added to the contract fails the build here rather than leaking
+ * through in lower case.
+ */
+const HEALTH_SEVERITY_LABEL: Record<HealthSeverity, string> = {
+  nominal: "Nominal",
+  degraded: "Degraded",
+  critical: "Critical",
+};
+
+/** Operator words for the canonical connectivity values; same argument as the severities. */
+const CONNECTIVITY_LABEL: Record<Connectivity, string> = {
+  online: "Online",
+  offline: "Offline",
+  unknown: "Unknown",
 };
 
 const STATUS_LABEL: Record<RobotStatus, string> = {
@@ -92,13 +115,19 @@ export function selectStatusPresentation(robot: Robot): StatusPresentation {
 }
 
 /**
- * Battery is only meaningful when the value is current. An em dash is
- * honest where a stale or absent number is not (fleet page spec §6).
+ * Battery is only meaningful when current; an em dash is honest where a stale or absent
+ * number is not.
+ *
+ * @param isStreamConnected - The console's own socket state, not a fact about this robot
+ *   (Principle 11). False suppresses the number whatever `freshness` says: while the
+ *   stream is down `freshness` is frozen at its last delta, so a `live` that outlived the
+ *   connection which earned it cannot carry a currency claim (ADR 3).
  */
-export function selectBatteryDisplay(robot: Robot): string {
-  if (robot.freshness !== "live" || robot.batteryPercent === null) {
-    return "—";
-  }
+export function selectBatteryDisplay(robot: Robot, isStreamConnected: boolean): string {
+  const NO_HONEST_VALUE = "—";
+  const hasCurrentReading = isStreamConnected && robot.freshness === "live";
+  if (!hasCurrentReading) return NO_HONEST_VALUE;
+  if (robot.batteryPercent === null) return NO_HONEST_VALUE;
   return `${String(robot.batteryPercent)}%`;
 }
 
@@ -141,8 +170,8 @@ export function selectFreshnessSummary(robots: readonly Robot[]): FreshnessSumma
  * that is not current is an em dash, not a number. Two readings on one surface
  * disagreeing about what "current" means is worse than either rule alone.
  */
-export function selectPositionDisplay(robot: Robot): string {
-  if (robot.freshness !== "live" || robot.position === null) {
+export function selectPositionDisplay(robot: Robot, isStreamConnected: boolean): string {
+  if (!isStreamConnected || robot.freshness !== "live" || robot.position === null) {
     return "—";
   }
   const { frame, x, y } = robot.position;
@@ -508,4 +537,19 @@ export function selectPositionedSummary(
     positioned: siteRobots.filter((robot) => robot.position !== null).length,
     total: siteRobots.length,
   };
+}
+
+/** The operator word for one canonical health severity. */
+export function selectHealthSeverityLabel(severity: HealthSeverity): string {
+  return HEALTH_SEVERITY_LABEL[severity];
+}
+
+/**
+ * The operator word for a robot's connectivity.
+ *
+ * @param connectivity - Null where the vendor reported none. That is a different fact
+ *   from the reported value `unknown`, and the two never share a word (Principle 4).
+ */
+export function selectConnectivityLabel(connectivity: Connectivity | null): string {
+  return connectivity === null ? "Not reported" : CONNECTIVITY_LABEL[connectivity];
 }

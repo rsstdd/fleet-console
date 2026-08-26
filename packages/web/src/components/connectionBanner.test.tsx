@@ -66,44 +66,33 @@ describe("ConnectionBanner", () => {
   });
 
   it("renders the reconnecting message with attempt and last event (§5)", () => {
-    render(
-      <ConnectionBanner state="reconnecting" attempt={2} lastEventAt="2026-08-19T09:41:02.000Z" />,
-    );
+    render(<ConnectionBanner state="reconnecting" attempt={2} lastEventLabel="09:41:02Z" />);
 
     expect(getBanner()).toHaveTextContent(
       "Reconnecting to stream · attempt 2 · last event 09:41:02Z",
     );
   });
 
-  it("accepts epoch milliseconds as well as ISO 8601 (§3)", () => {
-    render(
-      <ConnectionBanner state="reconnecting" lastEventAt={Date.parse("2026-08-19T09:41:02Z")} />,
-    );
-
-    expect(getBanner()).toHaveTextContent("last event 09:41:02Z");
-  });
-
   it("omits the attempt fragment rather than printing 'attempt undefined' (§10)", () => {
-    render(<ConnectionBanner state="reconnecting" lastEventAt="2026-08-19T09:41:02.000Z" />);
+    render(<ConnectionBanner state="reconnecting" lastEventLabel="09:41:02Z" />);
 
     expect(getBanner()).toHaveTextContent("Reconnecting to stream · last event 09:41:02Z");
     expect(getBanner()).not.toHaveTextContent("attempt");
   });
 
-  it("omits the time fragment and never renders 'Invalid Date' (§10)", () => {
-    render(<ConnectionBanner state="reconnecting" attempt={3} lastEventAt="not a timestamp" />);
+  it("omits the time fragment when the caller has no time to show (§10)", () => {
+    // The caller decides there is nothing to show — `formatTimeUtcOrNull` returns null for
+    // an absent or unparseable instant, and this surface omits rather than printing a dash.
+    render(<ConnectionBanner state="reconnecting" attempt={3} />);
 
     expect(getBanner()).toHaveTextContent("Reconnecting to stream · attempt 3");
-    expect(getBanner()).not.toHaveTextContent("Invalid Date");
-    expect(getBanner()).not.toHaveTextContent("NaN");
+    expect(getBanner()).not.toHaveTextContent("last event");
   });
 
   it("renders the connecting message with attempt and no last-event fragment (§5)", () => {
     // ADR 31: nothing has ever been received, so there is no event whose time would be
     // true — and "reconnecting" would describe a loss that never happened.
-    render(
-      <ConnectionBanner state="connecting" attempt={2} lastEventAt="2026-08-19T09:41:02.000Z" />,
-    );
+    render(<ConnectionBanner state="connecting" attempt={2} lastEventLabel="09:41:02Z" />);
 
     expect(getBanner()).toHaveTextContent("Connecting to stream · attempt 2");
     expect(getBanner()).not.toHaveTextContent("last event");
@@ -138,9 +127,7 @@ describe("ConnectionBanner", () => {
   });
 
   it("states that disconnected data is last known and may be stale (§5)", () => {
-    render(
-      <ConnectionBanner state="disconnected" attempt={4} lastEventAt="2026-08-19T09:41:02Z" />,
-    );
+    render(<ConnectionBanner state="disconnected" attempt={4} lastEventLabel="09:41:02Z" />);
 
     // Fixed copy: no attempt or last-event fragment once the stream is gone.
     expect(getBanner()).toHaveTextContent(

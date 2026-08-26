@@ -4,7 +4,10 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConnectionContext, type StreamConnectionState } from "@/context/connectionContext";
-import { StreamDiagnosticsContext } from "@/context/streamDiagnosticsContext";
+import {
+  StreamDiagnosticsContext,
+  createStreamDiagnosticsRecorder,
+} from "@/context/streamDiagnosticsContext";
 import { SCHEMA_VERSION, type CanonicalEnvelope, type FleetSnapshot } from "@fleet/contracts";
 import { createFleetStore } from "@/stores/fleetStore";
 import { FleetStoreContext } from "@/stores/fleetStoreContext";
@@ -220,11 +223,12 @@ describe("RobotDetailPage", () => {
     const summary = screen.getByRole("region", { name: "Summary" });
     const health = within(summary).getByText("Health").parentElement;
     expect(health).not.toBeNull();
-    expect(health).toHaveTextContent("critical — Obstacle sensor unresponsive");
+    // The severity is an operator word, not the wire value the envelope carried.
+    expect(health).toHaveTextContent("Critical — Obstacle sensor unresponsive");
     // Status keeps its own word; the two facts are not collapsed (spec §6).
     const status = within(summary).getByText("Status").parentElement;
     expect(status).toHaveTextContent("Fault");
-    expect(status).not.toHaveTextContent("critical");
+    expect(status).not.toHaveTextContent("Critical");
   });
 
   it("stamps the retained payload with the robot it belongs to", async () => {
@@ -541,6 +545,41 @@ describe("live detail reconciliation", () => {
     expect(screen.getByRole("button", { name: "Retry loading robot detail" })).toBeInTheDocument();
   });
 
+  it("keeps the technician view and the fetched history across a successful detail retry", async () => {
+    // The reachable direction is error -> retry succeeds -> ready. A technician reading
+    // the retained row must not be returned to the operator view by the recovery, and the
+    // battery history it already fetched must not be requested a second time.
+    let detailFails = true;
+    const fixtures = createFixtureFetch();
+    const fetchSpy = vi.fn((url: string) =>
+      detailFails && url.includes("/robots/") && !url.endsWith("/history")
+        ? Promise.resolve({
+            ok: false,
+            status: 503,
+            json: () => Promise.reject(new Error("no body")),
+          })
+        : fixtures(url),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const store = createFleetStore();
+    store.applySnapshot(buildFleetSnapshot([buildLiveEnvelope()]));
+    await renderWithStore(store);
+    await showTechnicianView();
+
+    const historyCalls = (): number =>
+      fetchSpy.mock.calls.filter(([url]) => url.endsWith("/history")).length;
+    expect(historyCalls()).toBe(1);
+
+    detailFails = false;
+    await userEvent.click(screen.getByRole("button", { name: "Retry loading robot detail" }));
+
+    // Raw payload exists only in the fetched detail, so its presence proves both that the
+    // retry landed and that the persona survived the swap.
+    expect(await screen.findByRole("region", { name: "Raw payload" })).toBeInTheDocument();
+    expect(historyCalls()).toBe(1);
+  });
+
   it("reports diagnostics as unread by this console, not as never sent by the robot", async () => {
     await renderFailedDetailWithRow();
     await showTechnicianView();
@@ -554,8 +593,11 @@ describe("live detail reconciliation", () => {
 
 describe("stream diagnostics in the technician view", () => {
   it("shows the session-wide rejected-frame count with its scope stated", async () => {
+    const recorder = createStreamDiagnosticsRecorder();
+    for (let frame = 0; frame < 7; frame += 1) recorder.recordRejectedFrame();
+
     render(
-      <StreamDiagnosticsContext.Provider value={{ rejectedFrames: 7 }}>
+      <StreamDiagnosticsContext.Provider value={recorder}>
         <ConnectionContext.Provider value="connected">
           <MemoryRouter initialEntries={["/robots/R-118"]}>
             <Routes>

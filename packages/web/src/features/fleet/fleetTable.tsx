@@ -135,7 +135,9 @@ export function FleetTable({
                     ) : null}
                   </TableCell>
                   <TableCell>{selectSiteLabel(robot.siteId, sites)}</TableCell>
-                  <NumericCell align="right">{selectBatteryDisplay(robot)}</NumericCell>
+                  <NumericCell align="right">
+                    {selectBatteryDisplay(robot, isStreamConnected)}
+                  </NumericCell>
                   <NumericCell align="right">{formatTimeUtc(robot.lastSeenAt)}</NumericCell>
                 </RobotRow>
               );

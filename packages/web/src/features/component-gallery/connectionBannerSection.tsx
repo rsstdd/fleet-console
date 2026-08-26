@@ -10,6 +10,7 @@ import {
 import { SectionLabel } from "@/components/sectionLabel";
 
 import { GALLERY_LAST_EVENT_AT_ISO } from "./galleryFixtures";
+import { formatTimeUtc } from "@/utils/time";
 
 type TerminalCauseSelection = ConnectionTerminalCause | "default";
 
@@ -70,7 +71,7 @@ export function ConnectionBannerSection(): ReactElement {
   const connectionBannerProps = {
     state: connectionState,
     ...(connectionState === "reconnecting"
-      ? { attempt: reconnectAttempt, lastEventAt: GALLERY_LAST_EVENT_AT_ISO }
+      ? { attempt: reconnectAttempt, lastEventLabel: formatTimeUtc(GALLERY_LAST_EVENT_AT_ISO) }
       : {}),
     ...(connectionState === "disconnected" ? { terminalCause } : {}),
     ...(connectionState === "connected" ? {} : { onRetry: handleRetry }),

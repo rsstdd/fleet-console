@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link, Route, Routes } from "react-router";
 
 import { AppShell } from "@/app/appShell";
@@ -26,14 +26,9 @@ import { StreamDiagnosticsContext } from "@/context/streamDiagnosticsContext";
 export function AppRouter(): ReactNode {
   const transport = useFleetTransport();
 
-  const streamDiagnostics = useMemo(
-    () => ({ rejectedFrames: transport.rejectedFrames }),
-    [transport.rejectedFrames],
-  );
-
   return (
     <FleetStoreContext.Provider value={transport.store}>
-      <StreamDiagnosticsContext.Provider value={streamDiagnostics}>
+      <StreamDiagnosticsContext.Provider value={transport.diagnostics}>
         <Routes>
           <Route
             element={

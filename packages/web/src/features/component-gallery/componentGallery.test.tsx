@@ -38,7 +38,7 @@ describe("ComponentGallery", () => {
 
     const propsTable = screen.getByRole("table", { name: "Shared UI public props" });
     for (const prop of [
-      "lastEventAt?",
+      "lastEventLabel?",
       "terminalCause?",
       "as?",
       "action?",

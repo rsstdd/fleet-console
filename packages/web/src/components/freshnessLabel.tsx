@@ -27,6 +27,25 @@ function isDevelopment(): boolean {
   return import.meta.env.DEV;
 }
 
+/**
+ * Built once rather than per call, matching the collator in `stores/fleetStore.ts`.
+ *
+ * The locale is pinned for the same reason that one is: an operator reading a timestamp
+ * over another operator's shoulder must see the same string, and a browser-derived locale
+ * would silently reorder day and month between two people watching one fleet. UTC because
+ * the console never claims a local time it cannot source (ADR 3).
+ *
+ * This spelling carries a date, which `utils/time`'s does not, and a robot last seen days
+ * ago needs one. It is a second format rather than a duplicate — and it cannot share that
+ * module regardless: `components` may not import `utils` (ADR 4).
+ */
+const OBSERVED_AT_FORMAT = new Intl.DateTimeFormat("en-GB", {
+  dateStyle: "medium",
+  timeStyle: "medium",
+  timeZone: "UTC",
+  hour12: false,
+});
+
 function formatTimestamp(value: string, field: "asOf" | "receivedAt"): string | null {
   const parsed = Date.parse(value);
   if (Number.isNaN(parsed)) {
@@ -36,12 +55,7 @@ function formatTimestamp(value: string, field: "asOf" | "receivedAt"): string | 
     return null;
   }
 
-  return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "medium",
-    timeStyle: "medium",
-    timeZone: "UTC",
-    hour12: false,
-  }).format(parsed);
+  return OBSERVED_AT_FORMAT.format(parsed);
 }
 
 /**

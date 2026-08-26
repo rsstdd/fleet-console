@@ -2,6 +2,7 @@
 
 - **Status:** implementation-ready
 - **Revision 3:** ADR 31 (register D22) widened the vocabulary and named the terminal states. `connecting` joins the union — a first attempt is not a recovery, and its copy carries no last-event fragment because nothing was ever received. `terminalCause` is added so the two decided terminal disconnects render their own fixed sentences: initial probe exhausted ("Unable to connect to stream after 3 attempts") and stream integrity error ("Stream integrity error · showing last known state (may be stale)"). A contract failure keeps the plain disconnected copy. The retry control appears in every non-connected state, because ADR 31 pairs every terminal state with an immediate manual retry.
+- **Revision 5 (26 Aug 2026):** `lastEventAt` becomes `lastEventLabel`, a string the caller has already formatted (plan `WEB_DATA_LIFECYCLE_AUDIT`, **F8**). The component had reimplemented `utils/time`'s formatter byte for byte, because `components` may not import `utils` — two spellings of one format with no test holding them together. The shell formats and omits; rendered output is unchanged. §§ 3, 5, 10 updated.
 - **Revision 2:** the live region is now always mounted; rendering `null` when connected meant the `role="status"` container appeared at the same moment as its message, which screen readers do not reliably announce. Adds `attempt`, which the wireframes and the shell both require and the prop list omitted. Retry label fixed to "Retry now". Token names corrected: `--critical` and an `info` surface do not exist. Adds the ADR 3 coupling that makes this component part of the freshness mechanism rather than adjacent chrome.
 
 Implementation: `components/connectionBanner.tsx`
@@ -30,8 +31,8 @@ type ConnectionTerminalCause = "handshake-exhausted" | "contract" | "session-mis
 
 interface ConnectionBannerProps {
   readonly state: ConnectionState;
-  /** ISO 8601, or epoch ms. Last event actually received on the stream. */
-  readonly lastEventAt?: string | number;
+  /** The last event's time, already formatted by the caller. Omitted when there is none. */
+  readonly lastEventLabel?: string;
   /** Attempt number, surfaced so the control is visibly doing something. */
   readonly attempt?: number;
   /** Why retrying stopped; selects the disconnected sentence (ADR 31). */
@@ -83,7 +84,7 @@ Consequently the banner occupies no layout space when connected: the hidden stat
 Fixed message patterns:
 
 - **connecting:** `Connecting to stream` · attempt number when `attempt` is supplied. Never a last-event fragment: nothing has ever been received, so there is no event whose time would be true.
-- **reconnecting:** `Reconnecting to stream` · attempt number when `attempt` is supplied · last event time when `lastEventAt` is supplied
+- **reconnecting:** `Reconnecting to stream` · attempt number when `attempt` is supplied · last event time when `lastEventLabel` is supplied
 - **disconnected**, by `terminalCause`:
   - `handshake-exhausted`: `Unable to connect to stream after 3 attempts` — the number is `INITIAL_PROBE_ATTEMPT_LIMIT` in `lib/streamLifecycle.ts`, and changing either updates both (ADR 31).
   - `session-mismatch`: `Stream integrity error · showing last known state (may be stale)`
@@ -128,7 +129,7 @@ Retry button: secondary or danger outline per the design system. Focus visible u
 
 - `connected` → container rendered, contents empty.
 - Missing `onRetry` → message only, no control.
-- Missing or invalid `lastEventAt` → omit the time fragment; never render `Invalid Date`.
+- Absent `lastEventLabel` → omit the time fragment. The caller decides there is nothing to show: `utils/time`'s `formatTimeUtcOrNull` returns null for an absent or unparseable instant, and this surface omits rather than printing the em dash a table cell would use. A banner stating an outage must not put a dash where a time belongs — it reads as a value that failed rather than one never offered.
 - Missing `attempt` → omit the attempt fragment rather than printing `attempt undefined`.
 
 ## 11. Verification

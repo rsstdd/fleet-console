@@ -276,9 +276,18 @@ test.describe("500-robot live-stream measurement", () => {
     // Counts alone could pass while the application discarded every update. The final
     // frame's encoded battery is the evidence that received data reached rendered UI;
     // timing and memory remain reported measurements rather than invented gates.
-    await expect
-      .poll(() => page.evaluate(() => globalThis.__scale.received), { timeout: 10_000 })
-      .toBe(totalFrames);
+    // Waited for in the page on a timer, not polled from Node. Each `page.evaluate` round
+    // trip queues behind the same saturated main thread the render loop is using, so on a
+    // contended host a *correct* counter still times out — the 23 August probe defect one
+    // layer up, and indistinguishable from a regression because the screenshot shows the
+    // final frame rendered. `polling` is a timer rather than the default animation frame,
+    // which is itself starved when this matters.
+    await page.waitForFunction(
+      (expected: number) => globalThis.__scale.received >= expected,
+      totalFrames,
+      { polling: 100, timeout: 30_000 },
+    );
+    expect(await page.evaluate(() => globalThis.__scale.received)).toBe(totalFrames);
     await expect(links).toHaveCount(ROBOT_COUNT);
     const lastBattery = `${String(totalFrames % 101)}%`;
     const lastHalfFirstRobot = formatRobotId(totalFrames % 2 === 0 ? 0 : HALF);

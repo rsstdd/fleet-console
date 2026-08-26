@@ -31,7 +31,7 @@ type ComponentPropDescriptors = {
 const COMPONENT_PROP_DESCRIPTORS = {
   ConnectionBanner: {
     state: "state",
-    lastEventAt: "lastEventAt?",
+    lastEventLabel: "lastEventLabel?",
     attempt: "attempt?",
     terminalCause: "terminalCause?",
     onRetry: "onRetry?",

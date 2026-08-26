@@ -14,6 +14,8 @@ import {
   mergeExtents,
   projectToViewBox,
   selectBatteryDisplay,
+  selectConnectivityLabel,
+  selectHealthSeverityLabel,
   selectClockDeltaDisplay,
   selectFreshnessSummary,
   selectMapMarker,
@@ -170,19 +172,25 @@ describe("selectStatusPresentation", () => {
 });
 
 describe("selectBatteryDisplay", () => {
-  it("renders the percentage while live", () => {
-    expect(selectBatteryDisplay(buildRobot({ batteryPercent: 0 }))).toBe("0%");
-    expect(selectBatteryDisplay(buildRobot({ batteryPercent: 87 }))).toBe("87%");
+  it("renders the percentage while live and the stream is connected", () => {
+    expect(selectBatteryDisplay(buildRobot({ batteryPercent: 0 }), true)).toBe("0%");
+    expect(selectBatteryDisplay(buildRobot({ batteryPercent: 87 }), true)).toBe("87%");
   });
 
   it("renders an em dash when the reading is not current", () => {
     for (const freshness of NOT_LIVE) {
-      expect(selectBatteryDisplay(buildRobot({ freshness, batteryPercent: 87 }))).toBe("—");
+      expect(selectBatteryDisplay(buildRobot({ freshness, batteryPercent: 87 }), true)).toBe("—");
     }
   });
 
+  it("renders an em dash while the stream is down, whatever the freshness says", () => {
+    expect(selectBatteryDisplay(buildRobot({ freshness: "live", batteryPercent: 87 }), false)).toBe(
+      "—",
+    );
+  });
+
   it("renders an em dash when there is no reading at all", () => {
-    expect(selectBatteryDisplay(buildRobot({ batteryPercent: null }))).toBe("—");
+    expect(selectBatteryDisplay(buildRobot({ batteryPercent: null }), true)).toBe("—");
   });
 });
 
@@ -339,17 +347,21 @@ describe("selectPanelCapabilities", () => {
 
 describe("selectPositionDisplay", () => {
   it("names the frame alongside the coordinates", () => {
-    expect(selectPositionDisplay(buildDetail())).toBe("site-map · 41.2, 18.7");
+    expect(selectPositionDisplay(buildDetail(), true)).toBe("site-map · 41.2, 18.7");
   });
 
   it("renders an em dash when the position is not current", () => {
     for (const freshness of NOT_LIVE) {
-      expect(selectPositionDisplay(buildDetail({ freshness }))).toBe("—");
+      expect(selectPositionDisplay(buildDetail({ freshness }), true)).toBe("—");
     }
   });
 
+  it("renders an em dash while the stream is down, whatever the freshness says", () => {
+    expect(selectPositionDisplay(buildDetail({ freshness: "live" }), false)).toBe("—");
+  });
+
   it("renders an em dash when there is no position at all", () => {
-    expect(selectPositionDisplay(buildDetail({ position: null }))).toBe("—");
+    expect(selectPositionDisplay(buildDetail({ position: null }), true)).toBe("—");
   });
 });
 
@@ -611,5 +623,29 @@ describe("selectPositionedSummary", () => {
 
     expect(selectPositionedSummary(robots, "site-1")).toEqual({ positioned: 1, total: 2 });
     expect(selectPositionedSummary(robots, "site-3")).toEqual({ positioned: 0, total: 0 });
+  });
+});
+
+describe("selectHealthSeverityLabel", () => {
+  it("gives every canonical severity an operator label, never the wire value", () => {
+    // The table is read against the contract's own enum, not derived from it: a value
+    // added there must be given a word here rather than leaking through as `nominal`.
+    expect(selectHealthSeverityLabel("nominal")).toBe("Nominal");
+    expect(selectHealthSeverityLabel("degraded")).toBe("Degraded");
+    expect(selectHealthSeverityLabel("critical")).toBe("Critical");
+  });
+});
+
+describe("selectConnectivityLabel", () => {
+  it("gives every canonical connectivity an operator label", () => {
+    expect(selectConnectivityLabel("online")).toBe("Online");
+    expect(selectConnectivityLabel("offline")).toBe("Offline");
+    expect(selectConnectivityLabel("unknown")).toBe("Unknown");
+  });
+
+  it("names an unreported value rather than borrowing `unknown` from the vocabulary", () => {
+    // `unknown` is a value the vendor reported; null is one it never sent. Collapsing
+    // them would put words in the robot's mouth (Principle 4).
+    expect(selectConnectivityLabel(null)).toBe("Not reported");
   });
 });
