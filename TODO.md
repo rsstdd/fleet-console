@@ -198,8 +198,13 @@ not present.
   snapshot, slow-client, reconnect, and shutdown behavior without unbounded buffers.
 - Add lifecycle, structured logging, `dev`/`start`, graceful shutdown, and integration
   and invariant tests.
-- Prove freshness-only changes fan out, out-of-order input cannot regress state, and
-  raw payload never leaks into fleet, delta, or history surfaces.
+- Prove freshness-only changes fan out, out-of-order input cannot regress state **for the
+  vendors that carry a counter**, and raw payload never leaks into fleet, delta, or history
+  surfaces. The ordering guard is `capabilities.sequence`, which vendors A and C declare and
+  vendor B does not; for vendor B arrival order alone decides and a delayed reading can
+  overwrite a newer one. That is deliberate — a synthesized counter would let the store drop
+  a real reading (`packages/server/src/state/currentStateStore.ts`) — but the claim above
+  read as fleet-wide, which it is not.
 
 Detailed source: `packages/server/TODO.md`, after **P0.2** reconciles completed items.
 

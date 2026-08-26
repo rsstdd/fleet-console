@@ -131,6 +131,90 @@ measurement before optimization and D27 is open, so they are gated on a measurem
 than optimized blind. The unauthenticated raw-payload panel is already a declared release
 blocker under ADR 26 and needs no new finding.
 
+## Concurrency and ordering (26 August 2026)
+
+A second pass over the same package along the concurrency axis: the join protocol, the
+transport state machine, the store, and every surface that reads them. It found nothing
+wrong with the cross-attempt race model — each `Attempt` owns its generation, buffer and
+join status, `supersedeAttempt()` is the sole increment site, all four asynchronous entry
+points guard on their first line, StrictMode double-mount is safe, the store applies
+synchronously and defers only notification, and `useSyncExternalStore` snapshots are
+identity-stable. Nine findings sit outside that model.
+
+### C1 — A frame the receiver refuses terminated the server (cross-package, resolved)
+
+`packages/server/src/http/listener.ts` registered `close` on the upgraded socket and
+nothing else. `ws` emits `error` there for any frame it cannot parse, and Node throws an
+`error` event with no listener out of the EventEmitter: one six-byte frame with the RSV1
+bit set, from any unauthenticated client, ended the process and blinded every console.
+Reproduced as an uncaught `RangeError`. Handlers now on the socket and the
+`WebSocketServer`, reported as `stream.socket_error`; fan-out removal stays owned by
+`close`, which `ws` emits after the error.
+
+### C2 — The reconciliation epoch never advanced (resolved)
+
+`fleetTransport.ts` pinned the epoch at settle and compared every later delta to the
+_snapshot's_ flush sequence rather than to the last one applied, so any frame above the
+snapshot applied in arrival order. Offered 5 then 3, the transport applied both and left
+the older reading on screen. Safe only because WebSocket delivers in order — a dependency
+the module never stated and therefore could not rely on. The epoch now tracks what was
+applied.
+
+### C3 — `scheduleRetry` overwrote its handle without clearing it (resolved)
+
+Unreachable today because every caller supersedes first; clearing makes that a property of
+the function rather than of its callers.
+
+### C4 — Back-navigation renders the previous visit's detail as current
+
+`useFetchedResource` matches its held value on `forId` alone. On A → B → A with B still in
+flight, `loaded` is still A's _earlier_ value, so the third leg re-renders a possibly
+minutes-old detail — and `isReloading` is false, because `attempt` advances only on
+`retry()`, never on an id change. No retry indicator appears, and a stale `not-found` or
+error banner returns the same way. Whether it happens depends only on whether B beat the
+operator, which is a race in the plain sense.
+
+### C5 — F1 is incomplete: the status chip still asserts currency
+
+F1 gates `selectBatteryDisplay` and `selectPositionDisplay` on `isStreamConnected`, but
+`selectStatusPresentation` still decides `isCurrent` from `robot.freshness` alone. During an
+outage one row shows a solid, unqualified status chip beside a suppressed reporting-status
+cell and an em-dash battery — three cells making three different claims — and on the map the
+list chip contradicts its own hollow marker under a legend that teaches "filled = Live".
+This is F1's own rule applied to the third surface that rests on it.
+
+### C6 — Robot detail keeps a decommissioned robot on screen
+
+`reconcileRobotDetailState` returns the fetched detail unchanged when no live row exists, so
+after a reseed drops a robot the fleet and map lose the row while detail renders it
+indefinitely, with no banner and no refetch. The client half of F4.
+
+### C7 — The battery-history window claims a currency it loses
+
+`batteryHistorySection` renders "Battery over the last 60 seconds" from a `capturedAt`
+frozen at the one fetch, and the caption says "window captured at request time" without
+printing that time. Ten minutes into a visit the prose is false and nothing on screen
+discloses it. The same applies to the detail footer's `received` instant and sequence, and
+to the retained raw payload.
+
+### C8 — Map extents survive an epoch change (blocked)
+
+`mapPage` keys running extents by `siteId` and never clears them, so one outlier position
+compresses every marker for the session and a reconnect does not reset it. ADR 35 makes the
+box monotonic **per session**, which makes an epoch change the correct reset point — but
+`serverSessionId` never reaches the web store or read model, and the only trigger available
+today, `capturedAt`, changes on every ordinary reconnect and would rescale the canvas under
+the operator exactly as ADR 35 refuses. Blocked on carrying the session identity into
+`FleetData`, which `REFACTOR_FLEET_STORE_STATE.md` owns.
+
+### C9 — Out-of-order ingest is guarded for two vendors of three (documentation)
+
+The ordering guard is `capabilities.sequence`; vendors A and C declare it and vendor B does
+not, so for vendor B arrival order alone decides and a delayed reading can overwrite a newer
+one. Deliberate and argued in `currentStateStore.ts` — a synthesized counter would let the
+store drop a real reading — but root `TODO.md` stated the intent as fleet-wide. Corrected
+there; no code change.
+
 ## Scope
 
 ### In scope
