@@ -33,7 +33,7 @@ describe("createColdStart", () => {
     // The whole point. Flush 4 happened after the snapshot was captured at 3, so it is
     // not in the snapshot and is the console's only copy of that change.
     const coldStart = createColdStart();
-    expect(coldStart.receive(buildBatch(4))).toBe("buffered");
+    coldStart.receive(buildBatch(4));
 
     const settled = coldStart.settle(buildSnapshot(3));
 
@@ -82,13 +82,15 @@ describe("createColdStart", () => {
     ).toStrictEqual([5, 6]);
   });
 
-  it("passes frames straight through once settled", () => {
-    // Buffering after the snapshot lands would grow a second buffer nothing drains.
+  it("refuses a frame once settled rather than swallowing it", () => {
+    // The buffer's job ends at settle, and a caller still handing it frames is routing
+    // live telemetry into something that will never drain again.
     const coldStart = createColdStart();
     coldStart.settle(buildSnapshot(1));
 
-    expect(coldStart.receive(buildBatch(2))).toBe("live");
-    expect(coldStart.isSettled).toBe(true);
+    expect(() => {
+      coldStart.receive(buildBatch(2));
+    }).toThrow(/already settled/);
   });
 
   it("keeps everything when the server has never flushed", () => {

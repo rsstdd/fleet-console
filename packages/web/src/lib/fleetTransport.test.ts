@@ -244,7 +244,6 @@ describe("createFleetTransport", () => {
     expect(testHarness.transport.state.phase).toBe("reconnecting");
     expect(testHarness.clock.delays()).toHaveLength(1);
 
-    // The scheduled attempt runs the whole joining sequence again on a new socket.
     testHarness.clock.fire();
     expect(testHarness.sockets).toHaveLength(2);
   });
@@ -399,7 +398,6 @@ describe("createFleetTransport", () => {
 
     const observed: number[] = [];
     for (let failure = 0; failure < 8; failure += 1) {
-      // The immediate post-drop attempt failed (recorded), then each scheduled one fails.
       observed.push(...testHarness.clock.delays());
       testHarness.clock.fire();
       testHarness.last()?.close();
@@ -462,6 +460,19 @@ describe("createFleetTransport", () => {
     expect(testHarness.sockets.filter((socket) => socket.isLive)).toHaveLength(1);
   });
 
+  it("ignores a manual retry while the socket is delivering", () => {
+    // ADR 31 makes `connect` a no-op while connected: the banner's control must not tear
+    // down a stream that is working in order to start an identical one.
+    const testHarness = createTransportHarness({ fetchLike: createServingFetch(buildSnapshot(0)) });
+    testHarness.transport.connect();
+    testHarness.last()?.open();
+
+    testHarness.transport.connect();
+
+    expect(testHarness.sockets).toHaveLength(1);
+    expect(testHarness.sockets.filter((socket) => socket.isLive)).toHaveLength(1);
+  });
+
   it("ignores the stale close of a socket a retry already superseded", () => {
     const testHarness = createTransportHarness({ fetchLike: createServingFetch(buildSnapshot(0)) });
     testHarness.transport.connect();
@@ -471,9 +482,45 @@ describe("createFleetTransport", () => {
     // The superseded socket's close event arrives late, as a browser would deliver it.
     first?.close();
 
-    // One live attempt, no scheduled retry born from a dead socket's report.
     expect(testHarness.transport.state.phase).toBe("connecting");
     expect(testHarness.clock.pending).toHaveLength(0);
+  });
+
+  it("opens a new socket when connect follows disconnect", async () => {
+    // `disconnect` ends the session rather than pausing it: `state` must stop claiming a
+    // connection, and the next `connect` must not be swallowed as a no-op.
+    const testHarness = createTransportHarness({ fetchLike: createServingFetch(buildSnapshot(0)) });
+    testHarness.transport.connect();
+    testHarness.last()?.open();
+    await flush();
+
+    testHarness.transport.disconnect();
+    expect(testHarness.transport.state).toMatchObject({ phase: "idle", attempt: 0 });
+
+    testHarness.transport.connect();
+    expect(testHarness.sockets).toHaveLength(2);
+    expect(testHarness.transport.state.phase).toBe("reconnecting");
+  });
+
+  it("starts the backoff over after a disconnect rather than inheriting it", () => {
+    // A disconnected transport that reconnects is a new session; carrying the old
+    // session's failure count would make an operator wait out delays nothing earned.
+    const testHarness = createTransportHarness({ fetchLike: createServingFetch(buildSnapshot(0)) });
+    testHarness.transport.connect();
+    testHarness.last()?.open();
+    testHarness.last()?.close();
+    expect(testHarness.clock.delays()).toStrictEqual([1000]);
+    testHarness.clock.fire();
+    testHarness.last()?.open();
+    testHarness.last()?.close();
+    expect(testHarness.clock.delays()).toStrictEqual([2000]);
+
+    testHarness.transport.disconnect();
+    testHarness.transport.connect();
+    testHarness.last()?.open();
+    testHarness.last()?.close();
+
+    expect(testHarness.clock.delays()).toStrictEqual([1000]);
   });
 
   it("stops scheduling once disconnected, and lets nothing fire afterwards", () => {
