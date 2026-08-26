@@ -8,12 +8,10 @@
 | Area                                   | Files | Lines changed |
 | -------------------------------------- | ----- | ------------- |
 | `packages/web`                         | 162   | 14,415        |
-| `docs`                                 | 48    | 3,769         |
 | `scripts`                              | 11    | 412           |
 | contracts, adapters, server, simulator | 15    | 115           |
 
-The four library packages moved 115 lines between them. The canonical model, the adapter
-boundary and the server were not what the review found fault with, so they were left alone.
+The four library packages moved 115 lines between them. I focused on cleaning up the React app.
 
 Each section names the review point it answers.
 
@@ -28,12 +26,12 @@ Each section names the review point it answers.
 | `shared/lib/`                       | `lib/`, `context/`, `hooks/`  |
 | `app/dev/`                          | `features/component-gallery/` |
 
-Feature-sliced design replaced by the conventional React vocabulary, one level deep. The
+Feature-sliced design replaced by more conventional React vocabulary, one level deep. The
 layer rules did not weaken: the same import table, still lint-enforced, still proved by 30
 `__boundary-violation__` / `__enforcement__` fixtures — the same count as v1. Decided as
 **ADR 36**; migration plan archived at `docs/04_archive/WEB_FOLDER_VOCABULARY.md`.
 
-## 2. Component decomposition — "god components"
+## 2. Component decomposition | Avoiding God Components
 
 | Component              | v1                  | v2                                                                         |
 | ---------------------- | ------------------- | -------------------------------------------------------------------------- |
@@ -61,13 +59,7 @@ Two defects the split removed:
 `BatteryHistorySection` owns its own fetch. Splitting one connected component per view into
 several — the point raised in review — is identified and **not done**; see § 7.
 
-## 3. TypeScript — "unnecessary abstraction, using TypeScript wrong"
-
-**ADR 38** sets a shared baseline, enforced by `pnpm check:type-safety`. In
-`tsconfig.base.json`: `strict`, `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`,
-`noImplicitOverride`, `noImplicitReturns`, `noUnusedLocals`,
-`noFallthroughCasesInSwitch`. Typed ESLint rejects explicit `any` and members that could be
-`readonly`.
+## 3. TypeScript Fixes
 
 Abstractions that earned nothing were deleted rather than documented:
 
@@ -80,18 +72,18 @@ Abstractions that earned nothing were deleted rather than documented:
 
 ## 4. Comment drift
 
-**ADR 37** and **ADR 39** replace "document every export" with a semantic test: a comment
+Replaced "document every export" with a semantic test: a comment
 earns its place only if it preserves an invariant, an external-system lifecycle, a
 workaround, a non-obvious protocol constraint, or caller-visible behaviour that names,
 types, tests and owning documentation cannot carry. A doc comment restating its signature is
 a lint error (**ADR 28**). Package guides carry the policy once. Compliance work archived at
 `docs/04_archive/WEB_TYPESCRIPT_COMMENT_COMPLIANCE.md`.
 
-## 5. "How do you prevent stale data?"
+## 5. Stale Data or Race Conditions
 
-Treated as the organising question rather than one more item.
+Treated as the organising question.
 
-The rule already was that the server derives freshness on a 500 ms sweep and the client only
+The rule already established that the server derives freshness on a 500 ms sweep and the client only
 displays it (**ADR 3**). v2 audited whether the client honours that everywhere —
 `docs/05_plans/WEB_DATA_LIFECYCLE_AUDIT.md`, ten findings, then a concurrency pass with nine
 more. Four that mattered:
