@@ -17,7 +17,7 @@ Each section names the review point it answers.
 
 ---
 
-## 1. Directory structure — "unnecessarily nested"
+## 1. Directory structure | Idiomatic and Scalable
 
 | v1                                  | v2                            |
 | ----------------------------------- | ----------------------------- |
