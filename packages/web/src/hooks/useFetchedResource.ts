@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
+import { requestDeadlineSignal } from "@/lib/requestDeadline";
 import type { FetchLike } from "@/lib/transportDecoding";
 
 export interface FetchedResourceContext {
@@ -31,12 +32,16 @@ export interface FetchedResource<TValue> {
  */
 export function useFetchedResource<TValue extends { readonly status: string }>(
   id: string,
-  ports: { readonly apiBaseUrl: string; readonly fetchLike?: FetchLike },
+  ports: {
+    readonly apiBaseUrl: string;
+    readonly requestTimeoutMs: number;
+    readonly fetchLike?: FetchLike;
+  },
   load: (request: FetchLike, context: FetchedResourceContext) => Promise<TValue>,
 ): FetchedResource<TValue> {
   const [loaded, setLoaded] = useState<LoadedValue<TValue> | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const { apiBaseUrl, fetchLike } = ports;
+  const { apiBaseUrl, requestTimeoutMs, fetchLike } = ports;
 
   // Stable identity prevents this effect dependency from retriggering its own request.
   const retry = useCallback(() => {
@@ -45,9 +50,11 @@ export function useFetchedResource<TValue extends { readonly status: string }>(
 
   // These dependencies select the HTTP request; cleanup makes superseded completions stale.
   useEffect(() => {
-    const request: FetchLike = fetchLike ?? ((url) => fetch(url));
-    // FetchLike has no signal; this controller marks staleness rather than cancelling I/O.
     const cancellation = new AbortController();
+    const request: FetchLike =
+      fetchLike ??
+      ((url) =>
+        fetch(url, { signal: requestDeadlineSignal(requestTimeoutMs, cancellation.signal) }));
 
     void (async () => {
       const value = await load(request, { id, apiBaseUrl, retry });
@@ -58,7 +65,7 @@ export function useFetchedResource<TValue extends { readonly status: string }>(
     return () => {
       cancellation.abort();
     };
-  }, [id, attempt, apiBaseUrl, fetchLike, load, retry]);
+  }, [id, attempt, apiBaseUrl, requestTimeoutMs, fetchLike, load, retry]);
 
   const held = loaded !== null && loaded.forId === id ? loaded : null;
   return {

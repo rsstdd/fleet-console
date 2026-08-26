@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { FetchLike } from "@/lib/transportDecoding";
 
@@ -33,8 +33,17 @@ const unusedFetch: FetchLike = () => Promise.reject(new Error("unused"));
 
 const PORTS = {
   apiBaseUrl: "http://example.test/api",
+  requestTimeoutMs: 60_000,
   fetchLike: unusedFetch,
-} satisfies { readonly apiBaseUrl: string; readonly fetchLike: FetchLike };
+} satisfies {
+  readonly apiBaseUrl: string;
+  readonly requestTimeoutMs: number;
+  readonly fetchLike: FetchLike;
+};
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("useFetchedResource", () => {
   it("derives loading until the load for the current id settles, then returns its value", async () => {
@@ -98,6 +107,34 @@ describe("useFetchedResource", () => {
     calls[1]?.resolve({ status: "ready", label: "second attempt" });
     await waitFor(() => {
       expect(result.current.value).toEqual({ status: "ready", label: "second attempt" });
+    });
+  });
+
+  it("abandons a request that outlives the deadline instead of loading for ever", async () => {
+    vi.stubGlobal("fetch", (_url: string, init: { readonly signal: AbortSignal }) => {
+      return new Promise((_resolve, reject) => {
+        init.signal.addEventListener("abort", () => {
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        });
+      });
+    });
+
+    const load = async (request: FetchLike): Promise<TestState> => {
+      try {
+        await request("http://example.test/api/never");
+      } catch {
+        return { status: "ready", label: "abandoned" };
+      }
+      return { status: "ready", label: "answered" };
+    };
+
+    const { result } = renderHook(() =>
+      useFetchedResource("R-1", { apiBaseUrl: PORTS.apiBaseUrl, requestTimeoutMs: 10 }, load),
+    );
+
+    expect(result.current.value).toEqual({ status: "loading" });
+    await waitFor(() => {
+      expect(result.current.value).toEqual({ status: "ready", label: "abandoned" });
     });
   });
 

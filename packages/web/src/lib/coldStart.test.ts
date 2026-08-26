@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SCHEMA_VERSION } from "@fleet/contracts";
 import type { FleetSnapshot, TelemetryBatch } from "@fleet/contracts";
 
-import { createColdStart } from "./coldStart";
+import { COLD_START_BUFFER_LIMIT, createColdStart } from "./coldStart";
 
 /**
  * The ordering the server's TODO **H3b** says nothing else will catch: fetching before
@@ -28,6 +28,27 @@ describe("createColdStart", () => {
       robots: [],
     };
   }
+
+  it("reports an overflow rather than growing while a snapshot never lands", () => {
+    const coldStart = createColdStart();
+    for (let sequence = 1; sequence <= COLD_START_BUFFER_LIMIT; sequence += 1) {
+      expect(coldStart.receive(buildBatch(sequence))).toBe("buffered");
+    }
+
+    expect(coldStart.receive(buildBatch(COLD_START_BUFFER_LIMIT + 1))).toBe("overflowed");
+  });
+
+  it("keeps an overflowed frame out of the replay rather than replaying a gap", () => {
+    // A buffer that dropped a frame can no longer claim its replay is complete, and a
+    // partial replay is the silent row-freeze this module exists to prevent. The caller
+    // abandons the attempt on the receipt above; this pins what the buffer itself did.
+    const coldStart = createColdStart();
+    for (let sequence = 1; sequence <= COLD_START_BUFFER_LIMIT + 1; sequence += 1) {
+      coldStart.receive(buildBatch(sequence));
+    }
+
+    expect(coldStart.settle(buildSnapshot(0)).replay).toHaveLength(COLD_START_BUFFER_LIMIT);
+  });
 
   it("keeps a frame that arrived while the snapshot was in flight", () => {
     // The whole point. Flush 4 happened after the snapshot was captured at 3, so it is

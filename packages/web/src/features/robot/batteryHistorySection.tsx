@@ -172,7 +172,10 @@ function ReadyContent({ history }: { readonly history: RobotBatteryHistory }): R
  * order; its failure degrades this section inline and never blanks the page.
  */
 export function BatteryHistorySection({ robotId }: { readonly robotId: string }): ReactNode {
-  const state = useRobotHistory(robotId, { apiBaseUrl: TENANT.endpoints.apiBaseUrl });
+  const state = useRobotHistory(robotId, {
+    apiBaseUrl: TENANT.endpoints.apiBaseUrl,
+    requestTimeoutMs: TENANT.requestPolicy.timeoutMs,
+  });
 
   return (
     <Section index="02" title="Battery history">

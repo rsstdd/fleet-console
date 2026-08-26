@@ -15,7 +15,7 @@ export interface ColdStartResult {
   readonly snapshot: FleetSnapshot;
   /** Buffered same-session frames the snapshot does not already cover, oldest first. */
   readonly replay: readonly TelemetryBatch[];
-  /** Same-session frames discarded as redundant; reported so a client can log rather than infer. */
+  /** Same-session frames dropped as redundant; reported so a client logs rather than infers. */
   readonly discarded: number;
   /**
    * Frames from a different server runtime than the snapshot (ADR 31). Never applied —
@@ -25,11 +25,22 @@ export interface ColdStartResult {
   readonly mismatched: number;
 }
 
+/**
+ * The most frames one join may buffer.
+ *
+ * A join buffers for as long as the snapshot takes, and `requestPolicy.timeoutMs` bounds
+ * that at ten seconds against ADR 2's 10 Hz fan-out ceiling — roughly a hundred frames in
+ * the worst case a deadline still permits. The limit is an order of magnitude above that,
+ * so reaching it means the bound itself failed rather than that a snapshot was slow.
+ */
+export const COLD_START_BUFFER_LIMIT = 1_000;
+
+/** What the buffer did with a frame offered before the snapshot landed. */
+export type ColdStartReceipt = "buffered" | "overflowed";
+
 /** Buffers frames until the snapshot lands, then hands back what still has to be applied. */
 export interface ColdStart {
-  /** Holds one frame until the snapshot lands. Receiving after `settle` is a caller bug. */
-  receive(batch: TelemetryBatch): void;
-  /** Calling this twice is a programming error, not a no-op: the second call throws. */
+  receive(batch: TelemetryBatch): ColdStartReceipt;
   settle(snapshot: FleetSnapshot): ColdStartResult;
 }
 
@@ -43,13 +54,18 @@ export function createColdStart(): ColdStart {
   let settled = false;
 
   return {
-    receive(batch): void {
+    receive(batch): ColdStartReceipt {
       if (settled) {
         // Nothing drains this buffer a second time, so a frame accepted here would be
         // lost. The caller routing live frames into it has the wrong authority.
         throw new Error("Cold start already settled; live frames are the caller's to route.");
       }
+
+      if (buffered.length >= COLD_START_BUFFER_LIMIT) return "overflowed";
+
       buffered.push(batch);
+
+      return "buffered";
     },
 
     settle(snapshot): ColdStartResult {
@@ -60,24 +76,41 @@ export function createColdStart(): ColdStart {
       }
       settled = true;
 
-      const replay: TelemetryBatch[] = [];
-      let discarded = 0;
-      let mismatched = 0;
-      for (const batch of buffered) {
-        switch (reconcileDeltaWithSnapshot(snapshot, batch)) {
-          case "apply":
-            replay.push(batch);
-            break;
-          case "covered":
-            discarded += 1;
-            break;
-          case "session-mismatch":
-            mismatched += 1;
-            break;
-        }
-      }
+      const result = reconcileBuffered(snapshot, buffered);
       buffered.length = 0;
-      return { snapshot, replay, discarded, mismatched };
+
+      return result;
     },
+  };
+}
+
+/** Sorts every buffered frame into replay, redundant, or foreign-session (ADR 31). */
+function reconcileBuffered(
+  snapshot: FleetSnapshot,
+  buffered: readonly TelemetryBatch[],
+): ColdStartResult {
+  const replay: TelemetryBatch[] = [];
+  let discarded = 0;
+  let mismatched = 0;
+
+  for (const batch of buffered) {
+    switch (reconcileDeltaWithSnapshot(snapshot, batch)) {
+      case "apply":
+        replay.push(batch);
+        break;
+      case "covered":
+        discarded += 1;
+        break;
+      case "session-mismatch":
+        mismatched += 1;
+        break;
+    }
+  }
+
+  return {
+    snapshot,
+    replay,
+    discarded,
+    mismatched,
   };
 }

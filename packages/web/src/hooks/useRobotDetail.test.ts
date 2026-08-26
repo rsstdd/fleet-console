@@ -44,7 +44,11 @@ function renderDetail(answers: readonly FetchResult[]) {
   // Built once, not per render: a fresh seam identity would restart the request forever.
   const fetchLike = createFetch(answers);
   return renderHook(() =>
-    useRobotDetail("R-001", { apiBaseUrl: "http://example.test/api", fetchLike }),
+    useRobotDetail("R-001", {
+      apiBaseUrl: "http://example.test/api",
+      requestTimeoutMs: 60_000,
+      fetchLike,
+    }),
   );
 }
 

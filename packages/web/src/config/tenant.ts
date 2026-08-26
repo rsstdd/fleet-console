@@ -101,8 +101,30 @@ const tenantEndpointsSchema = z.strictObject({
 /** HTTP and WebSocket endpoints for one deployment tenant. */
 export type TenantEndpoints = z.infer<typeof tenantEndpointsSchema>;
 
+/**
+ * How long an HTTP request may run before this console abandons it.
+ *
+ * Deployment policy rather than stable behaviour, so it is configuration (Principle 13): a
+ * deployment reaching its server over a slower link retunes the deadline without touching
+ * the transport. The default exceeds ADR 3's stale threshold deliberately — a request
+ * still running past it would answer with telemetry that had already left the freshness
+ * window it describes, so waiting longer cannot produce a current reading.
+ *
+ * Coupling: `lib/requestDeadline.ts` applies this per request, and both resource hooks
+ * report its expiry through the existing `unreachable` failure rather than a state of its own.
+ */
+const tenantRequestPolicySchema = z.strictObject({
+  timeoutMs: z.number().int().positive(),
+});
+
+/** Request-level deployment policy for one tenant. */
+export type TenantRequestPolicy = z.infer<typeof tenantRequestPolicySchema>;
+
 // Bounds fixed shell chrome while admitting both current tenant wordmarks.
 const WORDMARK_MAX_LENGTH = 48;
+
+// Both profiles serve the same origin, so neither has a reason to wait longer than the other.
+const REQUEST_TIMEOUT_MS = 10_000;
 
 const tenantConfigSchema = z.strictObject({
   id: z.enum(TENANT_IDS),
@@ -111,6 +133,7 @@ const tenantConfigSchema = z.strictObject({
   /** Selects the palette in `tenantTheme.ts`; the two share one declaration. */
   theme: z.enum(TENANT_THEMES),
   endpoints: tenantEndpointsSchema,
+  requestPolicy: tenantRequestPolicySchema,
   flags: tenantFlagsSchema,
 });
 
@@ -158,6 +181,7 @@ export const TENANT_PROFILES: Readonly<Record<TenantId, TenantConfig>> = {
     wordmark: "Fleet Console",
     theme: "dark",
     endpoints: { apiBaseUrl: "/api", streamUrl: "/ws" },
+    requestPolicy: { timeoutMs: REQUEST_TIMEOUT_MS },
     flags: { lidarHealthPanel: true },
   }),
   "tenant-b": parseTenantConfig({
@@ -165,6 +189,7 @@ export const TENANT_PROFILES: Readonly<Record<TenantId, TenantConfig>> = {
     wordmark: "Northwind Robotics",
     theme: "light",
     endpoints: { apiBaseUrl: "/api", streamUrl: "/ws" },
+    requestPolicy: { timeoutMs: REQUEST_TIMEOUT_MS },
     flags: { lidarHealthPanel: false },
   }),
 };
