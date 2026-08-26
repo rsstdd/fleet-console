@@ -98,13 +98,35 @@ describe("nextStreamState", () => {
 
     expect(nextStreamState(connected, { kind: "connect" })).toBe(connected);
   });
+
+  it("returns the same reference when a close leaves every field equal", () => {
+    // `fleetTransport` reports a transition whenever the reference moves, so a fresh but
+    // equal object announces a transition that did not happen.
+    const connecting = run({ kind: "connect" });
+
+    expect(nextStreamState(connecting, { kind: "close" })).toBe(connecting);
+  });
+
+  it("returns to idle on disconnect, with nothing attempted and no cause to state", () => {
+    const failed = run({ kind: "connect" }, { kind: "give-up", cause: "handshake-exhausted" });
+
+    expect(nextStreamState(failed, { kind: "disconnect" })).toStrictEqual({
+      phase: "idle",
+      attempt: 0,
+      lastConnectedAt: null,
+      terminalCause: null,
+    });
+  });
 });
 
 describe("selectPublishedConnectionState", () => {
   const PHASES = ["idle", "connecting", "connected", "reconnecting", "failed"] as const;
 
   function buildStateInPhase(phase: StreamState["phase"]): StreamState {
-    return { phase, attempt: 0, lastConnectedAt: null, terminalCause: null };
+    const fields = { attempt: 0, lastConnectedAt: null };
+    return phase === "failed"
+      ? { ...fields, phase, terminalCause: "contract" }
+      : { ...fields, phase, terminalCause: null };
   }
 
   it("reports connected only when the stream is actually delivering", () => {
