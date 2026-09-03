@@ -157,6 +157,162 @@
       "siteId": "SITE-SOUTH",
       "vendorId": "C",
       "model": "CV-7"
+    },
+    {
+      "robotId": "R-025",
+      "siteId": "SITE-EAST",
+      "vendorId": "A",
+      "model": "AX-200"
+    },
+    {
+      "robotId": "R-026",
+      "siteId": "SITE-EAST",
+      "vendorId": "B",
+      "model": "BR-15"
+    },
+    {
+      "robotId": "R-027",
+      "siteId": "SITE-EAST",
+      "vendorId": "C",
+      "model": "CV-7"
+    },
+    {
+      "robotId": "R-028",
+      "siteId": "SITE-NORTH",
+      "vendorId": "A",
+      "model": "AX-240"
+    },
+    {
+      "robotId": "R-029",
+      "siteId": "SITE-NORTH",
+      "vendorId": "B",
+      "model": "BR-11"
+    },
+    {
+      "robotId": "R-030",
+      "siteId": "SITE-NORTH",
+      "vendorId": "C",
+      "model": "CV-7"
+    },
+    {
+      "robotId": "R-031",
+      "siteId": "SITE-SOUTH",
+      "vendorId": "A",
+      "model": "AX-200"
+    },
+    {
+      "robotId": "R-032",
+      "siteId": "SITE-SOUTH",
+      "vendorId": "B",
+      "model": "BR-15"
+    },
+    {
+      "robotId": "R-033",
+      "siteId": "SITE-SOUTH",
+      "vendorId": "C",
+      "model": "CV-9"
+    },
+    {
+      "robotId": "R-034",
+      "siteId": "SITE-EAST",
+      "vendorId": "A",
+      "model": "AX-240"
+    },
+    {
+      "robotId": "R-035",
+      "siteId": "SITE-EAST",
+      "vendorId": "B",
+      "model": "BR-15"
+    },
+    {
+      "robotId": "R-036",
+      "siteId": "SITE-EAST",
+      "vendorId": "C",
+      "model": "CV-7"
+    },
+    {
+      "robotId": "R-037",
+      "siteId": "SITE-NORTH",
+      "vendorId": "A",
+      "model": "AX-200"
+    },
+    {
+      "robotId": "R-038",
+      "siteId": "SITE-NORTH",
+      "vendorId": "B",
+      "model": "BR-11"
+    },
+    {
+      "robotId": "R-039",
+      "siteId": "SITE-NORTH",
+      "vendorId": "C",
+      "model": "CV-9"
+    },
+    {
+      "robotId": "R-040",
+      "siteId": "SITE-SOUTH",
+      "vendorId": "A",
+      "model": "AX-200"
+    },
+    {
+      "robotId": "R-041",
+      "siteId": "SITE-SOUTH",
+      "vendorId": "B",
+      "model": "BR-15"
+    },
+    {
+      "robotId": "R-042",
+      "siteId": "SITE-SOUTH",
+      "vendorId": "C",
+      "model": "CV-7"
+    },
+    {
+      "robotId": "R-043",
+      "siteId": "SITE-EAST",
+      "vendorId": "A",
+      "model": "AX-200"
+    },
+    {
+      "robotId": "R-044",
+      "siteId": "SITE-EAST",
+      "vendorId": "B",
+      "model": "BR-15"
+    },
+    {
+      "robotId": "R-045",
+      "siteId": "SITE-EAST",
+      "vendorId": "C",
+      "model": "CV-7"
+    },
+    {
+      "robotId": "R-046",
+      "siteId": "SITE-NORTH",
+      "vendorId": "A",
+      "model": "AX-240"
+    },
+    {
+      "robotId": "R-047",
+      "siteId": "SITE-NORTH",
+      "vendorId": "B",
+      "model": "BR-15"
+    },
+    {
+      "robotId": "R-048",
+      "siteId": "SITE-NORTH",
+      "vendorId": "C",
+      "model": "CV-7"
+    },
+    {
+      "robotId": "R-049",
+      "siteId": "SITE-SOUTH",
+      "vendorId": "A",
+      "model": "AX-200"
+    },
+    {
+      "robotId": "R-050",
+      "siteId": "SITE-SOUTH",
+      "vendorId": "B",
+      "model": "BR-11"
     }
   ]
 }

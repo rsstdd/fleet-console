@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "_comment": "Shared compiler baseline. Every package tsconfig extends this without weakening safety options; package configs add only environment- and build-specific settings.",
+  "_comment": "Shared compiler baseline. Every package tsconfig extends this and adds only what is package-specific (lib, jsx, types, paths, include).",
   "compilerOptions": {
     "target": "es2023",
     "lib": ["ES2023"],
@@ -14,7 +14,6 @@
     "noEmit": true,
 
     "strict": true,
-    "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,

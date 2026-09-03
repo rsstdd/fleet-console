@@ -3,21 +3,23 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Telemetry ingest, vendor adapters, in-memory fleet state, freshness sweep, HTTP reads, WebSocket delta fan-out, and the deterministic simulator that feeds it.",
+  "description": "Thin runtime authority: telemetry ingest, adapter dispatch, in-memory fleet state, freshness sweep, HTTP reads, WebSocket delta fan-out, health.",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "dev": "concurrently -n server,sim -c green,cyan \"tsx watch src/main.ts\" \"tsx src/simulator/main.ts\"",
-    "start": "tsx src/main.ts",
-    "simulator": "tsx src/simulator/main.ts",
     "build": "tsc --noEmit -p tsconfig.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "eslint .",
+    "lint": "pnpm lint:js && pnpm typecheck",
+    "lint:js": "eslint .",
     "test": "vitest run",
-    "start:stack": "concurrently -n server,sim -c green,cyan \"tsx src/main.ts\" \"tsx src/simulator/main.ts --robots 24 --seed 1 --hz 4 --endpoint http://127.0.0.1:${FLEET_PORT:-8080}\""
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@fleet/adapters": "workspace:*",
     "@fleet/contracts": "workspace:*",
     "@hono/node-server": "^2.1.0",
     "hono": "^4.13.1",
@@ -25,12 +27,16 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "catalog:",
     "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
+    "eslint-plugin-jsdoc": "catalog:",
+    "globals": "^17.11.0",
     "tsx": "^4.20.6",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "concurrently": "^9.2.1"
+    "typescript-eslint": "catalog:",
+    "vitest": "catalog:"
   }
 }

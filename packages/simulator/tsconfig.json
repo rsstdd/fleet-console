@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "_comment": "Node executable. Run directly by Node's native type stripping — no emit step, which is why the base config sets erasableSyntaxOnly and why every relative import carries an explicit .ts extension.",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "vitest.config.ts", "eslint.config.js"]
+}

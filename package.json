@@ -9,24 +9,34 @@
     "node": ">=24.15.0",
     "pnpm": ">=11.20.0"
   },
+  "_test": "The `test` script runs packages one at a time. The boundary-enforcement suites in adapters, server, simulator and web lint files on disk, so a parallel workspace run writes the tree underneath them; that produced five transient failures in one day (packages/FIXME.md F14). Serialising cost three to five seconds across the whole workspace when measured, which is not enough to buy a flake in the one guard that proves the boundaries fire.",
   "scripts": {
-    "dev": "pnpm --recursive --parallel --stream dev",
     "build": "pnpm --recursive build",
-    "lint": "eslint . && prettier --check .",
+    "check:architecture-docs": "node --test scripts/architectureDocs.test.mjs && node scripts/architectureDocs.mjs --check",
+    "check:bundle": "node scripts/checkBundleBudget.mjs",
+    "check:ci": "pnpm install --frozen-lockfile && pnpm check:architecture-docs && pnpm check:type-safety && pnpm check:doc-comments && pnpm check:tokens && pnpm check:dependencies && pnpm audit --audit-level=high --ignore-registry-errors && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm record:fixtures && git diff --exit-code -- 'packages/adapters/src/vendors/*/__fixtures__/*.json' && pnpm check:diff-size && pnpm check:bundle",
+    "check:dependencies": "node --test scripts/checkDependencies.test.mjs && node scripts/checkDependencies.mjs",
+    "check:diff-size": "node --test scripts/checkDiffSize.test.mjs && node scripts/checkDiffSize.mjs",
+    "check:doc-comments": "node --test scripts/informativeDocsRule.test.mjs",
+    "check:tokens": "node --test scripts/checkTokens.test.mjs && node scripts/checkTokens.mjs",
+    "check:type-safety": "node --test scripts/typeSafetyConfig.test.mjs",
+    "clean": "pnpm --recursive exec rm -rf dist coverage node_modules/.tmp",
+    "dev": "pnpm --recursive --parallel --stream dev",
+    "dev:tenant-b": "VITE_TENANT=tenant-b pnpm --recursive --parallel --stream dev",
+    "docs:decisions": "node scripts/architectureDocs.mjs --write",
     "format": "prettier --write .",
-    "typecheck": "pnpm --recursive typecheck",
-    "test": "pnpm --recursive test",
+    "format:check": "prettier --check .",
+    "lint": "pnpm --recursive lint && pnpm format:check",
+    "record:fixtures": "pnpm --filter @fleet/simulator record:fixtures && prettier --write --log-level warn \"packages/adapters/src/vendors/*/__fixtures__/*.json\"",
+    "test": "pnpm --recursive --workspace-concurrency=1 test",
     "test:e2e": "pnpm --filter web test:e2e",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "test:e2e:scale": "pnpm --filter web test:e2e:scale",
+    "test:e2e:tenant": "pnpm --filter web test:e2e:tenant",
+    "typecheck": "pnpm --recursive typecheck"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "eslint": "catalog:",
-    "eslint-plugin-jsx-a11y": "^6.10.2",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.11.0",
     "prettier": "^3.9.6",
-    "typescript": "catalog:",
-    "typescript-eslint": "catalog:"
+    "typescript": "~6.0.2"
   }
 }

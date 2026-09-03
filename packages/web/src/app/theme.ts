@@ -1,50 +1,101 @@
-import { createTheme, type Theme } from "@mui/material/styles";
-import type { FreshnessState } from "@fleet/contracts";
+// The shell's theme bridge. Two separate jobs, deliberately not merged:
+// tokens.css owns the CSS custom properties for both themes and switches on the
+// `data-theme` attribute; MUI needs the same palette as a JS theme object.
+//
+// This module does NOT write custom properties inline. An earlier version set ten
+// of them on documentElement, which beat tokens.css on specificity and left the
+// other twenty-six at their dark values on a light background — the light theme
+// was broken precisely because this file tried to help. Setting the attribute is
+// the whole job (01_APP_SHELL.md section 2, "Theme").
+import { createTheme } from "@mui/material";
 
-/** Freshness owns a colour role of its own; status never borrows it. */
-export const FRESHNESS_COLOR: Record<FreshnessState, string> = {
-  live: "var(--live)",
-  stale: "var(--stale)",
-  unreachable: "var(--unreachable)",
-  unknown: "var(--unknown)",
-};
+import { TENANT_PALETTE, type TenantTheme } from "@/config/tenantTheme";
 
-export type ColorScheme = "light" | "dark";
+/** Points the token layer at a tenant's theme by setting `data-theme` on the document element. */
+export function applyTenantTheme(mode: TenantTheme): void {
+  document.documentElement.setAttribute("data-theme", mode);
+}
 
-const PALETTE = {
-  light: {
-    bg: "#f4f2ec",
-    surface: "#ffffff",
-    text: "#1a1d1b",
-    muted: "#6b6860",
-    accent: "#a67c3a",
-  },
-  dark: { bg: "#141816", surface: "#1c211e", text: "#e8e6e1", muted: "#8e8b82", accent: "#c2a671" },
-} as const;
+/** Builds the MUI theme for a tenant, reading the same palette the token layer uses. */
+export function buildMuiTheme(mode: TenantTheme) {
+  const palette = TENANT_PALETTE[mode];
 
-export function createAppTheme(scheme: ColorScheme): Theme {
-  const palette = PALETTE[scheme];
   return createTheme({
     palette: {
-      mode: scheme,
-      primary: { main: palette.accent },
+      mode,
       background: { default: palette.bg, paper: palette.surface },
-      text: { primary: palette.text, secondary: palette.muted },
-      divider: scheme === "dark" ? "#2e3430" : "#d9d4c8",
+      text: {
+        primary: palette.ink,
+        secondary: palette.inkSoft,
+        disabled: palette.inkMuted,
+      },
+      primary: {
+        main: palette.accent,
+        dark: palette.accentHover,
+        contrastText: palette.onAccent,
+      },
+      divider: palette.line,
+    },
+    typography: {
+      fontFamily: "var(--font-sans)",
+      h1: { fontSize: "var(--text-h1)", lineHeight: "var(--leading-tight)", fontWeight: 500 },
+      h3: { fontSize: "var(--text-h3)", lineHeight: "var(--leading-snug)", fontWeight: 500 },
+      body1: { fontSize: "var(--text-body)", lineHeight: "var(--leading-normal)" },
+      caption: { fontSize: "var(--text-caption)", fontFamily: "var(--font-mono)" },
+      overline: {
+        fontSize: "var(--text-overline)",
+        fontFamily: "var(--font-mono)",
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+      },
     },
     shape: { borderRadius: 6 },
-    typography: {
-      fontFamily:
-        '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      h1: { fontSize: "1.5rem", fontWeight: 600 },
-      h2: { fontSize: "1.125rem", fontWeight: 600 },
-    },
     components: {
-      MuiPaper: {
-        defaultProps: { elevation: 0 },
-        styleOverrides: { root: { border: "1px solid var(--border)" } },
+      MuiCssBaseline: {
+        styleOverrides: { body: { backgroundColor: "var(--bg)", color: "var(--ink)" } },
       },
-      MuiTableCell: { styleOverrides: { root: { borderColor: "var(--border)" } } },
+      MuiPaper: {
+        defaultProps: { variant: "outlined" },
+        styleOverrides: {
+          root: {
+            backgroundImage: "none",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--radius)",
+          },
+        },
+      },
+      MuiTableCell: {
+        styleOverrides: {
+          root: {
+            borderColor: "var(--line)",
+            fontSize: "var(--text-small)",
+            padding: "var(--space-3) var(--space-4)",
+          },
+          head: {
+            backgroundColor: "var(--surface-sunken)",
+            color: "var(--ink-muted)",
+            fontFamily: "var(--font-mono)",
+            fontSize: "var(--text-overline)",
+            textTransform: "uppercase",
+            letterSpacing: "0.06em",
+          },
+        },
+      },
+      MuiToggleButton: {
+        styleOverrides: {
+          root: {
+            textTransform: "none",
+            borderColor: "var(--line)",
+            color: "var(--ink-soft)",
+            "&.Mui-selected": {
+              backgroundColor: "var(--accent)",
+              color: "var(--on-accent)",
+              borderColor: "var(--accent)",
+              "&:hover": { backgroundColor: "var(--accent-hover)" },
+            },
+          },
+        },
+      },
     },
   });
 }
