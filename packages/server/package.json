@@ -22,7 +22,7 @@
     "@fleet/adapters": "workspace:*",
     "@fleet/contracts": "workspace:*",
     "@hono/node-server": "^2.1.0",
-    "hono": "^4.13.1",
+    "hono": "^4.13.5",
     "ws": "^8.21.3",
     "zod": "catalog:"
   },
